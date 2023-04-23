@@ -1,29 +1,29 @@
 import { StoreProvider } from "./store";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import HomeScreen from "./screens/HomeScreen";
-import ScreenRoute1 from "./screens/ScreenRoute1";
-import ScreenRoute2 from "./screens/ScreenRoute2";
 import "./App.css";
+import Grid from "@mui/material/Grid";
+import { Outlet, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import PermanentDrawerLeft from "./components/NavBar/PermanentDrawerLeft";
 
 function App() {
+  const [title, setTitle] = useState(null);
+  const location = useLocation();
+  const [drawerWidth, setDrawerWidth] = useState(240);
+
+  useEffect(() => {
+    const parsedTitle = location.pathname.replace(/\W/g, " ");
+    setTitle(parsedTitle);
+  }, [location]);
+
   return (
-    <StoreProvider>
-      <BrowserRouter>
-        <div className="App">
-          <Routes default="false">
-            <Route
-              path="/testroute1"
-              element={<ScreenRoute1 />}
-            />
-            <Route
-              path="/testroute2"
-              element={<ScreenRoute2/>}
-            />
-            <Route path="/" element={<HomeScreen />} />
-          </Routes>
-        </div>
-      </BrowserRouter>
-    </StoreProvider>
+    <Grid container>
+      <Grid item>
+        <PermanentDrawerLeft title={title} />
+      </Grid>
+      <Grid item xs={12} sx={{ marginLeft: { sm: drawerWidth } }}>
+        <Outlet />
+      </Grid>
+    </Grid>
   );
 }
 
