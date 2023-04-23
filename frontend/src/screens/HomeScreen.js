@@ -1,10 +1,13 @@
-import React from 'react'
-import PermanentDrawerLeft from '../components/PermanentDrawerLeft'
+import React from 'react';
+import Box from "@mui/material/Box";
+
 
 const HomeScreen = () => {
   return (
     <div>
-        <PermanentDrawerLeft />
+      <Box sx={{ml: 240}}>
+        Testggggggggggggggggggggggggg
+      </Box>
     </div>
   )
 }
