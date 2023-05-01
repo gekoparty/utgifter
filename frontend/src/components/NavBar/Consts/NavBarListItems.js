@@ -44,7 +44,7 @@ export const mainNavbarItems = [
         route: 'dummy',
     },
     {
-        id: 5,
+        id: 6,
         icon: <SettingsInputComponentIcon />,
         label: 'dummy',
         route: 'dummy',

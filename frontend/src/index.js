@@ -4,8 +4,6 @@ import "./index.css";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import ScreenRoute1 from "./screens/Categories";
-import ScreenRoute2 from "./screens/Expenses";
 import { ThemeProvider } from "@mui/material/styles";
 import { dashboardTheme } from "./dashboardTheme";
 import Categories from "./screens/Categories";

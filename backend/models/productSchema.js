@@ -16,9 +16,9 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    expenseCategory: {
+    Category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ExpenseCategory",
+      ref: "Category",
       required: true,
     },
     date: {

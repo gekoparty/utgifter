@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
+import Category from "./models/Category.js";
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -14,6 +15,20 @@ connectToDB();
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
+
+app.get("/api/categories", async (req, res) => {
+  try {
+    const categories = await Category.find();
+    res.json(categories);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+ 
+
+
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
@@ -30,3 +45,4 @@ async function connectToDB() {
     console.error(err.message);
   }
 }
+
