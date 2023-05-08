@@ -8,28 +8,51 @@ import {
   TableHead,
   TableRow,
   IconButton,
+  TextField,
+  Grid,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import EditIcon from '@mui/icons-material/Edit';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import React, { useState } from "react";
+import EditIcon from "@mui/icons-material/Edit";
+import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import React, { useState, useEffect } from "react";
 import Paper from "@mui/material/Paper";
 import axios from "axios";
 
 const Categories = ({ drawerWidth = 240 }) => {
   const [categories, setCategories] = useState([]);
-  console.log("Categories component rendered");
-  console.log(drawerWidth);
+  const [categoryName, setCategoryName] = useState("");
 
   const handleFetchCategories = async () => {
     try {
       const response = await axios.get("/api/categories"); // Replace with your backend API endpoint
       setCategories(response.data);
-      console.log(response.data);
     } catch (error) {
       console.error(error);
     }
   };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    console.log(categoryName)
+    try {
+      const response = await axios.post("/api/categories", {
+        name: categoryName,
+      });
+      console.log("New category created:", response.data);
+      // reset the category name input field
+      setCategoryName("");
+    } catch (error) {
+      console.error("Error creating new category:", error);
+    }
+  };
+
+  const handleCategoryNameChange = (event) => {
+    setCategoryName(event.target.value);
+  };
+
+  useEffect(() => {
+    handleFetchCategories();
+  }, [categories]);
 
   return (
     <Box
@@ -40,54 +63,85 @@ const Categories = ({ drawerWidth = 240 }) => {
         justifyContent: "center",
       }}
     >
-      <Box>
-        <Paper elevation={0}>
-          <Box sx={{ width: "fit-content", display: "flex", gap: "100px" }}>
-            <Button variant="contained">Ny Kategori</Button>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={handleFetchCategories}
-            >
-              Hent Kategorier
-            </Button>
+      <Box sx={{ width: "100%", maxWidth: "800px" }}>
+        <form onSubmit={handleSubmit}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+            <Grid container spacing={1} alignItems="center">
+              <Grid item>
+                <Button
+                  sx={{ p: "7px" }}
+                  size="medium"
+                  variant="contained"
+                  onClick={handleSubmit}
+                >
+                  Ny Kategori
+                </Button>
+              </Grid>
+              <Grid item>
+                <TextField
+                  fullWidth
+                  label="Kategori"
+                  size="small"
+                  color="secondary"
+                  value={categoryName}
+                  onChange={handleCategoryNameChange}
+                />
+              </Grid>
+            </Grid>
           </Box>
-        </Paper>
+        </form>
 
-        <Box sx={{ marginTop: "100px" }}>
-          <TableContainer component={Paper} sx={{ width: "100%" }}>
-            {categories.length > 0 ? (
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Navn</TableCell>
-                    <TableCell>Beskrivelse</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {categories.map((category) => (
-                    <TableRow key={category._id}>
-                      <TableCell>{category.name}</TableCell>
-                        <TableCell sx={{display: "flex", justifyContent: "space-evenly"}}>
+        <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+          <Box sx={{ width: "100%", minWidth: "500px" }}>
+            <TableContainer component={Paper} sx={{ width: "100%" }}>
+              {categories.length > 0 ? (
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Navn</TableCell>
+                      <TableCell>Beskrivelse</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category._id}>
+                        <TableCell>{category.name}</TableCell>
+                        <TableCell
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-evenly",
+                          }}
+                        >
                           <IconButton aria-label="delete" size="medium">
-                            <DeleteIcon sx={{fontSize: "inherit"}} color="success"/>
+                            <DeleteIcon
+                              sx={{ fontSize: "inherit" }}
+                              color="success"
+                            />
                           </IconButton>
-                          <IconButton aria-label="edit" color="secondary" size="medium">
-                            <EditIcon sx={{fontSize: "inherit"}}/>
+                          <IconButton
+                            aria-label="edit"
+                            color="secondary"
+                            size="medium"
+                          >
+                            <EditIcon sx={{ fontSize: "inherit" }} />
                           </IconButton>
-                          <IconButton aria-label="inspect" color="success" size="small">
-                            <ZoomInIcon sx={{fontSize: "inherit"}}/>
+                          <IconButton
+                            aria-label="inspect"
+                            color="success"
+                            size="small"
+                          >
+                            <ZoomInIcon sx={{ fontSize: "inherit" }} />
                           </IconButton>
                         </TableCell>
-            
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div>No categories found</div>
-            )}
-          </TableContainer>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div>No categories found</div>
+              )}
+            </TableContainer>
+          </Box>
         </Box>
       </Box>
     </Box>

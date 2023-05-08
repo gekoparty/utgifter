@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
-import Category from "./models/Category.js";
+import Category from "./models/CategorySchema.js";
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -26,7 +26,31 @@ app.get("/api/categories", async (req, res) => {
   }
 });
 
+app.post("/api/categories", async (req, res) => {
+  try {
+    const category = new Category({
+      name: req.body.name
+    });
+
+    const existingCategory = await Category.findOne({ name: req.body.name });
+    if (existingCategory) {
+      return res.status(400).json({ message: "Category already exists" });
+    }
+
+    await category.save();
+    res.status(201).json(category);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
  
+// Error handling middleware
+/* app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).send('Internal Server Error');
+}); */
 
 
 
