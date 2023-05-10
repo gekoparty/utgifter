@@ -14,19 +14,14 @@ import {
   SnackbarContent,
   Paper,
   Typography,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogActions,
-  DialogContentText,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-
 import CloseIcon from "@mui/icons-material/Close";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { grey } from "@mui/material/colors";
+import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
 
 const Categories = ({ drawerWidth = 240 }) => {
   const [categories, setCategories] = useState([]);
@@ -162,6 +157,7 @@ const Categories = ({ drawerWidth = 240 }) => {
                             aria-label="delete"
                             size="medium"
                             onClick={() => {
+                              console.log("category._id:", category._id);
                               setSelectedCategory(category);
                               setDeleteModalOpen(true);
                             }}
@@ -190,37 +186,27 @@ const Categories = ({ drawerWidth = 240 }) => {
               )}
             </TableContainer>
           </Box>
-          <Dialog
+          <BasicDialog
             open={deleteModalOpen}
             onClose={() => setDeleteModalOpen(false)}
-            aria-labelledby="alert-dialog-title"
-            aria-describedby="alert-dialog-description"
-          >
-            <DialogTitle id="alert-dialog-title">
-              {"Bekreft Sletting"}
-            </DialogTitle>
-            <DialogContent>
-              <DialogContentText id="alert-dialog-description">
-                Er du sikker på at du vil slette denne kategorien,
-                utgifter tilhørende <Typography component="span" fontWeight="bold">"{selectedCategory?.name}"</Typography> vil også påvirkes 
-                
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setDeleteModalOpen(false)}>Kanseler</Button>
-              <Button
-                onClick={() => {
-                  console.log(selectedCategory._id)
-                  handleDeleteCategory(selectedCategory._id);
-                  setDeleteModalOpen(false);
-                }}
-                autoFocus
-                color="error"
-              >
-                Slett
-              </Button>
-            </DialogActions>
-          </Dialog>
+            title="Bekreft Sletting"
+            contentText={
+              <>
+                Er du sikker på at du vil slette denne kategorien, utgifter
+                tilhørende{" "}
+                <Typography component="span" fontWeight="bold">
+                  "{selectedCategory?.name}"
+                </Typography>{" "}
+                vil også påvirkes
+              </>
+            }
+            onConfirm={() => {
+              handleDeleteCategory(selectedCategory._id);
+              setDeleteModalOpen(false);
+            }}
+            confirmButtonText="Slett"
+            cancelButtonText="Kanseler"
+          />
         </Box>
       </Box>
       <Snackbar
