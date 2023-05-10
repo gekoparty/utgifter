@@ -45,6 +45,21 @@ app.post("/api/categories", async (req, res) => {
   }
 });
 
+app.delete("/api/categories/:id", async (req,res) =>  {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const category = await Category.findByIdAndDelete(req.params.id);
+    if (!category) {
+      return res.status(404).send({ error: "Category not found" });
+    }
+    res.send(category);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+})
+
  
 // Error handling middleware
 /* app.use((err, req, res, next) => {
