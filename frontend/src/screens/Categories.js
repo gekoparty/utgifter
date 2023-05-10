@@ -10,17 +10,32 @@ import {
   IconButton,
   TextField,
   Grid,
+  Snackbar,
+  SnackbarContent,
+  Paper,
+  Typography,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogActions,
+  DialogContentText,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import ZoomInIcon from "@mui/icons-material/ZoomIn";
+
+import CloseIcon from "@mui/icons-material/Close";
 import React, { useState, useEffect } from "react";
-import Paper from "@mui/material/Paper";
 import axios from "axios";
+import { grey } from "@mui/material/colors";
 
 const Categories = ({ drawerWidth = 240 }) => {
   const [categories, setCategories] = useState([]);
   const [categoryName, setCategoryName] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const handleFetchCategories = async () => {
     try {
@@ -33,16 +48,17 @@ const Categories = ({ drawerWidth = 240 }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    console.log(categoryName)
     try {
       const response = await axios.post("/api/categories", {
         name: categoryName,
       });
-      console.log("New category created:", response.data);
+      handleSnackbarOpen(`${response.data.name} lagt til`, "success");
       // reset the category name input field
       setCategoryName("");
+      handleFetchCategories();
     } catch (error) {
       console.error("Error creating new category:", error);
+      handleSnackbarOpen("Klarte ikke å legge til ny kategori", "error");
     }
   };
 
@@ -50,9 +66,30 @@ const Categories = ({ drawerWidth = 240 }) => {
     setCategoryName(event.target.value);
   };
 
+  const handleSnackbarOpen = (message, severity) => {
+    setSnackbarOpen(true);
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+
+  const handleDeleteCategory = async (categoryId) => {
+    try {
+      await axios.delete(`/api/categories/${categoryId}`);
+      handleFetchCategories();
+      handleSnackbarOpen("Kategorien ble slettet", "success");
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      handleSnackbarOpen("Klarte ikke å slette kategorien", "error");
+    }
+  };
+
   useEffect(() => {
     handleFetchCategories();
-  }, [categories]);
+  }, []);
 
   return (
     <Box
@@ -72,7 +109,7 @@ const Categories = ({ drawerWidth = 240 }) => {
                   sx={{ p: "7px" }}
                   size="medium"
                   variant="contained"
-                  onClick={handleSubmit}
+                  type="submit"
                 >
                   Ny Kategori
                 </Button>
@@ -95,29 +132,47 @@ const Categories = ({ drawerWidth = 240 }) => {
           <Box sx={{ width: "100%", minWidth: "500px" }}>
             <TableContainer component={Paper} sx={{ width: "100%" }}>
               {categories.length > 0 ? (
-                <Table>
+                <Table size="small" aria-label="a dense table">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Navn</TableCell>
-                      <TableCell>Beskrivelse</TableCell>
+                      <TableCell align="center">
+                        <Typography variant="h6">Kategorier</Typography>
+                      </TableCell>
+                      <TableCell sx={{ width: "50px" }} align="center">
+                        <Typography variant="h6">Slett</Typography>
+                      </TableCell>
+                      <TableCell sx={{ width: "50px" }} align="center">
+                        <Typography variant="h6">Rediger</Typography>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
+
                   <TableBody>
-                    {categories.map((category) => (
-                      <TableRow key={category._id}>
+                    {categories.map((category, index) => (
+                      <TableRow
+                        key={category._id}
+                        sx={{
+                          backgroundColor:
+                            index % 2 === 0 ? grey[300] : "white",
+                        }}
+                      >
                         <TableCell>{category.name}</TableCell>
-                        <TableCell
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-evenly",
-                          }}
-                        >
-                          <IconButton aria-label="delete" size="medium">
+                        <TableCell>
+                          <IconButton
+                            aria-label="delete"
+                            size="medium"
+                            onClick={() => {
+                              setSelectedCategory(category);
+                              setDeleteModalOpen(true);
+                            }}
+                          >
                             <DeleteIcon
                               sx={{ fontSize: "inherit" }}
                               color="success"
                             />
                           </IconButton>
+                        </TableCell>
+                        <TableCell>
                           <IconButton
                             aria-label="edit"
                             color="secondary"
@@ -125,25 +180,71 @@ const Categories = ({ drawerWidth = 240 }) => {
                           >
                             <EditIcon sx={{ fontSize: "inherit" }} />
                           </IconButton>
-                          <IconButton
-                            aria-label="inspect"
-                            color="success"
-                            size="small"
-                          >
-                            <ZoomInIcon sx={{ fontSize: "inherit" }} />
-                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : (
-                <div>No categories found</div>
+                <div>Ingen Kategorier funnet</div>
               )}
             </TableContainer>
           </Box>
+          <Dialog
+            open={deleteModalOpen}
+            onClose={() => setDeleteModalOpen(false)}
+            aria-labelledby="alert-dialog-title"
+            aria-describedby="alert-dialog-description"
+          >
+            <DialogTitle id="alert-dialog-title">
+              {"Bekreft Sletting"}
+            </DialogTitle>
+            <DialogContent>
+              <DialogContentText id="alert-dialog-description">
+                Er du sikker på at du vil slette denne kategorien,
+                utgifter tilhørende <Typography component="span" fontWeight="bold">"{selectedCategory?.name}"</Typography> vil også påvirkes 
+                
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeleteModalOpen(false)}>Kanseler</Button>
+              <Button
+                onClick={() => {
+                  console.log(selectedCategory._id)
+                  handleDeleteCategory(selectedCategory._id);
+                  setDeleteModalOpen(false);
+                }}
+                autoFocus
+                color="error"
+              >
+                Slett
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
       </Box>
+      <Snackbar
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+      >
+        <SnackbarContent
+          sx={{
+            backgroundColor: snackbarSeverity === "success" ? "green" : "red",
+          }}
+          message={snackbarMessage}
+          action={
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon />
+            </IconButton>
+          }
+        />
+      </Snackbar>
     </Box>
   );
 };
