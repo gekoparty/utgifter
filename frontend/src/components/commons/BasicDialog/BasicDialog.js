@@ -1,41 +1,42 @@
 import React from "react";
+import PropTypes from "prop-types";
 import {
   Dialog,
-  DialogContent,
   DialogTitle,
+  DialogContent,
   DialogActions,
-  Button,
-  Typography,
 } from "@mui/material";
 
-const BasicDialog = ({
-  open,
-  onClose,
-  title,
-  contentText,
-  onConfirm,
-  confirmButtonText,
-  cancelButtonText,
-}) => {
+const BasicDialog = ({ open, onClose, getContent, cancelButton, confirmButton, dialogTitle }) => {
+  const handleClose = () => {
+    onClose();
+  };
+
+
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      aria-labelledby="alert-dialog-title"
-      aria-describedby="alert-dialog-description"
-    >
-      <DialogTitle id="alert-dialog-title">{title}</DialogTitle>
+    <Dialog open={open} onClose={handleClose}>
+      <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
-        <Typography id="alert-dialog-description">{contentText}</Typography>
+        {/* Render the content by calling the getContent function */}
+        {getContent()}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{cancelButtonText}</Button>
-        <Button onClick={onConfirm} autoFocus color="error">
-          {confirmButtonText}
-        </Button>
+      {cancelButton}
+      {confirmButton}
       </DialogActions>
     </Dialog>
   );
+};
+
+BasicDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  getContent: PropTypes.func.isRequired,
+  confirmButton: PropTypes.element,
+  cancelButton: PropTypes.element,
+  dialogTitle: PropTypes.string.isRequired,
+  confirmButtonText: PropTypes.string.isRequired,
+  cancelButtonText: PropTypes.string.isRequired,
 };
 
 export default BasicDialog;

@@ -76,10 +76,25 @@ const Categories = ({ drawerWidth = 240 }) => {
       await axios.delete(`/api/categories/${categoryId}`);
       handleFetchCategories();
       handleSnackbarOpen("Kategorien ble slettet", "success");
+      setDeleteModalOpen(false);
     } catch (error) {
       console.error("Error deleting category:", error);
       handleSnackbarOpen("Klarte ikke å slette kategorien", "error");
     }
+  };
+
+  const content = () => {
+    return (
+      <>
+        <Typography component="p">
+          Er du sikker på at du vil slette denne kategorien, utgifter tilhørende{" "}
+          <Typography component="span" fontWeight="bold">
+            "{selectedCategory?.name}"
+          </Typography>{" "}
+          vil også påvirkes
+        </Typography>
+      </>
+    );
   };
 
   useEffect(() => {
@@ -124,7 +139,7 @@ const Categories = ({ drawerWidth = 240 }) => {
         </form>
 
         <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-          <Box sx={{ width: "100%", minWidth: "500px" }}>
+          <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
             <TableContainer component={Paper} sx={{ width: "100%" }}>
               {categories.length > 0 ? (
                 <Table size="small" aria-label="a dense table">
@@ -187,25 +202,22 @@ const Categories = ({ drawerWidth = 240 }) => {
             </TableContainer>
           </Box>
           <BasicDialog
+            getContent={() => content()}
             open={deleteModalOpen}
             onClose={() => setDeleteModalOpen(false)}
-            title="Bekreft Sletting"
-            contentText={
-              <>
-                Er du sikker på at du vil slette denne kategorien, utgifter
-                tilhørende{" "}
-                <Typography component="span" fontWeight="bold">
-                  "{selectedCategory?.name}"
-                </Typography>{" "}
-                vil også påvirkes
-              </>
-            }
-            onConfirm={() => {
-              handleDeleteCategory(selectedCategory._id);
-              setDeleteModalOpen(false);
-            }}
-            confirmButtonText="Slett"
+            confirmButtonText="Bekreft Sletting"
             cancelButtonText="Kanseler"
+            dialogTitle="Bekreft Sletting"
+            cancelButton={
+              <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
+            }
+            confirmButton={
+              <Button
+                onClick={() => handleDeleteCategory(selectedCategory?._id)}
+              >
+                Slett
+              </Button>
+            }
           />
         </Box>
       </Box>
