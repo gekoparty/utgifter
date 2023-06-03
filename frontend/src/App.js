@@ -8,7 +8,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import PermanentDrawerLeft from "./components/NavBar/PermanentDrawerLeft";
 
-function App() {
+function App({children}) {
   const [title, setTitle] = useState(null);
   const location = useLocation();
 
