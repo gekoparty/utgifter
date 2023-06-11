@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
-import DatePicker from "@mui/lab/DatePicker";
+import { DatePicker } from '@mui/x-date-pickers'
 
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
 

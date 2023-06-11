@@ -71,6 +71,11 @@ const Categories = ({ drawerWidth = 240 }) => {
     setSnackbarOpen(false);
   };
 
+  const handleEditCategory = (category) => {
+    // Implement the logic for editing a category
+    console.log("Editing category:", category);
+  };
+
   const handleDeleteCategory = async (categoryId) => {
     try {
       await axios.delete(`/api/categories/${categoryId}`);
@@ -188,6 +193,7 @@ const Categories = ({ drawerWidth = 240 }) => {
                             aria-label="edit"
                             color="secondary"
                             size="medium"
+                            onClick={() => handleEditCategory(category)}
                           >
                             <EditIcon sx={{ fontSize: "inherit" }} />
                           </IconButton>
@@ -202,11 +208,10 @@ const Categories = ({ drawerWidth = 240 }) => {
             </TableContainer>
           </Box>
           <BasicDialog
-            getContent={() => content()}
             open={deleteModalOpen}
             onClose={() => setDeleteModalOpen(false)}
-            confirmButtonText="Bekreft Sletting"
-            cancelButtonText="Kanseler"
+            cancelButtonText="Avbryt"
+            confirmButtonText="Slett"
             dialogTitle="Bekreft Sletting"
             cancelButton={
               <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
@@ -218,7 +223,9 @@ const Categories = ({ drawerWidth = 240 }) => {
                 Slett
               </Button>
             }
-          />
+          >
+            {content()}
+          </BasicDialog>
         </Box>
       </Box>
       <Snackbar
