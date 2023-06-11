@@ -12,6 +12,10 @@ const shopSchema = new mongoose.Schema(
     location: {
       type: String,
     },
+    category: {
+      type: String,
+      required: true,
+    },
     brands: [
       {
         type: mongoose.Schema.Types.ObjectId,

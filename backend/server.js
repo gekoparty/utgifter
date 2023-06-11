@@ -2,6 +2,8 @@ import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
 import Category from "./models/CategorySchema.js";
+import Shop from './models/shopSchema.js'
+import Brand from './models/brandSchema.js';
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -59,6 +61,81 @@ app.delete("/api/categories/:id", async (req,res) =>  {
     res.status(500).send({ error: "Internal server error" });
   }
 })
+
+app.get("/api/shops", async (req, res) => {
+  try {
+    const shops = await Shop.find();
+    res.json(shops);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+app.post("/api/shops", async (req, res) => {
+  try {
+    const shop = new Shop({
+      name: req.body.name,
+      location: req.body.location,
+      category: req.body.category
+    });
+
+    const existingShop = await Shop.findOne({ name: req.body.name });
+    if (existingShop) {
+      return res.status(400).json({ message: "Shop already exists" });
+    }
+
+    await shop.save();
+    res.status(201).json(shop);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+app.delete("/api/categories/:id", async (req,res) =>  {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const shop = await Shop.findByIdAndDelete(req.params.id);
+    if (!shop) {
+      return res.status(404).send({ error: "Shop not found" });
+    }
+    res.send(shop);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+})
+
+app.get("/api/brands", async (req, res) => {
+  try {
+    const brands = await Brand.find();
+    res.json(brands);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
+app.post("/api/brands", async (req, res) => {
+  try {
+    const brand = new Brand({
+      name: req.body.name
+    });
+
+    const existingBrand = await Brand.findOne({ name: req.body.name });
+    if (existingBrand) {
+      return res.status(400).json({ message: "Brand already exists" });
+    }
+
+    await brand.save();
+    res.status(201).json(brand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
  
 // Error handling middleware
