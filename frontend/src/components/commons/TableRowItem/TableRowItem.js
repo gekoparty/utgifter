@@ -6,13 +6,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
 const TableRowItem = ({ item, onDelete, onEdit, headers }) => {
-  const handleDelete = () => {
-    onDelete(item._id);
-  };
-
-  const handleEdit = () => {
-    onEdit(item._id);
-  };
+  
 
   return (
     <TableRow>
@@ -22,7 +16,11 @@ const TableRowItem = ({ item, onDelete, onEdit, headers }) => {
             <TableCell key={header}>
               <IconButton
                 aria-label={header.toLowerCase()}
-                onClick={header === "Delete" ? () => handleDelete(item._id) : () => handleEdit(item._id)}
+                onClick={
+                  header === "Delete"
+                    ? () => onDelete(item)
+                    : () => onEdit(item._id)
+                }
                 color={header === "Delete" ? "success" : "secondary"}
               >
                 {header === "Delete" ? (
@@ -34,7 +32,9 @@ const TableRowItem = ({ item, onDelete, onEdit, headers }) => {
             </TableCell>
           );
         } else {
-          return <TableCell key={header}>{item[header.toLowerCase()]}</TableCell>;
+          return (
+            <TableCell key={header}>{item[header.toLowerCase()]}</TableCell>
+          );
         }
       })}
     </TableRow>

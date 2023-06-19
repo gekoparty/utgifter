@@ -5,6 +5,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import { Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { StoreProvider } from "./Store/Store";
 import PermanentDrawerLeft from "./components/NavBar/PermanentDrawerLeft";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -20,10 +21,12 @@ function App({ children }) {
   }, [location]);
 
   return (
+    <StoreProvider>
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
       <PermanentDrawerLeft title={title} />
       <Outlet />
     </LocalizationProvider>
+    </StoreProvider>
   );
 }
 
