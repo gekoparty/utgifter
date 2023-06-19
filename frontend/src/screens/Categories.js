@@ -22,6 +22,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { grey } from "@mui/material/colors";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
+import TableLayout from "../components/commons/TableLayout/TableLayout";
 
 const Categories = ({ drawerWidth = 240 }) => {
   const [categories, setCategories] = useState([]);
@@ -107,15 +108,7 @@ const Categories = ({ drawerWidth = 240 }) => {
   }, []);
 
   return (
-    <Box
-      sx={{
-        flexGrow: 1,
-        marginLeft: `${drawerWidth}px`,
-        display: "flex",
-        justifyContent: "center",
-      }}
-    >
-      <Box sx={{ width: "100%", maxWidth: "800px" }}>
+    <TableLayout>
         <form onSubmit={handleSubmit}>
           <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
             <Grid container spacing={1} alignItems="center">
@@ -227,7 +220,7 @@ const Categories = ({ drawerWidth = 240 }) => {
             {content()}
           </BasicDialog>
         </Box>
-      </Box>
+      
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -250,7 +243,7 @@ const Categories = ({ drawerWidth = 240 }) => {
           }
         />
       </Snackbar>
-    </Box>
+    </TableLayout>
   );
 };
 

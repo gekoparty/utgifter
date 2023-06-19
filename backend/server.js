@@ -93,7 +93,7 @@ app.post("/api/shops", async (req, res) => {
   }
 });
 
-app.delete("/api/categories/:id", async (req,res) =>  {
+app.delete("/api/shops/:id", async (req,res) =>  {
   const { id } = req.params;
   console.log(id);
   try {
@@ -136,6 +136,21 @@ app.post("/api/brands", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+app.delete("/api/brands/:id", async (req,res) =>  {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const brand = await Brand.findByIdAndDelete(req.params.id);
+    if (!brand) {
+      return res.status(404).send({ error: "Brand not found" });
+    }
+    res.send(brand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+})
 
  
 // Error handling middleware

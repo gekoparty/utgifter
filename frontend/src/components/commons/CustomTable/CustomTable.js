@@ -6,7 +6,13 @@ import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import TableRowItem from "../TableRowItem/TableRowItem";
 
+
+
 const CustomTable = ({ data, headers, onDelete, onEdit }) => {
+  console.log("data coming from Table", data)
+
+
+  
   return (
     <Table size="small" aria-label="a dense table">
       <TableHead>
@@ -18,6 +24,7 @@ const CustomTable = ({ data, headers, onDelete, onEdit }) => {
       </TableHead>
       <TableBody>
         {data.map((item) => (
+          
           <TableRowItem
             key={item._id}
             item={item}
