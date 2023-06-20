@@ -36,10 +36,10 @@ const initialState = {
 const reducer = (state, action) => {
   switch (action.type) {
     case "FETCH_REQUEST":
-      console.log('FETCH_REQUEST action dispatched');
+      console.log("FETCH_REQUEST action dispatched");
       return { ...state, loading: true, error: null };
     case "FETCH_SUCCESS":
-      console.log('Brands:', action.payload);
+      console.log("Brands:", action.payload);
       return { ...state, loading: false, [action.resource]: action.payload };
     case "FETCH_FAILURE":
       return { ...state, loading: false, error: action.payload };
@@ -49,11 +49,20 @@ const reducer = (state, action) => {
       console.log("Updated", action.resource, "Array:", updatedItems);
       return { ...state, [action.resource]: updatedItems };
     case "DELETE_ITEM":
+      console.log("Deleting item:", action.payload);
       //return { ...state, [action.resource]: state[action.resource].filter(item => item.id !== action.payload) };
       return {
         ...state,
         [action.resource]: state[action.resource].filter(
           (item) => item._id !== action.payload
+        ),
+      };
+    case "UPDATE_ITEM":
+      console.log("Updating item:", action.payload);
+      return {
+        ...state,
+        [action.resource]: state[action.resource].map((item) =>
+          item._id === action.payload._id ? action.payload : item
         ),
       };
     default:

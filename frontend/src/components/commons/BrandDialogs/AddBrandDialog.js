@@ -24,7 +24,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       } else {
         console.log("data coming from hook", response);
         const { _id, name } = response.data; // Destructure the desired fields from response.data
-      const payload = { _id, name };
+        const payload = { _id, name };
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");

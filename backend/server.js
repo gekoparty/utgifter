@@ -152,6 +152,23 @@ app.delete("/api/brands/:id", async (req,res) =>  {
   }
 })
 
+app.put("/api/brands/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const brand = await Brand.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+    if (!brand) {
+      return res.status(404).send({ error: "Brand not found" });
+    }
+    res.send(brand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
  
 // Error handling middleware
 /* app.use((err, req, res, next) => {

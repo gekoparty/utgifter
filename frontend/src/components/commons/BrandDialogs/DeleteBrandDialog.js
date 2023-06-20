@@ -1,31 +1,44 @@
 
-
+import { useContext, useState } from "react";
 import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
 import BasicDialog from "../BasicDialog/BasicDialog";
+import { StoreContext } from "../../../Store/Store";
 
 const DeleteBrandDialog = ({
   open,
   onClose,
   dialogTitle,
   selectedBrand,
+  onDeleteSuccess,
+  onDeleteFailure,
 }) => {
   const { deleteData } = useCustomHttp("/api/brands");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const {dispatch} = useContext(StoreContext)
 
   const handleDeleteBrand = async () => {
     console.log('Deleting brand...');
+    setDeleteLoading(true);
     try {
       const response = await deleteData(`/api/brands/${selectedBrand?._id}`, "DELETE");
       if (response.error) {
         console.log("Error deleting brand:", response.error);
+        onDeleteFailure(selectedBrand);
       } else {
         console.log("Brand deleted successfully");
+        onDeleteSuccess(selectedBrand);
+        /* const { _id, name } = response.data; // Destructure the desired fields from response.data
+        const payload = { _id, name }; */
+        dispatch({ type: "DELETE_ITEM", resource: "brands", payload: selectedBrand._id });
         // Add any necessary actions after successful deletion
       }
     } catch (error) {
       console.log("Error deleting brand:", error);
+      onDeleteFailure(selectedBrand);
     } finally {
+        setDeleteLoading(false);
       onClose();
     }
   };
@@ -37,10 +50,14 @@ const DeleteBrandDialog = ({
       dialogTitle={dialogTitle}
       onConfirm={handleDeleteBrand}
       cancelButton={
-        <Button onClick={onClose}>Avbryt</Button>
+        <Button onClick={onClose} disabled={deleteLoading}>
+          Avbryt
+        </Button>
       }
       confirmButton={
-        <Button onClick={handleDeleteBrand}>Slett</Button>
+        <Button onClick={handleDeleteBrand} disabled={deleteLoading}>
+          Slett
+        </Button>
       }
     >
       {selectedBrand && (
