@@ -104,9 +104,6 @@ const BrandScreen = () => {
     console.log("tabledata", brands);
   }, [brands]);
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
 
   if (error) {
     return <div>Error: {error.message}</div>;
