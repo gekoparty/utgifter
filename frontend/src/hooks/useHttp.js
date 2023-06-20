@@ -18,6 +18,7 @@ const useCustomHttp = (initialUrl) => {
           setData(response.data);
           setLoading(false);
         }
+        
       } catch (error) {
         if (isMounted) {
           setError(error);

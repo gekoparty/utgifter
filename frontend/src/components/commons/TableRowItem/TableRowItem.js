@@ -19,7 +19,7 @@ const TableRowItem = ({ item, onDelete, onEdit, headers }) => {
                 onClick={
                   header === "Delete"
                     ? () => onDelete(item)
-                    : () => onEdit(item._id)
+                    : () => onEdit(item)
                 }
                 color={header === "Delete" ? "success" : "secondary"}
               >
