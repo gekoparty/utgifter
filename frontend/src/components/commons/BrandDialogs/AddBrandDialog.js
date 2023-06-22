@@ -7,47 +7,39 @@ import BasicDialog from "../BasicDialog/BasicDialog";
 import useCustomHttp from "../../../hooks/useHttp";
 
 const AddBrandDialog = ({ open, onClose, onAdd, }) => {
-  const { addData, error } = useCustomHttp("/api/brands");
-  const { dispatch } = useContext(StoreContext);
+  const { addData, error: httpError, resource } = useCustomHttp("/api/brands");
+  const { dispatch,  } = useContext(StoreContext);
   const [brandName, setBrandName] = useState("");
-  const [errorMessage, setErrorMessage] = useState("")
+  
 
   useEffect(() => {
     if (!open) {
       setBrandName("");
-      setErrorMessage("");
     }
   }, [open]);
+
+  
 
   const handleAddBrand = async () => {
     // Perform validation, create a new brand object, and add it to the state
     const newBrand = { name: brandName };
-    console.log("Data to be sent:", newBrand);
-
     try {
-      const response = await addData("/api/brands", "POST", newBrand);
-      
-      if (response.error) {
-        console.log(error)
-        if (error.response.data.message === "Brand already exists") {
-          setErrorMessage("Dette merket eksisterer allerede");
-        } else {
-          setErrorMessage("Feil med lagring av data, prøv igjen");
-        }
-        console.log("Error adding brand:", error);
+      const { data, error: addDataError } = await addData("/api/brands", "POST", newBrand);
+  
+      if (addDataError) {
+        console.log("error object from coming from useHttp",addDataError);
+        dispatch({ type: "SET_ERROR", error: addDataError, resource });;
       } else {
-        console.log("data coming from hook", response);
-        const { _id, name } = response.data; // Destructure the desired fields from response.data
+        const { _id, name } = data; // Destructure the desired fields from response.data
         const payload = { _id, name };
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");
         onClose();
-        setErrorMessage("");
       }
     } catch (fetchError) {
-      setErrorMessage("Feil med lagring av data, prøv igjen")
       console.log("Error adding brand:", fetchError);
+      dispatch({ type: "SET_ERROR", error: fetchError, resource: "/api/brands" });
     }
   };
 
@@ -65,13 +57,12 @@ const AddBrandDialog = ({ open, onClose, onAdd, }) => {
         value={brandName}
         onChange={(e) => setBrandName(e.target.value)}
       />
-      { errorMessage && (
-    <Typography sx={{marginTop: 1}} variant="body1" color="error">
-      {errorMessage}
-    </Typography>
-    )}
-
-    </BasicDialog>
+     {httpError && (
+          <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
+            {httpError}
+          </Typography>
+        )}
+      </BasicDialog>
     
     </>
   );

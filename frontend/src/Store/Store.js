@@ -30,7 +30,23 @@ const initialState = {
   ],
   loading: false,
   error: null,
+  errorMessage: ""
 };
+
+const errorMessageMap = {
+  brands: {
+    duplicate: "Dette merket eksister allerede",
+    server: "Noe gikk galt, prøv igjen",
+  },
+  categories: {
+    duplicate: "Denne kategorien eksisterer allerede",
+    server: "Noe gikk galt, prøv igjen",
+  },
+  shops: {
+    duplicate: "Denne butikken eksister allerede",
+    server: "Noe gikk galt, prøv igjen",
+  }
+}
 
 // Reducer function to handle state transitions
 const reducer = (state, action) => {
@@ -65,6 +81,23 @@ const reducer = (state, action) => {
           item._id === action.payload._id ? action.payload : item
         ),
       };
+    case "SET_ERROR":
+      
+      console.log("Error:", action.payload);
+      console.log("Error", action.resource)
+      const updatedErrorState = {
+        ...state.error,
+        [action.resource]: action.error,
+      };
+
+      const errorType = action.error?.type || "default";
+      const errorMessage = errorMessageMap[action.resource]?.[errorType] || "error occored";
+      
+      return {
+        ...state,
+        error: updatedErrorState,
+        errorMessage: errorMessage
+      }
     default:
       return state;
   }
