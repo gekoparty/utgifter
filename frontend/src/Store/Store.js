@@ -83,7 +83,7 @@ const reducer = (state, action) => {
       };
     case "SET_ERROR":
       
-      console.log("Error:", action.payload);
+      console.log("Error object from store", action.error);
       console.log("Error", action.resource)
       const updatedErrorState = {
         ...state.error,
