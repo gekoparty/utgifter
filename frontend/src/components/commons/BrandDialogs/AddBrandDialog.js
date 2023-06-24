@@ -7,16 +7,21 @@ import BasicDialog from "../BasicDialog/BasicDialog";
 import useCustomHttp from "../../../hooks/useHttp";
 
 const AddBrandDialog = ({ open, onClose, onAdd, }) => {
-  const { addData, error: httpError, resource } = useCustomHttp("/api/brands");
-  const { dispatch,  } = useContext(StoreContext);
+  const { addData, error: httpError} = useCustomHttp("/api/brands");
+  const { dispatch, state } = useContext(StoreContext);
+  const { error } = state;
+  
   const [brandName, setBrandName] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showError, setShowError] = useState(false);
   
 
   useEffect(() => {
     if (!open) {
       setBrandName("");
+      dispatch({ type: "RESET_ERROR", resource: "brands" });
     }
-  }, [open]);
+  }, [open, dispatch]);
 
   
 
@@ -24,32 +29,47 @@ const AddBrandDialog = ({ open, onClose, onAdd, }) => {
     // Perform validation, create a new brand object, and add it to the state
     const newBrand = { name: brandName };
     try {
+      setIsLoading(true)
       const { data, error: addDataError } = await addData("/api/brands", "POST", newBrand);
   
       if (addDataError) {
-        console.log("error object from coming from useHttp",addDataError);
-        dispatch({ type: "SET_ERROR", error: addDataError, resource });;
+        console.log(
+          "error object coming from useHttp",
+          addDataError
+        );
+        dispatch({ type: "SET_ERROR", error: addDataError, resource: "brands" });;
+        setShowError(true);
       } else {
         const { _id, name } = data; // Destructure the desired fields from response.data
         const payload = { _id, name };
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");
+        setShowError(false);
         onClose();
       }
     } catch (fetchError) {
       console.log("Error adding brand:", fetchError);
       dispatch({ type: "SET_ERROR", error: fetchError, resource: "/api/brands" });
+      setShowError(true);
+    } finally {
+      setIsLoading(false)
     }
   };
+
+  
+  const displayError = error && error.brands;
+
+  console.log("error:", error);
+  console.log("displayError:", displayError);
 
   return (
     <>
     <BasicDialog
-      open={open}
+      open={open }
       onClose={onClose}
       dialogTitle="Nytt Merke"
-      confirmButton={<Button onClick={handleAddBrand}>Lagre</Button>}
+      confirmButton={<Button onClick={handleAddBrand} disabled={isLoading}>Lagre</Button>}
       cancelButton={<Button onClick={onClose}>Kanseler</Button>}
     >
       <TextField sx={{marginTop: 1}}
@@ -57,11 +77,11 @@ const AddBrandDialog = ({ open, onClose, onAdd, }) => {
         value={brandName}
         onChange={(e) => setBrandName(e.target.value)}
       />
-     {httpError && (
-          <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
-            {httpError}
-          </Typography>
-        )}
+     {displayError && (
+  <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
+    {displayError}
+  </Typography>
+      )}
       </BasicDialog>
     
     </>
