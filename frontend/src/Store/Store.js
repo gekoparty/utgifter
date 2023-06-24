@@ -29,8 +29,10 @@ const initialState = {
     { _id: "3", name: "Category 3" },
   ],
   loading: false,
-  error: null,
-  errorMessage: ""
+  error: {
+    shops: "Dummy error for shops",
+  },
+  errorMessage: "",
 };
 
 const errorMessageMap = {
@@ -45,8 +47,27 @@ const errorMessageMap = {
   shops: {
     duplicate: "Denne butikken eksister allerede",
     server: "Noe gikk galt, prøv igjen",
-  }
-}
+  },
+};
+
+// Define the updatedErrorState outside the reducer
+const getUpdatedErrorState = (state, action) => {
+  const errorKey = action.error?.response?.data?.message || "default";
+  const errorMessage =
+    errorMessageMap[action.resource] &&
+    errorMessageMap[action.resource][errorKey]
+      ? errorMessageMap[action.resource][errorKey]
+      : "An error occurred";
+
+  return {
+    ...state.error,
+    [action.resource]: errorMessage,
+  };
+};
+
+
+
+
 
 // Reducer function to handle state transitions
 const reducer = (state, action) => {
@@ -81,23 +102,26 @@ const reducer = (state, action) => {
           item._id === action.payload._id ? action.payload : item
         ),
       };
-    case "SET_ERROR":
-      
-      console.log("Error object from store", action.error);
-      console.log("Error", action.resource)
-      const updatedErrorState = {
-        ...state.error,
-        [action.resource]: action.error,
-      };
-
-      const errorType = action.error?.type || "default";
-      const errorMessage = errorMessageMap[action.resource]?.[errorType] || "error occored";
-      
-      return {
-        ...state,
-        error: updatedErrorState,
-        errorMessage: errorMessage
-      }
+      case "SET_ERROR":
+        console.log("Error object from store", action.error);
+        console.log("Error", action.resource);
+  
+        const updatedErrorState = getUpdatedErrorState(state, action);
+  
+        console.log("Updated error state:", updatedErrorState);
+  
+        return {
+          ...state,
+          error: updatedErrorState,
+        };
+       /*  case "RESET_ERROR":
+          console.log("RESET_ERROR action dispatched");
+          return { ...state, error: {} }; */
+          case "RESET_ERROR":
+  console.log("RESET_ERROR action dispatched");
+  const { resource } = action;
+  const { [resource]: _, ...restErrors } = state.error;
+  return { ...state, error: restErrors };
     default:
       return state;
   }
@@ -116,3 +140,5 @@ export const StoreProvider = ({ children }) => {
     </StoreContext.Provider>
   );
 };
+
+

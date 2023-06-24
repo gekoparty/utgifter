@@ -126,7 +126,7 @@ app.post("/api/brands", async (req, res) => {
 
     const existingBrand = await Brand.findOne({ name: req.body.name });
     if (existingBrand) {
-      return res.status(400).json({ message: "Brand already exists" });
+      return res.status(400).json({ message: "duplicate" });
     }
 
     await brand.save();

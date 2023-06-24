@@ -100,14 +100,18 @@ const BrandScreen = () => {
   }, [brandsData, dispatch]);
 
   useEffect(() => {
-    setTableData(brands);
-    console.log("tabledata", brands);
+    if (brands !== null) {
+      setTableData(brands);
+      console.log("tabledata", brands);
+    }
   }, [brands]);
 
 
-  if (error) {
-    return <div>Error: {error.message}</div>;
+  if (error && error.brands) {
+    console.log(error.brands);
+    return <div>Error: {error.brands}</div>;
   }
+  
 
   if (loading || brands === null) {
     return <div>Loading...</div>;
