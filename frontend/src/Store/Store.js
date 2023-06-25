@@ -1,4 +1,5 @@
 import React, { createContext, useReducer } from "react";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 // Initial state for the store
 const initialState = {
@@ -32,12 +33,12 @@ const initialState = {
   error: {
     shops: "Dummy error for shops",
   },
-  errorMessage: "",
+  errorMessage: {},
 };
 
 const errorMessageMap = {
   brands: {
-    duplicate: "Dette merket eksister allerede",
+    duplicate: "Dette merket eksisterer allerede",
     server: "Noe gikk galt, prøv igjen",
   },
   categories: {
@@ -45,7 +46,7 @@ const errorMessageMap = {
     server: "Noe gikk galt, prøv igjen",
   },
   shops: {
-    duplicate: "Denne butikken eksister allerede",
+    duplicate: "Denne butikken eksisterer allerede",
     server: "Noe gikk galt, prøv igjen",
   },
 };
@@ -60,7 +61,7 @@ const getUpdatedErrorState = (state, action) => {
       : "An error occurred";
 
   return {
-    ...state.error,
+    ...state.errorMessage,
     [action.resource]: errorMessage,
   };
 };
@@ -74,7 +75,7 @@ const reducer = (state, action) => {
   switch (action.type) {
     case "FETCH_REQUEST":
       console.log("FETCH_REQUEST action dispatched");
-      return { ...state, loading: true, error: null };
+      return { ...state, loading: true, error: {} };
     case "FETCH_SUCCESS":
       console.log("Brands:", action.payload);
       return { ...state, loading: false, [action.resource]: action.payload };
@@ -87,7 +88,6 @@ const reducer = (state, action) => {
       return { ...state, [action.resource]: updatedItems };
     case "DELETE_ITEM":
       console.log("Deleting item:", action.payload);
-      //return { ...state, [action.resource]: state[action.resource].filter(item => item.id !== action.payload) };
       return {
         ...state,
         [action.resource]: state[action.resource].filter(
@@ -102,26 +102,23 @@ const reducer = (state, action) => {
           item._id === action.payload._id ? action.payload : item
         ),
       };
-      case "SET_ERROR":
-        console.log("Error object from store", action.error);
-        console.log("Error", action.resource);
-  
-        const updatedErrorState = getUpdatedErrorState(state, action);
-  
-        console.log("Updated error state:", updatedErrorState);
-  
-        return {
-          ...state,
-          error: updatedErrorState,
-        };
-       /*  case "RESET_ERROR":
-          console.log("RESET_ERROR action dispatched");
-          return { ...state, error: {} }; */
-          case "RESET_ERROR":
-  console.log("RESET_ERROR action dispatched");
-  const { resource } = action;
-  const { [resource]: _, ...restErrors } = state.error;
-  return { ...state, error: restErrors };
+    case "SET_ERROR":
+      console.log("Error object from store", action.error);
+      console.log("Error", action.resource);
+
+      const updatedErrorState = getUpdatedErrorState(state, action);
+
+      console.log("Updated error state:", updatedErrorState);
+
+      return {
+        ...state,
+        error: updatedErrorState,
+      };
+    case "RESET_ERROR":
+      console.log("RESET_ERROR action dispatched");
+      const { resource } = action;
+      const { [resource]: _, ...restErrors } = state.error;
+      return { ...state, error: restErrors };
     default:
       return state;
   }
@@ -135,9 +132,11 @@ export const StoreProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   return (
+    <ErrorBoundary error={state.error}>
     <StoreContext.Provider value={{ state, dispatch }}>
       {children}
     </StoreContext.Provider>
+    </ErrorBoundary>
   );
 };
 
