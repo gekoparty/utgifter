@@ -5,11 +5,13 @@ import { Button, TextField,Typography } from "@mui/material";
 import { StoreContext } from "../../../Store/Store";
 import BasicDialog from "../BasicDialog/BasicDialog";
 import useCustomHttp from "../../../hooks/useHttp";
+import ErrorHandling from "../ErrorHandling/ErrorHandling";
 
 const AddBrandDialog = ({ open, onClose, onAdd, }) => {
-  const { addData, error: httpError} = useCustomHttp("/api/brands");
+  const { addData } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
   const { error } = state;
+  
   
   const [brandName, setBrandName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -31,13 +33,14 @@ const AddBrandDialog = ({ open, onClose, onAdd, }) => {
     try {
       setIsLoading(true)
       const { data, error: addDataError } = await addData("/api/brands", "POST", newBrand);
-  
+      
       if (addDataError) {
         console.log(
           "error object coming from useHttp",
           addDataError
         );
         dispatch({ type: "SET_ERROR", error: addDataError, resource: "brands" });;
+        
         setShowError(true);
       } else {
         const { _id, name } = data; // Destructure the desired fields from response.data
@@ -58,10 +61,12 @@ const AddBrandDialog = ({ open, onClose, onAdd, }) => {
   };
 
   
-  const displayError = error && error.brands;
+  
+  const displayError = error && error.brands && error.brands[0];
 
   console.log("error:", error);
   console.log("displayError:", displayError);
+  
 
   return (
     <>
@@ -77,11 +82,7 @@ const AddBrandDialog = ({ open, onClose, onAdd, }) => {
         value={brandName}
         onChange={(e) => setBrandName(e.target.value)}
       />
-     {displayError && (
-  <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
-    {displayError}
-  </Typography>
-      )}
+     <ErrorHandling resource="brands" errorMessage={error} showError={showError} />
       </BasicDialog>
     
     </>
