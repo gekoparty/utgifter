@@ -2,7 +2,7 @@ import React, { useContext } from "react";
 import { Typography } from "@mui/material";
 import { StoreContext } from "../../../Store/Store";
 
-const ErrorHandling = ({ resource }) => {
+const ErrorHandling = ({ resource, showError }) => {
   const { state } = useContext(StoreContext);
   const { error, errorMessage } = state;
 
@@ -19,7 +19,7 @@ const ErrorHandling = ({ resource }) => {
   console.log("errorMessage:", errorMessage);
   console.log("resourceErrorMessage:", resourceErrorMessage);
 
-  return displayError ? (
+  return showError && displayError ? (
     <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
       {displayError}
     </Typography>
