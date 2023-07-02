@@ -34,6 +34,7 @@ const initialState = {
     shops: "Dummy error for shops",
   },
   errorMessage: {},
+  showError: false,
 };
 
 const errorMessageMap = {
@@ -103,16 +104,16 @@ const reducer = (state, action) => {
         ),
       };
     case "SET_ERROR":
-      console.log("Error object from store", action.error);
-      console.log("Error", action.resource);
+      
 
       const updatedErrorState = getUpdatedErrorState(state, action);
 
-      console.log("Updated error state:", updatedErrorState);
+      console.log(updatedErrorState);
 
       return {
         ...state,
         error: updatedErrorState,
+        showError: action.showError,
       };
     case "RESET_ERROR":
       console.log("RESET_ERROR action dispatched");
