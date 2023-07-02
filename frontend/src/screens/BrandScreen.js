@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useContext } from "react";
 import {
   Box,
   Button,
@@ -6,88 +7,39 @@ import {
   SnackbarContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import React, { useState, useEffect, useContext } from "react";
+
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import CustomTable from "../components/commons/CustomTable/CustomTable";
 import AddBrandDialog from "../components/commons/BrandDialogs/AddBrandDialog";
 import DeleteBrandDialog from "../components/commons/BrandDialogs/DeleteBrandDialog";
 import EditBrandDialog from "../components/commons/BrandDialogs/EditBrandDialog";
+
 import useCustomHttp from "../hooks/useHttp";
+import useSnackBar from "../hooks/useSnackBar";
+
 import { StoreContext } from "../Store/Store";
 
+const tableHeaders = ["Name", "Delete", "Edit"];
+
 const BrandScreen = () => {
-  const { data: brandsData, loading, error } = useCustomHttp("/api/brands");
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const { fetchData, loading, error, data: brandsData } = useCustomHttp("/api/brands");
   const [selectedBrand, setSelectedBrand] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const tableHeaders = ["Name", "Delete", "Edit"];
-
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;
   const [tableData, setTableData] = useState(brands);
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
-  };
-
-  const handleAddBrand = (newBrand) => {
-    // Handle the newly added brand (e.g., show a success message)
-    setSnackbarMessage(`Brand "${newBrand.name}" added successfully`);
-    setSnackbarSeverity("success");
-    setSnackbarOpen(true);
-
-    // Close the snackbar after 3 seconds (3000 milliseconds)
-    setTimeout(() => {
-      setSnackbarOpen(false);
-    }, 3000);
-  };
-
-  const handleDeleteSuccess = (deletedBrand) => {
-    setSnackbarMessage(`Brand "${deletedBrand.name}" deleted successfully`);
-    setSnackbarSeverity("success");
-    setSnackbarOpen(true);
-
-    // Close the snackbar after 3 seconds (3000 milliseconds)
-    setTimeout(() => {
-      setSnackbarOpen(false);
-    }, 3000);
-  };
-
-  const handleDeleteFailure = (failedBrand) => {
-    setSnackbarMessage(`Failed to delete brand "${failedBrand.name}"`);
-    setSnackbarSeverity("error");
-    setSnackbarOpen(true);
-
-    // Close the snackbar after 3 seconds (3000 milliseconds)
-    setTimeout(() => {
-      setSnackbarOpen(false);
-    }, 3000);
-  };
-
-  const handleEditSuccess = (updatedBrand) => {
-    setSnackbarMessage(`Merket ${updatedBrand.name} ble oppdatert`);
-    setSnackbarSeverity("success");
-    setSnackbarOpen(true);
-
-    setTimeout(() => {
-      setSnackbarOpen(false);
-    }, 3000);
-  };
-
-  const handleEditFailure = () => {
-    setSnackbarMessage("Kunne ikke oppdatere");
-    setSnackbarSeverity("error");
-    setSnackbarOpen(true);
-
-    setTimeout(() => {
-      setSnackbarOpen(false);
-    }, 3000);
-  };
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSuccessSnackbar,
+    showErrorSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
   useEffect(() => {
     if (brandsData) {
@@ -96,26 +48,44 @@ const BrandScreen = () => {
         resource: "brands",
         payload: brandsData,
       });
+      setTableData(brandsData);
     }
   }, [brandsData, dispatch]);
 
   useEffect(() => {
     if (brands !== null) {
       setTableData(brands);
-      console.log("tabledata", brands);
     }
   }, [brands]);
-
 
   if (error && error.brands) {
     console.log(error.brands);
     return <div>Error: {error.brands}</div>;
   }
-  
 
   if (loading || brands === null) {
     return <div>Loading...</div>;
   }
+
+  const addBrandHandler = (newBrand) => {
+    showSuccessSnackbar(`Brand "${newBrand.name}" added successfully`);
+  };
+
+  const deleteSuccessHandler = (deletedBrand) => {
+    showSuccessSnackbar(`Brand "${deletedBrand.name}" deleted successfully`);
+  };
+
+  const deleteFailureHandler = (failedBrand) => {
+    showErrorSnackbar(`Failed to delete brand "${failedBrand.name}"`);
+  };
+
+  const editSuccessHandler = (updatedBrand) => {
+    showSuccessSnackbar(`Brand "${updatedBrand.name}" updated successfully`);
+  };
+
+  const editFailureHandler = () => {
+    showErrorSnackbar("Failed to update brand");
+  };
 
   return (
     <TableLayout>
@@ -125,7 +95,7 @@ const BrandScreen = () => {
           color="primary"
           onClick={() => setAddBrandDialogOpen(true)}
         >
-          Nytt Merke
+          New Brand
         </Button>
       </Box>
 
@@ -151,24 +121,24 @@ const BrandScreen = () => {
             setEditModalOpen(false);
           }}
           cancelButton={
-            <Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>
+            <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
           }
           dialogTitle={"Edit Brand"}
           selectedBrand={selectedBrand}
-          onUpdateSuccess={handleEditSuccess}
-          onUpdateFailure={handleEditFailure}
+          onUpdateSuccess={editSuccessHandler}
+          onUpdateFailure={editFailureHandler}
         />
 
         <DeleteBrandDialog
           open={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
-          dialogTitle="Bekreft Sletting"
+          dialogTitle="Confirm Deletion"
           cancelButton={
-            <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
+            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
           }
           selectedBrand={selectedBrand}
-          onDeleteSuccess={handleDeleteSuccess}
-          onDeleteFailure={handleDeleteFailure}
+          onDeleteSuccess={deleteSuccessHandler}
+          onDeleteFailure={deleteFailureHandler}
         />
       </Box>
       <Snackbar
@@ -195,7 +165,7 @@ const BrandScreen = () => {
       </Snackbar>
       <AddBrandDialog
         onClose={() => setAddBrandDialogOpen(false)}
-        onAdd={handleAddBrand}
+        onAdd={addBrandHandler}
         open={addBrandDialogOpen}
       />
     </TableLayout>

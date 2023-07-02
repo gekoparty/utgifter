@@ -2,33 +2,57 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 const useCustomHttp = (initialUrl) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true); // Set loading to true initially
-  const [error, setError] = useState(null);
-  const [resource, setResource] = useState(null);
+  const [httpState, setHttpState] = useState({
+    data: null,
+    loading: true,
+    error: null,
+    resource: null,
+  });
+
+  const fetchData = async (url = initialUrl, method = "GET", payload = null) => {
+    setHttpState((prevHttpState) => ({
+      ...prevHttpState,
+      loading: true,
+    }));
+
+    try {
+      const response = await axios.request({
+        url,
+        method,
+        data: payload,
+      });
+
+      if (response && response.data) {
+        setHttpState((prevHttpState) => ({
+          ...prevHttpState,
+          data: response.data,
+          loading: false,
+        }));
+
+        return { data: response.data, error: null };
+      } else {
+        throw new Error("Invalid response");
+      }
+    } catch (error) {
+      setHttpState((prevHttpState) => ({
+        ...prevHttpState,
+        error: error.response?.data || error.message,
+        loading: false,
+        resource: url,
+      }));
+      return { data: null, error };
+    }
+  };
 
   useEffect(() => {
     let isMounted = true; // Flag to track if the component is mounted or not
+    const source = axios.CancelToken.source();
 
-    const fetchData = async () => {
-      setLoading(true);
-
-      try {
-        const response = await axios.get(initialUrl);
-        if (isMounted) {
-          setData(response.data);
-          setLoading(false);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setError(error.response.data);
-          setLoading(false);
-          setResource(initialUrl);
-        }
-      }
+    const fetchDataFromInitialUrl = async () => {
+      fetchData(initialUrl);
     };
 
-    fetchData();
+    fetchDataFromInitialUrl();
 
     const requestInterceptor = axios.interceptors.request.use((config) => {
       // Modify the request config if needed
@@ -42,9 +66,14 @@ const useCustomHttp = (initialUrl) => {
       },
       (error) => {
         // Handle response errors if needed
-        setError(error.response.data);
-        setLoading(false);
-        setResource(error.config.url);
+        if (isMounted) {
+          setHttpState((prevHttpState) => ({
+            ...prevHttpState,
+            error: error.response.data,
+            loading: false,
+            resource: error.config.url,
+          }));
+        }
         return Promise.reject(error);
       }
     );
@@ -53,65 +82,69 @@ const useCustomHttp = (initialUrl) => {
       isMounted = false; // Set the flag to false when the component unmounts
       axios.interceptors.request.eject(requestInterceptor);
       axios.interceptors.response.eject(responseInterceptor);
+      source.cancel();
     };
   }, [initialUrl]);
 
-  const fetchData = async (url, method = "GET", payload = null) => {
-    setLoading(true);
-
-    try {
-      const response = await axios.request({
-        url,
-        method,
-        data: payload,
-      });
-
-      setData(response.data);
-      setLoading(false);
-      return { data: response.data, error: null };
-    } catch (error) {
-      setError(error.response.data);
-      setLoading(false);
-      setResource(url);
-      return { data: null, error };
-    }
-  };
-
   const deleteData = async (url) => {
-    setLoading(true);
+    setHttpState((prevHttpState) => ({
+      ...prevHttpState,
+      loading: true,
+    }));
 
     try {
       await axios.delete(url);
-      setLoading(false);
+
+      setHttpState((prevHttpState) => ({
+        ...prevHttpState,
+        loading: false,
+      }));
+
       return { error: null };
     } catch (error) {
-      setError(error.response.data);
-      setLoading(false);
-      setResource(url)
+      setHttpState((prevHttpState) => ({
+        ...prevHttpState,
+        error: error.response.data,
+        loading: false,
+        resource: url,
+      }));
       return { error };
     }
   };
 
   const addData = async (url, method = "POST", payload = null) => {
     console.log("Data to be sent:", payload);
-    setLoading(true);
+    setHttpState((prevHttpState) => ({
+      ...prevHttpState,
+      loading: true,
+    }));
 
     try {
       const response = await axios.post(url, payload);
+
       console.log("Data added successfully:", response);
 
-      setLoading(false);
+      setHttpState((prevHttpState) => ({
+        ...prevHttpState,
+        data: response.data,
+        loading: false,
+      }));
+
       return { data: response.data, error: null };
     } catch (error) {
-      console.log(error)
-      setError(error);
-      setLoading(false);
-      setResource(url)
-      return { data: null, error: error }
+      console.log("error:", error);
+      setHttpState((prevHttpState) => ({
+        ...prevHttpState,
+        error,
+        loading: false,
+        resource: url,
+      }));
+      return { data: null, error };
     }
   };
 
-  return { data, loading, error, resource, fetchData, deleteData, addData };
+  return { ...httpState, fetchData, deleteData, addData };
 };
 
 export default useCustomHttp;
+
