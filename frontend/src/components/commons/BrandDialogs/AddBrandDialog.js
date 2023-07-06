@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from "react";
-import { Button, TextField } from "@mui/material";
+import { Button, TextField, CircularProgress } from "@mui/material";
 
 import { StoreContext } from "../../../Store/Store";
 import BasicDialog from "../BasicDialog/BasicDialog";
@@ -20,8 +20,17 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
   }, [open, dispatch]);
 
   const handleAddBrand = async () => {
+    if (typeof brandName !== "string" || brandName.trim().length === 0) {
+      return; // Prevent submitting invalid or empty brand name
+    }
+  
     // Perform validation, create a new brand object, and add it to the state
-    const newBrand = { name: brandName };
+    const formattedBrandName = brandName
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  
+    const newBrand = { name: formattedBrandName };
     try {
       const { data, error: addDataError } = await addData(
         "/api/brands",
@@ -30,7 +39,6 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       );
 
       if (addDataError) {
-        
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -43,7 +51,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");
-
+        dispatch({ type: "RESET_ERROR", resource: "brands" });
         onClose();
       }
     } catch (fetchError) {
@@ -56,9 +64,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-  const displayError = state.error?.brands?.[0];
-  console.log(displayError)
-  
+  const displayError = state.error?.brands;
 
   return (
     <BasicDialog
@@ -66,8 +72,8 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       onClose={onClose}
       dialogTitle="Nytt Merke"
       confirmButton={
-        <Button onClick={handleAddBrand} disabled={loading}>
-          Lagre
+        <Button onClick={handleAddBrand} disabled={loading || !brandName}>
+          {loading ? <CircularProgress size={24} /> : "Lagre"}
         </Button>
       }
       cancelButton={<Button onClick={onClose}>Kanseler</Button>}
@@ -78,7 +84,9 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         value={brandName}
         onChange={(e) => setBrandName(e.target.value)}
       />
-      {displayError && <ErrorHandling resource="brands" />}
+      {displayError ? (
+        <ErrorHandling resource="brands" loading={loading} />
+      ) : null}
     </BasicDialog>
   );
 };
