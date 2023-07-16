@@ -34,6 +34,7 @@ const initialState = {
     shops: "Dummy error for shops",
   },
   errorMessage: {},
+  validationErrors: {},
   showError: false,
 };
 
@@ -66,10 +67,6 @@ const getUpdatedErrorState = (state, action) => {
     [action.resource]: errorMessage,
   };
 };
-
-
-
-
 
 // Reducer function to handle state transitions
 const reducer = (state, action) => {
@@ -104,8 +101,6 @@ const reducer = (state, action) => {
         ),
       };
     case "SET_ERROR":
-      
-
       const updatedErrorState = getUpdatedErrorState(state, action);
 
       console.log(updatedErrorState);
@@ -116,10 +111,25 @@ const reducer = (state, action) => {
         showError: action.showError,
       };
     case "RESET_ERROR":
-      console.log("RESET_ERROR action dispatched");
       const { resource } = action;
       const { [resource]: _, ...restErrors } = state.error;
       return { ...state, error: restErrors };
+
+    case "SET_VALIDATION_ERRORS":
+      console.log("Validation Errors:", action.validationErrors);
+      return {
+        ...state,
+        validationErrors: {
+          ...state.validationErrors,
+          [action.resource]: action.validationErrors,
+        },
+        showError: action.showError,
+      };
+    case "RESET_VALIDATION_ERRORS":
+      return {
+        ...state,
+        validationErrors: { ...state.validationErrors, [action.resource]: {} },
+      };
     default:
       return state;
   }
@@ -134,11 +144,10 @@ export const StoreProvider = ({ children }) => {
 
   return (
     <ErrorBoundary error={state.error}>
-    <StoreContext.Provider value={{ state, dispatch }}>
-      {children}
-    </StoreContext.Provider>
+      <StoreContext.Provider value={{ state, dispatch }}>
+        {children}
+      </StoreContext.Provider>
     </ErrorBoundary>
   );
 };
-
 

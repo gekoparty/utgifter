@@ -120,14 +120,19 @@ app.get("/api/brands", async (req, res) => {
 
 app.post("/api/brands", async (req, res) => {
   try {
-    const brand = new Brand({
-      name: req.body.name
-    });
+    const { originalPayload, slugifiedPayload } = req.body;
+    const name = originalPayload.name;
+    const slug = slugifiedPayload.name;
 
-    const existingBrand = await Brand.findOne({ name: req.body.name });
+    const existingBrand = await Brand.findOne({ name });
     if (existingBrand) {
       return res.status(400).json({ message: "duplicate" });
     }
+
+    const brand = new Brand({
+      name,
+      slug, // Save the slug to the database
+    });
 
     await brand.save();
     res.status(201).json(brand);
@@ -154,11 +159,19 @@ app.delete("/api/brands/:id", async (req,res) =>  {
 
 app.put("/api/brands/:id", async (req, res) => {
   const { id } = req.params;
+  const { originalPayload, slugifiedPayload } = req.body;
   console.log(id);
   try {
-    const brand = await Brand.findByIdAndUpdate(id, req.body, {
-      new: true,
-    });
+    const brand = await Brand.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          name: originalPayload.name,
+          slug: slugifiedPayload.name
+        }
+      },
+      { new: true }
+    );
     if (!brand) {
       return res.status(404).send({ error: "Brand not found" });
     }

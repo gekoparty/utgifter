@@ -5,9 +5,10 @@ import { StoreContext } from "../../../Store/Store";
 import BasicDialog from "../BasicDialog/BasicDialog";
 import useCustomHttp from "../../../hooks/useHttp";
 import ErrorHandling from "../ErrorHandling/ErrorHandling";
+import { addBrandValidationSchema } from "../../../validation/validationSchema";
 
 const AddBrandDialog = ({ open, onClose, onAdd }) => {
-  const { loading, addData } = useCustomHttp("/api/brands");
+  const { loading, sendRequest } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
 
   const [brandName, setBrandName] = useState("");
@@ -16,6 +17,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
     if (!open) {
       setBrandName("");
       dispatch({ type: "RESET_ERROR", resource: "brands" });
+      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
     }
   }, [open, dispatch]);
 
@@ -23,16 +25,28 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
     if (typeof brandName !== "string" || brandName.trim().length === 0) {
       return; // Prevent submitting invalid or empty brand name
     }
-  
-    // Perform validation, create a new brand object, and add it to the state
+
+    try {
+      // Validate the brandName field against the validation schema
+      await addBrandValidationSchema.validate({ brandName });
+    } catch (validationError) {
+      dispatch({
+        type: "SET_VALIDATION_ERRORS",
+        resource: "brands",
+        validationErrors: { brandName: validationError.message },
+        showError: true,
+      });
+      return; // Exit the function if validation fails
+    }
+
     const formattedBrandName = brandName
       .split(" ")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(" ");
-  
+
     const newBrand = { name: formattedBrandName };
     try {
-      const { data, error: addDataError } = await addData(
+      const { data, error: addDataError } = await sendRequest(
         "/api/brands",
         "POST",
         newBrand
@@ -46,12 +60,13 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
           showError: true,
         });
       } else {
-        const { _id, name } = data; // Destructure the desired fields from response.data
-        const payload = { _id, name };
+        const { _id, name, slug } = data; // Destructure the desired fields from response.data
+        const payload = { _id, name, slug };
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");
         dispatch({ type: "RESET_ERROR", resource: "brands" });
+        dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" }); // Reset validation errors
         onClose();
       }
     } catch (fetchError) {
@@ -65,6 +80,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
   };
 
   const displayError = state.error?.brands;
+  const validationError = state.validationErrors?.brands?.brandName;
 
   return (
     <BasicDialog
@@ -84,7 +100,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         value={brandName}
         onChange={(e) => setBrandName(e.target.value)}
       />
-      {displayError ? (
+      {displayError || validationError ? (
         <ErrorHandling resource="brands" loading={loading} />
       ) : null}
     </BasicDialog>
