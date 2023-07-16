@@ -4,6 +4,7 @@ import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
 import BasicDialog from "../BasicDialog/BasicDialog";
 import { StoreContext } from "../../../Store/Store";
+import { addBrandValidationSchema } from "../../../validation/validationSchema";
 
 const EditBrandDialog = ({
   open,
@@ -14,7 +15,7 @@ const EditBrandDialog = ({
   onUpdateFailure,
 }) => {
 
-  const { fetchData } = useCustomHttp("/api/brands");
+  const { sendRequest } = useCustomHttp("/api/brands");
   const [updateLoading, setUpdateLoading] = useState(false);
   const [brandName, setBrandName] = useState(selectedBrand?.name)
   const { dispatch } = useContext(StoreContext);
@@ -24,12 +25,13 @@ const EditBrandDialog = ({
   }, [selectedBrand]);
  
   const handleUpdateBrand = async () => {
-    console.log("Updating brand", selectedBrand);
+    await addBrandValidationSchema.validate({ brandName });
+    
     setUpdateLoading(true);
 
     try {
         const updatedBrand = { ...selectedBrand, name: brandName };
-      const response = await fetchData(
+      const response = await sendRequest(
         `/api/brands/${selectedBrand?._id}`,
         "PUT",
         updatedBrand
@@ -39,12 +41,12 @@ const EditBrandDialog = ({
         console.log("error updating brand", response.error);
         onUpdateFailure(selectedBrand);
       } else {
-        console.log("Brand updated succesfully", selectedBrand);
+        console.log("Brand updated succesfully", response.data);
         onUpdateSuccess(response.data);
         dispatch({
           type: "UPDATE_ITEM",
           resource: "brands",
-          payload: updatedBrand,
+          payload: response.data,
         });
       }
     } catch (error) {
