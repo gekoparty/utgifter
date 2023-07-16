@@ -124,7 +124,7 @@ app.post("/api/brands", async (req, res) => {
     const name = originalPayload.name;
     const slug = slugifiedPayload.name;
 
-    const existingBrand = await Brand.findOne({ name });
+    const existingBrand = await Brand.findOne({ slug });
     if (existingBrand) {
       return res.status(400).json({ message: "duplicate" });
     }

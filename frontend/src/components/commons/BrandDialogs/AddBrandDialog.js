@@ -40,11 +40,16 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
     }
 
     const formattedBrandName = brandName
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+    .toLowerCase() // Convert everything to lowercase first
+    .split("-") // Split on hyphens if any
+    .map((word) => {
+      const [firstChar, ...rest] = word;
+      return firstChar.toUpperCase() + rest.join("").toLowerCase();
+    })
+    .join("-"); // Join words back with hyphen
 
-    const newBrand = { name: formattedBrandName };
+  const newBrand = { name: formattedBrandName };
+  
     try {
       const { data, error: addDataError } = await sendRequest(
         "/api/brands",
@@ -60,8 +65,8 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
           showError: true,
         });
       } else {
-        const { _id, name, slug } = data; // Destructure the desired fields from response.data
-        const payload = { _id, name, slug };
+        //const { _id, name, slug } = data; // Destructure the desired fields from response.data
+        const payload = data
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");
