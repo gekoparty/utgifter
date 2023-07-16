@@ -1,4 +1,3 @@
-
 import { useContext, useState } from "react";
 import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
@@ -14,23 +13,21 @@ const DeleteBrandDialog = ({
   onDeleteSuccess,
   onDeleteFailure,
 }) => {
-  const { deleteData } = useCustomHttp("/api/brands");
+  const { sendRequest } = useCustomHttp("/api/brands");
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const {dispatch} = useContext(StoreContext)
+  const { dispatch } = useContext(StoreContext);
 
   const handleDeleteBrand = async () => {
-    console.log('Deleting brand...');
+    console.log("Deleting brand...");
     setDeleteLoading(true);
     try {
-      const response = await deleteData(`/api/brands/${selectedBrand?._id}`, "DELETE");
+      const response = await sendRequest(`/api/brands/${selectedBrand?._id}`, "DELETE");
       if (response.error) {
         console.log("Error deleting brand:", response.error);
         onDeleteFailure(selectedBrand);
       } else {
         console.log("Brand deleted successfully");
         onDeleteSuccess(selectedBrand);
-        /* const { _id, name } = response.data; // Destructure the desired fields from response.data
-        const payload = { _id, name }; */
         dispatch({ type: "DELETE_ITEM", resource: "brands", payload: selectedBrand._id });
         // Add any necessary actions after successful deletion
       }
@@ -38,7 +35,7 @@ const DeleteBrandDialog = ({
       console.log("Error deleting brand:", error);
       onDeleteFailure(selectedBrand);
     } finally {
-        setDeleteLoading(false);
+      setDeleteLoading(false);
       onClose();
     }
   };
@@ -72,7 +69,6 @@ const DeleteBrandDialog = ({
     </BasicDialog>
   );
 };
-
 
 DeleteBrandDialog.propTypes = {
   open: PropTypes.bool.isRequired,

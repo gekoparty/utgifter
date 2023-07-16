@@ -10,6 +10,11 @@ const brandSchema = new mongoose.Schema(
     description: {
       type: String,
     },
+    slug: {  // Add the 'slug' field to the schema
+      type: String,
+      required: true,
+      unique: true,
+    },
     products: [
       {
         type: mongoose.Schema.Types.ObjectId,
