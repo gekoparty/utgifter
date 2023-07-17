@@ -5,10 +5,12 @@ import CircularProgress from "@mui/material/CircularProgress";
 
 const ErrorHandling = ({ resource, loading }) => {
   const { state } = useContext(StoreContext);
-  const { error, showError } = state;
+  const { error, showError, validationErrors } = state;
 
   const displayError = error?.[resource];
+  const validationError = validationErrors?.[resource]?.brandName
   console.log("Display error:", displayError);
+  console.log(validationError)
 
   return (
     <div>
@@ -17,9 +19,9 @@ const ErrorHandling = ({ resource, loading }) => {
           <CircularProgress />
         </div>
       ) : (
-        showError && displayError && (
+        showError && (displayError || validationError) && (
           <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
-            {displayError}
+            {displayError || validationError}
           </Typography>
         )
       )}

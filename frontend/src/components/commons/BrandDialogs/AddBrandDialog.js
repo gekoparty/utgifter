@@ -58,6 +58,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       );
 
       if (addDataError) {
+        console.log("value of addDataError", addDataError)
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -75,6 +76,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         onClose();
       }
     } catch (fetchError) {
+      console.log("value of fetchError", fetchError)
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
