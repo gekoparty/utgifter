@@ -22,11 +22,12 @@ import { StoreContext } from "../Store/Store";
 const tableHeaders = ["Name", "Delete", "Edit"];
 
 const BrandScreen = () => {
-  const { fetchData, loading, error, data: brandsData } = useCustomHttp("/api/brands");
+  const { loading, error, data: brandsData } = useCustomHttp("/api/brands");
   const [selectedBrand, setSelectedBrand] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
 
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;

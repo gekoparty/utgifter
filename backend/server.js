@@ -160,21 +160,33 @@ app.delete("/api/brands/:id", async (req,res) =>  {
 app.put("/api/brands/:id", async (req, res) => {
   const { id } = req.params;
   const { originalPayload, slugifiedPayload } = req.body;
-  console.log(id);
+
   try {
+    // Check if the slug already exists for a different brand
+    const existingBrandWithSlug = await Brand.findOne({
+      slug: slugifiedPayload.name,
+      _id: { $ne: id }, // Exclude the current brand from the check
+    });
+
+    if (existingBrandWithSlug) {
+      return res.status(400).json({ message: "duplicate" });
+    }
+
     const brand = await Brand.findByIdAndUpdate(
       id,
       {
         $set: {
           name: originalPayload.name,
-          slug: slugifiedPayload.name
-        }
+          slug: slugifiedPayload.name,
+        },
       },
       { new: true }
     );
+
     if (!brand) {
       return res.status(404).send({ error: "Brand not found" });
     }
+
     res.send(brand);
   } catch (error) {
     console.error(error);
