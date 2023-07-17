@@ -27,7 +27,6 @@ const BrandScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editModalVisible, setEditModalVisible] = useState(false);
 
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;
@@ -110,6 +109,7 @@ const BrandScreen = () => {
               setDeleteModalOpen(true);
             }}
             onEdit={(brand) => {
+              console.log("Selected Brand for Edit:", brand); // Add this line to check the selected brand
               setSelectedBrand(brand);
               setEditModalOpen(true);
             }}
