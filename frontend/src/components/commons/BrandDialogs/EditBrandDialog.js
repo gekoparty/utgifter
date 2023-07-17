@@ -29,10 +29,10 @@ const EditBrandDialog = ({
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
-    setBrandName("");
+    setBrandName(selectedBrand?.name || "");
     dispatch({ type: "RESET_ERROR", resource: "brands" });
     resetValidationErrors();
-  }, [dispatch, resetValidationErrors]);
+  }, [dispatch, selectedBrand, resetValidationErrors]);
 
   useEffect(() => {
     if (!open) {
@@ -41,7 +41,11 @@ const EditBrandDialog = ({
   }, [open, resetFormAndErrors]);
 
   useEffect(() => {
-    setBrandName(selectedBrand?.name || "");
+    if (selectedBrand?.name) {
+      setBrandName(selectedBrand.name);
+    } else {
+      setBrandName("");
+    }
     resetValidationErrors();
   }, [selectedBrand, resetValidationErrors]);
 
@@ -146,6 +150,7 @@ const EditBrandDialog = ({
       }
     >
       <TextField
+        sx={{ marginTop: 1 }}
         label="Brand Name"
         value={brandName}
         onChange={(e) => {

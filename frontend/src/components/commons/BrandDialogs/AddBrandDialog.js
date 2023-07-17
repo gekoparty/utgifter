@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import { Button, TextField, CircularProgress } from "@mui/material";
 
 import { StoreContext } from "../../../Store/Store";
@@ -12,6 +12,14 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
   const { dispatch, state } = useContext(StoreContext);
 
   const [brandName, setBrandName] = useState("");
+
+  const resetValidationErrors = useCallback(() => {
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
+  }, [dispatch]);
+
+  const resetServerError = useCallback(() => {
+    dispatch({ type: "RESET_ERROR", resource: "brands" });
+  }, [dispatch]);
 
   useEffect(() => {
     if (!open) {
@@ -105,7 +113,12 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         sx={{ marginTop: 1 }}
         label="Merke"
         value={brandName}
-        onChange={(e) => setBrandName(e.target.value)}
+        error={Boolean(validationError)}
+        onChange={(e) => {
+          setBrandName(e.target.value);
+          resetValidationErrors();
+          resetServerError() // Clear validation errors when input changes
+        }}
       />
       {displayError || validationError ? (
         <ErrorHandling resource="brands" loading={loading} />
