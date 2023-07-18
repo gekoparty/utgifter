@@ -1,4 +1,5 @@
 import React, { useContext } from "react";
+import PropTypes from "prop-types"; 
 import { Typography } from "@mui/material";
 import { StoreContext } from "../../../Store/Store";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -27,6 +28,11 @@ const ErrorHandling = ({ resource, loading }) => {
       )}
     </div>
   );
+};
+
+ErrorHandling.propTypes = {
+  resource: PropTypes.string.isRequired,
+  loading: PropTypes.bool.isRequired,
 };
 
 export default ErrorHandling;
