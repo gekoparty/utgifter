@@ -45,6 +45,7 @@ const BrandScreen = () => {
   }, [brandsData, dispatch]);
 
 
+
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Brand "${newBrand.name}" added successfully`);
   };

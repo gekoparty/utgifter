@@ -24,7 +24,9 @@ const useBrandDialog = (initialBrand = null) => {
   }, [dispatch, initialBrand, resetValidationErrors]);
 
   useEffect(() => {
-    if (!initialBrand) {
+    if (initialBrand) {
+      setBrandName(initialBrand.name);
+    } else {
       resetFormAndErrors();
     }
   }, [initialBrand, resetFormAndErrors]);
