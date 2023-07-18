@@ -61,7 +61,11 @@ const useBrandDialog = (initialBrand = null) => {
         method = "PUT";
       }
 
-      const { data, error: addDataError } = await sendRequest(url, method, newBrand);
+      const { data, error: addDataError } = await sendRequest(
+        url,
+        method,
+        newBrand
+      );
 
       if (addDataError) {
         console.log("value of addDataError", addDataError);
@@ -81,8 +85,9 @@ const useBrandDialog = (initialBrand = null) => {
         setBrandName("");
         dispatch({ type: "RESET_ERROR", resource: "brands" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
-        
-        onClose(); // Note: Don't close the dialog here, do it in the respective components
+
+        onClose();
+        return true; // Note: Don't close the dialog here, do it in the respective components
       }
     } catch (fetchError) {
       console.log("value of fetchError", fetchError);
@@ -92,12 +97,21 @@ const useBrandDialog = (initialBrand = null) => {
         resource: "/api/brands",
         showError: true,
       });
+      
     }
+    
   };
 
-  const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
+  const handleDeleteBrand = async (
+    selectedBrand,
+    onDeleteSuccess,
+    onDeleteFailure
+  ) => {
     try {
-      const response = await sendRequest(`/api/brands/${selectedBrand?._id}`, "DELETE");
+      const response = await sendRequest(
+        `/api/brands/${selectedBrand?._id}`,
+        "DELETE"
+      );
       if (response.error) {
         console.log("Error deleting brand:", response.error);
         onDeleteFailure(selectedBrand);
@@ -105,10 +119,12 @@ const useBrandDialog = (initialBrand = null) => {
       } else {
         console.log("Brand deleted successfully");
         onDeleteSuccess(selectedBrand);
-        dispatch({ type: "DELETE_ITEM", resource: "brands", payload: selectedBrand._id });
-      return true; // Indicate successful deletion
-        // No need to dispatch DELETE_ITEM action, as it will be handled in the respective components
-        // Add any necessary actions after successful deletion
+        dispatch({
+          type: "DELETE_ITEM",
+          resource: "brands",
+          payload: selectedBrand._id,
+        });
+        return true;
       }
     } catch (error) {
       console.log("Error deleting brand:", error);
@@ -139,7 +155,7 @@ const useBrandDialog = (initialBrand = null) => {
     validationError,
     isFormValid,
     handleDeleteBrand,
-    resetFormAndErrors
+    resetFormAndErrors,
   };
 };
 

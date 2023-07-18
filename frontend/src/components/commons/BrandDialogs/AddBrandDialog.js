@@ -20,6 +20,15 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
   } = useBrandDialog();
 
 
+  const handleAddBrand = async () => {
+    // Call the handleSaveBrand function from the hook to save the new brand
+    const success = await handleSaveBrand(onClose);
+    if (success) {
+      onAdd({ name: brandName }); // Trigger the onAdd function to show the success snackbar with the brand name
+    }
+  };
+
+
 
   return (
     <BasicDialog
@@ -30,7 +39,7 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
       }}
       dialogTitle="Nytt Merke"
       confirmButton={
-        <Button onClick={() => handleSaveBrand(onClose)} disabled={loading || !isFormValid()}>
+        <Button onClick={handleAddBrand} disabled={loading || !isFormValid()}>
           {loading ? <CircularProgress size={24} /> : "Lagre"}
         </Button>
       }

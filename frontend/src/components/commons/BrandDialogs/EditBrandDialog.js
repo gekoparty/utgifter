@@ -25,7 +25,14 @@ const EditBrandDialog = ({
     resetFormAndErrors
   } = useBrandDialog(selectedBrand);
 
- 
+  const handleUpdateBrand = async () => {
+    const success = await handleSaveBrand(onClose);
+    if (success) {
+      onUpdateSuccess(selectedBrand); // Trigger the onUpdateSuccess function to show the success snackbar with the brand data
+    } else {
+      onUpdateFailure(); // Trigger the onUpdateFailure function to show the error snackbar
+    }
+  };
 
   return (
     <BasicDialog
@@ -36,7 +43,7 @@ const EditBrandDialog = ({
       }}
       dialogTitle="Edit Brand"
       confirmButton={
-        <Button onClick={() => handleSaveBrand(onClose)} disabled={loading || !isFormValid()}>
+        <Button onClick={handleUpdateBrand} disabled={loading || !isFormValid()}>
           {loading ? <CircularProgress size={24} /> : "Save"}
         </Button>
       }
