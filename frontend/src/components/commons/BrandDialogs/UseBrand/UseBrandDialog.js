@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext, useCallback } from "react";
+import PropTypes from "prop-types";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formattedBrandName } from "../../Utils/BrandUtils";
 import { addBrandValidationSchema } from "../../../../validation/validationSchema";
@@ -158,5 +159,10 @@ const useBrandDialog = (initialBrand = null) => {
     resetFormAndErrors,
   };
 };
+
+useBrandDialog.propTypes = {
+    initialBrand: PropTypes.object, // initialBrand is optional and should be an object
+  };
+  
 
 export default useBrandDialog;

@@ -54,7 +54,6 @@ DeleteBrandDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   dialogTitle: PropTypes.string.isRequired,
-  cancelButton: PropTypes.node.isRequired,
   selectedBrand: PropTypes.object.isRequired,
   onDeleteSuccess: PropTypes.func.isRequired,
   onDeleteFailure: PropTypes.func.isRequired,
