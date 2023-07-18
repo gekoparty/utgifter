@@ -25,8 +25,7 @@ const EditBrandDialog = ({
     resetFormAndErrors
   } = useBrandDialog(selectedBrand);
 
-  // Note: You don't need to define the resetValidationErrors and resetServerError functions separately
-  // They are already available through the useBrandDialog hook.
+ 
 
   return (
     <BasicDialog
