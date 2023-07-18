@@ -1,150 +1,52 @@
-import React, { useState, useContext, useEffect, useCallback } from "react";
-import { Button, TextField } from "@mui/material";
+import React from "react";
+import { Button, TextField, CircularProgress } from "@mui/material";
 import PropTypes from "prop-types";
-import useCustomHttp from "../../../hooks/useHttp";
 import BasicDialog from "../BasicDialog/BasicDialog";
-import { StoreContext } from "../../../Store/Store";
-import { addBrandValidationSchema } from "../../../validation/validationSchema";
-import { formattedBrandName } from "../Utils/BrandUtils";
 import ErrorHandling from "../ErrorHandling/ErrorHandling";
+import useBrandDialog from "./UseBrand/UseBrandDialog";
 
 const EditBrandDialog = ({
   open,
   onClose,
-  dialogTitle,
   selectedBrand,
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
-  const [brandName, setBrandName] = useState(selectedBrand?.name);
+  const {
+    brandName,
+    setBrandName,
+    loading,
+    handleSaveBrand,
+    resetValidationErrors,
+    resetServerError,
+    displayError,
+    validationError,
+    isFormValid,
+    resetFormAndErrors
+  } = useBrandDialog(selectedBrand);
 
-  const { sendRequest, loading } = useCustomHttp("/api/brands");
-  const { dispatch, state } = useContext(StoreContext);
-
-  const resetValidationErrors = useCallback(() => {
-    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
-  }, [dispatch]);
-
-  const resetServerError = useCallback(() => {
-    dispatch({ type: "RESET_ERROR", resource: "brands" });
-  }, [dispatch]);
-
-  const resetFormAndErrors = useCallback(() => {
-    setBrandName(selectedBrand?.name || "");
-    dispatch({ type: "RESET_ERROR", resource: "brands" });
-    resetValidationErrors();
-  }, [dispatch, selectedBrand, resetValidationErrors]);
-
-  useEffect(() => {
-    if (!open) {
-      resetFormAndErrors();
-    }
-  }, [open, resetFormAndErrors]);
-
-  useEffect(() => {
-    if (selectedBrand?.name) {
-      setBrandName(selectedBrand.name);
-    } else {
-      setBrandName("");
-    }
-    resetValidationErrors();
-  }, [selectedBrand, resetValidationErrors]);
-
-  const handleUpdateBrand = async () => {
-    if (typeof brandName !== "string" || brandName.trim().length === 0) {
-      return; // Prevent submitting invalid or empty brand name
-    }
-
-    try {
-      await addBrandValidationSchema.validate({ brandName });
-      resetValidationErrors();
-    } catch (validationError) {
-      setValidationErrors(validationError.message);
-      return;
-    }
-
-    try {
-      const formattedName = formattedBrandName(brandName);
-      const updatedBrand = { ...selectedBrand, name: formattedName };
-      const { data, error: updateDataError } = await sendRequest(
-        `/api/brands/${selectedBrand?._id}`,
-        "PUT",
-        updatedBrand
-      );
-
-      if (updateDataError) {
-        console.log("Error updating brand", updateDataError);
-        dispatch({
-          type: "SET_ERROR",
-          error: updateDataError,
-          resource: "brands",
-          showError: true,
-        });
-        onUpdateFailure(selectedBrand);
-      } else {
-        console.log("Brand updated successfully", data);
-        onUpdateSuccess(data);
-        dispatch({
-          type: "UPDATE_ITEM",
-          resource: "brands",
-          payload: data,
-        });
-        resetValidationErrors();
-        resetFormAndErrors();
-        onClose();
-      }
-    } catch (fetchError) {
-      console.log("value of fetchError", fetchError);
-      dispatch({
-        type: "SET_ERROR",
-        error: fetchError,
-        resource: "/api/brands",
-        showError: true,
-      });
-    }
-  };
-
-  const setValidationErrors = (errorMessage) => {
-    dispatch({
-      type: "SET_VALIDATION_ERRORS",
-      resource: "brands",
-      validationErrors: { brandName: errorMessage },
-      showError: true,
-    });
-  };
-
-  
-
-  const displayError = state.error?.brands;
-  const validationError = state.validationErrors?.brands?.brandName;
-
-  console.log(displayError);
-
-  const isFormValid = () => {
-    return (
-      typeof brandName === "string" &&
-      brandName.trim().length > 0 &&
-      !validationError
-    );
-  };
+  // Note: You don't need to define the resetValidationErrors and resetServerError functions separately
+  // They are already available through the useBrandDialog hook.
 
   return (
     <BasicDialog
       open={open}
-      onClose={onClose}
-      dialogTitle={dialogTitle}
-      onConfirm={handleUpdateBrand}
-      cancelButton={
-        <Button onClick={onClose} disabled={loading}>
-          Avbryt
+      onClose={() => {
+        resetFormAndErrors();
+        onClose(); // Close the dialog after resetting the form and errors
+      }}
+      dialogTitle="Edit Brand"
+      confirmButton={
+        <Button onClick={() => handleSaveBrand(onClose)} disabled={loading || !isFormValid()}>
+          {loading ? <CircularProgress size={24} /> : "Save"}
         </Button>
       }
-      confirmButton={
-        <Button
-          onClick={handleUpdateBrand}
-          disabled={loading || !isFormValid()}
-        >
-          Oppdater
+      cancelButton={
+        <Button onClick={() => {
+          resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
+          onClose(); // Close the dialog
+        }}>
+          Cancel
         </Button>
       }
     >
@@ -152,12 +54,12 @@ const EditBrandDialog = ({
         sx={{ marginTop: 1 }}
         label="Brand Name"
         value={brandName}
+        error={Boolean(validationError)}
         onChange={(e) => {
           setBrandName(e.target.value);
           resetValidationErrors();
           resetServerError(); // Clear validation errors when input changes
         }}
-        error={Boolean(validationError)}
       />
       {displayError || validationError ? (
         <ErrorHandling resource="brands" loading={loading} />
@@ -169,7 +71,6 @@ const EditBrandDialog = ({
 EditBrandDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  dialogTitle: PropTypes.string.isRequired,
   selectedBrand: PropTypes.object.isRequired,
   onUpdateSuccess: PropTypes.func.isRequired,
   onUpdateFailure: PropTypes.func.isRequired,

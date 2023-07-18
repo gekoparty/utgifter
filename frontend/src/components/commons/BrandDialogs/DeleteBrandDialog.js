@@ -1,9 +1,7 @@
-import { useContext, useState } from "react";
 import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
-import useCustomHttp from "../../../hooks/useHttp";
+import useBrandDialog from "./UseBrand/UseBrandDialog";
 import BasicDialog from "../BasicDialog/BasicDialog";
-import { StoreContext } from "../../../Store/Store";
 
 const DeleteBrandDialog = ({
   open,
@@ -13,29 +11,11 @@ const DeleteBrandDialog = ({
   onDeleteSuccess,
   onDeleteFailure,
 }) => {
-  const { sendRequest } = useCustomHttp("/api/brands");
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const { dispatch } = useContext(StoreContext);
+  const { handleDeleteBrand, loading } = useBrandDialog();
 
-  const handleDeleteBrand = async () => {
-    console.log("Deleting brand...");
-    setDeleteLoading(true);
-    try {
-      const response = await sendRequest(`/api/brands/${selectedBrand?._id}`, "DELETE");
-      if (response.error) {
-        console.log("Error deleting brand:", response.error);
-        onDeleteFailure(selectedBrand);
-      } else {
-        console.log("Brand deleted successfully");
-        onDeleteSuccess(selectedBrand);
-        dispatch({ type: "DELETE_ITEM", resource: "brands", payload: selectedBrand._id });
-        // Add any necessary actions after successful deletion
-      }
-    } catch (error) {
-      console.log("Error deleting brand:", error);
-      onDeleteFailure(selectedBrand);
-    } finally {
-      setDeleteLoading(false);
+  const handleDelete = async () => {
+    const success = await handleDeleteBrand(selectedBrand, onDeleteSuccess, onDeleteFailure);
+    if (success) {
       onClose();
     }
   };
@@ -47,12 +27,12 @@ const DeleteBrandDialog = ({
       dialogTitle={dialogTitle}
       onConfirm={handleDeleteBrand}
       cancelButton={
-        <Button onClick={onClose} disabled={deleteLoading}>
+        <Button onClick={onClose} disabled={loading}>
           Avbryt
         </Button>
       }
       confirmButton={
-        <Button onClick={handleDeleteBrand} disabled={deleteLoading}>
+        <Button onClick={handleDelete} disabled={loading}>
           Slett
         </Button>
       }
@@ -76,6 +56,8 @@ DeleteBrandDialog.propTypes = {
   dialogTitle: PropTypes.string.isRequired,
   cancelButton: PropTypes.node.isRequired,
   selectedBrand: PropTypes.object.isRequired,
+  onDeleteSuccess: PropTypes.func.isRequired,
+  onDeleteFailure: PropTypes.func.isRequired,
 };
 
 export default DeleteBrandDialog;
