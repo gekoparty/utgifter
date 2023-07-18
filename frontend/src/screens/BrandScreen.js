@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useMemo } from "react";
 import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -14,6 +14,8 @@ import { StoreContext } from "../Store/Store";
 
 const tableHeaders = ["Name", "Delete", "Edit"];
 
+
+
 const BrandScreen = () => {
   const { loading, error, data: brandsData } = useCustomHttp("/api/brands");
   const { state, dispatch } = useContext(StoreContext);
@@ -23,6 +25,8 @@ const BrandScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const memoizedTableHeaders = useMemo(() => tableHeaders, []);
   
 
   const {
@@ -91,7 +95,7 @@ const BrandScreen = () => {
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
           <CustomTable
             data={brands}
-            headers={tableHeaders}
+            headers={memoizedTableHeaders}
             onDelete={(brand) => {
               setSelectedBrand(brand);
               setDeleteModalOpen(true);
