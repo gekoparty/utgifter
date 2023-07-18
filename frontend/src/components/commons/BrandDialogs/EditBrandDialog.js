@@ -1,10 +1,11 @@
-import React, { useContext, useState, useEffect, useCallback } from "react";
+import React, { useState, useContext, useEffect, useCallback } from "react";
 import { Button, TextField } from "@mui/material";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
 import BasicDialog from "../BasicDialog/BasicDialog";
 import { StoreContext } from "../../../Store/Store";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
+import { formattedBrandName } from "../Utils/BrandUtils";
 import ErrorHandling from "../ErrorHandling/ErrorHandling";
 
 const EditBrandDialog = ({
@@ -63,7 +64,8 @@ const EditBrandDialog = ({
     }
 
     try {
-      const updatedBrand = { ...selectedBrand, name: brandName };
+      const formattedName = formattedBrandName(brandName);
+      const updatedBrand = { ...selectedBrand, name: formattedName };
       const { data, error: updateDataError } = await sendRequest(
         `/api/brands/${selectedBrand?._id}`,
         "PUT",
@@ -92,9 +94,13 @@ const EditBrandDialog = ({
         onClose();
       }
     } catch (fetchError) {
-      setError(fetchError);
-      onUpdateFailure(selectedBrand);
-    } finally {
+      console.log("value of fetchError", fetchError);
+      dispatch({
+        type: "SET_ERROR",
+        error: fetchError,
+        resource: "/api/brands",
+        showError: true,
+      });
     }
   };
 
@@ -107,14 +113,7 @@ const EditBrandDialog = ({
     });
   };
 
-  const setError = (fetchError) => {
-    dispatch({
-      type: "SET_ERROR",
-      error: fetchError,
-      resource: "/api/brands",
-      showError: true,
-    });
-  };
+  
 
   const displayError = state.error?.brands;
   const validationError = state.validationErrors?.brands?.brandName;

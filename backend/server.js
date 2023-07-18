@@ -119,6 +119,7 @@ app.get("/api/brands", async (req, res) => {
 });
 
 app.post("/api/brands", async (req, res) => {
+  console.log(req.body)
   try {
     const { originalPayload, slugifiedPayload } = req.body;
     const name = originalPayload.name;

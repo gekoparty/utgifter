@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import PropTypes from "prop-types";
 import axios from "axios";
 import slugify from "slugify";
 
@@ -109,6 +110,10 @@ const useCustomHttp = (initialUrl) => {
   }, [initialUrl, sendRequest]);
 
   return { ...httpState, sendRequest };
+};
+
+useCustomHttp.propTypes = {
+  initialUrl: PropTypes.string.isRequired,
 };
 
 export default useCustomHttp;

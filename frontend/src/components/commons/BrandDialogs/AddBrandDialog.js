@@ -1,10 +1,11 @@
 import React, { useState, useContext, useEffect, useCallback } from "react";
 import { Button, TextField, CircularProgress } from "@mui/material";
-
+import PropTypes from "prop-types";
 import { StoreContext } from "../../../Store/Store";
 import BasicDialog from "../BasicDialog/BasicDialog";
 import useCustomHttp from "../../../hooks/useHttp";
 import ErrorHandling from "../ErrorHandling/ErrorHandling";
+import { formattedBrandName } from "../Utils/BrandUtils";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 
 const AddBrandDialog = ({ open, onClose, onAdd }) => {
@@ -47,17 +48,9 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       return; // Exit the function if validation fails
     }
 
-    const formattedBrandName = brandName
-    .toLowerCase() // Convert everything to lowercase first
-    .split("-") // Split on hyphens if any
-    .map((word) => {
-      const [firstChar, ...rest] = word;
-      return firstChar.toUpperCase() + rest.join("").toLowerCase();
-    })
-    .join("-"); // Join words back with hyphen
+    const formattedName = formattedBrandName(brandName);
+    const newBrand = { name: formattedName };
 
-  const newBrand = { name: formattedBrandName };
-  
     try {
       const { data, error: addDataError } = await sendRequest(
         "/api/brands",
@@ -66,7 +59,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       );
 
       if (addDataError) {
-        console.log("value of addDataError", addDataError)
+        console.log("value of addDataError", addDataError);
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -75,7 +68,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         });
       } else {
         //const { _id, name, slug } = data; // Destructure the desired fields from response.data
-        const payload = data
+        const payload = data;
         dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         onAdd(newBrand);
         setBrandName("");
@@ -84,7 +77,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         onClose();
       }
     } catch (fetchError) {
-      console.log("value of fetchError", fetchError)
+      console.log("value of fetchError", fetchError);
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
@@ -117,7 +110,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
         onChange={(e) => {
           setBrandName(e.target.value);
           resetValidationErrors();
-          resetServerError() // Clear validation errors when input changes
+          resetServerError(); // Clear validation errors when input changes
         }}
       />
       {displayError || validationError ? (
@@ -125,6 +118,12 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       ) : null}
     </BasicDialog>
   );
+};
+
+AddBrandDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
 };
 
 export default AddBrandDialog;

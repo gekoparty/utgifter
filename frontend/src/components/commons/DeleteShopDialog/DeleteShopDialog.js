@@ -12,10 +12,10 @@ const content = (shop) => {
   return (
     <>
       <Typography component="p">
-        Er du sikker på at du vil slette denne butikken, utgifter tilhørende{" "}
+        Er du sikker på at du vil slette denne butikken, utgifter tilhørende{' '}
         <Typography component="span" fontWeight="bold">
           "{shop.name}"
-        </Typography>{" "}
+        </Typography>{' '}
         vil også påvirkes
       </Typography>
     </>
@@ -51,11 +51,11 @@ const DeleteShopDialog = React.memo(({ open, onClose, shop, onDelete }) => {
   );
 });
 
-/* DeleteShopDialog.propTypes = {
+DeleteShopDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   shop: PropTypes.object,
   onDelete: PropTypes.func.isRequired,
 };
- */
+
 export default DeleteShopDialog;
