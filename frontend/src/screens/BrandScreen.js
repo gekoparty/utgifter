@@ -4,9 +4,9 @@ import CloseIcon from "@mui/icons-material/Close";
 
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import CustomTable from "../components/commons/CustomTable/CustomTable";
-import AddBrandDialog from "../components/commons/BrandDialogs/AddBrandDialog";
-import DeleteBrandDialog from "../components/commons/BrandDialogs/DeleteBrandDialog";
-import EditBrandDialog from "../components/commons/BrandDialogs/EditBrandDialog";
+import AddBrandDialog from "../components/Brands/BrandDialogs/AddBrandDialog";
+import DeleteBrandDialog from "../components/Brands/BrandDialogs/DeleteBrandDialog";
+import EditBrandDialog from "../components/Brands/BrandDialogs/EditBrandDialog";
 
 import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";

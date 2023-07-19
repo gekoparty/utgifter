@@ -1,7 +1,7 @@
 import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
-import useBrandDialog from "./UseBrand/UseBrandDialog";
-import BasicDialog from "../BasicDialog/BasicDialog";
+import useBrandDialog from "../UseBrand/UseBrandDialog";
+import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 
 const DeleteBrandDialog = ({
   open,

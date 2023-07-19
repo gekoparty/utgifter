@@ -1,9 +1,9 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import PropTypes from "prop-types";
-import useCustomHttp from "../../../../hooks/useHttp";
-import { formattedBrandName } from "../../Utils/BrandUtils";
-import { addBrandValidationSchema } from "../../../../validation/validationSchema";
-import { StoreContext } from "../../../../Store/Store";
+import useCustomHttp from "../../../hooks/useHttp";
+import { formattedBrandName } from "../../commons/Utils/BrandUtils";
+import { addBrandValidationSchema } from "../../../validation/validationSchema";
+import { StoreContext } from "../../../Store/Store";
 
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
