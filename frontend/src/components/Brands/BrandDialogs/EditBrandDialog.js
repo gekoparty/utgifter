@@ -1,11 +1,17 @@
 import React from "react";
 import { Button, TextField, CircularProgress } from "@mui/material";
 import PropTypes from "prop-types";
-import BasicDialog from "../BasicDialog/BasicDialog";
-import ErrorHandling from "../ErrorHandling/ErrorHandling";
-import useBrandDialog from "./UseBrand/UseBrandDialog";
+import BasicDialog from "../../commons/BasicDialog/BasicDialog";
+import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
+import useBrandDialog from "../UseBrand/UseBrandDialog";
 
-const AddBrandDialog = ({ open,onClose, onAdd }) => {
+const EditBrandDialog = ({
+  open,
+  onClose,
+  selectedBrand,
+  onUpdateSuccess,
+  onUpdateFailure,
+}) => {
   const {
     brandName,
     setBrandName,
@@ -16,19 +22,17 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
     displayError,
     validationError,
     isFormValid,
-    resetFormAndErrors, 
-  } = useBrandDialog();
+    resetFormAndErrors
+  } = useBrandDialog(selectedBrand);
 
-
-  const handleAddBrand = async () => {
-    // Call the handleSaveBrand function from the hook to save the new brand
+  const handleUpdateBrand = async () => {
     const success = await handleSaveBrand(onClose);
     if (success) {
-      onAdd({ name: brandName }); // Trigger the onAdd function to show the success snackbar with the brand name
+      onUpdateSuccess(selectedBrand); // Trigger the onUpdateSuccess function to show the success snackbar with the brand data
+    } else {
+      onUpdateFailure(); // Trigger the onUpdateFailure function to show the error snackbar
     }
   };
-
-
 
   return (
     <BasicDialog
@@ -37,10 +41,10 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
         resetFormAndErrors();
         onClose(); // Close the dialog after resetting the form and errors
       }}
-      dialogTitle="Nytt Merke"
+      dialogTitle="Edit Brand"
       confirmButton={
-        <Button onClick={handleAddBrand} disabled={loading || !isFormValid()}>
-          {loading ? <CircularProgress size={24} /> : "Lagre"}
+        <Button onClick={handleUpdateBrand} disabled={loading || !isFormValid()}>
+          {loading ? <CircularProgress size={24} /> : "Save"}
         </Button>
       }
       cancelButton={
@@ -54,7 +58,7 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
     >
       <TextField
         sx={{ marginTop: 1 }}
-        label="Merke"
+        label="Brand Name"
         value={brandName}
         error={Boolean(validationError)}
         onChange={(e) => {
@@ -70,10 +74,12 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
   );
 };
 
-AddBrandDialog.propTypes = {
+EditBrandDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onAdd: PropTypes.func.isRequired,
+  selectedBrand: PropTypes.object.isRequired,
+  onUpdateSuccess: PropTypes.func.isRequired,
+  onUpdateFailure: PropTypes.func.isRequired,
 };
 
-export default AddBrandDialog;
+export default EditBrandDialog;
