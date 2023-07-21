@@ -2,8 +2,8 @@ import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
 import Category from "./models/CategorySchema.js";
-import Shop from './models/shopSchema.js'
-import Brand from './models/brandSchema.js';
+import Shop from "./models/shopSchema.js";
+import Brand from "./models/brandSchema.js";
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -31,7 +31,7 @@ app.get("/api/categories", async (req, res) => {
 app.post("/api/categories", async (req, res) => {
   try {
     const category = new Category({
-      name: req.body.name
+      name: req.body.name,
     });
 
     const existingCategory = await Category.findOne({ name: req.body.name });
@@ -47,7 +47,7 @@ app.post("/api/categories", async (req, res) => {
   }
 });
 
-app.delete("/api/categories/:id", async (req,res) =>  {
+app.delete("/api/categories/:id", async (req, res) => {
   const { id } = req.params;
   console.log(id);
   try {
@@ -60,7 +60,7 @@ app.delete("/api/categories/:id", async (req,res) =>  {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-})
+});
 
 app.get("/api/shops", async (req, res) => {
   try {
@@ -73,27 +73,42 @@ app.get("/api/shops", async (req, res) => {
 });
 
 app.post("/api/shops", async (req, res) => {
+  console.log(req.body);
   try {
-    const shop = new Shop({
-      name: req.body.name,
-      location: req.body.location,
-      category: req.body.category
-    });
+    const { originalPayload, slugifiedPayload } = req.body;
 
-    const existingShop = await Shop.findOne({ name: req.body.name });
+    console.log(originalPayload, slugifiedPayload);
+    const { name, location, category } = originalPayload;
+
+    const existingShop = await Shop.findOne({ name });
     if (existingShop) {
       return res.status(400).json({ message: "Shop already exists" });
     }
 
-    await shop.save();
-    res.status(201).json(shop);
+    const shop = new Shop({
+      name,
+      location,
+      category,
+      slugifiedName: slugifiedPayload.name,
+      slugifiedLocation: slugifiedPayload.location,
+      slugifiedCategory: slugifiedPayload.category,
+    });
+
+    try {
+      const savedShop = await shop.save();
+      console.log("Saved shop:", savedShop); // Add a console.log to check the saved shop object
+      res.status(201).json(savedShop);
+    } catch (saveError) {
+      console.error("Error saving shop:", saveError);
+      res.status(500).json({ message: "Error saving shop" });
+    }
   } catch (error) {
-    console.error(error);
+    console.error("Server error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-app.delete("/api/shops/:id", async (req,res) =>  {
+app.delete("/api/shops/:id", async (req, res) => {
   const { id } = req.params;
   console.log(id);
   try {
@@ -106,7 +121,7 @@ app.delete("/api/shops/:id", async (req,res) =>  {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-})
+});
 
 app.get("/api/brands", async (req, res) => {
   try {
@@ -119,7 +134,7 @@ app.get("/api/brands", async (req, res) => {
 });
 
 app.post("/api/brands", async (req, res) => {
-  console.log(req.body)
+  console.log(req.body);
   try {
     const { originalPayload, slugifiedPayload } = req.body;
     const name = originalPayload.name;
@@ -143,7 +158,7 @@ app.post("/api/brands", async (req, res) => {
   }
 });
 
-app.delete("/api/brands/:id", async (req,res) =>  {
+app.delete("/api/brands/:id", async (req, res) => {
   const { id } = req.params;
   console.log(id);
   try {
@@ -156,7 +171,7 @@ app.delete("/api/brands/:id", async (req,res) =>  {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-})
+});
 
 app.put("/api/brands/:id", async (req, res) => {
   const { id } = req.params;
@@ -195,14 +210,11 @@ app.put("/api/brands/:id", async (req, res) => {
   }
 });
 
- 
 // Error handling middleware
 /* app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).send('Internal Server Error');
 }); */
-
-
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
@@ -219,4 +231,3 @@ async function connectToDB() {
     console.error(err.message);
   }
 }
-

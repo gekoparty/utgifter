@@ -22,7 +22,7 @@ const EditBrandDialog = ({
     displayError,
     validationError,
     isFormValid,
-    resetFormAndErrors
+    resetFormAndErrors,
   } = useBrandDialog(selectedBrand);
 
   const handleUpdateBrand = async () => {
@@ -43,15 +43,20 @@ const EditBrandDialog = ({
       }}
       dialogTitle="Edit Brand"
       confirmButton={
-        <Button onClick={handleUpdateBrand} disabled={loading || !isFormValid()}>
+        <Button
+          onClick={handleUpdateBrand}
+          disabled={loading || !isFormValid()}
+        >
           {loading ? <CircularProgress size={24} /> : "Save"}
         </Button>
       }
       cancelButton={
-        <Button onClick={() => {
-          resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-          onClose(); // Close the dialog
-        }}>
+        <Button
+          onClick={() => {
+            resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
+            onClose(); // Close the dialog
+          }}
+        >
           Cancel
         </Button>
       }
