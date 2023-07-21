@@ -76,7 +76,18 @@ const BrandScreen = () => {
   }
 
   if (loading || brands === null) {
-    return <div>Loading...</div>;
+    return (
+      <div
+        style={{
+          position: "absolute",
+          top: "240px",
+          left: "500px",
+          zIndex: 9999, // Set a high z-index to ensure it's above the sidebar
+        }}
+      >
+        Loading...
+      </div>
+    );
   }
 
   return (

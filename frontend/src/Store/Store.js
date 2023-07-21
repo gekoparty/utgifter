@@ -4,25 +4,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 // Initial state for the store
 const initialState = {
   shops: [
-    {
-      _id: "1",
-      name: "Shop 1",
-      location: "Location 1",
-      category: "Category 1",
-    },
-    {
-      _id: "2",
-      name: "Shop 2",
-      location: "Location 2",
-      category: "Category 2",
-    },
-    {
-      _id: "3",
-      name: "Shop 3",
-      location: "Location 3",
-      category: "Category 3",
-    },
-  ],
+      ],
   brands: [],
   categories: [
     { _id: "1", name: "Category 1" },
@@ -30,9 +12,7 @@ const initialState = {
     { _id: "3", name: "Category 3" },
   ],
   loading: false,
-  error: {
-    shops: "Dummy error for shops",
-  },
+  error: {},
   errorMessage: {},
   validationErrors: {},
   showError: false,

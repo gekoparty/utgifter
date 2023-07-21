@@ -10,6 +10,8 @@ const ErrorHandling = ({ resource, loading }) => {
 
   const displayError = error?.[resource];
   const validationError = validationErrors?.[resource]?.brandName
+
+  
   console.log("Display error:", displayError);
   console.log(validationError)
 

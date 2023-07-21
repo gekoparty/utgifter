@@ -16,6 +16,18 @@ const shopSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    slugifiedName: {
+      type: String,
+      required: true,
+    },
+    slugifiedLocation: {
+      type: String,
+      required: true,
+    },
+    slugifiedCategory: {
+      type: String,
+      required: true
+    },
     brands: [
       {
         type: mongoose.Schema.Types.ObjectId,

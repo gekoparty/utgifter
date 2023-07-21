@@ -10,13 +10,12 @@ import CloseIcon from "@mui/icons-material/Close";
 
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import CustomTable from "../components/commons/CustomTable/CustomTable";
-import AddBrandDialog from "../components/Brands/BrandDialogs/AddBrandDialog";
-import DeleteBrandDialog from "../components/Brands/BrandDialogs/DeleteBrandDialog";
-import EditBrandDialog from "../components/Brands/BrandDialogs/EditBrandDialog";
-
 import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";
 import { StoreContext } from "../Store/Store";
+import AddShopDialog from "../components/Shops/ShopDialogs/AddShopDialog";
+import DeleteShopDialog from "../components/Shops/ShopDialogs/DeleteShopDialog";
+import EditShopDialog from "../components/Shops/ShopDialogs/EditShopDialog";
 
 const tableHeaders = ["Name", "Location", "Category", "Delete", "Edit"];
 
@@ -25,7 +24,7 @@ const ShopScreen = () => {
   const { state, dispatch } = useContext(StoreContext);
   const { shops } = state;
 
-  const [selectedBrand, setSelectedBrand] = useState({});
+  const [selectedShop, setSelectedShop] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -40,6 +39,40 @@ const ShopScreen = () => {
     showErrorSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
+
+  useEffect(()=> {
+    if(shopsData) {
+      dispatch({
+        type: "FETCH_SUCCESS",
+        resource: "shops",
+        payload: shopsData
+      })
+    }
+  },[shopsData, dispatch])
+
+  const addShopHandler = (newShop) => {
+    showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`)
+  }
+
+  const deleteFailureHandler = (failedShop) => {
+    showErrorSnackbar(`Failed to delete shop ${failedShop.name}`)
+  }
+
+  const deleteSuccessHandler = (deletedShop) =>  {
+    showSuccessSnackbar(`Shop ${deletedShop} deleted successfully` )
+  }
+
+  const editFailureHandler = () => {
+    showErrorSnackbar("Failed to update shop")
+  }
+
+  const editSuccessHandler = (selectedShop) => {
+    showSuccessSnackbar(`Shop ${selectedShop.name} updated succesfully`)
+  }
+
+  if(loading || shops === null) {
+    return <div>Loading....</div>
+  }
 
   return (
     <TableLayout>
@@ -60,14 +93,39 @@ const ShopScreen = () => {
         data={shops}
         headers={memoizedTableHeaders}
         onDelete={(shop) => {
-          setSelectedBrand(shop);
+          setSelectedShop(shop);
           setDeleteModalOpen(true);
         }}
         onEdit={(shop) => {
-          setSelectedBrand(shop);
+          setSelectedShop(shop);
           setEditModalOpen(true);
         }}
       />
+
+      <DeleteShopDialog
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        dialogTitle="Confirm Deletion"
+        cancelButton={
+          <Button onClick={()=> deleteModalOpen(false)}>Cancel</Button>
+        }
+        selectedShop={selectedShop}
+        onDeleteSuccess={deleteSuccessHandler}
+        onDeleteFailure={deleteFailureHandler}
+       />
+
+       <EditShopDialog
+       open={editModalOpen}
+       onClose={()=> setEditModalOpen(false)}
+       cancelButton={
+        <Button onClick={()=> setEditModalOpen(false)}>Cancel</Button>
+       }
+       dialogTitle={"Edit Shop"}
+       selectedShop={selectedShop}
+       onUpdateSuccess={editSuccessHandler}
+       onUpdateFailure={editFailureHandler}
+
+       />
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -91,6 +149,11 @@ const ShopScreen = () => {
           }
         />
       </Snackbar>
+      <AddShopDialog
+        onClose={() => setAddShopDialogOpen(false)}
+        open={addShopDialogOpen}
+        onAdd={addShopHandler}
+      ></AddShopDialog>
     </TableLayout>
   );
 };
