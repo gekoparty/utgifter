@@ -16,7 +16,12 @@ const useShopDialog = (initialShop = null) => {
     initialShop ? initialShop : { ...initialShopState }
   );
 
-  const { sendRequest, loading } = useCustomHttp("/api/shops");
+  const slugifyFields = {
+    POST: ["name", "location", "category"], // Slugify all three fields for POST method
+    PUT: ["name", "location", "category"], // Slugify only the 'name' field for PUT method
+  };
+
+  const { sendRequest, loading } = useCustomHttp("/api/shops", slugifyFields);
   const { dispatch, state, error } = useContext(StoreContext);
 
   const resetServerError = useCallback(() => {
@@ -51,6 +56,8 @@ const useShopDialog = (initialShop = null) => {
     if (!shop.name.trim() || !shop.location.trim() || !shop.category.trim()) {
       return;
     }
+
+    
 
     let formattedShop;
 

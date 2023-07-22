@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import axios from "axios";
 import slugify from "slugify";
 
-const useCustomHttp = (initialUrl) => {
+const useCustomHttp = (initialUrl, slugifyFields = {}) => {
   const [httpState, setHttpState] = useState({
     data: null,
     loading: true,
@@ -25,22 +25,27 @@ const useCustomHttp = (initialUrl) => {
         method,
         cancelToken: source.token,
       };
-
+  
       if (payload) {
-        if (method === "GET") {
-          requestConfig.params = payload;
-        } else if (method === "POST" || method === "PUT") {
-          const slugifiedPayload = {
-            ...payload,
-            name: slugify(payload.name, { lower: true }),
-          };
+        // Check if the component has slugify fields defined
+        const fieldsToSlugify = slugifyFields[method];
+        if (fieldsToSlugify && Array.isArray(fieldsToSlugify)) {
+          // Apply slugify to specified fields in the payload
+          const slugifiedPayload = {};
+          for (const field of fieldsToSlugify) {
+            slugifiedPayload[field] = slugify(payload[field], { lower: true });
+          }
+
+          // Send both original and slugified payloads
           requestConfig.data = {
             originalPayload: payload,
-            slugifiedPayload: slugifiedPayload,
+            slugifiedPayload,
           };
+        } else {
+          // No slugify fields defined, use the original payload
+          requestConfig.params = payload;
         }
       }
-
       const response = await axios.request(requestConfig);
 
       if (response && response.data) {

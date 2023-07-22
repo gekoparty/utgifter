@@ -10,14 +10,17 @@ const formatComponentFields = (name, componentName) => {
     throw new Error(`Component '${componentName}' not found in nameMappings.`);
   }
 
+  const capitalizeWord = (word) => {
+    if (word.length === 0) return ""; // Handle empty word (e.g., multiple hyphens in a row)
+    const hyphenatedWords = word.split("-");
+    const capitalizedWords = hyphenatedWords.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    return capitalizedWords.join("-");
+  };
+
   const formatted = name
-    .toLowerCase()
-    .split("-")
-    .map((word) => {
-      const [firstChar, ...rest] = word;
-      return firstChar.toUpperCase() + rest.join("").toLowerCase();
-    })
-    .join("-");
+    .split(" ")
+    .map(capitalizeWord)
+    .join(" ");
 
   if (fields.length === 1) {
     return formatted; // If only one field, return the formatted string
