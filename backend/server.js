@@ -108,6 +108,49 @@ app.post("/api/shops", async (req, res) => {
   }
 });
 
+app.put("/api/shops/:id", async (req, res) => {
+  const shopId = req.params.id;
+  console.log(req.body);
+
+  try {
+    const { originalPayload, slugifiedPayload } = req.body;
+    const { name, location, category } = originalPayload;
+
+    // Find the shop by its ID
+    const shop = await Shop.findById(shopId);
+
+    if (!shop) {
+      return res.status(404).json({ message: "Shop not found" });
+    }
+
+    // Check if the name already exists (excluding the current shop being updated)
+    const existingShop = await Shop.findOne({ name, _id: { $ne: shopId } });
+    if (existingShop) {
+      return res.status(400).json({ message: "Shop with this name already exists" });
+    }
+
+    // Update the shop fields
+    shop.name = name;
+    shop.location = location;
+    shop.category = category;
+    shop.slugifiedName = slugifiedPayload.name;
+    shop.slugifiedLocation = slugifiedPayload.location;
+    shop.slugifiedCategory = slugifiedPayload.category;
+
+    try {
+      const updatedShop = await shop.save();
+      console.log("Updated shop:", updatedShop); // Add a console.log to check the updated shop object
+      res.status(200).json(updatedShop);
+    } catch (saveError) {
+      console.error("Error saving updated shop:", saveError);
+      res.status(500).json({ message: "Error saving updated shop" });
+    }
+  } catch (error) {
+    console.error("Server error:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 app.delete("/api/shops/:id", async (req, res) => {
   const { id } = req.params;
   console.log(id);
