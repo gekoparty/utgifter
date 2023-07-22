@@ -5,9 +5,14 @@ import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
+const slugifyFields = {
+  POST: ["name"], // Slugify all three fields for POST method
+  PUT: ["name"], // Slugify only the 'name' field for PUT method
+};
+
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
-  const { sendRequest, loading } = useCustomHttp("/api/brands");
+  const { sendRequest, loading } = useCustomHttp("/api/brands", slugifyFields);
   const { dispatch, state } = useContext(StoreContext);
 
   const resetValidationErrors = useCallback(() => {
@@ -98,9 +103,7 @@ const useBrandDialog = (initialBrand = null) => {
         resource: "/api/brands",
         showError: true,
       });
-      
     }
-    
   };
 
   const handleDeleteBrand = async (
@@ -161,8 +164,7 @@ const useBrandDialog = (initialBrand = null) => {
 };
 
 useBrandDialog.propTypes = {
-    initialBrand: PropTypes.object, // initialBrand is optional and should be an object
-  };
-  
+  initialBrand: PropTypes.object, // initialBrand is optional and should be an object
+};
 
 export default useBrandDialog;
