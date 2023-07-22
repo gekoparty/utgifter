@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
+import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../Store/Store";
 import { addShopValidationSchema } from "../../../validation/validationSchema";
 
@@ -51,12 +52,17 @@ const useShopDialog = (initialShop = null) => {
       return;
     }
 
+    let formattedShop;
+
     try {
-      await addShopValidationSchema.validate({
-        name: shop.name,
-        location: shop.location,
-        category: shop.category,
-      });
+      // Format the shop name, location, and category using the formatComponentFields function
+      formattedShop = {
+        name: formatComponentFields(shop.name, "shop").name,
+        location: formatComponentFields(shop.location, "shop").location,
+        category: formatComponentFields(shop.category, "shop").category,
+      };
+      console.log("formatedShop", formattedShop)
+      await addShopValidationSchema.validate(formattedShop);
     } catch (validationError) {
       dispatch({
         type: "SET_VALIDATION_ERRORS",
@@ -67,7 +73,7 @@ const useShopDialog = (initialShop = null) => {
       return;
     }
 
-    const newShop = shop;
+    const newShop = formattedShop;
 
     try {
       let url = "/api/shops";

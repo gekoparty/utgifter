@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
-import { formattedBrandName } from "../../commons/Utils/BrandUtils";
+import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
@@ -50,8 +50,8 @@ const useBrandDialog = (initialBrand = null) => {
       return; // Exit the function if validation fails
     }
 
-    const formattedName = formattedBrandName(brandName);
-    const newBrand = { name: formattedName };
+    const formattedBrandName = formatComponentFields(brandName, "brand");
+    const newBrand = { name: formattedBrandName };
 
     try {
       let url = "/api/brands";
