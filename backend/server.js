@@ -79,18 +79,20 @@ app.post("/api/shops", async (req, res) => {
 
     console.log(originalPayload, slugifiedPayload);
     const { name, location, category } = originalPayload;
+    const slugifiedName = slugifiedPayload.name;
+    const slugifiedLocation = slugifiedPayload.location;
 
-    const existingShop = await Shop.findOne({ name });
+    const existingShop = await Shop.findOne({ slugifiedName, slugifiedLocation });
     if (existingShop) {
-      return res.status(400).json({ message: "Shop already exists" });
+      return res.status(400).json({ message: "duplicate" });
     }
 
     const shop = new Shop({
       name,
       location,
       category,
-      slugifiedName: slugifiedPayload.name,
-      slugifiedLocation: slugifiedPayload.location,
+      slugifiedName,
+      slugifiedLocation,
       slugifiedCategory: slugifiedPayload.category,
     });
 
@@ -124,9 +126,13 @@ app.put("/api/shops/:id", async (req, res) => {
     }
 
     // Check if the name already exists (excluding the current shop being updated)
-    const existingShop = await Shop.findOne({ name, _id: { $ne: shopId } });
+    const existingShop = await Shop.findOne({
+      slugifiedName: slugifiedPayload.name,
+      slugifiedLocation: slugifiedPayload.location,
+      _id: { $ne: shopId }
+    });
     if (existingShop) {
-      return res.status(400).json({ message: "Shop with this name already exists" });
+      return res.status(400).json({ message: "duplicate" });
     }
 
     // Update the shop fields
