@@ -37,7 +37,7 @@ const DeleteShopDialog = ({
         }
         >
             {selectedShop && (
-        <Typography component="p">
+        <Typography component="p" marginTop={2}>
           Er du sikker på at du vil slette denne butikken, utgifter tilhørende{" "}
           <Typography component="span" fontWeight="bold">
             "{selectedShop.name}"

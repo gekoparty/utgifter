@@ -23,7 +23,7 @@ const ErrorHandling = ({ resource, loading, field }) => {
         </div>
       ) : (
         showError && (displayError || validationError?.message) && (
-          <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
+          <Typography sx={{ marginTop: 1, fontSize: "0.8rem"}} variant="body1" color="error">
             {displayError || validationError?.message}
           </Typography>
         )

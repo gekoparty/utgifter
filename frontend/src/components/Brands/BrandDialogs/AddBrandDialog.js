@@ -53,7 +53,8 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
       }
     >
       <TextField
-        sx={{ marginTop: 1 }}
+      size="small"
+        sx={{ marginTop: 2 }}
         label="Merke"
         value={brandName}
         error={Boolean(validationError)}

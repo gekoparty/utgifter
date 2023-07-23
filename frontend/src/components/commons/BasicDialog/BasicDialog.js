@@ -5,6 +5,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Grid
 } from "@mui/material";
 
 const BasicDialog = ({ open, onClose, children, cancelButton, confirmButton, dialogTitle }) => {
@@ -16,7 +17,9 @@ const BasicDialog = ({ open, onClose, children, cancelButton, confirmButton, dia
     <Dialog open={open} onClose={handleClose}>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
+      <Grid container direction="column" spacing={1}>
         {children}
+        </Grid>
       </DialogContent>
       <DialogActions>
         {cancelButton}

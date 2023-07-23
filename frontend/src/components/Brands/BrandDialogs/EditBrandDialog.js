@@ -62,7 +62,8 @@ const EditBrandDialog = ({
       }
     >
       <TextField
-        sx={{ marginTop: 1 }}
+        sx={{ marginTop: 2 }}
+        size="small"
         label="Brand Name"
         value={brandName}
         error={Boolean(validationError)}
