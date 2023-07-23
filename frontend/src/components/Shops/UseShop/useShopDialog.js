@@ -60,6 +60,7 @@ const useShopDialog = (initialShop = null) => {
     
 
     let formattedShop;
+    let validationErrors = {};
 
     try {
       // Format the shop name, location, and category using the formatComponentFields function
@@ -69,12 +70,18 @@ const useShopDialog = (initialShop = null) => {
         category: formatComponentFields(shop.category, "shop").category,
       };
       console.log("formatedShop", formattedShop)
-      await addShopValidationSchema.validate(formattedShop);
+      await addShopValidationSchema.validate(formattedShop, {
+        abortEarly: false, // This ensures Yup collects all field errors
+      });
     } catch (validationError) {
+      validationError.inner.forEach((err) => {
+        validationErrors[err.path] = { show: true, message: err.message };
+      });
+      console.log("Field-specific errors:", validationErrors);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "shops",
-        validationErrors: validationError.message,
+        validationErrors: { ...state.validationErrors?.shops, ...validationErrors},
         showError: true,
       });
       return;

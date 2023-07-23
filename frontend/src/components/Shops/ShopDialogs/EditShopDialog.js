@@ -71,6 +71,9 @@ const EditShopDialog = ({
               resetServerError(); // Clear validation errors when input changes
             }}
           />
+          {displayError || validationError ? (
+        <ErrorHandling resource="shops" field="name" loading={loading} />
+      ) : null}   
         </Grid>
         <Grid item>
           <TextField
@@ -83,6 +86,9 @@ const EditShopDialog = ({
               resetServerError(); // Clear validation errors when input changes
             }}
           />
+          {displayError || validationError ? (
+        <ErrorHandling resource="shops" field="location" loading={loading} />
+      ) : null}   
         </Grid>
         <Grid item>
           <TextField
@@ -95,11 +101,12 @@ const EditShopDialog = ({
               resetServerError(); // Clear validation errors when input changes
             }}
           />
+          {displayError || validationError ? (
+        <ErrorHandling resource="shops" field="category" loading={loading} />
+      ) : null}  
         </Grid>
       </Grid>
-      {displayError || validationError ? (
-        <ErrorHandling resource="shops" loading={loading} />
-      ) : null}   
+      
     </BasicDialog>
   );
 };

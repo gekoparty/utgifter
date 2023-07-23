@@ -73,7 +73,7 @@ const EditBrandDialog = ({
         }}
       />
       {displayError || validationError ? (
-        <ErrorHandling resource="brands" loading={loading} />
+        <ErrorHandling resource="brands" field="brandName" loading={loading} />
       ) : null}
     </BasicDialog>
   );

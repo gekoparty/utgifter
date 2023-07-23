@@ -48,9 +48,10 @@ const useBrandDialog = (initialBrand = null) => {
     } catch (validationError) {
       dispatch({
         type: "SET_VALIDATION_ERRORS",
-        resource: "brands",
-        validationErrors: { brandName: validationError.message },
-        showError: true,
+    resource: "brands",
+    validationErrors: { brandName: { show: true, message: "Navnet må være minst 2 tegn" } },
+    showError: true,
+
       });
       return; // Exit the function if validation fails
     }
