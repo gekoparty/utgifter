@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Category from "./models/CategorySchema.js";
 import Shop from "./models/shopSchema.js";
 import Brand from "./models/brandSchema.js";
+import Location from "./models/locationScema.js";
 
 const port = process.env.PORT || 5000;
 const app = express();
@@ -47,6 +48,8 @@ app.post("/api/categories", async (req, res) => {
   }
 });
 
+
+
 app.delete("/api/categories/:id", async (req, res) => {
   const { id } = req.params;
   console.log(id);
@@ -59,6 +62,16 @@ app.delete("/api/categories/:id", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/locations", async (req, res) => {
+  try {
+    const locations = await Location.find();
+    res.json(locations);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
   }
 });
 

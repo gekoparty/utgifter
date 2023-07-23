@@ -40,8 +40,8 @@ export const mainNavbarItems = [
     {
         id: 5,
         icon: <SettingsEthernetIcon />,
-        label: 'dummy',
-        route: 'dummy',
+        label: 'Steder',
+        route: 'locations',
     },
     {
         id: 6,
