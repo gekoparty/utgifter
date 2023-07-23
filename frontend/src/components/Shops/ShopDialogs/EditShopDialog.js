@@ -61,7 +61,8 @@ const EditShopDialog = ({
      <Grid container direction="column" spacing={1}>
         <Grid item>
           <TextField
-            sx={{ marginTop: 1 }}
+            sx={{ marginTop: 2 }}
+            size="small"
             label="Butikk"
             value={shop?.name || ""} // Use optional chaining and provide a default value
             error={Boolean(validationError?.name)} // Use optional chaining
@@ -78,6 +79,7 @@ const EditShopDialog = ({
         <Grid item>
           <TextField
             label="Sted"
+            size="small"
             value={shop?.location || ""} // Use optional chaining and provide a default value
             error={Boolean(validationError?.location)} // Use optional chaining
             onChange={(e) => {
@@ -92,6 +94,7 @@ const EditShopDialog = ({
         </Grid>
         <Grid item>
           <TextField
+          size="small"
             label="Kategori"
             value={shop?.category || ""} // Use optional chaining and provide a default value
             error={Boolean(validationError?.category)} // Use optional chaining

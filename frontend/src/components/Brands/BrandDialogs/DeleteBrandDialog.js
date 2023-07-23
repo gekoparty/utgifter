@@ -38,7 +38,7 @@ const DeleteBrandDialog = ({
       }
     >
       {selectedBrand && (
-        <Typography component="p">
+        <Typography component="p" marginTop={2}>
           Er du sikker på at du vil slette dette merket, utgifter tilhørende{" "}
           <Typography component="span" fontWeight="bold">
             "{selectedBrand.name}"
