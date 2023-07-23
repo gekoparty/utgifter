@@ -4,16 +4,16 @@ import { Typography } from "@mui/material";
 import { StoreContext } from "../../../Store/Store";
 import CircularProgress from "@mui/material/CircularProgress";
 
-const ErrorHandling = ({ resource, loading }) => {
+const ErrorHandling = ({ resource, loading, field }) => {
   const { state } = useContext(StoreContext);
   const { error, showError, validationErrors } = state;
 
   const displayError = error?.[resource];
-  const validationError = validationErrors?.[resource]?.brandName
+  const validationError = validationErrors?.[resource]?.[field];
 
   
   console.log("Display error:", displayError);
-  console.log(validationError)
+  console.log(state)
 
   return (
     <div>
@@ -22,9 +22,9 @@ const ErrorHandling = ({ resource, loading }) => {
           <CircularProgress />
         </div>
       ) : (
-        showError && (displayError || validationError) && (
+        showError && (displayError || validationError?.message) && (
           <Typography sx={{ marginTop: 1 }} variant="body1" color="error">
-            {displayError || validationError}
+            {displayError || validationError?.message}
           </Typography>
         )
       )}
@@ -34,6 +34,7 @@ const ErrorHandling = ({ resource, loading }) => {
 
 ErrorHandling.propTypes = {
   resource: PropTypes.string.isRequired,
+  field: PropTypes.string.isRequired,
   loading: PropTypes.bool.isRequired,
 };
 
