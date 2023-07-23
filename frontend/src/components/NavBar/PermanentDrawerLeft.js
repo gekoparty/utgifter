@@ -28,7 +28,7 @@ export default function PermanentDrawerLeft() {
       >
         <Toolbar>
           <Typography variant="h6" noWrap component="div">
-            Permanent drawer
+            Utgifter/Inntekter
           </Typography>
         </Toolbar>
       </AppBar>

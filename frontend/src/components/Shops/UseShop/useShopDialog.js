@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState, useEffect } from "react";
+import { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
@@ -22,7 +22,7 @@ const useShopDialog = (initialShop = null) => {
   };
 
   const { sendRequest, loading } = useCustomHttp("/api/shops", slugifyFields);
-  const { dispatch, state, error } = useContext(StoreContext);
+  const { dispatch, state } = useContext(StoreContext);
 
   const resetServerError = useCallback(() => {
     dispatch({
@@ -42,6 +42,7 @@ const useShopDialog = (initialShop = null) => {
     setShop(initialShop ? initialShop : initialShopState);
     resetServerError();
     resetValidationErrors();
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialShop, resetServerError, resetValidationErrors]);
 
   useEffect(() => {

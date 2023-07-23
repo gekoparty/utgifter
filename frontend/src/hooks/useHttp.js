@@ -72,6 +72,7 @@ const useCustomHttp = (initialUrl, slugifyFields = {}) => {
     } finally {
       source.cancel();
     }
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

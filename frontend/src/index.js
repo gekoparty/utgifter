@@ -10,6 +10,7 @@ import Categories from "./screens/Categories";
 import Expenses from "./screens/Expenses";
 import ShopScreen from './screens/ShopScreen';
 import BrandScreen from "./screens/BrandScreen";
+import LocationScreen from './screens/LocationScreen'
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
@@ -22,6 +23,7 @@ root.render(
             <Route path="expenses" element={<Expenses />} />
             <Route path="shops" element={<ShopScreen />} />
             <Route path="brands" element={<BrandScreen />} />
+            <Route path="locations" element={<LocationScreen />} />
           </Route>
         </Routes>
       </BrowserRouter>

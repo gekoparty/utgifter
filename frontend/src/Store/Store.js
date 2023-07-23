@@ -6,6 +6,7 @@ const initialState = {
   shops: [
       ],
   brands: [],
+  locations: [],
   categories: [
     { _id: "1", name: "Category 1" },
     { _id: "2", name: "Category 2" },
@@ -31,6 +32,10 @@ const errorMessageMap = {
     duplicate: "Denne butikken eksisterer allerede",
     server: "Noe gikk galt, prøv igjen",
   },
+  locations: {
+    duplicate: "Denne butikken eksisterer allerede",
+    server: "Noe gikk galt, prøv igjen",
+  }
 };
 
 // Define the updatedErrorState outside the reducer
