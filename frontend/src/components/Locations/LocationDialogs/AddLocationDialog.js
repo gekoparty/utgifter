@@ -37,7 +37,7 @@ const AddLocationDialog = ({ open,onClose, onAdd }) => {
         resetFormAndErrors();
         onClose(); // Close the dialog after resetting the form and errors
       }}
-      dialogTitle="Nytt Merke"
+      dialogTitle="Nytt sted"
       confirmButton={
         <Button onClick={handleAddLocation} disabled={loading || !isFormValid()}>
           {loading ? <CircularProgress size={24} /> : "Lagre"}
@@ -55,7 +55,7 @@ const AddLocationDialog = ({ open,onClose, onAdd }) => {
       <TextField
       size="small"
         sx={{ marginTop: 2 }}
-        label="Merke"
+        label="Sted"
         value={locationName}
         error={Boolean(validationError)}
         onChange={(e) => {

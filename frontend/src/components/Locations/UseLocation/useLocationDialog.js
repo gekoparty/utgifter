@@ -12,7 +12,10 @@ const slugifyFields = {
 
 const useLocationDialog = (initialLocation = null) => {
   const [locationName, setLocationName] = useState(initialLocation?.name || "");
-  const { sendRequest, loading } = useCustomHttp("/api/locations", slugifyFields);
+  const { sendRequest, loading } = useCustomHttp(
+    "/api/locations",
+    slugifyFields
+  );
   const { dispatch, state } = useContext(StoreContext);
 
   const resetValidationErrors = useCallback(() => {
@@ -25,7 +28,7 @@ const useLocationDialog = (initialLocation = null) => {
 
   const resetFormAndErrors = useCallback(() => {
     setLocationName(initialLocation?.name || "");
-    dispatch({ type: "RESET_ERROR", resource: "location" });
+    dispatch({ type: "RESET_ERROR", resource: "locations" });
     resetValidationErrors();
   }, [dispatch, initialLocation, resetValidationErrors]);
 
@@ -43,20 +46,27 @@ const useLocationDialog = (initialLocation = null) => {
     }
 
     try {
+
+      console.log("Location name before validation:", locationName);
       await addLocationValidationSchema.validate({ locationName });
-      resetValidationErrors();
+      //resetValidationErrors();
     } catch (validationError) {
+      console.log("Validation failed!", validationError);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
-    resource: "location",
-    validationErrors: { locationName: { show: true, message: "Navnet må være minst 2 tegn" } },
-    showError: true,
-
+        resource: "locations",
+        validationErrors: {
+          locationName: { show: true, message: "Navnet må være minst 2 tegn" },
+        },
+        showError: true,
       });
       return; // Exit the function if validation fails
     }
 
-    const formattedLocationName = formatComponentFields(locationName, "location");
+    const formattedLocationName = formatComponentFields(
+      locationName,
+      "location"
+    );
     const newLocation = { name: formattedLocationName };
 
     try {

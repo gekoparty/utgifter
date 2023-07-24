@@ -75,6 +75,83 @@ app.get("/api/locations", async (req, res) => {
   }
 });
 
+app.post("/api/locations", async (req, res) => {
+  console.log(req.body);
+  try {
+    const { originalPayload, slugifiedPayload } = req.body;
+    const name = originalPayload.name;
+    const slug = slugifiedPayload.name;
+
+    const existingLocation = await Location.findOne({ slug });
+    if (existingLocation) {
+      return res.status(400).json({ message: "duplicate" });
+    }
+
+    const location = new Location({
+      name,
+      slug, // Save the slug to the database
+    });
+
+    await location.save();
+    res.status(201).json(location);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+app.delete("/api/locations/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const location = await Location.findByIdAndDelete(req.params.id);
+    if (!location) {
+      return res.status(404).send({ error: "Location not found" });
+    }
+    res.send(location);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+app.put("/api/locations/:id", async (req, res) => {
+  const { id } = req.params;
+  const { originalPayload, slugifiedPayload } = req.body;
+
+  try {
+    // Check if the slug already exists for a different brand
+    const existingLocationWithSlug = await Location.findOne({
+      slug: slugifiedPayload.name,
+      _id: { $ne: id }, // Exclude the current brand from the check
+    });
+
+    if (existingLocationWithSlug) {
+      return res.status(400).json({ message: "duplicate" });
+    }
+
+    const location = await Location.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          name: originalPayload.name,
+          slug: slugifiedPayload.name,
+        },
+      },
+      { new: true }
+    );
+
+    if (!location) {
+      return res.status(404).send({ error: "Location not found" });
+    }
+
+    res.send(location);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/shops", async (req, res) => {
   try {
     const shops = await Shop.find();
