@@ -13,7 +13,7 @@ const ErrorHandling = ({ resource, loading, field }) => {
 
   
   console.log("Display error:", displayError);
-  console.log(state)
+  console.log(validationError)
 
   return (
     <div>

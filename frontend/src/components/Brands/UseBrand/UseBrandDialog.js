@@ -44,7 +44,6 @@ const useBrandDialog = (initialBrand = null) => {
 
     try {
       await addBrandValidationSchema.validate({ brandName });
-      resetValidationErrors();
     } catch (validationError) {
       dispatch({
         type: "SET_VALIDATION_ERRORS",
