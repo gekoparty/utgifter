@@ -10,17 +10,14 @@ const shopSchema = new mongoose.Schema(
       maxlength: 50
     },
     location: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location", // Reference the 'Location' model
     },
     category: {
       type: String,
       required: true,
     },
     slugifiedName: {
-      type: String,
-      required: true,
-    },
-    slugifiedLocation: {
       type: String,
       required: true,
     },
@@ -46,8 +43,7 @@ const shopSchema = new mongoose.Schema(
   }
 );
 
-shopSchema.index({ slugifiedName: 1, slugifiedLocation: 1 }, { unique: true });
-shopSchema.index({ name: 1, location: 1 }, { unique: true });
+shopSchema.index({ slugifiedName: 1, location: 1 }, { unique: true });
 
 const Shop = mongoose.model("Shop", shopSchema);
 

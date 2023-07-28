@@ -20,7 +20,8 @@ import EditShopDialog from "../components/Shops/ShopDialogs/EditShopDialog";
 const tableHeaders = ["Name", "Location", "Category", "Delete", "Edit"];
 
 const ShopScreen = () => {
-  const { loading, error, data: shopsData } = useCustomHttp("/api/shops");
+  const { loading: shopLoading, data: shopsData } = useCustomHttp("/api/shops");
+  const { loading: locationLoading, data: locationsData } = useCustomHttp("/api/locations");
   const { state, dispatch } = useContext(StoreContext);
   const { shops } = state;
 
@@ -28,6 +29,10 @@ const ShopScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [shopsWithLocationName, setShopsWithLocationName] = useState([]);
+   // New state variable
+  
+  console.log(state)
 
   const memoizedTableHeaders = useMemo(() => tableHeaders, []);
 
@@ -40,15 +45,46 @@ const ShopScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  useEffect(()=> {
-    if(shopsData) {
+  
+
+  useEffect(() => {
+    if (shopsData) {
       dispatch({
         type: "FETCH_SUCCESS",
         resource: "shops",
-        payload: shopsData
-      })
+        payload: shopsData,
+      });
     }
-  },[shopsData, dispatch])
+  }, [shopsData, dispatch]);
+
+  useEffect(() => {
+    // Fetch locations and dispatch the action when locationsData is available
+    if (locationsData) {
+      dispatch({
+        type: "FETCH_SUCCESS",
+        resource: "locations",
+        payload: locationsData,
+      });
+    }
+  }, [locationsData, dispatch]);
+
+  // Function to get location name by ID
+  const getLocationNameById = (locationId) => {
+    const location = locationsData.find((location) => location._id === locationId);
+    return location ? location.name : "";
+  };
+
+  useEffect(() => {
+    if (shops) {
+      const updatedShopsWithLocation = shops.map((shop) => ({
+        ...shop,
+        location: shop.location ? shop.location.name : "", // Get the name directly from the shop data
+      }));
+      setShopsWithLocationName(updatedShopsWithLocation);
+    }
+  }, [shops]);
+
+  
 
   const addShopHandler = (newShop) => {
     showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`)
@@ -70,9 +106,11 @@ const ShopScreen = () => {
     showSuccessSnackbar(`Shop ${selectedShop.name} updated succesfully`)
   }
 
-  if(loading || shops === null) {
-    return <div>Loading....</div>
+  if (shopLoading || shops === null) {
+    return <div>Loading....</div>;
   }
+
+  
 
   return (
     <TableLayout>
@@ -90,7 +128,7 @@ const ShopScreen = () => {
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}></Box>
       </Box>
       <CustomTable
-        data={shops}
+        data={shopsWithLocationName} 
         headers={memoizedTableHeaders}
         onDelete={(shop) => {
           setSelectedShop(shop);
@@ -107,7 +145,7 @@ const ShopScreen = () => {
         onClose={() => setDeleteModalOpen(false)}
         dialogTitle="Confirm Deletion"
         cancelButton={
-          <Button onClick={()=> deleteModalOpen(false)}>Cancel</Button>
+          <Button onClick={()=> setDeleteModalOpen(false)}>Cancel</Button>
         }
         selectedShop={selectedShop}
         onDeleteSuccess={deleteSuccessHandler}
