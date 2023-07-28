@@ -1,6 +1,7 @@
 import { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
+import useLocationDialog from "../../Locations/UseLocation/useLocationDialog";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../Store/Store";
 import { addShopValidationSchema } from "../../../validation/validationSchema";
@@ -23,6 +24,7 @@ const useShopDialog = (initialShop = null) => {
 
   const { sendRequest, loading } = useCustomHttp("/api/shops", slugifyFields);
   const { dispatch, state } = useContext(StoreContext);
+  const { loading: locationLoading, locations } = useLocationDialog();
 
   const resetServerError = useCallback(() => {
     dispatch({
@@ -42,7 +44,7 @@ const useShopDialog = (initialShop = null) => {
     setShop(initialShop ? initialShop : initialShopState);
     resetServerError();
     resetValidationErrors();
-     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialShop, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
@@ -58,8 +60,6 @@ const useShopDialog = (initialShop = null) => {
       return;
     }
 
-    
-
     let formattedShop;
     let validationErrors = {};
 
@@ -70,7 +70,7 @@ const useShopDialog = (initialShop = null) => {
         location: formatComponentFields(shop.location, "shop").location,
         category: formatComponentFields(shop.category, "shop").category,
       };
-      console.log("formatedShop", formattedShop)
+      console.log("formatedShop", formattedShop);
       await addShopValidationSchema.validate(formattedShop, {
         abortEarly: false, // This ensures Yup collects all field errors
       });
@@ -82,7 +82,10 @@ const useShopDialog = (initialShop = null) => {
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "shops",
-        validationErrors: { ...state.validationErrors?.shops, ...validationErrors},
+        validationErrors: {
+          ...state.validationErrors?.shops,
+          ...validationErrors,
+        },
         showError: true,
       });
       return;
@@ -116,9 +119,22 @@ const useShopDialog = (initialShop = null) => {
         });
       } else {
         const payload = data;
+        console.log(data);
         if (initialShop) {
           dispatch({ type: "UPDATE_ITEM", resource: "shops", payload });
         } else {
+          // For new shops, add the location to the store if it doesn't exist
+          const existingLocation = state.locations.find(
+            (loc) => loc.name === newShop.location
+          );
+          if (!existingLocation) {
+            dispatch({
+              type: "ADD_ITEM",
+              resource: "locations",
+              payload: newShop.location,
+            });
+          }
+
           dispatch({ type: "ADD_ITEM", resource: "shops", payload });
           setShop({});
         }
@@ -143,20 +159,22 @@ const useShopDialog = (initialShop = null) => {
     onDeleteFailure
   ) => {
     try {
-      const response = await sendRequest(`/api/shops/${selectedShop?._id}`, "DELETE")
-      if(response.error) {
-        console.log("error deleting shop", response.error)
-        onDeleteFailure(selectedShop)
-        return false
+      const response = await sendRequest(
+        `/api/shops/${selectedShop?._id}`,
+        "DELETE"
+      );
+      if (response.error) {
+        console.log("error deleting shop", response.error);
+        onDeleteFailure(selectedShop);
+        return false;
       } else {
-        console.log("Delete success", selectedShop)
-        onDeleteSuccess(selectedShop)
+        console.log("Delete success", selectedShop);
+        onDeleteSuccess(selectedShop);
         dispatch({
           type: "DELETE_ITEM",
           resource: "shops",
-          payload: selectedShop._id
-
-        })
+          payload: selectedShop._id,
+        });
         return true;
       }
     } catch (error) {
@@ -192,6 +210,8 @@ const useShopDialog = (initialShop = null) => {
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
+    locationLoading,
+    locations,
   };
 };
 

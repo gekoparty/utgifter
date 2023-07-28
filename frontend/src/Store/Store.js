@@ -57,20 +57,17 @@ const getUpdatedErrorState = (state, action) => {
 const reducer = (state, action) => {
   switch (action.type) {
     case "FETCH_REQUEST":
-      console.log("FETCH_REQUEST action dispatched");
       return { ...state, loading: true, error: {} };
     case "FETCH_SUCCESS":
-      console.log("Brands:", action.payload);
+      
       return { ...state, loading: false, [action.resource]: action.payload };
     case "FETCH_FAILURE":
       return { ...state, loading: false, error: action.payload };
     case "ADD_ITEM":
-      console.log("Data coming from ADD_ITEM:", action.payload);
       const updatedItems = [...state[action.resource], action.payload];
       console.log("Updated", action.resource, "Array:", updatedItems);
       return { ...state, [action.resource]: updatedItems };
     case "DELETE_ITEM":
-      console.log("Deleting item:", action.payload);
       return {
         ...state,
         [action.resource]: state[action.resource].filter(
@@ -78,7 +75,6 @@ const reducer = (state, action) => {
         ),
       };
     case "UPDATE_ITEM":
-      console.log("Updating item:", action.payload);
       return {
         ...state,
         [action.resource]: state[action.resource].map((item) =>
@@ -88,7 +84,7 @@ const reducer = (state, action) => {
     case "SET_ERROR":
       const updatedErrorState = getUpdatedErrorState(state, action);
 
-      console.log(updatedErrorState);
+      
 
       return {
         ...state,
