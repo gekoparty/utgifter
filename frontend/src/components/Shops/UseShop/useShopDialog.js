@@ -59,25 +59,19 @@ const useShopDialog = (initialShop = null) => {
     if (!shop.name.trim() || !shop.location.trim() || !shop.category.trim()) {
       return;
     }
-
+  
     let formattedShop;
     let validationErrors = {};
-
+  
     try {
-
-      const originalLocation = initialShop?.location?.name || ''; 
       // Format the shop name, location, and category using the formatComponentFields function
       formattedShop = {
+        ...shop,
         name: formatComponentFields(shop.name, "shop").name,
-        category: formatComponentFields(shop.category, "shop").category,
-        location: originalLocation === shop.location ? originalLocation : shop.location, // Only update the location if it's changed
+        location: formatComponentFields(shop.location, "shop").name,
+        category: formatComponentFields(shop.category, "shop").name,
       };
-
-      if (shop.location && typeof shop.location === "object") {
-        formattedShop.location = shop.location.name;
-      }
-
-      console.log("formatedShop", formattedShop);
+  
       await addShopValidationSchema.validate(formattedShop, {
         abortEarly: false, // This ensures Yup collects all field errors
       });
@@ -97,26 +91,32 @@ const useShopDialog = (initialShop = null) => {
       });
       return;
     }
-
+  
     const newShop = formattedShop;
-
+  
     try {
       let url = "/api/shops";
       let method = "POST";
-
+  
       if (initialShop) {
         url = `/api/shops/${initialShop._id}`;
         method = "PUT";
+      } else {
+        if (initialShop === undefined) {
+          formattedShop.location = shop.location;
+        } else {
+          formattedShop.location = formatComponentFields(shop.location, "shop").name;
+        }
       }
-
+  
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
         newShop
       );
-
+  
       console.log("Response from the server:", data);
-
+  
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
@@ -141,7 +141,7 @@ const useShopDialog = (initialShop = null) => {
               payload: newShop.location,
             });
           }
-
+  
           dispatch({ type: "ADD_ITEM", resource: "shops", payload });
           setShop({});
         }
