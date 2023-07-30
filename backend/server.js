@@ -164,8 +164,6 @@ app.post("/api/shops", async (req, res) => {
   console.log(req.body);
   try {
     const { originalPayload, slugifiedPayload } = req.body;
-
-    console.log(originalPayload, slugifiedPayload);
     const { name, location, category } = originalPayload;
     let locationId = location; // Use the existing locationId parameter
 
@@ -191,27 +189,21 @@ app.post("/api/shops", async (req, res) => {
     const slugifiedName = slugifiedPayload.name;
     const slugifiedLocation = slugifiedPayload.location;
 
-    const existingLocation = await Location.findOne({
-      slug: slugifiedPayload.location
-    });
-
-    if (!existingLocation) {
-      const newLocation = new Location({
-        name: originalPayload.location,
-        slug: slugifiedLocation,
-      });
-      const savedLocation = await newLocation.save();
-      locationId = savedLocation._id; // Reassign the locationId using let
-    } else {
-      locationId = existingLocation._id; // Reassign the locationId using let
-    }
-
+    // Check if a shop with the same name already exists
     const existingShop = await Shop.findOne({
       slugifiedName,
-      location: locationId, // Use the locationId variable here
     });
+
     if (existingShop) {
-      return res.status(400).json({ message: "duplicate" });
+      // Check if the shop with the same name and location already exists
+      const existingShopWithLocation = await Shop.findOne({
+        slugifiedName,
+        location: locationId,
+      });
+
+      if (existingShopWithLocation) {
+        return res.status(400).json({ message: "duplicate" });
+      }
     }
 
     const shop = new Shop({
