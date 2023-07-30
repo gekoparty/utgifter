@@ -64,12 +64,19 @@ const useShopDialog = (initialShop = null) => {
     let validationErrors = {};
 
     try {
+
+      const originalLocation = initialShop?.location?.name || ''; 
       // Format the shop name, location, and category using the formatComponentFields function
       formattedShop = {
         name: formatComponentFields(shop.name, "shop").name,
-        location: formatComponentFields(shop.location, "shop").location,
         category: formatComponentFields(shop.category, "shop").category,
+        location: originalLocation === shop.location ? originalLocation : shop.location, // Only update the location if it's changed
       };
+
+      if (shop.location && typeof shop.location === "object") {
+        formattedShop.location = shop.location.name;
+      }
+
       console.log("formatedShop", formattedShop);
       await addShopValidationSchema.validate(formattedShop, {
         abortEarly: false, // This ensures Yup collects all field errors
