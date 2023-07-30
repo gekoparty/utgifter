@@ -169,11 +169,30 @@ app.post("/api/shops", async (req, res) => {
     const { name, location, category } = originalPayload;
     let locationId = location; // Use the existing locationId parameter
 
+    // Check if the location is provided as a string (name) instead of a reference
+    if (typeof location === "string") {
+      const existingLocation = await Location.findOne({
+        slug: slugifiedPayload.location,
+      });
+
+      if (!existingLocation) {
+        const newLocation = new Location({
+          name: originalPayload.location,
+          slug: slugifiedPayload.location,
+        });
+
+        const savedLocation = await newLocation.save();
+        locationId = savedLocation._id; // Reassign the locationId using let
+      } else {
+        locationId = existingLocation._id; // Reassign the locationId using let
+      }
+    }
+
     const slugifiedName = slugifiedPayload.name;
     const slugifiedLocation = slugifiedPayload.location;
 
     const existingLocation = await Location.findOne({
-      slug: slugifiedLocation,
+      slug: slugifiedPayload.location
     });
 
     if (!existingLocation) {
@@ -246,9 +265,22 @@ app.put("/api/shops/:id", async (req, res) => {
       return res.status(400).json({ message: "duplicate" });
     }
 
+    // If the location exists, use its ObjectId; otherwise, create a new location
+    let locationObjectId;
+    const existingLocation = await Location.findOne({ name: location });
+
+    if (existingLocation) {
+      locationObjectId = existingLocation._id;
+    } else {
+      // Create a new location
+      const newLocation = new Location({ name: location, slug: slugifiedPayload.location });
+      const savedLocation = await newLocation.save();
+      locationObjectId = savedLocation._id;
+    }
+
     // Update the shop fields
     shop.name = name;
-    shop.location = location;
+    shop.location = locationObjectId;
     shop.category = category;
     shop.slugifiedName = slugifiedPayload.name;
     shop.slugifiedLocation = slugifiedPayload.location;
@@ -257,7 +289,10 @@ app.put("/api/shops/:id", async (req, res) => {
     try {
       const updatedShop = await shop.save();
       console.log("Updated shop:", updatedShop); // Add a console.log to check the updated shop object
-      res.status(200).json(updatedShop);
+      // Fetch the updated shop data along with the associated location data using populate
+      const populatedShop = await Shop.findById(updatedShop._id).populate("location").exec();
+
+      res.status(200).json(populatedShop);
     } catch (saveError) {
       console.error("Error saving updated shop:", saveError);
       res.status(500).json({ message: "Error saving updated shop" });

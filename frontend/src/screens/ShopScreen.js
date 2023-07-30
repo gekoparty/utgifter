@@ -68,11 +68,7 @@ const ShopScreen = () => {
     }
   }, [locationsData, dispatch]);
 
-  // Function to get location name by ID
-  const getLocationNameById = (locationId) => {
-    const location = locationsData.find((location) => location._id === locationId);
-    return location ? location.name : "";
-  };
+
 
   useEffect(() => {
     if (shops) {
