@@ -30,15 +30,22 @@ app.get("/api/categories", async (req, res) => {
 });
 
 app.post("/api/categories", async (req, res) => {
+  console.log(req.body);
   try {
-    const category = new Category({
-      name: req.body.name,
-    });
+    const { originalPayload, slugifiedPayload } = req.body;
+    const name = originalPayload.name;
+    const slug = slugifiedPayload.name;
 
-    const existingCategory = await Category.findOne({ name: req.body.name });
+    const existingCategory = await Category.findOne({ slug });
     if (existingCategory) {
-      return res.status(400).json({ message: "Category already exists" });
+      return res.status(400).json({ message: "duplicate" });
     }
+
+    const category = new Category
+    ({
+      name,
+      slug, // Save the slug to the database
+    });
 
     await category.save();
     res.status(201).json(category);

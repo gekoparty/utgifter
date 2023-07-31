@@ -7,11 +7,7 @@ const initialState = {
       ],
   brands: [],
   locations: [],
-  categories: [
-    { _id: "1", name: "Category 1" },
-    { _id: "2", name: "Category 2" },
-    { _id: "3", name: "Category 3" },
-  ],
+  categories: [],
   loading: false,
   error: {},
   errorMessage: {},

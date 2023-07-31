@@ -175,7 +175,7 @@ const useLocationDialog = (initialLocation = null) => {
 };
 
 useLocationDialog.propTypes = {
-  initialBrand: PropTypes.object, // initialBrand is optional and should be an object
+  initialLocation: PropTypes.object, // initialBrand is optional and should be an object
 };
 
 export default useLocationDialog;

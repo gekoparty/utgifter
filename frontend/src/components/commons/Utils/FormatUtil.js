@@ -2,7 +2,8 @@ const formatComponentFields = (name, componentName) => {
   const nameMappings = {
     shop: ["name", "location", "category"],
     brand: ["name"],
-    location: ["name"]
+    location: ["name"],
+    category: ["name"]
     // Add more components and their corresponding fields here if needed
   };
 
