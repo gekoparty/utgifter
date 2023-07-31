@@ -16,6 +16,14 @@ export const addBrandValidationSchema = Yup.object().shape({
       .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
   });
 
+  export const addCategoryValidationSchema = Yup.object().shape({
+    categoryName: Yup.string()
+      .required("Navn kan ikke være tomt")
+      .min(2, "Navnet må være minst 2 tegn")
+      .max(20, "Maks 20 tegn")
+      .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
+  });
+
   export const addShopValidationSchema = Yup.object().shape({
     name: Yup.string()
       .required("Navn kan ikke være tomy")
