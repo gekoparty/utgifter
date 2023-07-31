@@ -19,11 +19,15 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useShopDialog();
 
-  const handleAddShop = async () => {
-    // Call the handleSaveBrand function from the hook to save the new brand
-    const success = await handleSaveShop(onClose);
-    if (success) {
-      onAdd({ name: shop.name }); // Trigger the onAdd function to show the success snackbar with the shop name
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent the default form submission behavior
+
+    // Call the handleSaveShop function from the hook to save the new shop
+    if (isFormValid()) {
+      const success = await handleSaveShop(onClose);
+      if (success) {
+        onAdd({ name: shop.name }); // Trigger the onAdd function to show the success snackbar with the shop name
+      }
     }
   };
 
@@ -35,74 +39,74 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
         onClose(); // Close the dialog after resetting the form and errors
       }}
       dialogTitle="Ny Butikk"
-      confirmButton={
-        <Button onClick={handleAddShop} disabled={loading || !isFormValid()}>
-          {loading ? <CircularProgress size={24} /> : "Lagre"}
-        </Button>
-      }
-      cancelButton={
-        <Button
-          onClick={() => {
-            resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-            onClose(); // Close the dialog
-          }}
-        >
-          Cancel
-        </Button>
-      }
     >
-      
-        <Grid item>
-          <TextField
-            sx={{ marginTop: 1,  }}
-            size="small"
-            label="Butikk"
-            value={shop?.name || ""} // Use optional chaining and provide a default value
-            error={Boolean(validationError?.name)} // Use optional chaining
-            onChange={(e) => {
-              setShop({ ...shop, name: e.target.value });
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
-            }}
-          />
-          {displayError || validationError ? (
-        <ErrorHandling resource="shops" field="name" loading={loading} />
-      ) : null}
+      <form onSubmit={handleSubmit}>
+        <Grid container direction="column" spacing={2}>
+          <Grid item>
+            <TextField
+              sx={{ marginTop: 2 }}
+              size="small"
+              label="Butikk"
+              value={shop?.name || ""} // Use optional chaining and provide a default value
+              error={Boolean(validationError?.name)} // Use optional chaining
+              onChange={(e) => {
+                setShop({ ...shop, name: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="shops" field="name" loading={loading} />
+            ) : null}
+          </Grid>
+          <Grid item>
+            <TextField
+              size="small"
+              label="Sted"
+              value={shop?.location || ""} // Use optional chaining and provide a default value
+              error={Boolean(validationError?.location)} // Use optional chaining
+              onChange={(e) => {
+                setShop({ ...shop, location: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="shops" field="location" loading={loading} />
+            ) : null}
+          </Grid>
+          <Grid item>
+            <TextField
+              size="small"
+              label="Kategori"
+              value={shop?.category || ""} // Use optional chaining and provide a default value
+              error={Boolean(validationError?.category)} // Use optional chaining
+              onChange={(e) => {
+                setShop({ ...shop, category: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="shops" field="category" loading={loading} />
+            ) : null}
+          </Grid>
         </Grid>
-        <Grid item>
-          <TextField
-          size="small"
-            label="Sted"
-            value={shop?.location || ""} // Use optional chaining and provide a default value
-            error={Boolean(validationError?.location)} // Use optional chaining
-            onChange={(e) => {
-              setShop({ ...shop, location: e.target.value });
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
+        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+          <Button type="submit" disabled={loading || !isFormValid()}>
+            {loading ? <CircularProgress size={24} /> : "Lagre"}
+          </Button>
+          <Button
+            onClick={() => {
+              resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
+              onClose(); // Close the dialog
             }}
-          />
-          {displayError || validationError ? (
-        <ErrorHandling resource="shops" field="location" loading={loading} />
-      ) : null}
+            sx={{ ml: 2 }}
+          >
+            Cancel
+          </Button>
         </Grid>
-        <Grid item>
-          <TextField
-          size="small"
-            label="Kategori"
-            value={shop?.category || ""} // Use optional chaining and provide a default value
-            error={Boolean(validationError?.category)} // Use optional chaining
-            onChange={(e) => {
-              setShop({ ...shop, category: e.target.value });
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
-            }}
-          />
-          {displayError || validationError ? (
-        <ErrorHandling resource="shops" field="category" loading={loading} />
-      ) : null}
-        </Grid>
-      
-      
+      </form>
     </BasicDialog>
   );
 };
