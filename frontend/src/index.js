@@ -6,7 +6,7 @@ import reportWebVitals from "./reportWebVitals";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import { dashboardTheme } from "./dashboardTheme";
-import Categories from "./screens/Categories";
+import CategoryScreen from './screens/CategoryScreen';
 import Expenses from "./screens/Expenses";
 import ShopScreen from './screens/ShopScreen';
 import BrandScreen from "./screens/BrandScreen";
@@ -19,7 +19,7 @@ root.render(
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<App />}>
-            <Route path="categories" element={<Categories />} />
+            <Route path="categories" element={<CategoryScreen />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="shops" element={<ShopScreen />} />
             <Route path="brands" element={<BrandScreen />} />

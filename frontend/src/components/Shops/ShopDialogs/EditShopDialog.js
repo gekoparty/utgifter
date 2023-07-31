@@ -25,12 +25,17 @@ const EditShopDialog = ({
     resetFormAndErrors,
   } = useShopDialog(selectedShop);
 
-  const handleUpdateShop = async () => {
-    const success = await handleSaveShop(onClose);
-    if (success) {
-      onUpdateSuccess(selectedShop);
-    } else {
-      onUpdateFailure();
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent the default form submission behavior
+
+    // Call the handleSaveShop function from the hook to save the updated shop
+    if (isFormValid()) {
+      const success = await handleSaveShop(onClose);
+      if (success) {
+        onUpdateSuccess(selectedShop);
+      } else {
+        onUpdateFailure();
+      }
     }
   };
 
@@ -42,74 +47,74 @@ const EditShopDialog = ({
         onClose();
       }}
       dialogTitle="Edit Shop"
-      confirmButton={
-        <Button onClick={handleUpdateShop} disabled={loading || !isFormValid()}>
-          {loading ? <CircularProgress size={24} /> : "Save"}
-        </Button>
-      }
-      cancelButton={
-        <Button
-          onClick={() => {
-            resetFormAndErrors();
-            onClose();
-          }}
-        >
-          Cancel
-        </Button>
-      }
     >
-     <Grid container direction="column" spacing={1}>
-        <Grid item>
-          <TextField
-            sx={{ marginTop: 2 }}
-            size="small"
-            label="Butikk"
-            value={shop?.name || ""} // Use optional chaining and provide a default value
-            error={Boolean(validationError?.name)} // Use optional chaining
-            onChange={(e) => {
-              setShop({ ...shop, name: e.target.value });
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
-            }}
-          />
-          {displayError || validationError ? (
-        <ErrorHandling resource="shops" field="name" loading={loading} />
-      ) : null}   
+      <form onSubmit={handleSubmit}>
+        <Grid container direction="column" spacing={1}>
+          <Grid item>
+            <TextField
+              sx={{ marginTop: 2 }}
+              size="small"
+              label="Butikk"
+              value={shop?.name || ""} // Use optional chaining and provide a default value
+              error={Boolean(validationError?.name)} // Use optional chaining
+              onChange={(e) => {
+                setShop({ ...shop, name: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="shops" field="name" loading={loading} />
+            ) : null}
+          </Grid>
+          <Grid item>
+            <TextField
+              label="Sted"
+              size="small"
+              value={shop?.location || ""} // Use optional chaining and provide a default value
+              error={Boolean(validationError?.location)} // Use optional chaining
+              onChange={(e) => {
+                setShop({ ...shop, location: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="shops" field="location" loading={loading} />
+            ) : null}
+          </Grid>
+          <Grid item>
+            <TextField
+              size="small"
+              label="Kategori"
+              value={shop?.category || ""} // Use optional chaining and provide a default value
+              error={Boolean(validationError?.category)} // Use optional chaining
+              onChange={(e) => {
+                setShop({ ...shop, category: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="shops" field="category" loading={loading} />
+            ) : null}
+          </Grid>
         </Grid>
-        <Grid item>
-          <TextField
-            label="Sted"
-            size="small"
-            value={shop?.location || ""} // Use optional chaining and provide a default value
-            error={Boolean(validationError?.location)} // Use optional chaining
-            onChange={(e) => {
-              setShop({ ...shop, location: e.target.value });
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
+        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+          <Button type="submit" disabled={loading || !isFormValid()}>
+            {loading ? <CircularProgress size={24} /> : "Save"}
+          </Button>
+          <Button
+            onClick={() => {
+              resetFormAndErrors();
+              onClose();
             }}
-          />
-          {displayError || validationError ? (
-        <ErrorHandling resource="shops" field="location" loading={loading} />
-      ) : null}   
+            sx={{ ml: 2 }}
+          >
+            Cancel
+          </Button>
         </Grid>
-        <Grid item>
-          <TextField
-          size="small"
-            label="Kategori"
-            value={shop?.category || ""} // Use optional chaining and provide a default value
-            error={Boolean(validationError?.category)} // Use optional chaining
-            onChange={(e) => {
-              setShop({ ...shop, category: e.target.value });
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
-            }}
-          />
-          {displayError || validationError ? (
-        <ErrorHandling resource="shops" field="category" loading={loading} />
-      ) : null}  
-        </Grid>
-      </Grid>
-      
+      </form>
     </BasicDialog>
   );
 };

@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, TextField, CircularProgress } from "@mui/material";
+import { Button, TextField, CircularProgress, Box } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
@@ -25,12 +25,17 @@ const EditLocationDialog = ({
     resetFormAndErrors,
   } = useLocationDialog(selectedLocation);
 
-  const handleUpdateLocation = async () => {
-    const success = await handleSaveLocation(onClose);
-    if (success) {
-      onUpdateSuccess(selectedLocation); // Trigger the onUpdateSuccess function to show the success snackbar with the brand data
-    } else {
-      onUpdateFailure(); // Trigger the onUpdateFailure function to show the error snackbar
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent the default form submission behavior
+
+    // Call the handleSaveLocation function from the hook to save the updated location
+    if (isFormValid()) {
+      const success = await handleSaveLocation(onClose);
+      if (success) {
+        onUpdateSuccess(selectedLocation);
+      } else {
+        onUpdateFailure();
+      }
     }
   };
 
@@ -39,43 +44,48 @@ const EditLocationDialog = ({
       open={open}
       onClose={() => {
         resetFormAndErrors();
-        onClose(); // Close the dialog after resetting the form and errors
+        onClose();
       }}
       dialogTitle="Edit Location"
-      confirmButton={
-        <Button
-          onClick={handleUpdateLocation}
-          disabled={loading || !isFormValid()}
-        >
-          {loading ? <CircularProgress size={24} /> : "Save"}
-        </Button>
-      }
-      cancelButton={
-        <Button
-          onClick={() => {
-            resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-            onClose(); // Close the dialog
-          }}
-        >
-          Cancel
-        </Button>
-      }
     >
-      <TextField
-        sx={{ marginTop: 2 }}
-        size="small"
-        label="Location Name"
-        value={locationName}
-        error={Boolean(validationError)}
-        onChange={(e) => {
-          setLocationName(e.target.value);
-          resetValidationErrors();
-          resetServerError(); // Clear validation errors when input changes
-        }}
-      />
-      {displayError || validationError ? (
-        <ErrorHandling resource="locations" field="locationName" loading={loading} />
-      ) : null}
+      <form onSubmit={handleSubmit}>
+          <TextField
+            sx={{ marginTop: 2 }}
+            size="small"
+            label="Location Name"
+            value={locationName}
+            error={Boolean(validationError)}
+            onChange={(e) => {
+              setLocationName(e.target.value);
+              resetValidationErrors();
+              resetServerError(); // Clear validation errors when input changes
+            }}
+          />
+          {displayError || validationError ? (
+            <ErrorHandling
+              resource="locations"
+              field="locationName"
+              loading={loading}
+            />
+          ) : null}
+          <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
+            <Button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={loading || !isFormValid()}
+            >
+              {loading ? <CircularProgress size={24} /> : "Save"}
+            </Button>
+            <Button
+              onClick={() => {
+                resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
+                onClose(); // Close the dialog
+              }}
+            >
+              Cancel
+            </Button>
+          </Box>
+      </form>
     </BasicDialog>
   );
 };
