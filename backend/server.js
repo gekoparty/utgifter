@@ -70,6 +70,43 @@ app.delete("/api/categories/:id", async (req, res) => {
   }
 });
 
+app.put("/api/categories/:id", async (req, res) => {
+  const { id } = req.params;
+  const { originalPayload, slugifiedPayload } = req.body;
+
+  try {
+    // Check if the slug already exists for a different brand
+    const existingCategoryWithSlug = await Category.findOne({
+      slug: slugifiedPayload.name,
+      _id: { $ne: id }, // Exclude the current brand from the check
+    });
+
+    if (existingCategoryWithSlug) {
+      return res.status(400).json({ message: "duplicate" });
+    }
+
+    const category = await Category.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          name: originalPayload.name,
+          slug: slugifiedPayload.name,
+        },
+      },
+      { new: true }
+    );
+
+    if (!category) {
+      return res.status(404).send({ error: "Category not found" });
+    }
+
+    res.send(category);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/locations", async (req, res) => {
   try {
     const locations = await Location.find();
