@@ -5,11 +5,15 @@ import categoriesRouter from "./routes/categoriesRouter.js";
 import shopsRouter from "./routes/shopsRouter.js";
 import locationsRouter from "./routes/locationsRouter.js";
 import brandsRouter from "./routes/brandsRouter.js";
+import helmet from "helmet";
+import cors from 'cors'
+import compression from "compression";
 
 
 
 const port = process.env.PORT || 5000;
 const app = express();
+app.use(cors());
 app.use(express.json());
 dotenv.config();
 
@@ -17,6 +21,19 @@ mongoose.set("strictQuery", false);
 
 connectToDB();
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
+
+
+
+
+// Use helmet middleware for setting various HTTP headers for security
+app.use(helmet());
+// Enable gzip compression on responses
+app.use(compression());
 
 app.use("/api/categories", categoriesRouter);
 app.use("/api/shops", shopsRouter);
