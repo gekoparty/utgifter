@@ -47,7 +47,7 @@ const UseCategoryDialog = (initialCategory = null) => {
 
     try {
 
-      console.log("Location name before validation:", categoryName);
+      console.log("Category name before validation:", categoryName);
       await addCategoryValidationSchema.validate({ categoryName });
       //resetValidationErrors();
     } catch (validationError) {
@@ -134,7 +134,7 @@ const UseCategoryDialog = (initialCategory = null) => {
         onDeleteSuccess(selectedCategory);
         dispatch({
           type: "DELETE_ITEM",
-          resource: "lcategories",
+          resource: "categories",
           payload: selectedCategory._id,
         });
         return true;

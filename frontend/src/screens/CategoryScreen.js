@@ -33,15 +33,25 @@ const CategoryScreen = () => {
 
   const memoizedTableHeaders = useMemo(() => tableHeaders, []);
 
-  const editFailureHandler = () => {};
+  const editFailureHandler = () => {
+    showErrorSnackbar("Failed to update kategori");
+  };
 
-  const editSuccessHandler = () => {};
+  const editSuccessHandler = (updatedCategory) => {
+    showSuccessSnackbar(`Sted "${updatedCategory.name}" updated successfully`);
+  };
 
-  const deleteSuccessHandler = () => {};
+  const deleteSuccessHandler = (deletedCategory) => {
+    showSuccessSnackbar(`Sted "${deletedCategory.name}" deleted successfully`);
+  };
 
-  const deleteFailureHandler = () => {};
+  const deleteFailureHandler = (failedCategory) => {
+    showErrorSnackbar(`Failed to delete sted "${failedCategory.name}"`);
+  };
 
-  const addCategoryHandler = () => {};
+  const addCategoryHandler = (newCategory) => {
+    showSuccessSnackbar(`Sted "${newCategory.name}" added successfully`);
+  };
 
   const {
     snackbarOpen,
@@ -117,7 +127,7 @@ const CategoryScreen = () => {
         cancelButton={
           <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
         }
-        dialogTitle={"Edit Location"}
+        dialogTitle={"Edit Category"}
         selectedCategory={selectedCategory}
         onUpdateSuccess={editSuccessHandler}
         onUpdateFailure={editFailureHandler}
@@ -130,7 +140,7 @@ const CategoryScreen = () => {
         cancelButton={
           <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
         }
-        selectedLocation={selectedCategory}
+        selectedCategory={selectedCategory}
         onDeleteSuccess={deleteSuccessHandler}
         onDeleteFailure={deleteFailureHandler}
       />
