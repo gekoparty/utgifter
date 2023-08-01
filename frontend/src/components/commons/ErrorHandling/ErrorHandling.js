@@ -11,9 +11,6 @@ const ErrorHandling = ({ resource, loading, field }) => {
   const displayError = error?.[resource];
   const validationError = validationErrors?.[resource]?.[field];
 
-  
-  console.log("Display error:", displayError);
-  console.log(validationError)
 
   return (
     <div>
