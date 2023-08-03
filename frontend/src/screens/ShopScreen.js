@@ -22,6 +22,7 @@ const tableHeaders = ["Name", "Location", "Category", "Delete", "Edit"];
 const ShopScreen = () => {
   const { loading: shopLoading, data: shopsData } = useCustomHttp("/api/shops");
   const { loading: locationLoading, data: locationsData } = useCustomHttp("/api/locations");
+  const { loading: categoryLoading, data: categoriesData} = useCustomHttp('/api/categories');
   const { state, dispatch } = useContext(StoreContext);
   const { shops } = state;
 
@@ -68,15 +69,28 @@ const ShopScreen = () => {
     }
   }, [locationsData, dispatch]);
 
+  useEffect(()=>{
+    if(categoriesData) {
+      dispatch({
+        type: "FETCH_SUCCESS",
+        resource: "categories",
+        payload: categoriesData
+      })
+    }
+  },[categoriesData, dispatch])
+
+
+
 
 
   useEffect(() => {
     if (shops) {
-      const updatedShopsWithLocation = shops.map((shop) => ({
+      const updatedShopsWithLocationAndCategory = shops.map((shop) => ({
         ...shop,
-        location: shop.location ? shop.location.name : "", // Get the name directly from the shop data
+        location: shop.location ? shop.location.name : "",
+        category: shop.category ? shop.category.name : "", // Get the name directly from the shop data
       }));
-      setShopsWithLocationName(updatedShopsWithLocation);
+      setShopsWithLocationName(updatedShopsWithLocationAndCategory);
     }
   }, [shops]);
 
@@ -185,6 +199,8 @@ const ShopScreen = () => {
       </Snackbar>
       <AddShopDialog
         onClose={() => setAddShopDialogOpen(false)}
+        locations={locationsData}
+        categories={categoriesData}
         open={addShopDialogOpen}
         onAdd={addShopHandler}
       ></AddShopDialog>

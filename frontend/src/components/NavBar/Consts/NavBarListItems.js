@@ -46,7 +46,7 @@ export const mainNavbarItems = [
     {
         id: 6,
         icon: <SettingsInputComponentIcon />,
-        label: 'dummy',
-        route: 'dummy',
+        label: 'Produkter',
+        route: 'products',
     },
 ]

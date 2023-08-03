@@ -5,36 +5,36 @@ import CreatableSelect from 'react-select/creatable';
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
-import useShopDialog from "../UseShop/useShopDialog";
+import useProductDialog from "../UseProducts/useProductDialog";
 
-const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
+const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
   const {
-    shop,
-    setShop,
+    product,
+    setProduct,
     loading,
-    handleSaveShop,
+    handleSaveProduct,
     resetValidationErrors,
     resetServerError,
     displayError,
     validationError,
     isFormValid,
     resetFormAndErrors,
-  } = useShopDialog();
+  } = useProductDialog();
 
   const handleSubmit = async (event) => {
     event.preventDefault(); // Prevent the default form submission behavior
 
-    // Call the handleSaveShop function from the hook to save the new shop
+    // Call the handleSaveProdct function from the hook to save the new product
     if (isFormValid()) {
-      const success = await handleSaveShop(onClose);
+      const success = await handleSaveProduct(onClose);
       if (success) {
-        onAdd({ name: shop.name }); // Trigger the onAdd function to show the success snackbar with the shop name
+        onAdd({ name: product.name }); // Trigger the onAdd function to show the success snackbar with the shop name
       }
     }
   };
 
-  const locationOptions = locations || []; // Use locations or an empty array if it's null
-  const categoryOptions = categories || []; // Use categories or an empty array if it's null
+  const brandOptions = brands || []; // Use locations or an empty array if it's null
+  //const categoryOptions = categories || []; // Use categories or an empty array if it's null
 
 
   
@@ -47,7 +47,7 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
         resetFormAndErrors();
         onClose(); // Close the dialog after resetting the form and errors
       }}
-      dialogTitle="Ny Butikk"
+      dialogTitle="Nytt Produkt"
     >
       <form onSubmit={handleSubmit}>
         <Grid container direction="column" spacing={2}>
@@ -55,39 +55,39 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
             <TextField
               sx={{ marginTop: 2 }}
               size="small"
-              label="Butikk"
-              value={shop?.name || ""} // Use optional chaining and provide a default value
+              label="Produkt"
+              value={product?.name || ""} // Use optional chaining and provide a default value
               error={Boolean(validationError?.name)} // Use optional chaining
               onChange={(e) => {
-                setShop({ ...shop, name: e.target.value });
+                setProduct({ ...product, name: e.target.value });
                 resetValidationErrors();
                 resetServerError(); // Clear validation errors when input changes
               }}
             />
             {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="name" loading={loading} />
+              <ErrorHandling resource="products" field="name" loading={loading} />
             ) : null}
           </Grid>
           <Grid item>
           <CreatableSelect
               className="custom-select"
-              options={locationOptions}
+              options={brandOptions}
               size="small"
               label="Sted"
               value={
-                shop?.location
-                  ? locationOptions.find((loc) => loc.name === shop.location)
+                product?.brand
+                  ? brandOptions.find((bra) => bra.name === product.brand)
                   : null
-              } // Use optional chaining to handle empty shop location
-              error={Boolean(validationError?.location)} // Use optional chaining
+              } // Use optional chaining to handle empty product brand
+              error={Boolean(validationError?.brand)} // Use optional chaining
               onChange={(selectedOption) => {
-                setShop({ ...shop, location: selectedOption?.name || "" });
+                setProduct({ ...product, brand: selectedOption?.name || "" });
                 resetValidationErrors();
                 resetServerError(); // Clear validation errors when input changes
               }}
               getOptionLabel={(option) => option.name} // Set the label for each option
               getOptionValue={(option) => option.name} // Set the value for each option
-              placeholder="Velg Sted..."
+              placeholder="Velg Merke..."
               isValidNewOption={(inputValue, selectValue, selectOptions) => {
                 return (
                   inputValue.trim() !== "" &&
@@ -98,17 +98,17 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
                 name: inputValue.trim(),
               })}
               onCreateOption={(inputValue) => {
-                const newLocation = { name: inputValue.trim() };
-                setShop({ ...shop, location: newLocation.name || "" });
-                locationOptions.push(newLocation);
+                const newBrand = { name: inputValue.trim() };
+                setProduct({ ...product, location: newBrand.name || "" });
+                brandOptions.push(newBrand);
               }}
             />
             {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="location" loading={loading} />
+              <ErrorHandling resource="products" field="brand" loading={loading} />
             ) : null}
           </Grid>
           <Grid item>
-          <CreatableSelect
+          {/* <CreatableSelect
               options={categoryOptions}
               size="small"
               label="Kategori"
@@ -140,9 +140,9 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
                 setShop({ ...shop, category: newCategory.name || "" });
                 categoryOptions.push(newCategory);
               }}
-            />
+            /> */}
             {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="category" loading={loading} />
+              <ErrorHandling resource="products" field="category" loading={loading} />
             ) : null}
           </Grid>
         </Grid>
@@ -165,10 +165,10 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
   );
 };
 
-AddShopDialog.propTypes = {
+AddProductDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
   onAdd: PropTypes.func.isRequired,
 };
 
-export default AddShopDialog;
+export default AddProductDialog;
