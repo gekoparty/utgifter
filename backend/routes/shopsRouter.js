@@ -1,12 +1,13 @@
 import express from "express";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationScema.js";
+import Category from "../models/categorySchema.js";
 
 const shopsRouter = express.Router()
 
 shopsRouter.get("/", async (req, res) => {
     try {
-      const shops = await Shop.find().populate("location");
+      const shops = await Shop.find().populate("location").populate("category");
       res.json(shops);
     } catch (err) {
       console.error(err.message);
@@ -19,9 +20,29 @@ shopsRouter.get("/", async (req, res) => {
     try {
       const { originalPayload, slugifiedPayload } = req.body;
       const { name, location, category } = originalPayload;
-      let locationId = location; // Use the existing locationId parameter
+      let locationId = location;
+      let categoryId = category // Use the existing locationId parameter
   
-      // Check if the location is provided as a string (name) instead of a reference
+      if(typeof category === "string") {
+        const existingCategory = await Category.findOne({
+            slug: slugifiedPayload.category
+        });
+
+        if(!existingCategory) {
+            const newCategory = new Category({
+                name: originalPayload.category,
+                slug: slugifiedPayload.category
+            });
+
+            const savedCategory = await newCategory.save();
+            categoryId = savedCategory._id
+        } else {
+            categoryId = existingCategory._id;
+        }
+      }  
+
+
+      // Check if the location and category is provided as a string (name) instead of a reference
       if (typeof location === "string") {
         const existingLocation = await Location.findOne({
           slug: slugifiedPayload.location,
@@ -63,9 +84,8 @@ shopsRouter.get("/", async (req, res) => {
       const shop = new Shop({
         name,
         location: locationId,
-        category,
+        category: categoryId,
         slugifiedName,
-        slugifiedCategory: slugifiedPayload.category,
       });
   
       try {
@@ -73,7 +93,7 @@ shopsRouter.get("/", async (req, res) => {
         console.log("Saved shop:", savedShop);
   
         // Fetch the associated location document using populate
-        const populatedShop = await Shop.findById(savedShop._id).populate("location").exec();
+        const populatedShop = await Shop.findById(savedShop._id).populate("location").populate("category").exec();
   
         res.status(201).json(populatedShop);
       } catch (saveError) {
@@ -113,6 +133,18 @@ shopsRouter.get("/", async (req, res) => {
   
       // If the location exists, use its ObjectId; otherwise, create a new location
       let locationObjectId;
+      let categoryObjectId;
+
+      const existingCategory = await Category.findOne({name: category})
+
+      if(existingCategory) {
+        categoryObjectId = existingCategory._id
+      } else {
+        const newCategory = new Category({name: category, slug: slugifiedPayload.category})
+        const savedCategory = await newCategory.save();
+        categoryObjectId = savedCategory._id
+      }
+
       const existingLocation = await Location.findOne({ name: location });
   
       if (existingLocation) {
@@ -127,16 +159,14 @@ shopsRouter.get("/", async (req, res) => {
       // Update the shop fields
       shop.name = name;
       shop.location = locationObjectId;
-      shop.category = category;
+      shop.category = categoryObjectId;
       shop.slugifiedName = slugifiedPayload.name;
-      shop.slugifiedLocation = slugifiedPayload.location;
-      shop.slugifiedCategory = slugifiedPayload.category;
   
       try {
         const updatedShop = await shop.save();
         console.log("Updated shop:", updatedShop); // Add a console.log to check the updated shop object
         // Fetch the updated shop data along with the associated location data using populate
-        const populatedShop = await Shop.findById(updatedShop._id).populate("location").exec();
+        const populatedShop = await Shop.findById(updatedShop._id).populate("location").populate("category").exec();
   
         res.status(200).json(populatedShop);
       } catch (saveError) {

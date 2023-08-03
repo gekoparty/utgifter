@@ -17,6 +17,8 @@ const useShopDialog = (initialShop = null) => {
     initialShop ? initialShop : { ...initialShopState }
   );
 
+  
+
   const slugifyFields = {
     POST: ["name", "location", "category"], // Slugify all three fields for POST method
     PUT: ["name", "location", "category"], // Slugify only the 'name' field for PUT method

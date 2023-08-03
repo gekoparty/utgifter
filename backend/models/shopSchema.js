@@ -14,16 +14,12 @@ const shopSchema = new mongoose.Schema(
       ref: "Location", // Reference the 'Location' model
     },
     category: {
-      type: String,
-      required: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
     },
     slugifiedName: {
       type: String,
       required: true,
-    },
-    slugifiedCategory: {
-      type: String,
-      required: true
     },
     brands: [
       {

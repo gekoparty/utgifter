@@ -8,6 +8,7 @@ import brandsRouter from "./routes/brandsRouter.js";
 import helmet from "helmet";
 import cors from 'cors'
 import compression from "compression";
+import productsRouter from "./routes/productsRouter.js";
 
 
 
@@ -39,6 +40,7 @@ app.use("/api/categories", categoriesRouter);
 app.use("/api/shops", shopsRouter);
 app.use('/api/locations', locationsRouter)
 app.use("/api/brands", brandsRouter);
+app.use("/api/products", productsRouter)
 
 app.get("/", (req, res) => {
   res.send("Hello World!");

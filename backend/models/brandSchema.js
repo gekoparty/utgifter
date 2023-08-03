@@ -10,7 +10,7 @@ const brandSchema = new mongoose.Schema(
     description: {
       type: String,
     },
-    slug: {  // Add the 'slug' field to the schema
+    slug: {
       type: String,
       required: true,
       unique: true,
@@ -18,7 +18,7 @@ const brandSchema = new mongoose.Schema(
     products: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
+        ref: "Product", // Reference to the "Product" model
       },
     ],
   },

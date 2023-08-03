@@ -8,6 +8,7 @@ const initialState = {
   brands: [],
   locations: [],
   categories: [],
+  products: [],
   loading: false,
   error: {},
   errorMessage: {},
@@ -29,6 +30,10 @@ const errorMessageMap = {
     server: "Noe gikk galt, prøv igjen",
   },
   locations: {
+    duplicate: "Denne butikken eksisterer allerede",
+    server: "Noe gikk galt, prøv igjen",
+  },
+  products: {
     duplicate: "Denne butikken eksisterer allerede",
     server: "Noe gikk galt, prøv igjen",
   }
