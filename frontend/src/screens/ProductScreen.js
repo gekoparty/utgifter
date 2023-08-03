@@ -1,23 +1,28 @@
 import React, { useState, useEffect, useContext, useMemo } from "react";
-import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  SnackbarContent,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import CustomTable from "../components/commons/CustomTable/CustomTable";
-import EditProductDialog from "../components/Products/ProductDialogs/EditProductDialog";
-import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog";
-import AddProductDialog from "../components/Products/ProductDialogs/AddProductDialog";
-
 import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";
 import { StoreContext } from "../Store/Store";
+import AddProductDialog from "../components/Products/ProductDialogs/AddProductDialog";
+import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog"
+import EditProductDialog from '../components/Products/ProductDialogs/EditProductDialog'
 
-const tableHeaders = ["Name", "Delete", "Edit"];
-
-
+const tableHeaders = ["Name", "Brand", "Delete", "Edit"];
 
 const ProductScreen = () => {
-  const { loading, error, data: productsData } = useCustomHttp("/api/products");
+  const { loading: productLoading, data: productsData } = useCustomHttp("/api/products");
+  const { loading: brandLoading, data: brandsData } = useCustomHttp("/api/brands");
+  
   const { state, dispatch } = useContext(StoreContext);
   const { products } = state;
 
@@ -25,9 +30,12 @@ const ProductScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [productsWithBrandName, setProductsWithBrandName] = useState([]);
+   // New state variable
+  
+  console.log(state)
 
   const memoizedTableHeaders = useMemo(() => tableHeaders, []);
-  
 
   const {
     snackbarOpen,
@@ -38,57 +46,72 @@ const ProductScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  
+
   useEffect(() => {
     if (productsData) {
       dispatch({
         type: "FETCH_SUCCESS",
-        resource: "locations",
+        resource: "products",
         payload: productsData,
       });
     }
   }, [productsData, dispatch]);
 
+  useEffect(() => {
+    // Fetch locations and dispatch the action when locationsData is available
+    if (brandsData) {
+      dispatch({
+        type: "FETCH_SUCCESS",
+        resource: "brands",
+        payload: brandsData,
+      });
+    }
+  }, [brandsData, dispatch]);
 
+  
+
+
+
+
+
+  useEffect(() => {
+    if (products) {
+      const updatedProductsWithBrands = products.map((product) => ({
+        ...products,
+        brand: product.brand ? product.brand.name : "",
+      }));
+      setProductsWithBrandName(updatedProductsWithBrands);
+    }
+  }, [products]);
+
+  
 
   const addProductHandler = (newProduct) => {
-    showSuccessSnackbar(`Sted "${newProduct.name}" added successfully`);
-  };
-
-  const deleteSuccessHandler = (deletedProduct) => {
-    showSuccessSnackbar(`Sted "${deletedProduct.name}" deleted successfully`);
-  };
+    showSuccessSnackbar(`Butikk ${newProduct.name} er lagt til`)
+  }
 
   const deleteFailureHandler = (failedProduct) => {
-    showErrorSnackbar(`Failed to delete sted "${failedProduct.name}"`);
-  };
+    showErrorSnackbar(`Failed to delete product ${failedProduct.name}`)
+  }
 
-  const editSuccessHandler = (updatedProduct) => {
-    showSuccessSnackbar(`Sted "${updatedProduct.name}" updated successfully`);
-  };
+  const deleteSuccessHandler = (deletedProduct) =>  {
+    showSuccessSnackbar(`Product ${deletedProduct} deleted successfully` )
+  }
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update sted");
-  };
-
-  if (error && error.products) {
-    console.log(error.products);
-    return <div>Error: {error.products}</div>;
+    showErrorSnackbar("Failed to update product")
   }
 
-  if (loading || products === null) {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: "240px",
-          left: "500px",
-          zIndex: 9999, // Set a high z-index to ensure it's above the sidebar
-        }}
-      >
-        Loading...
-      </div>
-    );
+  const editSuccessHandler = (selectedProdct) => {
+    showSuccessSnackbar(`Product ${selectedProduct.name} updated succesfully`)
   }
+
+  if (productLoading || products === null) {
+    return <div>Loading....</div>;
+  }
+
+  
 
   return (
     <TableLayout>
@@ -103,32 +126,19 @@ const ProductScreen = () => {
       </Box>
 
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
-          <CustomTable
-            data={products}
-            headers={memoizedTableHeaders}
-            onDelete={(product) => {
-              setSelectedProduct(product);
-              setDeleteModalOpen(true);
-            }}
-            onEdit={(product) => {
-              setSelectedProduct(product);
-              setEditModalOpen(true);
-            }}
-          />
-        </Box>
+        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}></Box>
       </Box>
-
-      <EditProductDialog
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        cancelButton={
-          <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-        }
-        dialogTitle={"Edit Product"}
-        selectedProduct={selectedProduct}
-        onUpdateSuccess={editSuccessHandler}
-        onUpdateFailure={editFailureHandler}
+      <CustomTable
+        data={productsWithBrandName} 
+        headers={memoizedTableHeaders}
+        onDelete={(product) => {
+          setSelectedProduct(product);
+          setDeleteModalOpen(true);
+        }}
+        onEdit={(product) => {
+          setSelectedProduct(product);
+          setEditModalOpen(true);
+        }}
       />
 
       <DeleteProductDialog
@@ -136,12 +146,25 @@ const ProductScreen = () => {
         onClose={() => setDeleteModalOpen(false)}
         dialogTitle="Confirm Deletion"
         cancelButton={
-          <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+          <Button onClick={()=> setDeleteModalOpen(false)}>Cancel</Button>
         }
         selectedProduct={selectedProduct}
         onDeleteSuccess={deleteSuccessHandler}
         onDeleteFailure={deleteFailureHandler}
-      />
+       />
+
+       <EditProductDialog
+       open={editModalOpen}
+       onClose={()=> setEditModalOpen(false)}
+       cancelButton={
+        <Button onClick={()=> setEditModalOpen(false)}>Cancel</Button>
+       }
+       dialogTitle={"Edit Product"}
+       selectedProdct={selectedProduct}
+       onUpdateSuccess={editSuccessHandler}
+       onUpdateFailure={editFailureHandler}
+
+       />
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -155,18 +178,23 @@ const ProductScreen = () => {
           }}
           message={snackbarMessage}
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon />
             </IconButton>
           }
         />
       </Snackbar>
-
       <AddProductDialog
         onClose={() => setAddProductDialogOpen(false)}
-        onAdd={addProductHandler}
+        brands={brandsData}
+        
         open={addProductDialogOpen}
-      />
+        onAdd={addProductHandler}
+      ></AddProductDialog>
     </TableLayout>
   );
 };
