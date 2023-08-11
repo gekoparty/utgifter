@@ -17,6 +17,7 @@
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "helmet": "^7.0.0",
-    "moongose": "^1.0.0"
+    "moongose": "^1.0.0",
+    "slugify": "^1.6.6"
   }
 }

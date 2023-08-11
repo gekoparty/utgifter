@@ -27,24 +27,32 @@ const useCustomHttp = (initialUrl, slugifyFields = {}) => {
       };
   
       if (payload) {
-        // Check if the component has slugify fields defined
         const fieldsToSlugify = slugifyFields[method];
-        if (fieldsToSlugify && Array.isArray(fieldsToSlugify)) {
-          // Apply slugify to specified fields in the payload
-          const slugifiedPayload = {};
-          for (const field of fieldsToSlugify) {
-            slugifiedPayload[field] = slugify(payload[field], { lower: true });
+        const slugifiedPayload = {};
+  
+        for (const field of Object.keys(payload)) {
+          const fieldData = payload[field];
+          if (fieldsToSlugify && fieldsToSlugify.includes(field)) {
+            if (Array.isArray(fieldData)) {
+              slugifiedPayload[field] = fieldData.map((item) => ({
+                ...item,
+                name: slugify(item.name, { lower: true }),
+              }));
+            } else {
+              slugifiedPayload[field] = slugify(fieldData, { lower: true });
+            }
+          } else {
+            slugifiedPayload[field] = fieldData;
           }
-
-          // Send both original and slugified payloads
-          requestConfig.data = {
-            originalPayload: payload,
-            slugifiedPayload,
-          };
-        } else {
-          // No slugify fields defined, use the original payload
-          requestConfig.params = payload;
         }
+      
+        requestConfig.data = {
+          originalPayload: payload,
+          slugifiedPayload,
+        };
+      } else {
+        // No slugify fields defined, use the original payload
+        requestConfig.params = payload;
       }
       const response = await axios.request(requestConfig);
 

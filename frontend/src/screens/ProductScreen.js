@@ -78,8 +78,8 @@ const ProductScreen = () => {
   useEffect(() => {
     if (products) {
       const updatedProductsWithBrands = products.map((product) => ({
-        ...products,
-        brand: product.brand ? product.brand.name : "",
+        ...product,
+        brand: product.brands.map(brand => brand.name).join(', '), // Concatenate brand names
       }));
       setProductsWithBrandName(updatedProductsWithBrands);
     }

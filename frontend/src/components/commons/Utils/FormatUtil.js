@@ -1,9 +1,10 @@
-const formatComponentFields = (name, componentName) => {
+const formatComponentFields = (name, componentName, fieldName) => {
   const nameMappings = {
     shop: ["name", "location", "category"],
     brand: ["name"],
     location: ["name"],
-    category: ["name"]
+    category: ["name"],
+    product: ["name", "brands"]
     // Add more components and their corresponding fields here if needed
   };
 
@@ -13,20 +14,24 @@ const formatComponentFields = (name, componentName) => {
   }
 
   const capitalizeWord = (word) => {
-    if (word.length === 0) return ""; // Handle empty word (e.g., multiple hyphens in a row)
+    
+    if (!word || typeof word !== 'string') {
+      return ""; // Handle empty or non-string input
+    } // Handle empty word (e.g., multiple hyphens in a row)
     const hyphenatedWords = word.split("-");
     const capitalizedWords = hyphenatedWords.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
     return capitalizedWords.join("-");
   };
 
-  const formatted = name
-    .split(" ")
-    .map(capitalizeWord)
-    .join(" ");
-
   if (fields.length === 1) {
-    return formatted; // If only one field, return the formatted string
+    if (fieldName === "name") {
+      return capitalizeWord(name); // Only format 'name' field as a string directly
+    } else {
+      const formatted = capitalizeWord(name);
+      return { name: formatted }; // For other fields, return the formatted object
+    }
   } else {
+    const formatted = capitalizeWord(name);
     // If multiple fields, return an object with each field formatted
     const formattedObject = {};
     fields.forEach((field) => {
