@@ -9,7 +9,8 @@ import { addProductValidationSchema } from "../../../validation/validationSchema
 const useProductDialog = (initialProduct = null) => {
   const initialProductState = {
     name: "",
-    brand: "",
+    brands: [],
+    measurementUnit: "",
   };
 
   const [product, setProduct] = useState(
@@ -19,8 +20,8 @@ const useProductDialog = (initialProduct = null) => {
   
 
   const slugifyFields = {
-    POST: ["name", "brand"], // Slugify all three fields for POST method
-    PUT: ["name", "brand"], // Slugify only the 'name' field for PUT method
+    POST: ["name", "brands"], // Slugify all three fields for POST method
+    PUT: ["name", "brands"], // Slugify only the 'name' field for PUT method
   };
 
   const { sendRequest, loading } = useCustomHttp("/api/products", slugifyFields);
@@ -57,27 +58,49 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetFormAndErrors]);
 
   const handleSaveProduct = async (onClose) => {
-    if (!product.name.trim() || !product.brand.trim()) {
-      return;
-    }
+    
+  if (!product.name.trim() || product.brands.length === 0) {
+    return;
+  }
+
+    console.log("Before formatting:", product); // Add this log
   
-    let formattedProduct;
+    let formattedProduct = {};
     let validationErrors = {};
+    let formattedBrands;
   
     try {
-      // Format the shop name, location, and category using the formatComponentFields function
+      formattedBrands = product.brands.map((brand) => {
+        console.log("Original brand:", brand);
+        const formattedBrand = {
+          name: formatComponentFields(brand.name, "brand").name,
+        };
+        console.log("Formatted brand:", formattedBrand);
+        return formattedBrand;
+      });
+      
+      console.log("formattedBrands", formattedBrands)
+
       formattedProduct = {
-        ...product,
-        name: formatComponentFields(product.name, "product").name,
-        brand: formatComponentFields(product.brand, "product").name,
+        ...formatComponentFields(product.name, "product"),
+        brands: formattedBrands,
+        measurementUnit: product.measurementUnit,
       };
   
+      console.log("formattedProduct", formattedProduct); // Add this log
+  
       await addProductValidationSchema.validate(formattedProduct, {
-        abortEarly: false, // This ensures Yup collects all field errors
+        abortEarly: false,
       });
+
+      console.log("Validation successful"); // Add this log
+
     } catch (validationError) {
+      console.log("Validation error:", validationError);
       validationError.inner.forEach((err) => {
-        validationErrors[err.path] = { show: true, message: err.message };
+        //validationErrors[err.path] = { show: true, message: err.message };
+         console.log("Validation error message:", err.message);
+    console.log("Validation error path:", err.path);
       });
       console.log("Field-specific errors:", validationErrors);
       dispatch({
@@ -92,7 +115,8 @@ const useProductDialog = (initialProduct = null) => {
       return;
     }
   
-    const newProduct = formattedProduct;
+    
+    console.log("newProduct:", formattedProduct);
   
     try {
       let url = "/api/products";
@@ -103,21 +127,22 @@ const useProductDialog = (initialProduct = null) => {
         method = "PUT";
       } else {
         if (initialProduct === undefined) {
-          formattedProduct.brand = product.brand;
+          formattedProduct.brands = [product.brand]; // Convert single brand to array
         } else {
-          formattedProduct.location = formatComponentFields(product.brand, "product").name;
+          formattedProduct.brands = formattedBrands;
         }
       }
-  
+      
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
-        newProduct
+        formattedProduct
       );
   
-      console.log("Response from the server:", data);
+      console.log("Response from the server:", data); // Add this log
   
       if (addDataError) {
+        console.log("adddataError", addDataError)
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -132,13 +157,13 @@ const useProductDialog = (initialProduct = null) => {
         } else {
           // For new shops, add the location to the store if it doesn't exist
           const existingBrand = state.brands.find(
-            (bra) => bra.name === newProduct.brand
+            (bra) => bra.name === formattedProduct.brand
           );
           if (!existingBrand) {
             dispatch({
               type: "ADD_ITEM",
               resource: "brands",
-              payload: newProduct.brand,
+              payload: formattedProduct.brand,
             });
           }
   
@@ -151,6 +176,8 @@ const useProductDialog = (initialProduct = null) => {
         return true;
       }
     } catch (fetchError) {
+
+      console.log("Error in handleSaveProduct:", fetchError); // Add this log
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
@@ -197,10 +224,11 @@ const useProductDialog = (initialProduct = null) => {
   const isFormValid = () => {
     return (
       !validationError?.name &&
-      !validationError?.location &&
-      !validationError?.category &&
+      !validationError?.brands &&
+      !validationError?.measurementUnit &&
       product?.name?.trim().length > 0 &&
-      product?.brand?.trim().length > 0 
+      product?.brands?.length > 0 &&
+      product?.measurementUnit?.trim().length > 0
     );
   };
 

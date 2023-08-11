@@ -1,11 +1,18 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
-import Select from "react-select";
 import CreatableSelect from 'react-select/creatable';
+import Select from 'react-select';
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
+
+
+const measurementUnitOptions = [
+  { value: "l", label: "Litres (l)" },
+  { value: "kg", label: "Kilos (kg)" },
+  // Add more measurement unit options as needed
+];
 
 const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
   const {
@@ -23,22 +30,17 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault(); // Prevent the default form submission behavior
-
-    // Call the handleSaveProdct function from the hook to save the new product
+    console.log("handleSubmit triggered"); // Add this line
+    // Call the handleSaveProduct function from the hook to save the new product
     if (isFormValid()) {
       const success = await handleSaveProduct(onClose);
       if (success) {
-        onAdd({ name: product.name }); // Trigger the onAdd function to show the success snackbar with the shop name
+        onAdd({ name: product.name }); // Trigger the onAdd function to show the success snackbar with the product name
       }
     }
   };
 
-  const brandOptions = brands || []; // Use locations or an empty array if it's null
-  //const categoryOptions = categories || []; // Use categories or an empty array if it's null
-
-
-  
-
+  const brandOptions = brands || [];
 
   return (
     <BasicDialog
@@ -56,12 +58,12 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
               sx={{ marginTop: 2 }}
               size="small"
               label="Produkt"
-              value={product?.name || ""} // Use optional chaining and provide a default value
-              error={Boolean(validationError?.name)} // Use optional chaining
+              value={product?.name || ""}
+              error={Boolean(validationError?.name)}
               onChange={(e) => {
                 setProduct({ ...product, name: e.target.value });
                 resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
+                resetServerError();
               }}
             />
             {displayError || validationError ? (
@@ -73,77 +75,52 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
               className="custom-select"
               options={brandOptions}
               size="small"
-              label="Sted"
-              value={
-                product?.brand
-                  ? brandOptions.find((bra) => bra.name === product.brand)
-                  : null
-              } // Use optional chaining to handle empty product brand
-              error={Boolean(validationError?.brand)} // Use optional chaining
-              onChange={(selectedOption) => {
-                setProduct({ ...product, brand: selectedOption?.name || "" });
-                resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
-              }}
-              getOptionLabel={(option) => option.name} // Set the label for each option
-              getOptionValue={(option) => option.name} // Set the value for each option
+              label="Merke"
+              value={product?.brands || []}
+              error={Boolean(validationError?.brands)}
+              onChange={(selectedOptions) => {
+      setProduct({ ...product, brands: selectedOptions || [] });
+      resetValidationErrors();
+      resetServerError();
+    }}
+              getOptionLabel={(option) => option.name}
+              getOptionValue={(option) => option.name}
               placeholder="Velg Merke..."
+              isMulti
               isValidNewOption={(inputValue, selectValue, selectOptions) => {
                 return (
                   inputValue.trim() !== "" &&
                   !selectOptions.find((option) => option.name === inputValue.trim())
                 );
               }}
-              getNewOptionData={(inputValue, optionLabel) => ({
+              getNewOptionData={(inputValue) => ({
                 name: inputValue.trim(),
               })}
               onCreateOption={(inputValue) => {
                 const newBrand = { name: inputValue.trim() };
-                setProduct({ ...product, location: newBrand.name || "" });
-                brandOptions.push(newBrand);
+                setProduct({ ...product, brands: [...product.brands, newBrand] });
               }}
             />
             {displayError || validationError ? (
-              <ErrorHandling resource="products" field="brand" loading={loading} />
+              <ErrorHandling resource="products" field="brands" loading={loading} />
             ) : null}
           </Grid>
           <Grid item>
-          {/* <CreatableSelect
-              options={categoryOptions}
-              size="small"
-              label="Kategori"
-              value={
-                shop?.category
-                  ? categoryOptions.find((cat) => cat.name === shop.category)
-                  : null
-              }
-              error={Boolean(validationError?.category)} // Use optional chaining
+          <Select
+              id="measurementUnit"
+              options={measurementUnitOptions}
+              value={measurementUnitOptions.find(option => option.value === product?.measurementUnit)}
               onChange={(selectedOption) => {
-                setShop({ ...shop, category: selectedOption?.name || "" });
+                setProduct({ ...product, measurementUnit: selectedOption?.value || '' });
                 resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
+                resetServerError();
               }}
-              getOptionLabel={(option) => option.name} // Set the label for each option
-              getOptionValue={(option) => option.name} // Set the value for each option
-              placeholder="Velg Kategori..."
-              isValidNewOption={(inputValue, selectValue, selectOptions) => {
-                return (
-                  inputValue.trim() !== "" &&
-                  !selectOptions.find((option) => option.name === inputValue.trim())
-                );
-              }}
-              getNewOptionData={(inputValue, optionLabel) => ({
-                name: inputValue.trim(),
-              })}
-              onCreateOption={(inputValue) => {
-                const newCategory = { name: inputValue.trim() };
-                setShop({ ...shop, category: newCategory.name || "" });
-                categoryOptions.push(newCategory);
-              }}
-            /> */}
+              isClearable
+            />
             {displayError || validationError ? (
-              <ErrorHandling resource="products" field="category" loading={loading} />
+              <ErrorHandling resource="products" field="measurementUnit" loading={loading} />
             ) : null}
+            {console.log("Measurement Unit:", product?.measurementUnit)}
           </Grid>
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
@@ -152,8 +129,8 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
           </Button>
           <Button
             onClick={() => {
-              resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-              onClose(); // Close the dialog
+              resetFormAndErrors();
+              onClose();
             }}
             sx={{ ml: 2 }}
           >

@@ -23,7 +23,9 @@
     "react-router-dom": "^6.8.1",
     "react-scripts": "5.0.1",
     "react-select": "^5.7.4",
-    "web-vitals": "^2.1.4"
+    "slugify": "^1.6.6",
+    "web-vitals": "^2.1.4",
+    "yup": "^1.2.0"
   },
   "scripts": {
     "start": "react-scripts start",

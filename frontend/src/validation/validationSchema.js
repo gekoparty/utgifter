@@ -25,15 +25,20 @@ export const addCategoryValidationSchema = Yup.object().shape({
 });
 
 export const addProductValidationSchema = Yup.object().shape({
-  productName: Yup.string()
+  name: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
     .max(20, "Maks 20 tegn")
-    .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
-  brand: Yup.string()
-    .required("Må ha et sted")
-    .min(2, "Lokasjon må være minst 2 tegn")
-    .max(20, "Maks 20 tegn"),
+    .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"), 
+    brands: Yup.array().of(
+      Yup.object().shape({
+        name: Yup.string()
+          .required("Må ha et sted")
+          .min(2, "Brand må være minst 2 tegn")
+          .max(20, "Maks 20 tegn")
+      })
+    ),
+    measurementUnit: Yup.string().required("Må ha måleenhet")
 });
 
 export const addShopValidationSchema = Yup.object().shape({

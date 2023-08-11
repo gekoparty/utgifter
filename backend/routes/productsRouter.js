@@ -1,12 +1,13 @@
 import express from "express";
+import slugify from 'slugify'
 import Product from "../models/productSchema.js";
-import Brand from '../models/brandSchema.js'
+import Brand from '../models/brandSchema.js';
 
 const productsRouter = express.Router();
 
 productsRouter.get("/", async (req, res) => {
   try {
-    const products = await Product.find().populate("brand");
+    const products = await Product.find().populate("brands");
     res.json(products);
   } catch (err) {
     console.error(err.message);
@@ -15,84 +16,67 @@ productsRouter.get("/", async (req, res) => {
 });
 
 productsRouter.post("/", async (req, res) => {
-  console.log(req.body);
+  console.log("Request body:", JSON.stringify(req.body, null, 2));
   try {
     const { originalPayload, slugifiedPayload } = req.body;
-    const { name, brand } = originalPayload;
-    let brandId = brand;
-    //let categoryId = category // Use the existing locationId parameter
+    const { name, brands, measurementUnit } = originalPayload;
+    const brandIds = [];
 
-    if(typeof brand === "string") {
-      const existingBrand = await Brand.findOne({
-          slug: slugifiedPayload.brand
-      });
+    for (const brandObj of brands) {
+      if (typeof brandObj.name === "string") {
+        const slugifiedBrandName = slugify(brandObj.name, { lower: true }); // Slugify the brand name
 
-      if(!existingBrand) {
+        const existingBrand = await Brand.findOne({
+          slug: slugifiedBrandName,
+        });
+
+        let brandId;
+
+        if (!existingBrand) {
           const newBrand = new Brand({
-              name: originalPayload.brand,
-              slug: slugifiedPayload.brand
+            name: brandObj.name,
+            slug: slugifiedBrandName,
           });
 
           const savedBrand = await newBrand.save();
-          brandId = savedBrand._id
-      } else {
+          brandId = savedBrand._id;
+        } else {
           brandId = existingBrand._id;
+        }
+
+        brandIds.push(brandId);
       }
-    }  
+    }
 
-
-    /* // Check if the location and category is provided as a string (name) instead of a reference
-    if (typeof location === "string") {
-      const existingLocation = await Location.findOne({
-        slug: slugifiedPayload.location,
-      });
-
-      if (!existingLocation) {
-        const newLocation = new Location({
-          name: originalPayload.location,
-          slug: slugifiedPayload.location,
-        });
-
-        const savedLocation = await newLocation.save();
-        locationId = savedLocation._id; // Reassign the locationId using let
-      } else {
-        locationId = existingLocation._id; // Reassign the locationId using let
-      }
-    } */
-
-    const slugifiedName = slugifiedPayload.name;
-    const slugifiedBrand = slugifiedPayload.brand;
-
-    // Check if a shop with the same name already exists
     const existingProduct = await Product.findOne({
-      slugifiedName,
+      slug: slugifiedPayload.name,
     });
 
     if (existingProduct) {
-      // Check if the shop with the same name and location already exists
-      const existingProductWithBrand = await Product.findOne({
-        slugifiedName,
-        brand: brandId,
+      const existingProductWithBrands = await Product.findOne({
+        slug: slugifiedPayload.name,
+        brands: { $in: brandIds },
       });
 
-      if (existingProductWithBrand) {
+      if (existingProductWithBrands) {
         return res.status(400).json({ message: "duplicate" });
       }
     }
 
     const product = new Product({
       name,
-      brand: brandId,
-      //category: categoryId,
-      slugifiedName,
+      measurementUnit,
+      brands: brandIds,
+      slug: slugifiedPayload.name,
     });
 
     try {
+      console.log(product);
+
       const savedProduct = await product.save();
       console.log("Saved product:", savedProduct);
 
-      // Fetch the associated location document using populate
-      const populatedProduct = await Product.findById(savedProduct._id).populate("brand").exec();
+      const populatedProduct = await Product.findById(savedProduct._id).populate("brands").exec();
 
       res.status(201).json(populatedProduct);
     } catch (saveError) {
@@ -106,3 +90,4 @@ productsRouter.post("/", async (req, res) => {
 });
 
 export default productsRouter;
+
