@@ -5,16 +5,12 @@ import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addCategoryValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
-const slugifyFields = {
-  POST: ["name"], // Slugify all three fields for POST method
-  PUT: ["name"], // Slugify only the 'name' field for PUT method
-};
+
 
 const UseCategoryDialog = (initialCategory = null) => {
   const [categoryName, setCategoryName] = useState(initialCategory?.name || "");
   const { sendRequest, loading } = useCustomHttp(
-    "/api/categories",
-    slugifyFields
+    "/api/categories"
   );
   const { dispatch, state } = useContext(StoreContext);
 
@@ -38,7 +34,14 @@ const UseCategoryDialog = (initialCategory = null) => {
     } else {
       resetFormAndErrors();
     }
-  }, [initialCategory, resetFormAndErrors]);
+    return () => {
+      // Cleanup function: Clear category related data from the store when the component is unmounted
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "categories",
+      });
+    };
+  }, [initialCategory, resetFormAndErrors, dispatch])
 
   const handleSaveCategory = async (onClose) => {
     if (typeof categoryName !== "string" || categoryName.trim().length === 0) {
@@ -65,7 +68,7 @@ const UseCategoryDialog = (initialCategory = null) => {
 
     console.log("categoryName", categoryName)
     const formattedCategoryName = formatComponentFields(categoryName, "category");
-    const newCategory = { name: formattedCategoryName };
+   
 
     try {
       let url = "/api/categories";
@@ -79,7 +82,7 @@ const UseCategoryDialog = (initialCategory = null) => {
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
-        newCategory
+        formattedCategoryName
       );
 
       if (addDataError) {

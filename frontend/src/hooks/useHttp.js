@@ -1,9 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
-import slugify from "slugify";
 
-const useCustomHttp = (initialUrl, slugifyFields = {}) => {
+const useCustomHttp = (initialUrl) => {
   const [httpState, setHttpState] = useState({
     data: null,
     loading: true,
@@ -20,40 +19,13 @@ const useCustomHttp = (initialUrl, slugifyFields = {}) => {
     const source = axios.CancelToken.source();
 
     try {
-      let requestConfig = {
+      const requestConfig = {
         url,
         method,
         cancelToken: source.token,
+        data: payload, // Simplified payload handling
       };
-  
-      if (payload) {
-        const fieldsToSlugify = slugifyFields[method];
-        const slugifiedPayload = {};
-  
-        for (const field of Object.keys(payload)) {
-          const fieldData = payload[field];
-          if (fieldsToSlugify && fieldsToSlugify.includes(field)) {
-            if (Array.isArray(fieldData)) {
-              slugifiedPayload[field] = fieldData.map((item) => ({
-                ...item,
-                name: slugify(item.name, { lower: true }),
-              }));
-            } else {
-              slugifiedPayload[field] = slugify(fieldData, { lower: true });
-            }
-          } else {
-            slugifiedPayload[field] = fieldData;
-          }
-        }
-      
-        requestConfig.data = {
-          originalPayload: payload,
-          slugifiedPayload,
-        };
-      } else {
-        // No slugify fields defined, use the original payload
-        requestConfig.params = payload;
-      }
+
       const response = await axios.request(requestConfig);
 
       if (response && response.data) {
@@ -80,7 +52,6 @@ const useCustomHttp = (initialUrl, slugifyFields = {}) => {
     } finally {
       source.cancel();
     }
-     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -131,4 +102,5 @@ useCustomHttp.propTypes = {
 };
 
 export default useCustomHttp;
+
 

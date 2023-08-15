@@ -5,9 +5,7 @@ import IconButton from "@mui/material/IconButton";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
-const TableRowItem = ({ item, onDelete, onEdit, headers }) => {
-  
-
+const TableRowItem = ({ item, onDelete, onEdit, headers, columnRenderers }) => {
   return (
     <TableRow>
       {headers.map((header) => {
@@ -29,6 +27,13 @@ const TableRowItem = ({ item, onDelete, onEdit, headers }) => {
                   <EditIcon sx={{ fontSize: "inherit" }} />
                 )}
               </IconButton>
+            </TableCell>
+          );
+        } else if (columnRenderers && columnRenderers[header]) {
+          // Check if a custom renderer is defined for the column
+          return (
+            <TableCell key={header}>
+              {columnRenderers[header](item)} {/* Use the custom renderer */}
             </TableCell>
           );
         } else {

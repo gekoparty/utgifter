@@ -30,6 +30,7 @@ const CategoryScreen = () => {
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  console.log(state)
 
   const memoizedTableHeaders = useMemo(() => tableHeaders, []);
 

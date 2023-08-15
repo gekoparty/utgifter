@@ -18,8 +18,8 @@ productsRouter.get("/", async (req, res) => {
 productsRouter.post("/", async (req, res) => {
   console.log("Request body:", JSON.stringify(req.body, null, 2));
   try {
-    const { originalPayload, slugifiedPayload } = req.body;
-    const { name, brands, measurementUnit } = originalPayload;
+    const { name, brands, measurementUnit } = req.body;
+    
     const brandIds = [];
 
     for (const brandObj of brands) {
@@ -49,12 +49,12 @@ productsRouter.post("/", async (req, res) => {
     }
 
     const existingProduct = await Product.findOne({
-      slug: slugifiedPayload.name,
+      slug: slugify(name, {lower: true}),
     });
 
     if (existingProduct) {
       const existingProductWithBrands = await Product.findOne({
-        slug: slugifiedPayload.name,
+        slug: slugify(name, {lower: true}),
         brands: { $in: brandIds },
       });
 
@@ -67,7 +67,7 @@ productsRouter.post("/", async (req, res) => {
       name,
       measurementUnit,
       brands: brandIds,
-      slug: slugifiedPayload.name,
+      slug: slugify(name, {lower: true}),
     });
 
     try {
@@ -88,6 +88,27 @@ productsRouter.post("/", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+
+productsRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) {
+      return res.status(404).send({ error: "Product not found" });
+    }
+    res.send(product);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+
+
+
 
 export default productsRouter;
 

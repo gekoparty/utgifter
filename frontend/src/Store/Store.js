@@ -112,6 +112,11 @@ const reducer = (state, action) => {
         ...state,
         validationErrors: { ...state.validationErrors, [action.resource]: {} },
       };
+      case "CLEAR_RESOURCE":
+      return {
+        ...state,
+        [action.resource]: [], // Clear the resource data
+      };
     default:
       return state;
   }
