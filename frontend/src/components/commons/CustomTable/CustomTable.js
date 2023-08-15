@@ -8,7 +8,7 @@ import TableRowItem from "../TableRowItem/TableRowItem";
 
 
 
-const CustomTable = ({ data, headers, onDelete, onEdit }) => {
+const CustomTable = ({ data, headers, onDelete, onEdit, columnRenderers }) => {
   console.log("data coming from Table", data)
 
 
@@ -27,10 +27,13 @@ const CustomTable = ({ data, headers, onDelete, onEdit }) => {
           
           <TableRowItem
             key={item._id}
-            item={item}
+            item={{
+              ...item, // Spread the properties of the product
+            }}
             onDelete={onDelete}
             onEdit={onEdit}
             headers={headers}
+            columnRenderers={columnRenderers} 
           />
         ))}
       </TableBody>

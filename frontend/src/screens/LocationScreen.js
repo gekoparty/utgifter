@@ -20,6 +20,7 @@ const LocationScreen = () => {
   const { loading, error, data: locationsData } = useCustomHttp("/api/locations");
   const { state, dispatch } = useContext(StoreContext);
   const { locations } = state;
+  console.log(state)
 
   const [selectedLocation, setSelectedLocation] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);

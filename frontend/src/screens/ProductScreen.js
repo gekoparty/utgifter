@@ -69,9 +69,13 @@ const ProductScreen = () => {
     }
   }, [brandsData, dispatch]);
 
-  
+  const renderBrandForProducts = (item) => {
+    return <>{item.brands}</>;
+  };
 
-
+  const columnRenderers = {
+    Brand: renderBrandForProducts, // Use your existing renderBrandForProducts function
+  };
 
 
 
@@ -79,7 +83,7 @@ const ProductScreen = () => {
     if (products) {
       const updatedProductsWithBrands = products.map((product) => ({
         ...product,
-        brand: product.brands.map(brand => brand.name).join(', '), // Concatenate brand names
+        brands: product.brands.map(brand => brand.name).join(', '), // Concatenate brand names
       }));
       setProductsWithBrandName(updatedProductsWithBrands);
     }
@@ -139,6 +143,7 @@ const ProductScreen = () => {
           setSelectedProduct(product);
           setEditModalOpen(true);
         }}
+        columnRenderers={columnRenderers}
       />
 
       <DeleteProductDialog

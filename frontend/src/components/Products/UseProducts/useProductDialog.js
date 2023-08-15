@@ -17,14 +17,8 @@ const useProductDialog = (initialProduct = null) => {
     initialProduct ? initialProduct : { ...initialProductState }
   );
 
-  
 
-  const slugifyFields = {
-    POST: ["name", "brands"], // Slugify all three fields for POST method
-    PUT: ["name", "brands"], // Slugify only the 'name' field for PUT method
-  };
-
-  const { sendRequest, loading } = useCustomHttp("/api/products", slugifyFields);
+  const { sendRequest, loading } = useCustomHttp("/api/products");
   const { dispatch, state } = useContext(StoreContext);
   const { loading: brandLoading, brands } = useBrandDialog();
 
@@ -55,7 +49,18 @@ const useProductDialog = (initialProduct = null) => {
     } else {
       resetFormAndErrors();
     }
-  }, [initialProduct, resetFormAndErrors]);
+    return () => {
+      // Cleanup function: Clear product related data from the store when the component is unmounted
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "products",
+      });
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "brands"
+      })
+    };
+  }, [initialProduct, resetFormAndErrors, dispatch]);
 
   const handleSaveProduct = async (onClose) => {
     
@@ -115,8 +120,6 @@ const useProductDialog = (initialProduct = null) => {
       return;
     }
   
-    
-    console.log("newProduct:", formattedProduct);
   
     try {
       let url = "/api/products";

@@ -20,6 +20,7 @@ const BrandScreen = () => {
   const { loading, error, data: brandsData } = useCustomHttp("/api/brands");
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;
+  console.log(state)
 
   const [selectedBrand, setSelectedBrand] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);

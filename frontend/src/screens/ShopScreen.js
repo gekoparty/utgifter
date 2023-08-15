@@ -6,6 +6,7 @@ import {
   Snackbar,
   SnackbarContent,
 } from "@mui/material";
+
 import CloseIcon from "@mui/icons-material/Close";
 
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -20,6 +21,7 @@ import EditShopDialog from "../components/Shops/ShopDialogs/EditShopDialog";
 const tableHeaders = ["Name", "Location", "Category", "Delete", "Edit"];
 
 const ShopScreen = () => {
+  
   const { loading: shopLoading, data: shopsData } = useCustomHttp("/api/shops");
   const { loading: locationLoading, data: locationsData } = useCustomHttp("/api/locations");
   const { loading: categoryLoading, data: categoriesData} = useCustomHttp('/api/categories');
@@ -94,7 +96,23 @@ const ShopScreen = () => {
     }
   }, [shops]);
 
-  
+  useEffect(() => {
+    // Cleanup function: Clear the shops and related data from the store when the component is unmounted
+    return () => {
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "shops",
+      });
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "locations",
+      });
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "categories",
+      });
+    };
+  }, []);
 
   const addShopHandler = (newShop) => {
     showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`)

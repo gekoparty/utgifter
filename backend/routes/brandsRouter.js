@@ -1,5 +1,6 @@
 import express from "express";
 import Brand from "../models/brandSchema.js";
+import slugify from "slugify";
 
 const brandsRouter = express.Router();
 
@@ -16,9 +17,9 @@ brandsRouter.get("/", async (req, res) => {
   brandsRouter.post("/", async (req, res) => {
     console.log(req.body);
     try {
-      const { originalPayload, slugifiedPayload } = req.body;
-      const name = originalPayload.name;
-      const slug = slugifiedPayload.name;
+      const { name} = req.body;
+      
+      const slug = slugify(name, {lower: true})
   
       const existingBrand = await Brand.findOne({ slug });
       if (existingBrand) {
@@ -55,12 +56,12 @@ brandsRouter.get("/", async (req, res) => {
   
   brandsRouter.put("/:id", async (req, res) => {
     const { id } = req.params;
-    const { originalPayload, slugifiedPayload } = req.body;
+    const { name } = req.body;
   
     try {
       // Check if the slug already exists for a different brand
       const existingBrandWithSlug = await Brand.findOne({
-        slug: slugifiedPayload.name,
+        slug: slugify(name, {lower: true}),
         _id: { $ne: id }, // Exclude the current brand from the check
       });
   
@@ -72,8 +73,8 @@ brandsRouter.get("/", async (req, res) => {
         id,
         {
           $set: {
-            name: originalPayload.name,
-            slug: slugifiedPayload.name,
+            name,
+            slug: slugify(name, {lower: true})
           },
         },
         { new: true }

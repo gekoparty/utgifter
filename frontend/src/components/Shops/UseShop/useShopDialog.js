@@ -19,12 +19,9 @@ const useShopDialog = (initialShop = null) => {
 
   
 
-  const slugifyFields = {
-    POST: ["name", "location", "category"], // Slugify all three fields for POST method
-    PUT: ["name", "location", "category"], // Slugify only the 'name' field for PUT method
-  };
+  
 
-  const { sendRequest, loading } = useCustomHttp("/api/shops", slugifyFields);
+  const { sendRequest, loading } = useCustomHttp("/api/shops");
   const { dispatch, state } = useContext(StoreContext);
   const { loading: locationLoading, locations } = useLocationDialog();
 
@@ -55,7 +52,24 @@ const useShopDialog = (initialShop = null) => {
     } else {
       resetFormAndErrors();
     }
-  }, [initialShop, resetFormAndErrors]);
+
+    // Cleanup function: Clear the shops, locations, and categories data from the store when the component is unmounted
+    return () => {
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "shops",
+      });
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "locations",
+      });
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "categories",
+      });
+    };
+  }, [initialShop, resetFormAndErrors, dispatch]);
+
 
   const handleSaveShop = async (onClose) => {
     if (!shop.name.trim() || !shop.location.trim() || !shop.category.trim()) {

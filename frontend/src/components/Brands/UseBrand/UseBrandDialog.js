@@ -5,14 +5,11 @@ import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
-const slugifyFields = {
-  POST: ["name"], // Slugify all three fields for POST method
-  PUT: ["name"], // Slugify only the 'name' field for PUT method
-};
+
 
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
-  const { sendRequest, loading } = useCustomHttp("/api/brands", slugifyFields);
+  const { sendRequest, loading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
 
   const resetValidationErrors = useCallback(() => {
@@ -35,7 +32,14 @@ const useBrandDialog = (initialBrand = null) => {
     } else {
       resetFormAndErrors();
     }
-  }, [initialBrand, resetFormAndErrors]);
+    return () => {
+      // Cleanup function: Clear brand related data from the store when the component is unmounted
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "brands",
+      });
+    };
+  }, [initialBrand, resetFormAndErrors, dispatch])
 
   const handleSaveBrand = async (onClose) => {
     if (typeof brandName !== "string" || brandName.trim().length === 0) {
@@ -56,7 +60,7 @@ const useBrandDialog = (initialBrand = null) => {
     }
 
     const formattedBrandName = formatComponentFields(brandName, "brand");
-    const newBrand = { name: formattedBrandName };
+    
 
     try {
       let url = "/api/brands";
@@ -70,7 +74,7 @@ const useBrandDialog = (initialBrand = null) => {
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
-        newBrand
+        formattedBrandName
       );
 
       if (addDataError) {

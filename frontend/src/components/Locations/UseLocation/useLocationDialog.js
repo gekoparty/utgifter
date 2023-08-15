@@ -5,16 +5,12 @@ import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addLocationValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
-const slugifyFields = {
-  POST: ["name"], // Slugify all three fields for POST method
-  PUT: ["name"], // Slugify only the 'name' field for PUT method
-};
+
 
 const useLocationDialog = (initialLocation = null) => {
   const [locationName, setLocationName] = useState(initialLocation?.name || "");
   const { sendRequest, loading } = useCustomHttp(
-    "/api/locations",
-    slugifyFields
+    "/api/locations"
   );
   const { dispatch, state } = useContext(StoreContext);
 
@@ -67,7 +63,7 @@ const useLocationDialog = (initialLocation = null) => {
       locationName,
       "location"
     );
-    const newLocation = { name: formattedLocationName };
+    
 
     try {
       let url = "/api/locations";
@@ -81,7 +77,7 @@ const useLocationDialog = (initialLocation = null) => {
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
-        newLocation
+        formattedLocationName
       );
 
       if (addDataError) {
