@@ -13,14 +13,18 @@ const useProductDialog = (initialProduct = null) => {
     measurementUnit: "",
   };
 
+ 
+
   const [product, setProduct] = useState(
     initialProduct ? initialProduct : { ...initialProductState }
   );
-
+  
 
   const { sendRequest, loading } = useCustomHttp("/api/products");
   const { dispatch, state } = useContext(StoreContext);
   const { loading: brandLoading, brands } = useBrandDialog();
+
+  
 
   const resetServerError = useCallback(() => {
     dispatch({
@@ -44,47 +48,48 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
+    console.log("Brands in useProductDialog:", brands); // Add this line
+    let isUnmounted = false;
     if (initialProduct) {
       setProduct(initialProduct);
     } else {
       resetFormAndErrors();
     }
     return () => {
-      // Cleanup function: Clear product related data from the store when the component is unmounted
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "products",
-      });
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "brands"
-      })
+      isUnmounted = true;
+
+      if (!isUnmounted) {
+        // Clear product related data from the store only when leaving the page
+        dispatch({
+          type: "CLEAR_RESOURCE",
+          resource: "products",
+        });
+        dispatch({
+          type: "CLEAR_RESOURCE",
+          resource: "brands",
+        });
+      }
     };
   }, [initialProduct, resetFormAndErrors, dispatch]);
 
   const handleSaveProduct = async (onClose) => {
+    console.log(product)
     
   if (!product.name.trim() || product.brands.length === 0) {
     return;
   }
 
-    console.log("Before formatting:", product); // Add this log
+   
   
     let formattedProduct = {};
     let validationErrors = {};
     let formattedBrands;
   
     try {
-      formattedBrands = product.brands.map((brand) => {
-        console.log("Original brand:", brand);
-        const formattedBrand = {
-          name: formatComponentFields(brand.name, "brand").name,
-        };
-        console.log("Formatted brand:", formattedBrand);
-        return formattedBrand;
-      });
-      
-      console.log("formattedBrands", formattedBrands)
+      const brandNames = product.brands.split(", ").map((brand) => brand.trim());
+      formattedBrands = brandNames.map((brand) => ({
+        name: formatComponentFields(brand, "brand").name,
+      }));
 
       formattedProduct = {
         ...formatComponentFields(product.name, "product"),
@@ -92,22 +97,22 @@ const useProductDialog = (initialProduct = null) => {
         measurementUnit: product.measurementUnit,
       };
   
-      console.log("formattedProduct", formattedProduct); // Add this log
+  
+      
   
       await addProductValidationSchema.validate(formattedProduct, {
         abortEarly: false,
       });
 
-      console.log("Validation successful"); // Add this log
+     
 
     } catch (validationError) {
       console.log("Validation error:", validationError);
       validationError.inner.forEach((err) => {
-        //validationErrors[err.path] = { show: true, message: err.message };
-         console.log("Validation error message:", err.message);
-    console.log("Validation error path:", err.path);
+        
+         
       });
-      console.log("Field-specific errors:", validationErrors);
+      
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "products",
@@ -124,13 +129,13 @@ const useProductDialog = (initialProduct = null) => {
     try {
       let url = "/api/products";
       let method = "POST";
-  
+
       if (initialProduct) {
         url = `/api/products/${initialProduct._id}`;
         method = "PUT";
       } else {
         if (initialProduct === undefined) {
-          formattedProduct.brands = [product.brand]; // Convert single brand to array
+          formattedProduct.brands = [product.brand];
         } else {
           formattedProduct.brands = formattedBrands;
         }
@@ -142,10 +147,10 @@ const useProductDialog = (initialProduct = null) => {
         formattedProduct
       );
   
-      console.log("Response from the server:", data); // Add this log
+   
   
       if (addDataError) {
-        console.log("adddataError", addDataError)
+        
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -154,7 +159,7 @@ const useProductDialog = (initialProduct = null) => {
         });
       } else {
         const payload = data;
-        console.log(data);
+       
         if (initialProduct) {
           dispatch({ type: "UPDATE_ITEM", resource: "products", payload });
         } else {
@@ -180,7 +185,7 @@ const useProductDialog = (initialProduct = null) => {
       }
     } catch (fetchError) {
 
-      console.log("Error in handleSaveProduct:", fetchError); // Add this log
+      
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
@@ -201,11 +206,11 @@ const useProductDialog = (initialProduct = null) => {
         "DELETE"
       );
       if (response.error) {
-        console.log("error deleting product", response.error);
+       
         onDeleteFailure(selectedProduct);
         return false;
       } else {
-        console.log("Delete success", selectedProduct);
+       
         onDeleteSuccess(selectedProduct);
         dispatch({
           type: "DELETE_ITEM",
@@ -215,7 +220,7 @@ const useProductDialog = (initialProduct = null) => {
         return true;
       }
     } catch (error) {
-      console.log("Error deleting Product:", error);
+      
       onDeleteFailure(selectedProduct);
       return false; // Indicate deletion failure
     }

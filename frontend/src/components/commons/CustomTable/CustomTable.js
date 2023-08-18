@@ -9,7 +9,7 @@ import TableRowItem from "../TableRowItem/TableRowItem";
 
 
 const CustomTable = ({ data, headers, onDelete, onEdit, columnRenderers }) => {
-  console.log("data coming from Table", data)
+  
 
 
   
