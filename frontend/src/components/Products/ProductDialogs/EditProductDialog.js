@@ -37,8 +37,7 @@ const EditProductDialog = ({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    
-    
+
     if (isFormValid()) {
       const success = await handleSaveProduct(onClose);
       if (success) {
@@ -47,7 +46,6 @@ const EditProductDialog = ({
         onUpdateFailure();
       }
     }
-    
   };
 
   console.log("Brands in EditProductDialog:", brands);
@@ -86,37 +84,48 @@ const EditProductDialog = ({
           </Grid>
 
           <Grid item>
-          <CreatableSelect
-  id="brands"
-  options={
-    brands
-      ? brands.map((brand) => ({
-          value: brand.name,
-          label: brand.name,
-        }))
-      : []
-  }
-  isMulti
-  value={
-    product?.brands
-      ? product.brands
-          .split(", ")
-          .map((brand) => ({ value: brand.trim(), label: brand.trim() }))
-      : []
-  }
-  onChange={(selectedOptions) => {
-    const selectedBrands = selectedOptions.map((option) => option.value);
-    setProduct({ ...product, brands: selectedBrands.join(", ") });
-    resetValidationErrors();
-    resetServerError();
-  }}
-  isClearable
-  formatCreateLabel={(inputValue) => `Create new brand: ${inputValue}`}
-/>
+            <CreatableSelect
+              id="brands"
+              options={
+                brands
+                  ? brands.map((brand) => ({
+                      value: brand.name,
+                      label: brand.name,
+                    }))
+                  : []
+              }
+              isMulti
+              value={
+                product?.brands
+                  ? product.brands
+                      .split(", ")
+                      .map((brand) => ({
+                        value: brand.trim(),
+                        label: brand.trim(),
+                      }))
+                  : []
+              }
+              onChange={(selectedOptions) => {
+                const selectedBrands = selectedOptions.map(
+                  (option) => option.value
+                );
+                setProduct({ ...product, brands: selectedBrands.join(", ") });
+                resetValidationErrors();
+                resetServerError();
+              }}
+              isClearable
+              formatCreateLabel={(inputValue) =>
+                `Create new brand: ${inputValue}`
+              }
+            />
 
-  {displayError || validationError ? (
-    <ErrorHandling resource="products" field="brands" loading={loading} />
-  ) : null}
+            {displayError || validationError ? (
+              <ErrorHandling
+                resource="products"
+                field="brands"
+                loading={loading}
+              />
+            ) : null}
           </Grid>
 
           <Grid item>

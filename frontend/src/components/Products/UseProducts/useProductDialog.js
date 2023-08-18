@@ -1,7 +1,7 @@
 import { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
-import useBrandDialog from '../../Brands/UseBrand/UseBrandDialog';
+import useBrandDialog from "../../Brands/UseBrand/UseBrandDialog";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../Store/Store";
 import { addProductValidationSchema } from "../../../validation/validationSchema";
@@ -13,18 +13,13 @@ const useProductDialog = (initialProduct = null) => {
     measurementUnit: "",
   };
 
- 
-
   const [product, setProduct] = useState(
     initialProduct ? initialProduct : { ...initialProductState }
   );
-  
 
   const { sendRequest, loading } = useCustomHttp("/api/products");
   const { dispatch, state } = useContext(StoreContext);
   const { loading: brandLoading, brands } = useBrandDialog();
-
-  
 
   const resetServerError = useCallback(() => {
     dispatch({
@@ -73,20 +68,20 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetFormAndErrors, dispatch]);
 
   const handleSaveProduct = async (onClose) => {
-    console.log(product)
-    
-  if (!product.name.trim() || product.brands.length === 0) {
-    return;
-  }
+    console.log(product);
 
-   
-  
+    if (!product.name.trim() || product.brands.length === 0) {
+      return;
+    }
+
     let formattedProduct = {};
     let validationErrors = {};
     let formattedBrands;
-  
+
     try {
-      const brandNames = product.brands.split(", ").map((brand) => brand.trim());
+      const brandNames = product.brands
+        .split(", ")
+        .map((brand) => brand.trim());
       formattedBrands = brandNames.map((brand) => ({
         name: formatComponentFields(brand, "brand").name,
       }));
@@ -96,23 +91,16 @@ const useProductDialog = (initialProduct = null) => {
         brands: formattedBrands,
         measurementUnit: product.measurementUnit,
       };
-  
-  
-      
-  
+
+      console.log("formattedProduct", formattedProduct);
+
       await addProductValidationSchema.validate(formattedProduct, {
         abortEarly: false,
       });
-
-     
-
     } catch (validationError) {
       console.log("Validation error:", validationError);
-      validationError.inner.forEach((err) => {
-        
-         
-      });
-      
+      validationError.inner.forEach((err) => {});
+
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "products",
@@ -124,8 +112,7 @@ const useProductDialog = (initialProduct = null) => {
       });
       return;
     }
-  
-  
+
     try {
       let url = "/api/products";
       let method = "POST";
@@ -140,17 +127,14 @@ const useProductDialog = (initialProduct = null) => {
           formattedProduct.brands = formattedBrands;
         }
       }
-      
+
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
         formattedProduct
       );
-  
-   
-  
+
       if (addDataError) {
-        
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -159,7 +143,7 @@ const useProductDialog = (initialProduct = null) => {
         });
       } else {
         const payload = data;
-       
+
         if (initialProduct) {
           dispatch({ type: "UPDATE_ITEM", resource: "products", payload });
         } else {
@@ -174,7 +158,7 @@ const useProductDialog = (initialProduct = null) => {
               payload: formattedProduct.brand,
             });
           }
-  
+
           dispatch({ type: "ADD_ITEM", resource: "products", payload });
           setProduct({});
         }
@@ -184,8 +168,6 @@ const useProductDialog = (initialProduct = null) => {
         return true;
       }
     } catch (fetchError) {
-
-      
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
@@ -206,11 +188,9 @@ const useProductDialog = (initialProduct = null) => {
         "DELETE"
       );
       if (response.error) {
-       
         onDeleteFailure(selectedProduct);
         return false;
       } else {
-       
         onDeleteSuccess(selectedProduct);
         dispatch({
           type: "DELETE_ITEM",
@@ -220,7 +200,6 @@ const useProductDialog = (initialProduct = null) => {
         return true;
       }
     } catch (error) {
-      
       onDeleteFailure(selectedProduct);
       return false; // Indicate deletion failure
     }
