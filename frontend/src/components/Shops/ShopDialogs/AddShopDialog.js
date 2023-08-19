@@ -1,6 +1,5 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
-import Select from "react-select";
 import CreatableSelect from 'react-select/creatable';
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";

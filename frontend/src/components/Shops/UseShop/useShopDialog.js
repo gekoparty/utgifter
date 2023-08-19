@@ -40,10 +40,10 @@ const useShopDialog = (initialShop = null) => {
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
-    setShop(initialShop ? initialShop : initialShopState);
+    const newShop = initialShop || initialShopState;
+    setShop(newShop);
     resetServerError();
     resetValidationErrors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialShop, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
@@ -53,22 +53,27 @@ const useShopDialog = (initialShop = null) => {
       resetFormAndErrors();
     }
 
-    // Cleanup function: Clear the shops, locations, and categories data from the store when the component is unmounted
+    
+  
+  }, [initialShop, resetFormAndErrors, dispatch]);
+
+  useEffect(() => {
     return () => {
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "shops",
-      });
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "locations",
-      });
+      // Cleanup function: Clear category related data from the store when the component is unmounted
       dispatch({
         type: "CLEAR_RESOURCE",
         resource: "categories",
       });
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "locations"
+      })
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "categories" 
+      })
     };
-  }, [initialShop, resetFormAndErrors, dispatch]);
+  }, [dispatch])
 
 
   const handleSaveShop = async (onClose) => {
