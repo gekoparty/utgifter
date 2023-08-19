@@ -43,7 +43,6 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
-    console.log("Brands in useProductDialog:", brands); // Add this line
     let isUnmounted = false;
     if (initialProduct) {
       setProduct(initialProduct);

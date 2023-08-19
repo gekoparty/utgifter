@@ -36,6 +36,16 @@ const useLocationDialog = (initialLocation = null) => {
     }
   }, [initialLocation, resetFormAndErrors]);
 
+  useEffect(() => {
+    return () => {
+      // Cleanup function: Clear category related data from the store when the component is unmounted
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "locations",
+      });
+    };
+  }, [dispatch])
+
   const handleSaveLocation = async (onClose) => {
     if (typeof locationName !== "string" || locationName.trim().length === 0) {
       return; // Prevent submitting invalid or empty brand name

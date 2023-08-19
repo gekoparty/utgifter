@@ -32,14 +32,16 @@ const useBrandDialog = (initialBrand = null) => {
     } else {
       resetFormAndErrors();
     }
+  }, [initialBrand, resetFormAndErrors, dispatch])
+
+  useEffect(() => {
     return () => {
-      // Cleanup function: Clear brand related data from the store when the component is unmounted
       dispatch({
         type: "CLEAR_RESOURCE",
         resource: "brands",
       });
     };
-  }, [initialBrand, resetFormAndErrors, dispatch])
+  }, [dispatch]);
 
   const handleSaveBrand = async (onClose) => {
     if (typeof brandName !== "string" || brandName.trim().length === 0) {

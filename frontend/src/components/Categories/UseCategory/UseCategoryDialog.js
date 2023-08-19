@@ -34,6 +34,9 @@ const UseCategoryDialog = (initialCategory = null) => {
     } else {
       resetFormAndErrors();
     }
+  }, [initialCategory, resetFormAndErrors]);
+
+  useEffect(() => {
     return () => {
       // Cleanup function: Clear category related data from the store when the component is unmounted
       dispatch({
@@ -41,7 +44,7 @@ const UseCategoryDialog = (initialCategory = null) => {
         resource: "categories",
       });
     };
-  }, [initialCategory, resetFormAndErrors, dispatch])
+  }, [dispatch]);
 
   const handleSaveCategory = async (onClose) => {
     if (typeof categoryName !== "string" || categoryName.trim().length === 0) {
