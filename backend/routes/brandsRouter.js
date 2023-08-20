@@ -5,8 +5,10 @@ import slugify from "slugify";
 const brandsRouter = express.Router();
 
 brandsRouter.get("/", async (req, res) => {
+  console.log(req.body)
     try {
       const brands = await Brand.find();
+      console.log("Data sent to client:", brands); // Log the data being sent
       res.json(brands);
     } catch (err) {
       console.error(err.message);

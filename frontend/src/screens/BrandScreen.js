@@ -7,17 +7,50 @@ import CustomTable from "../components/commons/CustomTable/CustomTable";
 import AddBrandDialog from "../components/Brands/BrandDialogs/AddBrandDialog";
 import DeleteBrandDialog from "../components/Brands/BrandDialogs/DeleteBrandDialog";
 import EditBrandDialog from "../components/Brands/BrandDialogs/EditBrandDialog";
-
+import ReactTable from "../components/commons/React-Table/react-table";
 import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";
 import { StoreContext } from "../Store/Store";
+import {  useQuery } from '@tanstack/react-query';
 
-const tableHeaders = ["Name", "Delete", "Edit"];
+//const tableHeaders = ["Name", "Delete", "Edit"];
+
+
 
 
 
 const BrandScreen = () => {
-  const { loading, error, data: brandsData } = useCustomHttp("/api/brands");
+
+  const [columnFilters, setColumnFilters] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState('');
+  const [sorting, setSorting] = useState([]);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  //const { loading, error, data: brandsData } = useCustomHttp("/api/brands");
+  const queryKey = [
+    'brands',
+    columnFilters,
+    globalFilter,
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+  ];
+
+  // Define your query function
+  const fetchData = async () => {
+    const response = await fetch('/api/brands'); // Replace with your API endpoint
+    const json = await response.json();
+    console.log("Response from server:", json); // Log the response here
+    return json;
+  };
+
+  // Use the useQuery hook with the queryKey and fetchData function
+  const { data: brandsData, loading, isError, error } = useQuery(queryKey, fetchData);
+  
+
+    
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;
   console.log(state)
@@ -27,7 +60,13 @@ const BrandScreen = () => {
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const memoizedTableHeaders = useMemo(() => tableHeaders, []);
+  const tableColumns = useMemo(
+    () => [
+      { accessorKey: "_id", header: "ID" },
+      { accessorKey: "name", header: "Name" },
+    ],
+    []
+  );
   
 
   const {
@@ -92,6 +131,7 @@ const BrandScreen = () => {
   }
 
   return (
+   
     <TableLayout>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
@@ -105,7 +145,12 @@ const BrandScreen = () => {
 
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
-          <CustomTable
+         
+        {brandsData && (
+  <ReactTable data={brandsData} columns={tableColumns} />
+)}
+          
+          {/* <CustomTable
             data={brands}
             headers={memoizedTableHeaders}
             onDelete={(brand) => {
@@ -116,11 +161,11 @@ const BrandScreen = () => {
               setSelectedBrand(brand);
               setEditModalOpen(true);
             }}
-          />
+          /> */}
         </Box>
       </Box>
 
-      <EditBrandDialog
+     {/*  <EditBrandDialog
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         cancelButton={
@@ -130,7 +175,7 @@ const BrandScreen = () => {
         selectedBrand={selectedBrand}
         onUpdateSuccess={editSuccessHandler}
         onUpdateFailure={editFailureHandler}
-      />
+      /> */}
 
       <DeleteBrandDialog
         open={deleteModalOpen}
@@ -163,12 +208,13 @@ const BrandScreen = () => {
         />
       </Snackbar>
 
-      <AddBrandDialog
+      {/* <AddBrandDialog
         onClose={() => setAddBrandDialogOpen(false)}
         onAdd={addBrandHandler}
         open={addBrandDialogOpen}
-      />
+      /> */}
     </TableLayout>
+    
   );
 };
 

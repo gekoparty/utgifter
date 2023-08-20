@@ -4,13 +4,16 @@ import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
+import { useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query'; // Import the necessary functions
 
 
 
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
-  const { sendRequest, loading } = useCustomHttp("/api/brands");
+  //const { sendRequest, loading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
+
 
   const resetValidationErrors = useCallback(() => {
     dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
@@ -44,6 +47,7 @@ const useBrandDialog = (initialBrand = null) => {
   }, [dispatch]);
 
   const handleSaveBrand = async (onClose) => {
+   /*  
     if (typeof brandName !== "string" || brandName.trim().length === 0) {
       return; // Prevent submitting invalid or empty brand name
     }
@@ -109,7 +113,7 @@ const useBrandDialog = (initialBrand = null) => {
         resource: "/api/brands",
         showError: true,
       });
-    }
+    } */
   };
 
   const handleDeleteBrand = async (
@@ -117,7 +121,7 @@ const useBrandDialog = (initialBrand = null) => {
     onDeleteSuccess,
     onDeleteFailure
   ) => {
-    try {
+  /*   try {
       const response = await sendRequest(
         `/api/brands/${selectedBrand?._id}`,
         "DELETE"
@@ -140,7 +144,7 @@ const useBrandDialog = (initialBrand = null) => {
       console.log("Error deleting brand:", error);
       onDeleteFailure(selectedBrand);
       return false; // Indicate deletion failure
-    }
+    } */
   };
 
   const displayError = state.error?.brands;
@@ -157,14 +161,14 @@ const useBrandDialog = (initialBrand = null) => {
   return {
     brandName,
     setBrandName,
-    loading,
-    handleSaveBrand,
+    loading: false, // Change this value if needed
+    handleSaveBrand, // Make sure to keep these functions accessible
     resetValidationErrors,
     resetServerError,
-    displayError,
-    validationError,
-    isFormValid,
-    handleDeleteBrand,
+    displayError: false, // Change this value if needed
+    validationError: null, // Change this value if needed
+    isFormValid: true, // Change this value if needed
+    handleDeleteBrand, // Make sure to keep these functions accessible
     resetFormAndErrors,
   };
 };

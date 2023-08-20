@@ -10,6 +10,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import PermanentDrawerLeft from "./components/NavBar/PermanentDrawerLeft";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import the QueryClient and QueryClientProvider
 import "dayjs/locale/nb";
 
 function App({ children }) {
@@ -21,12 +22,17 @@ function App({ children }) {
     setTitle(parsedTitle);
   }, [location]);
 
+  // Create a QueryClient instance
+  const queryClient = new QueryClient();
+
   return (
     <ErrorBoundary>
     <StoreProvider>
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
+    <QueryClientProvider client={queryClient}> {/* Wrap with QueryClientProvider */}
       <PermanentDrawerLeft title={title} />
       <Outlet />
+      </QueryClientProvider>
     </LocalizationProvider>
     </StoreProvider>
     </ErrorBoundary>
