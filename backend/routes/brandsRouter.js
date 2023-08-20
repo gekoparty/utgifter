@@ -4,17 +4,51 @@ import slugify from "slugify";
 
 const brandsRouter = express.Router();
 
-brandsRouter.get("/", async (req, res) => {
-  console.log(req.body)
-    try {
-      const brands = await Brand.find();
-      console.log("Data sent to client:", brands); // Log the data being sent
-      res.json(brands);
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send("Server Error");
+brandsRouter.get('/', async (req, res) => {
+  try {
+    const { columnFilters, globalFilter, sorting } = req.query;
+
+    console.log('Received query parameters:');
+    console.log('columnFilters:', columnFilters);
+    console.log('globalFilter:', globalFilter);
+    console.log('sorting:', sorting);
+
+    let query = Brand.find();
+
+    // Apply columnFilters
+    if (columnFilters) {
+      const filters = JSON.parse(columnFilters);
+      filters.forEach((filter) => {
+        const { id, value } = filter;
+        if (id && value) {
+          const fieldFilter = {};
+          fieldFilter[id] = new RegExp(`^${value}`, 'i');
+          query = query.where(fieldFilter);
+        }
+      });
     }
-  });
+
+    // Apply globalFilter
+    if (globalFilter) {
+      // Process and build your query based on globalFilter
+      // Example: query = query.where('name').regex(new RegExp(globalFilter, 'i'));
+    }
+
+    // Apply sorting
+    if (sorting) {
+      // Process and build your query based on sorting
+      // Example: query = query.sort({ columnName: sorting });
+    }
+
+    const brands = await query.exec();
+
+    console.log('Data sent to client:', brands);
+    res.json(brands);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
   
   brandsRouter.post("/", async (req, res) => {
     console.log(req.body);
