@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useContext, useMemo } from "react";
-import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  SnackbarContent,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -11,26 +17,21 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";
 import { StoreContext } from "../Store/Store";
-import {  useQuery } from '@tanstack/react-query';
+import { useQuery } from "@tanstack/react-query";
 
 //const tableHeaders = ["Name", "Delete", "Edit"];
 
-
-
-
-
 const BrandScreen = () => {
-
   const [columnFilters, setColumnFilters] = useState([]);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   });
-  //const { loading, error, data: brandsData } = useCustomHttp("/api/brands");
+
   const queryKey = [
-    'brands',
+    "brands",
     columnFilters,
     globalFilter,
     pagination.pageIndex,
@@ -40,20 +41,43 @@ const BrandScreen = () => {
 
   // Define your query function
   const fetchData = async () => {
-    const response = await fetch('/api/brands'); // Replace with your API endpoint
+    const fetchURL = new URL(
+      '/api/brands', // Update the API endpoint here
+      process.env.NODE_ENV === 'production'
+        ? 'https://www.material-react-table.com'
+        : 'http://localhost:3000',
+    );
+    
+    fetchURL.searchParams.set(
+      'start',
+      `${pagination.pageIndex * pagination.pageSize}`,
+    );
+    fetchURL.searchParams.set('size', `${pagination.pageSize}`);
+    fetchURL.searchParams.set('columnFilters', JSON.stringify(columnFilters ?? []));
+    fetchURL.searchParams.set('globalFilter', globalFilter ?? '');
+    fetchURL.searchParams.set('sorting', JSON.stringify(sorting ?? []));
+  
+    const response = await fetch(fetchURL.href);
     const json = await response.json();
     console.log("Response from server:", json); // Log the response here
     return json;
   };
-
-  // Use the useQuery hook with the queryKey and fetchData function
-  const { data: brandsData, loading, isError, error } = useQuery(queryKey, fetchData);
   
+  const {
+    data: brandsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch
+  } = useQuery({
+    queryKey: queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true, // Add this line
+  });
 
-    
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;
-  console.log(state)
+  console.log(state);
 
   const [selectedBrand, setSelectedBrand] = useState({});
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -67,7 +91,6 @@ const BrandScreen = () => {
     ],
     []
   );
-  
 
   const {
     snackbarOpen,
@@ -87,8 +110,6 @@ const BrandScreen = () => {
       });
     }
   }, [brandsData, dispatch]);
-
-
 
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Brand "${newBrand.name}" added successfully`);
@@ -110,12 +131,12 @@ const BrandScreen = () => {
     showErrorSnackbar("Failed to update brand");
   };
 
-  if (error && error.brands) {
+ /*  if (error && error.brands) {
     console.log(error.brands);
     return <div>Error: {error.brands}</div>;
-  }
+  } */
 
-  if (loading || brands === null) {
+ /*  if (loading || brands === null) {
     return (
       <div
         style={{
@@ -128,10 +149,9 @@ const BrandScreen = () => {
         Loading...
       </div>
     );
-  }
+  } */
 
   return (
-   
     <TableLayout>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
@@ -145,11 +165,26 @@ const BrandScreen = () => {
 
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
-         
-        {brandsData && (
-  <ReactTable data={brandsData} columns={tableColumns} />
-)}
-          
+          {brandsData && (
+            <ReactTable
+              data={brandsData}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={setGlobalFilter}
+              setSorting={setSorting}
+              setPagination={setPagination}
+              refetch={refetch}
+              isError={isError}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              
+            />
+          )}
+
           {/* <CustomTable
             data={brands}
             headers={memoizedTableHeaders}
@@ -165,7 +200,7 @@ const BrandScreen = () => {
         </Box>
       </Box>
 
-     {/*  <EditBrandDialog
+      {/*  <EditBrandDialog
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         cancelButton={
@@ -201,7 +236,11 @@ const BrandScreen = () => {
           }}
           message={snackbarMessage}
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon />
             </IconButton>
           }
@@ -214,7 +253,6 @@ const BrandScreen = () => {
         open={addBrandDialogOpen}
       /> */}
     </TableLayout>
-    
   );
 };
 
