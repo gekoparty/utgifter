@@ -47,7 +47,7 @@ const Table = ({
       initialState={{ showColumnFilters: true }}
       manualFiltering
       manualPagination
-      enableSorting
+      manualSorting
       enablePagination
       enableColumnResizing
       enableRowActions
