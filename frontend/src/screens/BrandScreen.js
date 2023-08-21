@@ -62,6 +62,10 @@ const BrandScreen = () => {
     const response = await fetch(fetchURL.href);
     const json = await response.json();
     console.log("Response from server:", json); // Log the response here
+    // Set the initial sorting to ascending for the first render
+    if (sorting.length === 0) {
+      setSorting([{ id: "name", desc: false }]);
+    }
     return json;
    
   };
