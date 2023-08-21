@@ -12,6 +12,7 @@ const TableLayout = ({ children }) => {
           marginLeft: `${drawerWidth}px`,
           display: "flex",
           justifyContent: "center",
+          
         }}
       >
         <Box sx={{ width: "100%", maxWidth: "800px" }}>
