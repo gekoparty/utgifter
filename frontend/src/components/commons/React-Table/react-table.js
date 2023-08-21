@@ -2,6 +2,8 @@ import React, { useMemo } from "react";
 import { MaterialReactTable } from "material-react-table";
 import { IconButton, Tooltip } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { MenuItem } from '@mui/material';
+import { MRT_Localization_NO } from 'material-react-table/locales/no';
 
 
 const Table = ({
@@ -19,11 +21,21 @@ const Table = ({
   globalFilter,
   pagination,
   sorting,
+  
 }) => {
   const cachedData = useMemo(() => {
-    return data;
+    return data.brands;
   }, [data]);
 
+  console.log("Data:", data);
+  console.log("Columns:", columns);
+  console.log("Column Filters:", columnFilters);
+  console.log("Global Filter:", globalFilter);
+  console.log("Sorting:", sorting);
+  console.log("Pagination:", pagination);
+
+  
+ 
   
 
   const columnsConfig = useMemo(() => columns, [columns]);
@@ -35,7 +47,21 @@ const Table = ({
       initialState={{ showColumnFilters: true }}
       manualFiltering
       manualPagination
-      manualSorting
+      enableSorting
+      enablePagination
+      enableColumnResizing
+      enableRowActions
+      localization={MRT_Localization_NO}
+      positionActionsColumn="last"
+      renderRowActionMenuItems={({ row }) => [
+        <MenuItem key="edit" onClick={() => console.info('Edit')}>
+          Edit
+        </MenuItem>,
+        <MenuItem key="delete" onClick={() => console.info('Delete')}>
+          Delete
+        </MenuItem>,
+      ]}
+      //manualSorting
       muiToolbarAlertBannerProps={
         isError
           ? {
@@ -60,47 +86,15 @@ const Table = ({
         columnFilters,
         globalFilter,
         isLoading,
-        pagination,
         showAlertBanner: isError,
         showProgressBars: isFetching,
         sorting,
+        pagination
       }}
     />
   );
 };
 
-const ReactTable = ({
-  data,
-  columns,
-  setColumnFilters,
-  setGlobalFilter,
-  setSorting,
-  setPagination,
-  refetch,
-  isError,
-  isLoading,
-  isFetching,
-  columnFilters,
-  globalFilter,
-  sorting,
-  pagination
-}) => (
-  <Table
-    data={data}
-    columns={columns}
-    setColumnFilters={setColumnFilters}
-    setGlobalFilter={setGlobalFilter}
-    setSorting={setSorting}
-    setPagination={setPagination}
-    refetch={refetch}
-    isError={isError}
-    isLoading={isLoading}
-    isFetching={isFetching}
-    columnFilters={columnFilters} // Pass columnFilters as a prop
-    globalFilter={globalFilter} // Pass globalFilter as a prop
-    sorting={sorting} // Pass sorting as a prop
-    pagination={pagination} // Pass pagination as a prop
-  />
-);
+const ReactTable = (props) => <Table {...props} />;
 
 export default ReactTable;

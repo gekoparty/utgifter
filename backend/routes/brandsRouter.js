@@ -6,12 +6,14 @@ const brandsRouter = express.Router();
 
 brandsRouter.get('/', async (req, res) => {
   try {
-    const { columnFilters, globalFilter, sorting } = req.query;
+    const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     console.log('Received query parameters:');
     console.log('columnFilters:', columnFilters);
     console.log('globalFilter:', globalFilter);
     console.log('sorting:', sorting);
+    console.log("start", start);
+    console.log("size", size)
 
     let query = Brand.find();
 
@@ -40,10 +42,26 @@ brandsRouter.get('/', async (req, res) => {
       // Example: query = query.sort({ columnName: sorting });
     }
 
-    const brands = await query.exec();
+    // Apply pagination
+    if (start && size) {
+      const startIndex = parseInt(start);
+      const pageSize = parseInt(size);
+      
+      // Query total row count before pagination
+      const totalRowCount = await Brand.countDocuments(query);
 
-    console.log('Data sent to client:', brands);
-    res.json(brands);
+      // Apply pagination
+      query = query.skip(startIndex).limit(pageSize);
+
+      const brands = await query.exec();
+
+      // Send response with both paginated data and total row count
+      res.json({ brands, meta: { totalRowCount } });
+    } else {
+      // If not using pagination, just send the brands data
+      const brands = await query.exec();
+      res.json(brands);
+    }
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

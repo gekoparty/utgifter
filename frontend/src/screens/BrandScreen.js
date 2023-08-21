@@ -22,12 +22,13 @@ import { useQuery } from "@tanstack/react-query";
 //const tableHeaders = ["Name", "Delete", "Edit"];
 
 const BrandScreen = () => {
+  const [data, setData] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 5,
   });
 
   const queryKey = [
@@ -41,6 +42,7 @@ const BrandScreen = () => {
 
   // Define your query function
   const fetchData = async () => {
+    console.log("Fetching data for page:", pagination.pageIndex);
     const fetchURL = new URL(
       '/api/brands', // Update the API endpoint here
       process.env.NODE_ENV === 'production'
@@ -61,6 +63,7 @@ const BrandScreen = () => {
     const json = await response.json();
     console.log("Response from server:", json); // Log the response here
     return json;
+   
   };
   
   const {
@@ -75,6 +78,8 @@ const BrandScreen = () => {
     keepPreviousData: true, // Add this line
   });
 
+  
+
   const { state, dispatch } = useContext(StoreContext);
   const { brands } = state;
   console.log(state);
@@ -87,7 +92,7 @@ const BrandScreen = () => {
   const tableColumns = useMemo(
     () => [
       { accessorKey: "_id", header: "ID" },
-      { accessorKey: "name", header: "Name" },
+      { accessorKey: "name", header: "Merkenavn" },
     ],
     []
   );
@@ -110,6 +115,8 @@ const BrandScreen = () => {
       });
     }
   }, [brandsData, dispatch]);
+
+  
 
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Brand "${newBrand.name}" added successfully`);
@@ -167,6 +174,7 @@ const BrandScreen = () => {
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
           {brandsData && (
             <ReactTable
+           
               data={brandsData}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
@@ -181,6 +189,7 @@ const BrandScreen = () => {
               globalFilter={globalFilter}
               pagination={pagination}
               sorting={sorting}
+             
               
             />
           )}
