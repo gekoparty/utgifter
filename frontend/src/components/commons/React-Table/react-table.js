@@ -21,11 +21,26 @@ const Table = ({
   globalFilter,
   pagination,
   sorting,
+  setSelectedBrand,
+  setEditModalOpen,
+  setDeleteModalOpen,
   
 }) => {
   const cachedData = useMemo(() => {
     return data.brands;
   }, [data]);
+
+    const handleEditBrand = (brand) => {
+      console.log("Clicked Edit with row:", brand.original); 
+      setSelectedBrand(brand.original);
+      setEditModalOpen(true);
+      
+    };
+
+    const handleDeleteBrand = (brand) => {
+      setSelectedBrand(brand.original);
+      setDeleteModalOpen(true);
+    }
 
   console.log("Data:", data);
   console.log("Columns:", columns);
@@ -34,8 +49,6 @@ const Table = ({
   console.log("Sorting:", sorting);
   console.log("Pagination:", pagination);
 
-  
- 
   
 
   const columnsConfig = useMemo(() => columns, [columns]);
@@ -54,10 +67,10 @@ const Table = ({
       localization={MRT_Localization_NO}
       positionActionsColumn="last"
       renderRowActionMenuItems={({ row }) => [
-        <MenuItem key="edit" onClick={() => console.info('Edit')}>
+        <MenuItem key="edit" onClick={() => handleEditBrand(row)}>
           Edit
         </MenuItem>,
-        <MenuItem key="delete" onClick={() => console.info('Delete')}>
+        <MenuItem key="delete" onClick={() => handleDeleteBrand(row)}>
           Delete
         </MenuItem>,
       ]}
@@ -95,6 +108,13 @@ const Table = ({
   );
 };
 
-const ReactTable = (props) => <Table {...props} />;
+
+
+const ReactTable = ({ setDeleteModalOpen, setSelectedBrand, editModalOpen, setEditModalOpen, ...props }) => (
+  <Table setSelectedBrand={setSelectedBrand} editModalOpen={editModalOpen}
+  setEditModalOpen={setEditModalOpen} setDeleteModalOpen={setDeleteModalOpen} {...props} />
+);
 
 export default ReactTable;
+
+
