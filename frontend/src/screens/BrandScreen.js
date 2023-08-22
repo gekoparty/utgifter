@@ -14,6 +14,7 @@ import AddBrandDialog from "../components/Brands/BrandDialogs/AddBrandDialog";
 import DeleteBrandDialog from "../components/Brands/BrandDialogs/DeleteBrandDialog";
 import EditBrandDialog from "../components/Brands/BrandDialogs/EditBrandDialog";
 import ReactTable from "../components/commons/React-Table/react-table";
+import useBrandDialog from "../components/Brands/UseBrand/UseBrandDialog";
 import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";
 import { StoreContext } from "../Store/Store";
@@ -79,7 +80,8 @@ const BrandScreen = () => {
   } = useQuery({
     queryKey: queryKey,
     queryFn: fetchData,
-    keepPreviousData: true, // Add this line
+    keepPreviousData: true,
+  refetchOnMount: true, // Enable auto refetching
   });
 
   
@@ -88,14 +90,18 @@ const BrandScreen = () => {
   const { brands } = state;
   console.log(state);
 
-  const [selectedBrand, setSelectedBrand] = useState({});
+  const [selectedBrand, setSelectedBrand] = useState({
+    _id: "", 
+    name: "", 
+    
+  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const tableColumns = useMemo(
     () => [
-      { accessorKey: "_id", header: "ID" },
+      
       { accessorKey: "name", header: "Merkenavn" },
     ],
     []
@@ -193,8 +199,10 @@ const BrandScreen = () => {
               globalFilter={globalFilter}
               pagination={pagination}
               sorting={sorting}
-             
-              
+              setSelectedBrand={setSelectedBrand}
+              setEditModalOpen={setEditModalOpen}
+              editModalOpen={editModalOpen}   
+              setDeleteModalOpen={setDeleteModalOpen} 
             />
           )}
 
@@ -213,7 +221,7 @@ const BrandScreen = () => {
         </Box>
       </Box>
 
-      {/*  <EditBrandDialog
+      <EditBrandDialog
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         cancelButton={
@@ -223,7 +231,7 @@ const BrandScreen = () => {
         selectedBrand={selectedBrand}
         onUpdateSuccess={editSuccessHandler}
         onUpdateFailure={editFailureHandler}
-      /> */}
+      />
 
       <DeleteBrandDialog
         open={deleteModalOpen}
@@ -260,11 +268,11 @@ const BrandScreen = () => {
         />
       </Snackbar>
 
-      {/* <AddBrandDialog
+      <AddBrandDialog
         onClose={() => setAddBrandDialogOpen(false)}
         onAdd={addBrandHandler}
         open={addBrandDialogOpen}
-      /> */}
+      /> 
     </TableLayout>
   );
 };

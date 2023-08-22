@@ -161,7 +161,7 @@ const UseCategoryDialog = (initialCategory = null) => {
       categoryName.trim().length > 0 &&
       !validationError
     );
-  };
+  }; 
 
   return {
     categoryName,

@@ -4,14 +4,13 @@ import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
-import { useQuery } from '@tanstack/react-query';
-import { useMutation } from '@tanstack/react-query'; // Import the necessary functions
+
 
 
 
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
-  //const { sendRequest, loading } = useCustomHttp("/api/brands");
+  const { sendRequest, loading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
 
 
@@ -47,7 +46,7 @@ const useBrandDialog = (initialBrand = null) => {
   }, [dispatch]);
 
   const handleSaveBrand = async (onClose) => {
-   /*  
+   
     if (typeof brandName !== "string" || brandName.trim().length === 0) {
       return; // Prevent submitting invalid or empty brand name
     }
@@ -94,9 +93,9 @@ const useBrandDialog = (initialBrand = null) => {
       } else {
         const payload = data;
         if (initialBrand) {
-          dispatch({ type: "UPDATE_ITEM", resource: "brands", payload });
+          //dispatch({ type: "UPDATE_ITEM", resource: "brands", payload });
         } else {
-          dispatch({ type: "ADD_ITEM", resource: "brands", payload });
+          //dispatch({ type: "ADD_ITEM", resource: "brands", payload });
         }
         setBrandName("");
         dispatch({ type: "RESET_ERROR", resource: "brands" });
@@ -113,7 +112,7 @@ const useBrandDialog = (initialBrand = null) => {
         resource: "/api/brands",
         showError: true,
       });
-    } */
+    } 
   };
 
   const handleDeleteBrand = async (
@@ -121,7 +120,7 @@ const useBrandDialog = (initialBrand = null) => {
     onDeleteSuccess,
     onDeleteFailure
   ) => {
-  /*   try {
+    try {
       const response = await sendRequest(
         `/api/brands/${selectedBrand?._id}`,
         "DELETE"
@@ -133,18 +132,18 @@ const useBrandDialog = (initialBrand = null) => {
       } else {
         console.log("Brand deleted successfully");
         onDeleteSuccess(selectedBrand);
-        dispatch({
+       /*  dispatch({
           type: "DELETE_ITEM",
           resource: "brands",
           payload: selectedBrand._id,
-        });
+        }); */
         return true;
       }
     } catch (error) {
       console.log("Error deleting brand:", error);
       onDeleteFailure(selectedBrand);
       return false; // Indicate deletion failure
-    } */
+    } 
   };
 
   const displayError = state.error?.brands;
@@ -156,18 +155,18 @@ const useBrandDialog = (initialBrand = null) => {
       brandName.trim().length > 0 &&
       !validationError
     );
-  };
+  }; 
 
   return {
     brandName,
     setBrandName,
-    loading: false, // Change this value if needed
+    loading,
     handleSaveBrand, // Make sure to keep these functions accessible
     resetValidationErrors,
     resetServerError,
-    displayError: false, // Change this value if needed
-    validationError: null, // Change this value if needed
-    isFormValid: true, // Change this value if needed
+    displayError,
+    validationError,
+    isFormValid,
     handleDeleteBrand, // Make sure to keep these functions accessible
     resetFormAndErrors,
   };
