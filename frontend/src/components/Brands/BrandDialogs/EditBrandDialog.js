@@ -11,6 +11,7 @@ const EditBrandDialog = ({
   selectedBrand,
   onUpdateSuccess,
   onUpdateFailure,
+  
 }) => {
   const {
     brandName,
@@ -41,7 +42,7 @@ const EditBrandDialog = ({
         resetFormAndErrors();
         onClose(); // Close the dialog after resetting the form and errors
       }}
-      dialogTitle="Edit Brand"
+      dialogTitle="Rediger Merke"
       confirmButton={
         <Button
           onClick={handleUpdateBrand}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useContext, useMemo } from "react";
+import React, { useState, useMemo } from "react";
+
 import {
   Box,
   Button,
@@ -9,29 +10,49 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import CustomTable from "../components/commons/CustomTable/CustomTable";
 import AddBrandDialog from "../components/Brands/BrandDialogs/AddBrandDialog";
 import DeleteBrandDialog from "../components/Brands/BrandDialogs/DeleteBrandDialog";
 import EditBrandDialog from "../components/Brands/BrandDialogs/EditBrandDialog";
 import ReactTable from "../components/commons/React-Table/react-table";
-import useBrandDialog from "../components/Brands/UseBrand/UseBrandDialog";
-import useCustomHttp from "../hooks/useHttp";
-import useSnackBar from "../hooks/useSnackBar";
-import { StoreContext } from "../Store/Store";
-import { useQuery } from "@tanstack/react-query";
 
-//const tableHeaders = ["Name", "Delete", "Edit"];
+import useSnackBar from "../hooks/useSnackBar";
+import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+
+// Constants
+const INITIAL_PAGINATION = {
+  pageIndex: 0,
+  pageSize: 5,
+};
+const INITIAL_SORTING = [{ id: "name", desc: false }];
+const INITIAL_SELECTED_BRAND = {
+  _id: "",
+  name: "",
+};
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://www.material-react-table.com"
+    : "http://localhost:3000";
 
 const BrandScreen = () => {
-  const [data, setData] = useState([]);
+  // State
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [sorting, setSorting] = useState([]);
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 5,
-  });
+  const [sorting, setSorting] = useState(INITIAL_SORTING);
+  const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  const [selectedBrand, setSelectedBrand] = useState(INITIAL_SELECTED_BRAND);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
+  // Define the column configuration outside of the component
+  const tableColumns = useMemo(
+    () => [{ accessorKey: "name", header: "Merkenavn" }],
+    []
+  );
+
+  // React Query
+  const queryClient = useQueryClient();
   const queryKey = [
     "brands",
     columnFilters,
@@ -44,22 +65,20 @@ const BrandScreen = () => {
   // Define your query function
   const fetchData = async () => {
     console.log("Fetching data for page:", pagination.pageIndex);
-    const fetchURL = new URL(
-      '/api/brands', // Update the API endpoint here
-      process.env.NODE_ENV === 'production'
-        ? 'https://www.material-react-table.com'
-        : 'http://localhost:3000',
-    );
-    
+    const fetchURL = new URL("/api/brands", API_URL);
+
     fetchURL.searchParams.set(
-      'start',
-      `${pagination.pageIndex * pagination.pageSize}`,
+      "start",
+      `${pagination.pageIndex * pagination.pageSize}`
     );
-    fetchURL.searchParams.set('size', `${pagination.pageSize}`);
-    fetchURL.searchParams.set('columnFilters', JSON.stringify(columnFilters ?? []));
-    fetchURL.searchParams.set('globalFilter', globalFilter ?? '');
-    fetchURL.searchParams.set('sorting', JSON.stringify(sorting ?? []));
-  
+    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+
     const response = await fetch(fetchURL.href);
     const json = await response.json();
     console.log("Response from server:", json); // Log the response here
@@ -68,45 +87,22 @@ const BrandScreen = () => {
       setSorting([{ id: "name", desc: false }]);
     }
     return json;
-   
   };
-  
+
   const {
     data: brandsData,
     isError,
     isFetching,
     isLoading,
-    refetch
+    refetch,
   } = useQuery({
     queryKey: queryKey,
     queryFn: fetchData,
     keepPreviousData: true,
-  refetchOnMount: true, // Enable auto refetching
+    refetchOnMount: true,
   });
 
-  
-
-  const { state, dispatch } = useContext(StoreContext);
-  const { brands } = state;
-  console.log(state);
-
-  const [selectedBrand, setSelectedBrand] = useState({
-    _id: "", 
-    name: "", 
-    
-  });
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-
-  const tableColumns = useMemo(
-    () => [
-      
-      { accessorKey: "name", header: "Merkenavn" },
-    ],
-    []
-  );
-
+  // Snackbar
   const {
     snackbarOpen,
     snackbarMessage,
@@ -116,24 +112,19 @@ const BrandScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  useEffect(() => {
-    if (brandsData) {
-      dispatch({
-        type: "FETCH_SUCCESS",
-        resource: "brands",
-        payload: brandsData,
-      });
-    }
-  }, [brandsData, dispatch]);
-
-  
+  // Handlers
 
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Brand "${newBrand.name}" added successfully`);
+    queryClient.invalidateQueries("brands");
+    refetch();
   };
 
   const deleteSuccessHandler = (deletedBrand) => {
     showSuccessSnackbar(`Brand "${deletedBrand.name}" deleted successfully`);
+    queryClient.invalidateQueries("brands");
+    refetch();
+    setSelectedBrand(INITIAL_SELECTED_BRAND);
   };
 
   const deleteFailureHandler = (failedBrand) => {
@@ -142,32 +133,16 @@ const BrandScreen = () => {
 
   const editSuccessHandler = (updatedBrand) => {
     showSuccessSnackbar(`Brand "${updatedBrand.name}" updated successfully`);
+    queryClient.invalidateQueries("brands");
+    refetch();
+    setSelectedBrand(INITIAL_SELECTED_BRAND);
   };
 
   const editFailureHandler = () => {
     showErrorSnackbar("Failed to update brand");
   };
 
- /*  if (error && error.brands) {
-    console.log(error.brands);
-    return <div>Error: {error.brands}</div>;
-  } */
-
- /*  if (loading || brands === null) {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: "240px",
-          left: "500px",
-          zIndex: 9999, // Set a high z-index to ensure it's above the sidebar
-        }}
-      >
-        Loading...
-      </div>
-    );
-  } */
-
+  // Render
   return (
     <TableLayout>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
@@ -184,7 +159,6 @@ const BrandScreen = () => {
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
           {brandsData && (
             <ReactTable
-           
               data={brandsData}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
@@ -200,24 +174,18 @@ const BrandScreen = () => {
               pagination={pagination}
               sorting={sorting}
               setSelectedBrand={setSelectedBrand}
-              setEditModalOpen={setEditModalOpen}
-              editModalOpen={editModalOpen}   
-              setDeleteModalOpen={setDeleteModalOpen} 
+              handleEdit={(brand) => {
+                setSelectedBrand(brand);
+                setEditModalOpen(true);
+              }}
+              handleDelete={(brand) => {
+                setSelectedBrand(brand);
+                setDeleteModalOpen(true);
+              }}
+              editModalOpen={editModalOpen}
+              setDeleteModalOpen={setDeleteModalOpen}
             />
           )}
-
-          {/* <CustomTable
-            data={brands}
-            headers={memoizedTableHeaders}
-            onDelete={(brand) => {
-              setSelectedBrand(brand);
-              setDeleteModalOpen(true);
-            }}
-            onEdit={(brand) => {
-              setSelectedBrand(brand);
-              setEditModalOpen(true);
-            }}
-          /> */}
         </Box>
       </Box>
 
@@ -272,7 +240,7 @@ const BrandScreen = () => {
         onClose={() => setAddBrandDialogOpen(false)}
         onAdd={addBrandHandler}
         open={addBrandDialogOpen}
-      /> 
+      />
     </TableLayout>
   );
 };

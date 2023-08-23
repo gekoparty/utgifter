@@ -8,10 +8,13 @@ import { StoreContext } from "../../../Store/Store";
 
 
 
+
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
   const { sendRequest, loading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
+
+  
 
 
   const resetValidationErrors = useCallback(() => {

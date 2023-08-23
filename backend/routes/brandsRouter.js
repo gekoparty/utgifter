@@ -5,6 +5,7 @@ import slugify from "slugify";
 const brandsRouter = express.Router();
 
 brandsRouter.get("/", async (req, res) => {
+  console.log(req.body)
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
