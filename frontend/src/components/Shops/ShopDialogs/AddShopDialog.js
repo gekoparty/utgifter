@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import { Button, TextField, CircularProgress, Grid, Box } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
 import PropTypes from "prop-types";
@@ -165,7 +165,9 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
               isClearable
               formatCreateLabel={(inputValue) => `Ny Kategori: ${inputValue}`}
             />
+            <Box sx={{ width: '100%' }}>
             {categoryLoading && <LinearProgress />}
+            </Box>
             {displayError || validationError ? (
               <ErrorHandling
                 resource="shops"
