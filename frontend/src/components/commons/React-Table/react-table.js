@@ -23,21 +23,19 @@ const Table = ({
   sorting,
   handleDelete,
   handleEdit,
+  meta
   
 }) => {
-  const cachedData = useMemo(() => {
-    return data.brands;
-  }, [data]);
-
-
   
-
   const columnsConfig = useMemo(() => columns, [columns]);
+
+  console.log(data)
+  console.log(meta)
 
   return (
     <MaterialReactTable
       columns={columnsConfig}
-      data={cachedData}
+      data={data}
       initialState={{ showColumnFilters: true }}
       manualFiltering
       manualPagination
@@ -75,7 +73,7 @@ const Table = ({
           </IconButton>
         </Tooltip>
       )}
-      rowCount={data?.meta?.totalRowCount ?? 0}
+      rowCount={meta.totalRowCount ?? 0}
       state={{
         columnFilters,
         globalFilter,
@@ -91,9 +89,9 @@ const Table = ({
 
 
 
-const ReactTable = ({ setDeleteModalOpen, setSelectedBrand, handleEdit,handleDelete, ...props }) => (
+const ReactTable = ({ setDeleteModalOpen,setSelectedBrand, handleEdit,handleDelete, ...props }) => (
   <Table setSelectedBrand={setSelectedBrand} 
-  handleEdit={handleEdit} handleDelete={handleDelete} setDeleteModalOpen={setDeleteModalOpen} {...props} />
+  handleEdit={handleEdit}  handleDelete={handleDelete} setDeleteModalOpen={setDeleteModalOpen} {...props} />
 );
 
 export default ReactTable;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -8,36 +8,138 @@ import {
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
-
+import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import CustomTable from "../components/commons/CustomTable/CustomTable";
-import useCustomHttp from "../hooks/useHttp";
 import useSnackBar from "../hooks/useSnackBar";
-import { StoreContext } from "../Store/Store";
+import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import AddShopDialog from "../components/Shops/ShopDialogs/AddShopDialog";
 import DeleteShopDialog from "../components/Shops/ShopDialogs/DeleteShopDialog";
 import EditShopDialog from "../components/Shops/ShopDialogs/EditShopDialog";
 
-const tableHeaders = ["Name", "Location", "Category", "Delete", "Edit"];
+
+// Constants
+const INITIAL_PAGINATION = {
+  pageIndex: 0,
+  pageSize: 5,
+};
+const INITIAL_SORTING = [{ id: "name", desc: false }];
+const INITIAL_SELECTED_SHOP = {
+  _id: "",
+  name: "",
+};
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://www.material-react-table.com"
+    : "http://localhost:3000";
 
 const ShopScreen = () => {
   
-  const { loading: shopLoading, data: shopsData } = useCustomHttp("/api/shops");
-  const { loading: locationLoading, data: locationsData } = useCustomHttp("/api/locations");
-  const { loading: categoryLoading, data: categoriesData} = useCustomHttp('/api/categories');
-  const { state, dispatch } = useContext(StoreContext);
-  const { shops } = state;
-
-  const [selectedShop, setSelectedShop] = useState({});
+  const [columnFilters, setColumnFilters] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [sorting, setSorting] = useState(INITIAL_SORTING);
+  const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  const [selectedShop, setSelectedShop] = useState(INITIAL_SELECTED_SHOP);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [shopsWithLocationName, setShopsWithLocationName] = useState([]);
-   // New state variable
   
-  console.log(state)
+  
+  
+  const tableColumns = useMemo(
+    () => [
+      { accessorKey: "name", header: "Butikk" }, // Use "Name" as the header for all resources
+      { accessorKey: "location", header: "Lokasjon" }, // Example for location
+      { accessorKey: "category", header: "Kategori" }, // Example for category
+      // Other columns as needed
+    ],
+    []
+  );
 
-  const memoizedTableHeaders = useMemo(() => tableHeaders, []);
+  // React Query
+  const queryClient = useQueryClient();
+  const queryKey = [
+    "shops",
+    columnFilters,
+    globalFilter,
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+  ];
+
+  // Define your query function
+const fetchData = async () => {
+  const fetchURL = new URL("/api/shops", API_URL);
+
+  fetchURL.searchParams.set(
+    "start",
+    `${pagination.pageIndex * pagination.pageSize}`
+  );
+  fetchURL.searchParams.set("size", `${pagination.pageSize}`);
+  fetchURL.searchParams.set(
+    "columnFilters",
+    JSON.stringify(columnFilters ?? [])
+  );
+  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+
+  const response = await fetch(fetchURL.href);
+  const json = await response.json();
+  const { meta } = json;
+  console.log("Response from server:", json);
+
+  // Fetch the associated location and category data for each shop
+  const shopsWithAssociatedData = await Promise.all(
+    json.shops.map(async (shop) => {
+      const locationResponse = await fetch(`/api/locations/${shop.location}`);
+      const locationData = await locationResponse.json();
+
+      const categoryResponse = await fetch(`/api/categories/${shop.category}`);
+      const categoryData = await categoryResponse.json();
+
+      return {
+        ...shop,
+        location: locationData, // Keep the location and category as objects
+        category: categoryData,
+      };
+    })
+  );
+  // Transform the data for rendering in the table
+  // Transform the data for rendering in the table
+const transformedData = shopsWithAssociatedData.map((shop) => ({
+  _id: shop._id, 
+  name: shop.name,
+  location: shop.location ? shop.location.name : "N/A", // Use location name if available, else use "N/A"
+  category: shop.category ? shop.category.name : "N/A", // Use category name if available, else use "N/A"
+  // ... other columns if needed
+}));
+ 
+  // Return the transformed data as part of the query result
+  return { shops: transformedData, meta };
+};
+
+
+  if (sorting.length === 0) {
+    setSorting([{ id: "name", desc: false }]);
+  }
+
+  const {
+    data: shopsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true,
+    refetchOnMount: true,
+  });
+
+  console.log("hopsWithAssociatedData")
+
+  
+
 
   const {
     snackbarOpen,
@@ -50,72 +152,10 @@ const ShopScreen = () => {
 
   
 
-  useEffect(() => {
-    if (shopsData) {
-      dispatch({
-        type: "FETCH_SUCCESS",
-        resource: "shops",
-        payload: shopsData,
-      });
-    }
-  }, [shopsData, dispatch]);
-
-  useEffect(() => {
-    // Fetch locations and dispatch the action when locationsData is available
-    if (locationsData) {
-      dispatch({
-        type: "FETCH_SUCCESS",
-        resource: "locations",
-        payload: locationsData,
-      });
-    }
-  }, [locationsData, dispatch]);
-
-  useEffect(()=>{
-    if(categoriesData) {
-      dispatch({
-        type: "FETCH_SUCCESS",
-        resource: "categories",
-        payload: categoriesData
-      })
-    }
-  },[categoriesData, dispatch])
-
-
-
-
-
-  useEffect(() => {
-    if (shops) {
-      const updatedShopsWithLocationAndCategory = shops.map((shop) => ({
-        ...shop,
-        location: shop.location ? shop.location.name : "",
-        category: shop.category ? shop.category.name : "", // Get the name directly from the shop data
-      }));
-      setShopsWithLocationName(updatedShopsWithLocationAndCategory);
-    }
-  }, [shops]);
-
-  useEffect(() => {
-    // Cleanup function: Clear the shops and related data from the store when the component is unmounted
-    return () => {
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "shops",
-      });
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "locations",
-      });
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "categories",
-      });
-    };
-  }, []);
-
   const addShopHandler = (newShop) => {
     showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`)
+    queryClient.invalidateQueries("shops");
+    refetch();
   }
 
   const deleteFailureHandler = (failedShop) => {
@@ -124,6 +164,9 @@ const ShopScreen = () => {
 
   const deleteSuccessHandler = (deletedShop) =>  {
     showSuccessSnackbar(`Shop ${deletedShop} deleted successfully` )
+
+    queryClient.invalidateQueries("shops");
+    refetch();
   }
 
   const editFailureHandler = () => {
@@ -132,10 +175,8 @@ const ShopScreen = () => {
 
   const editSuccessHandler = (selectedShop) => {
     showSuccessSnackbar(`Shop ${selectedShop.name} updated succesfully`)
-  }
-
-  if (shopLoading || shops === null) {
-    return <div>Loading....</div>;
+    queryClient.invalidateQueries("shops");
+    refetch();
   }
 
   
@@ -153,20 +194,42 @@ const ShopScreen = () => {
       </Box>
 
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}></Box>
+        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
+        {shopsData && (
+            <ReactTable
+              data={shopsData?.shops}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={setGlobalFilter}
+              setSorting={setSorting}
+              setPagination={setPagination}
+              refetch={refetch}
+              isError={isError}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              meta={shopsData?.meta}
+              setSelectedShop={setSelectedShop}
+              totalRowCount={shopsData?.meta?.totalRowCount} 
+              rowCount={shopsData?.meta?.totalRowCount ?? 0}
+              handleEdit={(shop) => {
+                setSelectedShop(shop);
+                setEditModalOpen(true);
+              }}
+              handleDelete={(shop) => {
+                setSelectedShop(shop);
+                setDeleteModalOpen(true);
+              }}
+              editModalOpen={editModalOpen}
+              setDeleteModalOpen={setDeleteModalOpen}
+            />
+          )}
+        </Box>
       </Box>
-      <CustomTable
-        data={shopsWithLocationName} 
-        headers={memoizedTableHeaders}
-        onDelete={(shop) => {
-          setSelectedShop(shop);
-          setDeleteModalOpen(true);
-        }}
-        onEdit={(shop) => {
-          setSelectedShop(shop);
-          setEditModalOpen(true);
-        }}
-      />
+      
 
       <DeleteShopDialog
         open={deleteModalOpen}
@@ -217,8 +280,8 @@ const ShopScreen = () => {
       </Snackbar>
       <AddShopDialog
         onClose={() => setAddShopDialogOpen(false)}
-        locations={locationsData}
-        categories={categoriesData}
+        //locations={locationsData}
+        //categories={categoriesData}
         open={addShopDialogOpen}
         onAdd={addShopHandler}
       ></AddShopDialog>

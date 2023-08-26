@@ -7,15 +7,10 @@ import { StoreContext } from "../../../Store/Store";
 
 
 
-
-
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
   const { sendRequest, loading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
-
-  
-
 
   const resetValidationErrors = useCallback(() => {
     dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
@@ -37,19 +32,11 @@ const useBrandDialog = (initialBrand = null) => {
     } else {
       resetFormAndErrors();
     }
-  }, [initialBrand, resetFormAndErrors, dispatch])
+  }, [initialBrand, resetFormAndErrors, dispatch]);
 
-  useEffect(() => {
-    return () => {
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "brands",
-      });
-    };
-  }, [dispatch]);
+
 
   const handleSaveBrand = async (onClose) => {
-   
     if (typeof brandName !== "string" || brandName.trim().length === 0) {
       return; // Prevent submitting invalid or empty brand name
     }
@@ -59,16 +46,18 @@ const useBrandDialog = (initialBrand = null) => {
     } catch (validationError) {
       dispatch({
         type: "SET_VALIDATION_ERRORS",
-    resource: "brands",
-    validationErrors: { brandName: { show: true, message: "Navnet må være minst 2 tegn" } },
-    showError: true,
-
+        resource: "brands",
+        validationErrors: {
+          brandName: { show: true, message: "Navnet må være minst 2 tegn" },
+        },
+        showError: true,
       });
       return; // Exit the function if validation fails
     }
 
     const formattedBrandName = formatComponentFields(brandName, "brand");
-    
+
+    console.log("formattedBrandName",formattedBrandName)
 
     try {
       let url = "/api/brands";
@@ -79,14 +68,13 @@ const useBrandDialog = (initialBrand = null) => {
         method = "PUT";
       }
 
-      const { data, error: addDataError } = await sendRequest(
+      const { error: addDataError } = await sendRequest(
         url,
         method,
         formattedBrandName
       );
 
       if (addDataError) {
-        console.log("value of addDataError", addDataError);
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -94,12 +82,6 @@ const useBrandDialog = (initialBrand = null) => {
           showError: true,
         });
       } else {
-        const payload = data;
-        if (initialBrand) {
-          //dispatch({ type: "UPDATE_ITEM", resource: "brands", payload });
-        } else {
-          //dispatch({ type: "ADD_ITEM", resource: "brands", payload });
-        }
         setBrandName("");
         dispatch({ type: "RESET_ERROR", resource: "brands" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
@@ -108,14 +90,13 @@ const useBrandDialog = (initialBrand = null) => {
         return true; // Note: Don't close the dialog here, do it in the respective components
       }
     } catch (fetchError) {
-      console.log("value of fetchError", fetchError);
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
         resource: "/api/brands",
         showError: true,
       });
-    } 
+    }
   };
 
   const handleDeleteBrand = async (
@@ -129,24 +110,16 @@ const useBrandDialog = (initialBrand = null) => {
         "DELETE"
       );
       if (response.error) {
-        console.log("Error deleting brand:", response.error);
         onDeleteFailure(selectedBrand);
         return false; // Indicate deletion failure
       } else {
-        console.log("Brand deleted successfully");
         onDeleteSuccess(selectedBrand);
-       /*  dispatch({
-          type: "DELETE_ITEM",
-          resource: "brands",
-          payload: selectedBrand._id,
-        }); */
         return true;
       }
     } catch (error) {
-      console.log("Error deleting brand:", error);
       onDeleteFailure(selectedBrand);
       return false; // Indicate deletion failure
-    } 
+    }
   };
 
   const displayError = state.error?.brands;
@@ -158,7 +131,7 @@ const useBrandDialog = (initialBrand = null) => {
       brandName.trim().length > 0 &&
       !validationError
     );
-  }; 
+  };
 
   return {
     brandName,
