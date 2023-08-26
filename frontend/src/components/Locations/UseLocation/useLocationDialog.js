@@ -36,15 +36,7 @@ const useLocationDialog = (initialLocation = null) => {
     }
   }, [initialLocation, resetFormAndErrors]);
 
-  useEffect(() => {
-    return () => {
-      // Cleanup function: Clear category related data from the store when the component is unmounted
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "locations",
-      });
-    };
-  }, [dispatch])
+
 
   const handleSaveLocation = async (onClose) => {
     if (typeof locationName !== "string" || locationName.trim().length === 0) {
@@ -52,12 +44,8 @@ const useLocationDialog = (initialLocation = null) => {
     }
 
     try {
-
-      console.log("Location name before validation:", locationName);
       await addLocationValidationSchema.validate({ locationName });
-      //resetValidationErrors();
     } catch (validationError) {
-      console.log("Validation failed!", validationError);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "locations",
@@ -84,7 +72,7 @@ const useLocationDialog = (initialLocation = null) => {
         method = "PUT";
       }
 
-      const { data, error: addDataError } = await sendRequest(
+      const { error: addDataError } = await sendRequest(
         url,
         method,
         formattedLocationName
@@ -99,12 +87,7 @@ const useLocationDialog = (initialLocation = null) => {
           showError: true,
         });
       } else {
-        const payload = data;
-        if (initialLocation) {
-          dispatch({ type: "UPDATE_ITEM", resource: "locations", payload });
-        } else {
-          dispatch({ type: "ADD_ITEM", resource: "locations", payload });
-        }
+        
         setLocationName("");
         dispatch({ type: "RESET_ERROR", resource: "locations" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "locations" });
@@ -134,21 +117,13 @@ const useLocationDialog = (initialLocation = null) => {
         "DELETE"
       );
       if (response.error) {
-        console.log("Error deleting location:", response.error);
         onDeleteFailure(selectedLocation);
         return false; // Indicate deletion failure
       } else {
-        console.log("Location deleted successfully");
         onDeleteSuccess(selectedLocation);
-        dispatch({
-          type: "DELETE_ITEM",
-          resource: "locations",
-          payload: selectedLocation._id,
-        });
         return true;
       }
     } catch (error) {
-      console.log("Error deleting location:", error);
       onDeleteFailure(selectedLocation);
       return false; // Indicate deletion failure
     }

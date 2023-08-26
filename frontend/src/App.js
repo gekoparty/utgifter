@@ -12,6 +12,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import the QueryClient and QueryClientProvider
 import "dayjs/locale/nb";
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 
 function App({ children }) {
   const [title, setTitle] = useState(null);
@@ -32,6 +33,7 @@ function App({ children }) {
     <QueryClientProvider client={queryClient}> {/* Wrap with QueryClientProvider */}
       <PermanentDrawerLeft title={title} />
       <Outlet />
+      <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </LocalizationProvider>
     </StoreProvider>

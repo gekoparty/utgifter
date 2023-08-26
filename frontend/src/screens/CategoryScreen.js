@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -7,52 +7,98 @@ import {
   SnackbarContent,
 } from "@mui/material";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import CustomTable from "../components/commons/CustomTable/CustomTable";
 import CloseIcon from "@mui/icons-material/Close";
-import useCustomHttp from "../hooks/useHttp";
+import ReactTable from "../components/commons/React-Table/react-table";
 import useSnackBar from "../hooks/useSnackBar";
 import EditCategoryDialog from "../components/Categories/CategoryDialogs/EditCategoryDialog";
 import AddCategoryDialog from "../components/Categories/CategoryDialogs/AddCategoryDialog";
 import DeleteCategoryDialog from "../components/Categories/CategoryDialogs/DeleteCategoryDialog";
-import { StoreContext } from "../Store/Store";
+import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
-const tableHeaders = ["Name", "Delete", "Edit"];
+// Constants
+const INITIAL_PAGINATION = {
+  pageIndex: 0,
+  pageSize: 5,
+};
+const INITIAL_SORTING = [{ id: "name", desc: false }];
+const INITIAL_SELECTED_CATEGORY = {
+  _id: "",
+  name: "",
+};
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://www.material-react-table.com"
+    : "http://localhost:3000";
 
 const CategoryScreen = () => {
-  const {
-    loading,
-    error,
-    data: categoriesData,
-  } = useCustomHttp("/api/categories");
-  const { state, dispatch } = useContext(StoreContext);
-  const { categories } = state;
-  const [selectedCategory, setSelectedCategory] = useState({});
+  
+  const [columnFilters, setColumnFilters] = useState([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [sorting, setSorting] = useState(INITIAL_SORTING);
+  const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  
+  const [selectedCategory, setSelectedCategory] = useState(INITIAL_SELECTED_CATEGORY);
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  console.log(state)
+  
 
-  const memoizedTableHeaders = useMemo(() => tableHeaders, []);
+  const tableColumns = useMemo(
+    () => [{ accessorKey: "name", header: "Katerogi" }],
+    []
+  );
 
-  const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update kategori");
+
+  // React Query
+  const queryClient = useQueryClient();
+  const queryKey = [
+    "locations",
+    columnFilters,
+    globalFilter,
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+  ];
+
+  // Define your query function
+  const fetchData = async () => {
+    const fetchURL = new URL("/api/categories", API_URL);
+
+    fetchURL.searchParams.set(
+      "start",
+      `${pagination.pageIndex * pagination.pageSize}`
+    );
+    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+
+    const response = await fetch(fetchURL.href);
+    const json = await response.json();
+    console.log("Response from server:", json); // Log the response here
+    // Set the initial sorting to ascending for the first render
+    if (sorting.length === 0) {
+      setSorting([{ id: "name", desc: false }]);
+    }
+    return json;
   };
 
-  const editSuccessHandler = (updatedCategory) => {
-    showSuccessSnackbar(`Sted "${updatedCategory.name}" updated successfully`);
-  };
-
-  const deleteSuccessHandler = (deletedCategory) => {
-    showSuccessSnackbar(`Sted "${deletedCategory.name}" deleted successfully`);
-  };
-
-  const deleteFailureHandler = (failedCategory) => {
-    showErrorSnackbar(`Failed to delete sted "${failedCategory.name}"`);
-  };
-
-  const addCategoryHandler = (newCategory) => {
-    showSuccessSnackbar(`Sted "${newCategory.name}" added successfully`);
-  };
+  const {
+    data: categoriesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true,
+    refetchOnMount: true,
+  });
 
   const {
     snackbarOpen,
@@ -62,38 +108,38 @@ const CategoryScreen = () => {
     showErrorSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
+  
 
-  useEffect(() => {
-    if (categoriesData) {
-      dispatch({
-        type: "FETCH_SUCCESS",
-        resource: "categories",
-        payload: categoriesData,
-      });
-    }
-  }, [categoriesData, dispatch]);
+  const editFailureHandler = () => {
+    showErrorSnackbar("Failed to update kategori");
+  };
 
-  if (error && error.categories) {
-    console.log(error.categories);
-    return <div>Error: {error.categories}</div>;
-  }
+  const editSuccessHandler = (updatedCategory) => {
+    showSuccessSnackbar(`Sted "${updatedCategory.name}" updated successfully`);
+    queryClient.invalidateQueries("categories");
+    refetch();
+  };
 
-  if (loading || categories === null) {
-    return (
-      <div
-        style={{
-          position: "absolute",
-          top: "240px",
-          left: "500px",
-          zIndex: 9999, // Set a high z-index to ensure it's above the sidebar
-        }}
-      >
-        Loading...
-      </div>
-    );
-  }
+  const deleteSuccessHandler = (deletedCategory) => {
+    showSuccessSnackbar(`Sted "${deletedCategory.name}" deleted successfully`);
+    queryClient.invalidateQueries("categories");
+    refetch();
+  };
 
-  console.log(state)
+  const deleteFailureHandler = (failedCategory) => {
+    showErrorSnackbar(`Failed to delete sted "${failedCategory.name}"`);
+    
+  };
+
+  const addCategoryHandler = (newCategory) => {
+    showSuccessSnackbar(`Sted "${newCategory.name}" added successfully`);
+    queryClient.invalidateQueries("categories");
+    refetch();
+  };
+
+  
+
+  
 
   return (
     <TableLayout>
@@ -108,18 +154,37 @@ const CategoryScreen = () => {
       </Box>
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
-          <CustomTable
-            data={categories}
-            headers={memoizedTableHeaders}
-            onDelete={(category) => {
-              setSelectedCategory(category);
-              setDeleteModalOpen(true);
-            }}
-            onEdit={(category) => {
-              setSelectedCategory(category);
-              setEditModalOpen(true);
-            }}
-          />
+        {categoriesData && (
+            <ReactTable
+              data={categoriesData?.categories}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={setGlobalFilter}
+              setSorting={setSorting}
+              setPagination={setPagination}
+              refetch={refetch}
+              isError={isError}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              meta={categoriesData?.meta}
+              rowCount={categoriesData?.meta?.totalRowCount ?? 0}
+              setSelectedLocation={setSelectedCategory}
+              handleEdit={(category) => {
+                setSelectedCategory(category);
+                setEditModalOpen(true);
+              }}
+              handleDelete={(category) => {
+                setSelectedCategory(category);
+                setDeleteModalOpen(true);
+              }}
+              editModalOpen={editModalOpen}
+              setDeleteModalOpen={setDeleteModalOpen}
+            />
+          )}
         </Box>
       </Box>
       <EditCategoryDialog

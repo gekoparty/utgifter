@@ -45,7 +45,6 @@ const BrandScreen = () => {
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Define the column configuration outside of the component
   const tableColumns = useMemo(
     () => [{ accessorKey: "name", header: "Merkenavn" }],
     []
@@ -64,7 +63,6 @@ const BrandScreen = () => {
 
   // Define your query function
   const fetchData = async () => {
-    console.log("Fetching data for page:", pagination.pageIndex);
     const fetchURL = new URL("/api/brands", API_URL);
 
     fetchURL.searchParams.set(
@@ -122,7 +120,7 @@ const BrandScreen = () => {
 
   const deleteSuccessHandler = (deletedBrand) => {
     showSuccessSnackbar(`Brand "${deletedBrand.name}" deleted successfully`);
-    queryClient.invalidateQueries("brands");
+    //queryClient.invalidateQueries("brands");
     refetch();
     setSelectedBrand(INITIAL_SELECTED_BRAND);
   };
@@ -133,9 +131,7 @@ const BrandScreen = () => {
 
   const editSuccessHandler = (updatedBrand) => {
     showSuccessSnackbar(`Brand "${updatedBrand.name}" updated successfully`);
-    queryClient.invalidateQueries("brands");
     refetch();
-    setSelectedBrand(INITIAL_SELECTED_BRAND);
   };
 
   const editFailureHandler = () => {
@@ -159,13 +155,14 @@ const BrandScreen = () => {
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
           {brandsData && (
             <ReactTable
-              data={brandsData}
+              data={brandsData.brands}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
               setSorting={setSorting}
               setPagination={setPagination}
               refetch={refetch}
+              totalRowCount
               isError={isError}
               isFetching={isFetching}
               isLoading={isLoading}
@@ -174,6 +171,8 @@ const BrandScreen = () => {
               pagination={pagination}
               sorting={sorting}
               setSelectedBrand={setSelectedBrand}
+              meta={brandsData?.meta}
+              rowCount={brandsData?.meta?.totalRowCount ?? 0}
               handleEdit={(brand) => {
                 setSelectedBrand(brand);
                 setEditModalOpen(true);
