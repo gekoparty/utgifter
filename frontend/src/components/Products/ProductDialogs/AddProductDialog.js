@@ -7,6 +7,7 @@ import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
 
+
 const measurementUnitOptions = [
   { value: "l", label: "Litres (l)" },
   { value: "kg", label: "Kilos (kg)" },
@@ -75,6 +76,7 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
             ) : null}
           </Grid>
           <Grid item>
+          
             <CreatableSelect
               id="brands"
               options={
@@ -140,6 +142,7 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
               }}
               isClearable
             />
+            
             {displayError || validationError ? (
               <ErrorHandling
                 resource="products"

@@ -1,12 +1,15 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
-import CreatableSelect from 'react-select/creatable';
+import { useQuery } from "@tanstack/react-query";
+import CreatableSelect from "react-select/creatable";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useShopDialog from "../UseShop/useShopDialog";
+import LinearProgress from '@mui/material/LinearProgress';
+import { fetchLocations, fetchCategories } from "../../commons/Utils/apiUtils";
 
-const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
+const AddShopDialog = ({ open, onClose, onAdd }) => {
   const {
     shop,
     setShop,
@@ -20,6 +23,18 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
     resetFormAndErrors,
   } = useShopDialog();
 
+  const {
+    data: locationOptions,
+    isLoading: locationLoading,
+    isError: locationError,
+  } = useQuery(["locations"], fetchLocations);
+
+  const {
+    data: categoryOptions,
+    isLoading: categoryLoading,
+    isError: categoryError,
+  } = useQuery(["categories"], fetchCategories);
+
   const handleSubmit = async (event) => {
     event.preventDefault(); // Prevent the default form submission behavior
 
@@ -32,12 +47,8 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
     }
   };
 
-  const locationOptions = locations || []; // Use locations or an empty array if it's null
-  const categoryOptions = categories || []; // Use categories or an empty array if it's null
-
-
-  
-
+  //const locationOptions = locations || []; // Use locations or an empty array if it's null
+  //const categoryOptions = categories || []; // Use categories or an empty array if it's null
 
   return (
     <BasicDialog
@@ -68,7 +79,7 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
             ) : null}
           </Grid>
           <Grid item>
-          <CreatableSelect
+            <CreatableSelect
               className="custom-select"
               options={locationOptions}
               size="small"
@@ -90,7 +101,9 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
               isValidNewOption={(inputValue, selectValue, selectOptions) => {
                 return (
                   inputValue.trim() !== "" &&
-                  !selectOptions.find((option) => option.name === inputValue.trim())
+                  !selectOptions.find(
+                    (option) => option.name === inputValue.trim()
+                  )
                 );
               }}
               getNewOptionData={(inputValue, optionLabel) => ({
@@ -101,19 +114,27 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
                 setShop({ ...shop, location: newLocation.name || "" });
                 locationOptions.push(newLocation);
               }}
+              isClearable
+              formatCreateLabel={(inputValue) => `Nytt sted: ${inputValue}`}
+              
             />
+            {locationLoading && <LinearProgress />}
             {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="location" loading={loading} />
+              <ErrorHandling
+                resource="shops"
+                field="location"
+                loading={loading}
+              />
             ) : null}
           </Grid>
           <Grid item>
-          <CreatableSelect
+            <CreatableSelect
               options={categoryOptions}
               size="small"
               label="Kategori"
               value={
                 shop?.category
-                  ? categoryOptions.find((cat) => cat.name === shop.category)
+                  ? categoryOptions?.find((cat) => cat.name === shop.category)
                   : null
               }
               error={Boolean(validationError?.category)} // Use optional chaining
@@ -128,7 +149,9 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
               isValidNewOption={(inputValue, selectValue, selectOptions) => {
                 return (
                   inputValue.trim() !== "" &&
-                  !selectOptions.find((option) => option.name === inputValue.trim())
+                  !selectOptions.find(
+                    (option) => option.name === inputValue.trim()
+                  )
                 );
               }}
               getNewOptionData={(inputValue, optionLabel) => ({
@@ -139,9 +162,16 @@ const AddShopDialog = ({ open, onClose, onAdd, locations, categories }) => {
                 setShop({ ...shop, category: newCategory.name || "" });
                 categoryOptions.push(newCategory);
               }}
+              isClearable
+              formatCreateLabel={(inputValue) => `Ny Kategori: ${inputValue}`}
             />
+            {categoryLoading && <LinearProgress />}
             {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="category" loading={loading} />
+              <ErrorHandling
+                resource="shops"
+                field="category"
+                loading={loading}
+              />
             ) : null}
           </Grid>
         </Grid>
