@@ -43,6 +43,9 @@ const ShopScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const [selectedLocationId, setSelectedLocationId] = useState(""); // New state
+  const [selectedCategoryId, setSelectedCategoryId] = useState(""); // New state
   
   
   
@@ -68,55 +71,65 @@ const ShopScreen = () => {
   ];
 
   // Define your query function
-const fetchData = async () => {
-  const fetchURL = new URL("/api/shops", API_URL);
-
-  fetchURL.searchParams.set(
-    "start",
-    `${pagination.pageIndex * pagination.pageSize}`
-  );
-  fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-  fetchURL.searchParams.set(
-    "columnFilters",
-    JSON.stringify(columnFilters ?? [])
-  );
-  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-
-  const response = await fetch(fetchURL.href);
-  const json = await response.json();
-  const { meta } = json;
-  console.log("Response from server:", json);
-
-  // Fetch the associated location and category data for each shop
-  const shopsWithAssociatedData = await Promise.all(
-    json.shops.map(async (shop) => {
-      const locationResponse = await fetch(`/api/locations/${shop.location}`);
-      const locationData = await locationResponse.json();
-
-      const categoryResponse = await fetch(`/api/categories/${shop.category}`);
-      const categoryData = await categoryResponse.json();
-
-      return {
-        ...shop,
-        location: locationData, // Keep the location and category as objects
-        category: categoryData,
-      };
-    })
-  );
-  // Transform the data for rendering in the table
-  // Transform the data for rendering in the table
-const transformedData = shopsWithAssociatedData.map((shop) => ({
-  _id: shop._id, 
-  name: shop.name,
-  location: shop.location ? shop.location.name : "N/A", // Use location name if available, else use "N/A"
-  category: shop.category ? shop.category.name : "N/A", // Use category name if available, else use "N/A"
-  // ... other columns if needed
-}));
- 
-  // Return the transformed data as part of the query result
-  return { shops: transformedData, meta };
-};
+  const fetchData = async () => {
+    const fetchURL = new URL("/api/shops", API_URL);
+  
+    fetchURL.searchParams.set(
+      "start",
+      `${pagination.pageIndex * pagination.pageSize}`
+    );
+    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
+  
+    // Modify the filter values based on selectedLocationId and selectedCategoryId
+    const modifiedFilters = columnFilters.map((filter) => {
+      if (filter.id === "location") {
+        return { id: "location", value: selectedLocationId };
+      } else if (filter.id === "category") {
+        return { id: "category", value: selectedCategoryId };
+      }
+      return filter;
+    });
+  
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(modifiedFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  
+    const response = await fetch(fetchURL.href);
+    const json = await response.json();
+    const { meta } = json;
+  
+    // Fetch the associated location and category data for each shop
+    const shopsWithAssociatedData = await Promise.all(
+      json.shops.map(async (shop) => {
+        const locationResponse = await fetch(`/api/locations/${shop.location}`);
+        const locationData = await locationResponse.json();
+  
+        const categoryResponse = await fetch(`/api/categories/${shop.category}`);
+        const categoryData = await categoryResponse.json();
+  
+        return {
+          ...shop,
+          location: locationData, // Keep the location and category as objects
+          category: categoryData,
+        };
+      })
+    );
+  
+    // Transform the data for rendering in the table
+    const transformedData = shopsWithAssociatedData.map((shop) => ({
+      _id: shop._id,
+      name: shop.name,
+      location: shop.location ? shop.location.name : "N/A",
+      category: shop.category ? shop.category.name : "N/A",
+      // ... other columns if needed
+    }));
+  
+    // Return the transformed data as part of the query result
+    return { shops: transformedData, meta };
+  };
 
 
   if (sorting.length === 0) {
@@ -225,6 +238,7 @@ const transformedData = shopsWithAssociatedData.map((shop) => ({
               }}
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
+              
             />
           )}
         </Box>

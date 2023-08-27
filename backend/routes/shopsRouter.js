@@ -10,20 +10,31 @@ shopsRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
+    console.log(req.query)
     let query = Shop.find();
 
-    // Apply columnFilters
+    
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
+
       filters.forEach((filter) => {
         const { id, value } = filter;
         if (id && value) {
-          const fieldFilter = {};
-          fieldFilter[id] = new RegExp(`^${value}`, "i");
-          query = query.where(fieldFilter);
+          if (id === "name") {
+            const fieldFilter = {};
+            fieldFilter[id] = new RegExp(`^${value}`, "i");
+            query = query.where(fieldFilter);
+          } else if (id === "location" || id === "category") {
+            // Handle filtering for reference fields
+            const referenceField = `${id}`;
+            const referenceFilter = {};
+            referenceFilter[referenceField] = value; // Only pass the _id of the location or category
+            query = query.where(referenceField, referenceFilter[referenceField]);
+          }
         }
       });
     }
+
 
     // Apply globalFilter
     if (globalFilter) {
