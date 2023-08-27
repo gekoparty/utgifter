@@ -26,18 +26,17 @@ const Table = ({
   meta
   
 }) => {
-  
   const columnsConfig = useMemo(() => columns, [columns]);
 
-  console.log(data)
   console.log(meta)
+
+  
 
   return (
     <MaterialReactTable
       columns={columnsConfig}
       data={data}
       initialState={{ showColumnFilters: true }}
-      manualFiltering
       manualPagination
       manualSorting
       enablePagination
@@ -90,7 +89,7 @@ const Table = ({
 
 
 const ReactTable = ({ setDeleteModalOpen,setSelectedBrand, handleEdit,handleDelete, ...props }) => (
-  <Table setSelectedBrand={setSelectedBrand} 
+  <Table setSelectedBrand={setSelectedBrand}  
   handleEdit={handleEdit}  handleDelete={handleDelete} setDeleteModalOpen={setDeleteModalOpen} {...props} />
 );
 

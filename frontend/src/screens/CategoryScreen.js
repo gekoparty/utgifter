@@ -31,6 +31,21 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
+    const generateQueryKey = (
+      columnFilters,
+      globalFilter,
+      pageIndex,
+      pageSize,
+      sorting
+    ) => [
+      "categories",
+      columnFilters,
+      globalFilter,
+      pageIndex,
+      pageSize,
+      sorting,
+    ];  
+
 const CategoryScreen = () => {
   
   const [columnFilters, setColumnFilters] = useState([]);
@@ -52,14 +67,14 @@ const CategoryScreen = () => {
 
   // React Query
   const queryClient = useQueryClient();
-  const queryKey = [
-    "locations",
+  // React Query
+  const queryKey = generateQueryKey(
     columnFilters,
     globalFilter,
     pagination.pageIndex,
     pagination.pageSize,
-    sorting,
-  ];
+    sorting
+  );
 
   // Define your query function
   const fetchData = async () => {
@@ -154,7 +169,9 @@ const CategoryScreen = () => {
       </Box>
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
-        {categoriesData && (
+        {isLoading && <p>Loading...</p>}
+        {isError && <p>An error occurred while fetching data.</p>}
+        {!isLoading && !isError && (
             <ReactTable
               data={categoriesData?.categories}
               columns={tableColumns}
