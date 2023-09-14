@@ -44,8 +44,7 @@ const ShopScreen = () => {
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const [selectedLocationId, setSelectedLocationId] = useState(""); // New state
-  const [selectedCategoryId, setSelectedCategoryId] = useState(""); // New state
+  
   
   
   
@@ -83,9 +82,9 @@ const ShopScreen = () => {
     // Modify the filter values based on selectedLocationId and selectedCategoryId
     const modifiedFilters = columnFilters.map((filter) => {
       if (filter.id === "location") {
-        return { id: "location", value: selectedLocationId };
+        return { id: "location", value: '' };
       } else if (filter.id === "category") {
-        return { id: "category", value: selectedCategoryId };
+        return { id: "category", value: '' };
       }
       return filter;
     });
@@ -147,11 +146,7 @@ const ShopScreen = () => {
     queryFn: fetchData,
     keepPreviousData: true,
     refetchOnMount: true,
-  });
-
-  console.log("hopsWithAssociatedData")
-
-  
+  })
 
 
   const {
@@ -192,7 +187,6 @@ const ShopScreen = () => {
     refetch();
   }
 
-  
 
   return (
     <TableLayout>

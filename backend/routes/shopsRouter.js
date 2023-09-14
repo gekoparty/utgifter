@@ -9,6 +9,7 @@ const shopsRouter = express.Router();
 shopsRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
+    
 
     console.log(req.query)
     let query = Shop.find();
@@ -36,16 +37,46 @@ shopsRouter.get("/", async (req, res) => {
     }
 
 
-    // Apply globalFilter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      query = query.find({
-        $or: [
-          { name: globalFilterRegex }, // Assuming 'name' is a field in your data
-          // Add other fields here that you want to include in the global filter
-        ],
-      });
+    
+      try {
+        const matchedShops = await Shop.aggregate([
+          {
+            $match: {
+              $or: [
+                {
+                  name: { $regex: globalFilterRegex },
+                },
+                {
+                  "location.name": { $regex: globalFilterRegex },
+                },
+                {
+                  "category.name": { $regex: globalFilterRegex },
+                },
+              ],
+            },
+          },
+          {
+            $project: {
+              _id: 1, // Include the _id field if needed
+              name: 1, // Include the name field if needed
+              location: "$location.name", // Include the location name
+              category: "$category.name", // Include the category name
+            },
+          },
+        ]);
+    
+        // Log the results for debugging
+        console.log("Matched Shops:", matchedShops);
+    
+        res.json(matchedShops); // Send the response once after processing
+      } catch (error) {
+        console.error("Error in query:", error);
+        res.status(500).json({ error: "Internal Server Error" }); // Handle errors
+      }
     }
+
 
     // Apply sorting
 
