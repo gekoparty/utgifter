@@ -11,11 +11,17 @@ shopsRouter.get("/", async (req, res) => {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
     
 
-    console.log(req.query)
+    console.log("Received query parameters:");
+    console.log("columnFilters:", columnFilters);
+    console.log("globalFilter:", globalFilter);
+    console.log("sorting:", sorting);
+    console.log("start", start);
+    console.log("size", size);
     let query = Shop.find();
 
     
     if (columnFilters) {
+      
       const filters = JSON.parse(columnFilters);
 
       filters.forEach((filter) => {
@@ -34,10 +40,13 @@ shopsRouter.get("/", async (req, res) => {
           }
         }
       });
+      console.log("After applying filters: columfilter");
     }
+    
 
 
     if (globalFilter) {
+
       const globalFilterRegex = new RegExp(globalFilter, "i");
     
       try {
@@ -58,11 +67,43 @@ shopsRouter.get("/", async (req, res) => {
             },
           },
           {
+            $lookup: {
+              from: "locations", // Replace with your actual collection name for locations
+              localField: "location",
+              foreignField: "_id",
+              as: "locationData",
+            },
+          },
+          {
+            $lookup: {
+              from: "categories", // Replace with your actual collection name for categories
+              localField: "category",
+              foreignField: "_id",
+              as: "categoryData",
+            },
+          },
+          {
             $project: {
-              _id: 1, // Include the _id field if needed
-              name: 1, // Include the name field if needed
-              location: "$location.name", // Include the location name
-              category: "$category.name", // Include the category name
+              _id: 1,
+              name: 1,
+              location: {
+                $cond: [
+                  {
+                    $gt: [{ $size: "$locationData" }, 0],
+                  },
+                  { $arrayElemAt: ["$locationData.name", 0] },
+                  "$location.name",
+                ],
+              },
+              category: {
+                $cond: [
+                  {
+                    $gt: [{ $size: "$categoryData" }, 0],
+                  },
+                  { $arrayElemAt: ["$categoryData.name", 0] },
+                  "$category.name",
+                ],
+              },
             },
           },
         ]);
@@ -70,13 +111,12 @@ shopsRouter.get("/", async (req, res) => {
         // Log the results for debugging
         console.log("Matched Shops:", matchedShops);
     
-        res.json(matchedShops); // Send the response once after processing
       } catch (error) {
         console.error("Error in query:", error);
         res.status(500).json({ error: "Internal Server Error" }); // Handle errors
       }
+      console.log("After applying filters: global");
     }
-
 
     // Apply sorting
 
@@ -92,6 +132,7 @@ shopsRouter.get("/", async (req, res) => {
 
         query = query.sort(sortObject);
       }
+      console.log("After sorting");
     }
 
     // Apply pagination
@@ -109,6 +150,7 @@ shopsRouter.get("/", async (req, res) => {
 
       // Send response with both paginated data and total row count
       res.json({ shops, meta: { totalRowCount } });
+      console.log("Before sending the response:");
     } else {
       // If not using pagination, just send the brands data
       const shops = await query.exec();
@@ -118,6 +160,8 @@ shopsRouter.get("/", async (req, res) => {
     console.error(err.message);
     res.status(500).send("Server Error");
   }
+  console.log("After sorting and pagination:");
+  
 });
 
 shopsRouter.post("/", async (req, res) => {
