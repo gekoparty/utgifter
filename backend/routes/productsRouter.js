@@ -3,16 +3,149 @@ import slugify from "slugify";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 
+
 const productsRouter = express.Router();
 
 productsRouter.get("/", async (req, res) => {
   try {
-    const products = await Product.find().populate("brands");
-    res.json(products);
+    const { columnFilters, globalFilter, sorting, start, size } = req.query;
+    
+
+    console.log("Received query parameters:");
+    console.log("columnFilters:", columnFilters);
+    console.log("globalFilter:", globalFilter);
+    console.log("sorting:", sorting);
+    console.log("start", start);
+    console.log("size", size);
+    let query = Product.find();
+
+    
+    if (columnFilters) {
+      
+      const filters = JSON.parse(columnFilters);
+
+      filters.forEach((filter) => {
+        const { id, value } = filter;
+        if (id && value) {
+          if (id === "name") {
+            const fieldFilter = {};
+            fieldFilter[id] = new RegExp(`^${value}`, "i");
+            query = query.where(fieldFilter);
+          } else if (id === "brand") {
+            // Handle filtering for reference fields
+            const referenceField = `${id}`;
+            const referenceFilter = {};
+            referenceFilter[referenceField] = value; // Only pass the _id of the location or category
+            query = query.where(referenceField, referenceFilter[referenceField]);
+          }
+        }
+      });
+      console.log("After applying filters: columfilter");
+    }
+    
+
+
+    if (globalFilter) {
+
+      const globalFilterRegex = new RegExp(globalFilter, "i");
+    
+      try {
+        const matchedProducts = await Product.aggregate([
+          {
+            $match: {
+              $or: [
+                {
+                  name: { $regex: globalFilterRegex },
+                },
+                {
+                  "brand.name": { $regex: globalFilterRegex },
+                },
+                {
+                  "category.name": { $regex: globalFilterRegex },
+                },
+              ],
+            },
+          },
+          {
+            $lookup: {
+              from: "brands",
+              localField: "brand", // Use the correct field name from the Product model
+              foreignField: "_id",
+              as: "brandData",
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              brand: {
+                $cond: [
+                  { $gt: [{ $size: "$brandData" }, 0] },
+                  { $arrayElemAt: ["$brandData.name", 0] },
+                  null, // Provide a default value or handle as needed
+                ],
+              },
+            },
+          },
+          
+        ])
+        
+        ;
+    
+        // Log the results for debugging
+        console.log("Matched Products:", matchedProducts);
+    
+      } catch (error) {
+        console.error("Error in query:", error);
+        res.status(500).json({ error: "Internal Server Error" }); // Handle errors
+      }
+      console.log("After applying filters: global");
+    }
+
+    // Apply sorting
+
+    if (sorting) {
+      const parsedSorting = JSON.parse(sorting);
+      if (parsedSorting.length > 0) {
+        const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
+        const { id, desc } = sortConfig;
+
+        // Build the sorting object
+        const sortObject = {};
+        sortObject[id] = desc ? -1 : 1;
+
+        query = query.sort(sortObject);
+      }
+      console.log("After sorting");
+    }
+
+    // Apply pagination
+    if (start && size) {
+      const startIndex = parseInt(start);
+      const pageSize = parseInt(size);
+
+      // Query total row count before pagination
+      const totalRowCount = await Product.countDocuments(query);
+
+      // Apply pagination
+      query = query.skip(startIndex).limit(pageSize);
+
+      const products = await query.exec();
+
+      // Send response with both paginated data and total row count
+      res.json({ products, meta: { totalRowCount } });
+      console.log("Before sending the response:");
+    } else {
+      // If not using pagination, just send the brands data
+      const products = await query.exec();
+      res.json(products);
+    }
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
   }
+  console.log("After sorting and pagination:");
+  
 });
 
 productsRouter.post("/", async (req, res) => {
