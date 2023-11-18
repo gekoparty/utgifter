@@ -150,7 +150,7 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
                 loading={loading}
               />
             ) : null}
-            {console.log("Measurement Unit:", product?.measurementUnit)}
+            
           </Grid>
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>

@@ -48,7 +48,7 @@ const EditProductDialog = ({
     }
   };
 
-  console.log("Brands in EditProductDialog:", brands);
+  
 
   return (
     <BasicDialog

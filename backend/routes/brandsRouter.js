@@ -84,6 +84,23 @@ brandsRouter.get("/", async (req, res) => {
   }
 });
 
+brandsRouter.get("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const brand = await Brand.findById(id);
+
+    if (!brand) {
+      return res.status(404).send({ error: "Brand not found" });
+    }
+
+    res.json(brand);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
 brandsRouter.post("/", async (req, res) => {
   console.log(req.body);
   try {
