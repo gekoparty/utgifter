@@ -18,3 +18,10 @@ export const fetchLocations = async () => {
     const data = await response.json();
     return data;
   };
+
+  export const fetchBrands = async () => {
+    const fetchURL = new URL("/api/brands", API_URL); // Replace with your actual endpoint
+    const response = await fetch(fetchURL.href);
+    const data = await response.json();
+    return data;
+  };

@@ -1,11 +1,14 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
 import Select from "react-select";
 import PropTypes from "prop-types";
+import LinearProgress from '@mui/material/LinearProgress';
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
+import { fetchBrands } from "../../commons/Utils/apiUtils";
 
 
 const measurementUnitOptions = [
@@ -15,6 +18,7 @@ const measurementUnitOptions = [
 ];
 
 const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
+  
   const {
     product,
     setProduct,
@@ -28,20 +32,26 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
     resetFormAndErrors,
   } = useProductDialog();
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+
+
+   const {
+    data: brandOptions,
+    isLoading: brandLoading,
+    isError: brandError,
+  } = useQuery(["brands"], fetchBrands);
   
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent the default form submission behavior
+
+    // Call the handleSaveShop function from the hook to save the new shop
     if (isFormValid()) {
       const success = await handleSaveProduct(onClose);
-  
       if (success) {
-        onAdd({ name: product.name });
-        onClose(); // Close the dialog after the product is successfully added
+        onAdd({ name: product.name }); // Trigger the onAdd function to show the success snackbar with the shop name
       }
     }
   };
 
-  const brandOptions = brands || [];
 
   return (
     <BasicDialog
@@ -76,51 +86,50 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
             ) : null}
           </Grid>
           <Grid item>
-          
             <CreatableSelect
-              id="brands"
-              options={
-                brands
-                  ? brands.map((brand) => ({
-                      value: brand.name,
-                      label: brand.name,
-                    }))
-                  : []
-              }
-              isMulti
+              className="custom-select"
+              options={brandOptions}
+              size="small"
+              label="Merke"
               value={
-                product?.brands && typeof product.brands === "string"
-                  ? product.brands.split(", ").map((brand) => ({
-                      value: brand,
-                      label: brand,
-                    }))
-                  : product.brands
-                  ? product.brands.map((brand) => ({
-                      value: brand.name,
-                      label: brand.name,
-                    }))
-                  : []
-              }
-              onChange={(selectedOptions) => {
-                const selectedBrands = selectedOptions.map(
-                  (option) => option.value
-                );
-                setProduct({
-                  ...product,
-                  brands: selectedBrands.join(", "), // Join the selected brand names with commas
-                });
+                product?.brand
+                  ? brandOptions.find((brand) => brand.name === product.brand)
+                  : null
+              } // Use optional chaining to handle empty shop location
+              error={Boolean(validationError?.brand)} // Use optional chaining
+              onChange={(selectedOption) => {
+                setProduct({ ...product, brand: selectedOption?.name || "" });
                 resetValidationErrors();
-                resetServerError();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+              getOptionLabel={(option) => option.name} // Set the label for each option
+              getOptionValue={(option) => option.name} // Set the value for each option
+              placeholder="Velg Merke..."
+              isValidNewOption={(inputValue, selectValue, selectOptions) => {
+                return (
+                  inputValue.trim() !== "" &&
+                  !selectOptions.find(
+                    (option) => option.name === inputValue.trim()
+                  )
+                );
+              }}
+              getNewOptionData={(inputValue, optionLabel) => ({
+                name: inputValue.trim(),
+              })}
+              onCreateOption={(inputValue) => {
+                const newBrand = { name: inputValue.trim() };
+                setProduct({ ...product, brand: newBrand.name || "" });
+                brandOptions.push(newBrand);
               }}
               isClearable
-              formatCreateLabel={(inputValue) =>
-                `Create new brand: ${inputValue}`
-              }
+              formatCreateLabel={(inputValue) => `Nytt sted: ${inputValue}`}
+              
             />
+            {brandLoading && <LinearProgress />}
             {displayError || validationError ? (
               <ErrorHandling
                 resource="products"
-                field="brands"
+                field="brand"
                 loading={loading}
               />
             ) : null}

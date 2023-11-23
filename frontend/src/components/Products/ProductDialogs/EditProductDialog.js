@@ -1,11 +1,13 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
 import Select from "react-select";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
+import { fetchBrands } from "../../commons/Utils/apiUtils";
 
 const measurementUnitOptions = [
   { value: "l", label: "Litres (l)" },
@@ -19,8 +21,6 @@ const EditProductDialog = ({
   onClose,
   onUpdateSuccess,
   onUpdateFailure,
-  brands,
-  brandLoading,
 }) => {
   const {
     product,
@@ -35,11 +35,37 @@ const EditProductDialog = ({
     resetFormAndErrors,
   } = useProductDialog(selectedProduct);
 
+  const {
+    data: brandOptions,
+    isLoading: brandLoading,
+    isError: brandError,
+  } = useQuery(["brands"], fetchBrands);
+
+  const queryClient = useQueryClient();
+
+  console.log("data", brandOptions);
+
+  if (brandLoading) {
+    // Return a loading indicator while brands are being fetched
+    return <CircularProgress />;
+  }
+
+  if (brandError) {
+    // Handle error state when fetching brands fails
+    return <div>Error loading brands</div>;
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (isFormValid()) {
-      const success = await handleSaveProduct(onClose);
+      // Update the 'brand' field to match the expected format
+      const updatedProduct = {
+        ...product,
+        brand: [{ name: product?.brand }],
+      };
+
+      const success = await handleSaveProduct(onClose, updatedProduct);
       if (success) {
         onUpdateSuccess(selectedProduct);
       } else {
@@ -47,8 +73,6 @@ const EditProductDialog = ({
       }
     }
   };
-
-  
 
   return (
     <BasicDialog
@@ -66,12 +90,12 @@ const EditProductDialog = ({
               sx={{ marginTop: 2 }}
               size="small"
               label="Produkt"
-              value={product?.name || ""} // Use optional chaining and provide a default value
-              error={Boolean(validationError?.name)} // Use optional chaining
+              value={product?.name || ""}
+              error={Boolean(validationError?.name)}
               onChange={(e) => {
                 setProduct({ ...product, name: e.target.value });
                 resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
+                resetServerError();
               }}
             />
             {displayError || validationError ? (
@@ -84,54 +108,50 @@ const EditProductDialog = ({
           </Grid>
 
           <Grid item>
+            {/* Use CreatableSelect for the brand */}
             <CreatableSelect
-              id="brands"
-              options={
-                brands
-                  ? brands.map((brand) => ({
-                      value: brand.name,
-                      label: brand.name,
-                    }))
-                  : []
-              }
-              isMulti
+              className="custom-select"
+              options={brandOptions}
+              size="small"
+              label="Merke"
               value={
-                product?.brands
-                  ? product.brands
-                      .split(", ")
-                      .map((brand) => ({
-                        value: brand.trim(),
-                        label: brand.trim(),
-                      }))
-                  : []
+                product?.brand
+                  ? brandOptions.find((brand) => brand.name === product.brand)
+                  : null
               }
-              onChange={(selectedOptions) => {
-                const selectedBrands = selectedOptions.map(
-                  (option) => option.value
-                );
-                setProduct({ ...product, brands: selectedBrands.join(", ") });
+              error={Boolean(validationError?.brand)}
+              onChange={(selectedOption) => {
+                setProduct({ ...product, brand: selectedOption?.name || "" });
                 resetValidationErrors();
                 resetServerError();
               }}
+              getOptionLabel={(option) => option.name}
+              getOptionValue={(option) => option.name}
+              placeholder="Velg Merke..."
+              isValidNewOption={(inputValue, selectValue, selectOptions) => {
+                return (
+                  inputValue.trim() !== "" &&
+                  !selectOptions.find(
+                    (option) => option.name === inputValue.trim()
+                  )
+                );
+              }}
+              getNewOptionData={(inputValue, optionLabel) => ({
+                name: inputValue.trim(),
+              })}
+              onCreateOption={(inputValue) => {
+                const newBrand = { name: inputValue.trim() };
+                setProduct({ ...product, brand: newBrand.name || "" });
+                brandOptions.push(newBrand);
+              }}
               isClearable
-              formatCreateLabel={(inputValue) =>
-                `Create new brand: ${inputValue}`
-              }
+              formatCreateLabel={(inputValue) => `Nytt merke: ${inputValue}`}
             />
-
-            {displayError || validationError ? (
-              <ErrorHandling
-                resource="products"
-                field="brands"
-                loading={loading}
-              />
-            ) : null}
           </Grid>
 
           <Grid item>
             <Select
-              id="measurementUnit"
-              label="Måleenhet"
+              label="Målenhet"
               options={measurementUnitOptions}
               value={
                 measurementUnitOptions.find(
@@ -141,7 +161,7 @@ const EditProductDialog = ({
               onChange={(selectedOption) => {
                 setProduct({
                   ...product,
-                  measurementUnit: selectedOption.value,
+                  measurementUnit: selectedOption?.value || "",
                 });
                 resetValidationErrors();
                 resetServerError();

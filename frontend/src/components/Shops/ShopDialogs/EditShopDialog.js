@@ -39,8 +39,6 @@ const EditShopDialog = ({
     }
   };
 
-  console.log(selectedShop)
-
   return (
     <BasicDialog
       open={open}

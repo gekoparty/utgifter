@@ -1,5 +1,6 @@
 import { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { useQuery } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import useBrandDialog from "../../Brands/UseBrand/UseBrandDialog";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
@@ -9,7 +10,7 @@ import { addProductValidationSchema } from "../../../validation/validationSchema
 const useProductDialog = (initialProduct = null) => {
   const initialProductState = {
     name: "",
-    brands: [],
+    brand: "",
     measurementUnit: "",
   };
 
@@ -17,9 +18,12 @@ const useProductDialog = (initialProduct = null) => {
     initialProduct ? initialProduct : { ...initialProductState }
   );
 
+
   const { sendRequest, loading } = useCustomHttp("/api/products");
   const { dispatch, state } = useContext(StoreContext);
-  const { loading: brandLoading, brands } = useBrandDialog();
+  //const { loading: brandLoading, brands } = useBrandDialog();
+
+  //console.log("brands", brands)
 
   const resetServerError = useCallback(() => {
     dispatch({
@@ -45,15 +49,21 @@ const useProductDialog = (initialProduct = null) => {
   useEffect(() => {
     let isUnmounted = false;
     if (initialProduct) {
-      setProduct(initialProduct);
+      setProduct((prevProduct) => ({
+        ...prevProduct,
+        ...initialProduct,
+        measurementUnit: initialProduct.measurementUnit || "", // Set to an empty string if not provided
+        
+      }));
+      console.log("Initial Product:", initialProduct);
     } else {
       resetFormAndErrors();
     }
     return () => {
       isUnmounted = true;
-
+  
       if (!isUnmounted) {
-        // Clear product related data from the store only when leaving the page
+        // Clear product-related data from the store only when leaving the page
         dispatch({
           type: "CLEAR_RESOURCE",
           resource: "products",
@@ -67,39 +77,31 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetFormAndErrors, dispatch]);
 
   const handleSaveProduct = async (onClose) => {
-    console.log(product);
-
-    if (!product.name.trim() || product.brands.length === 0) {
+    if (!product.name.trim() || !product.brand.trim()) {
       return;
     }
-
-    let formattedProduct = {};
+  
+    let formattedProduct;
     let validationErrors = {};
-    let formattedBrands;
-
+  
     try {
-      const brandNames = product.brands
-        .split(", ")
-        .map((brand) => brand.trim());
-      formattedBrands = brandNames.map((brand) => ({
-        name: formatComponentFields(brand, "brand").name,
-      }));
-
+      // Format the shop name, location, and category using the formatComponentFields function
       formattedProduct = {
-        ...formatComponentFields(product.name, "product"),
-        brands: formattedBrands,
-        measurementUnit: product.measurementUnit,
+        ...product,
+        name: formatComponentFields(product.name, "product").name,
+        brand: formatComponentFields(product.brand, "product").name,
       };
 
-      console.log("formattedProduct", formattedProduct);
-
+      console.log("formattedProduct", formattedProduct)
+  
       await addProductValidationSchema.validate(formattedProduct, {
-        abortEarly: false,
+        abortEarly: false, // This ensures Yup collects all field errors
       });
     } catch (validationError) {
-      console.log("Validation error:", validationError);
-      validationError.inner.forEach((err) => {});
-
+      validationError.inner.forEach((err) => {
+        validationErrors[err.path] = { show: true, message: err.message };
+      });
+      console.log("Field-specific errors:", validationErrors);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "products",
@@ -111,28 +113,33 @@ const useProductDialog = (initialProduct = null) => {
       });
       return;
     }
-
+  
+    const newProduct = formattedProduct;
+    console.log("newProduct", newProduct)
+  
     try {
       let url = "/api/products";
       let method = "POST";
-
+  
       if (initialProduct) {
         url = `/api/products/${initialProduct._id}`;
         method = "PUT";
       } else {
         if (initialProduct === undefined) {
-          formattedProduct.brands = [product.brand];
+          formattedProduct.brand = product.brand;
         } else {
-          formattedProduct.brands = formattedBrands;
+          formattedProduct.brand = formatComponentFields(product.brand, "product").name;
         }
       }
-
+  
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
-        formattedProduct
+        newProduct
       );
-
+  
+      console.log("Response from the server:", data);
+  
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
@@ -142,22 +149,22 @@ const useProductDialog = (initialProduct = null) => {
         });
       } else {
         const payload = data;
-
+        console.log(data);
         if (initialProduct) {
           dispatch({ type: "UPDATE_ITEM", resource: "products", payload });
         } else {
           // For new shops, add the location to the store if it doesn't exist
           const existingBrand = state.brands.find(
-            (bra) => bra.name === formattedProduct.brand
+            (bra) => bra.name === newProduct.brand
           );
           if (!existingBrand) {
             dispatch({
               type: "ADD_ITEM",
               resource: "brands",
-              payload: formattedProduct.brand,
+              payload: newProduct.brand,
             });
           }
-
+  
           dispatch({ type: "ADD_ITEM", resource: "products", payload });
           setProduct({});
         }
@@ -208,12 +215,13 @@ const useProductDialog = (initialProduct = null) => {
   const validationError = state.validationErrors?.products;
 
   const isFormValid = () => {
+   
     return (
       !validationError?.name &&
-      !validationError?.brands &&
+      !validationError?.brand &&  // Update this line to use 'brand'
       !validationError?.measurementUnit &&
       product?.name?.trim().length > 0 &&
-      product?.brands?.length > 0 &&
+      product?.brand?.length > 0 &&  // Update this line to use 'brand'
       product?.measurementUnit?.trim().length > 0
     );
   };
@@ -230,8 +238,8 @@ const useProductDialog = (initialProduct = null) => {
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
-    brandLoading,
-    brands,
+    //brandLoading,
+    //brands,
   };
 };
 

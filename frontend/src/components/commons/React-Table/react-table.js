@@ -28,8 +28,8 @@ const Table = ({
 }) => {
   const columnsConfig = useMemo(() => columns, [columns]);
 
-  console.log("Table Data:", data); // Log the data received
-  console.log(meta)
+  //console.log("Table Data:", data); // Log the data received
+  
 
   
 
