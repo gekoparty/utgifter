@@ -9,14 +9,7 @@ const productsRouter = express.Router();
 productsRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
-    
 
-    console.log("Received query parameters:");
-    console.log("columnFilters:", columnFilters);
-    console.log("globalFilter:", globalFilter);
-    console.log("sorting:", sorting);
-    console.log("start", start);
-    console.log("size", size);
     let query = Product.find();
 
     
@@ -151,55 +144,40 @@ productsRouter.get("/", async (req, res) => {
 productsRouter.post("/", async (req, res) => {
   console.log("Request body:", JSON.stringify(req.body, null, 2));
   try {
-    const { name, brands, measurementUnit } = req.body;
+    const { name, brand, measurementUnit } = req.body;
 
-    const brandIds = [];
+    // Create or find the brand
+    const slugifiedBrandName = slugify(brand, { lower: true });
+    const existingBrand = await Brand.findOne({ slug: slugifiedBrandName });
+    let brandId;
 
-    for (const brandObj of brands) {
-      if (typeof brandObj.name === "string") {
-        const slugifiedBrandName = slugify(brandObj.name, { lower: true }); // Slugify the brand name
+    if (!existingBrand) {
+      const newBrand = new Brand({
+        name: brand,
+        slug: slugifiedBrandName,
+      });
 
-        const existingBrand = await Brand.findOne({
-          slug: slugifiedBrandName,
-        });
-
-        let brandId;
-
-        if (!existingBrand) {
-          const newBrand = new Brand({
-            name: brandObj.name,
-            slug: slugifiedBrandName,
-          });
-
-          const savedBrand = await newBrand.save();
-          brandId = savedBrand._id;
-        } else {
-          brandId = existingBrand._id;
-        }
-
-        brandIds.push(brandId);
-      }
+      const savedBrand = await newBrand.save();
+      brandId = savedBrand._id;
+    } else {
+      brandId = existingBrand._id;
     }
 
+    // Check for duplicate product
     const existingProduct = await Product.findOne({
       slug: slugify(name, { lower: true }),
+      brands: brandId,
     });
 
     if (existingProduct) {
-      const existingProductWithBrands = await Product.findOne({
-        slug: slugify(name, { lower: true }),
-        brands: { $in: brandIds },
-      });
-
-      if (existingProductWithBrands) {
-        return res.status(400).json({ message: "duplicate" });
-      }
+      return res.status(400).json({ message: "duplicate" });
     }
 
+    // Save the product
     const product = new Product({
       name,
       measurementUnit,
-      brands: brandIds,
+      brands: brandId,
       slug: slugify(name, { lower: true }),
     });
 
@@ -241,33 +219,31 @@ productsRouter.delete("/:id", async (req, res) => {
 
 productsRouter.put("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(req.body);
+  console.log("body", req.body);
   try {
-    const { name, brands, measurementUnit } = req.body;
+    const { name, brand, measurementUnit } = req.body;
     const brandIds = [];
 
-    for (const brandObj of brands) {
-      if (typeof brandObj.name === "string") {
-        const slugifiedBrandName = slugify(brandObj.name, { lower: true });
-        const existingBrand = await Brand.findOne({
+    if (typeof brand === "string") {
+      const slugifiedBrandName = slugify(brand, { lower: true });
+      const existingBrand = await Brand.findOne({
+        slug: slugifiedBrandName,
+      });
+
+      let brandId;
+
+      if (!existingBrand) {
+        const newBrand = new Brand({
+          name: brand,
           slug: slugifiedBrandName,
         });
 
-        let brandId;
-
-        if (!existingBrand) {
-          const newBrand = new Brand({
-            name: brandObj.name,
-            slug: slugifiedBrandName,
-          });
-
-          const savedBrand = await newBrand.save();
-          brandId = savedBrand._id;
-        } else {
-          brandId = existingBrand._id;
-        }
-        brandIds.push(brandId);
+        const savedBrand = await newBrand.save();
+        brandId = savedBrand._id;
+      } else {
+        brandId = existingBrand._id;
       }
+      brandIds.push(brandId);
     }
 
     const existingProduct = await Product.findOne({
@@ -295,7 +271,7 @@ productsRouter.put("/:id", async (req, res) => {
       slug: slugify(name, { lower: true }),
     };
 
-    console.log(updatedProduct)
+    console.log(updatedProduct);
 
     const result = await Product.findByIdAndUpdate(id, updatedProduct, {
       new: true,

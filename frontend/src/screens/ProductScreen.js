@@ -106,7 +106,6 @@ const ProductScreen = () => {
           if (product.brands && product.brands.length > 0) {
             // Assuming there is only one brand reference per product
             const brandId = product.brands[0];
-            console.log("brandId", brandId)
             const brandResponse = await fetch(`/api/brands/${brandId}`);
             const brandData = await brandResponse.json();
             return brandData.name; // Extract the brand name
@@ -131,6 +130,7 @@ const ProductScreen = () => {
       _id: product._id,
       name: product.name,
       brand: product.brand,
+      measurementUnit: product.measurementUnit
     }));
     
     return { products: transformedData, meta };
@@ -230,6 +230,7 @@ const ProductScreen = () => {
               totalRowCount={productsData?.meta?.totalRowCount} 
               rowCount={productsData?.meta?.totalRowCount ?? 0}
               handleEdit={(product) => {
+                console.log("Selected Product:", product);
                 setSelectedProduct(product);
                 setEditModalOpen(true);
               }}

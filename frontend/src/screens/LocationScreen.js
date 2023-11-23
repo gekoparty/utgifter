@@ -74,7 +74,7 @@ const LocationScreen = () => {
 
     const response = await fetch(fetchURL.href);
     const json = await response.json();
-    console.log("Response from server:", json); // Log the response here
+
     // Set the initial sorting to ascending for the first render
     if (sorting.length === 0) {
       setSorting([{ id: "name", desc: false }]);
@@ -95,8 +95,6 @@ const LocationScreen = () => {
     refetchOnMount: true,
   });
 
- console.log(locationsData)
-  
 
   const {
     snackbarOpen,
@@ -135,9 +133,6 @@ const LocationScreen = () => {
     showErrorSnackbar("Failed to update sted");
   };
 
- console.log("locationsData", locationsData?.meta)
-
- 
 
   return (
     <TableLayout>
