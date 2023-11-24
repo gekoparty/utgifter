@@ -1,9 +1,12 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import CreatableSelect from "react-select/creatable";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useShopDialog from "../UseShop/useShopDialog";
+import { fetchCategories, fetchLocations } from "../../commons/Utils/apiUtils";
 
 const EditShopDialog = ({
   selectedShop,
@@ -24,6 +27,39 @@ const EditShopDialog = ({
     isFormValid,
     resetFormAndErrors,
   } = useShopDialog(selectedShop);
+
+
+  const {
+    data: locationOptions,
+    isLoading: locationLoading,
+    isError: locationError,
+  } = useQuery(["locations"], fetchLocations);
+
+  const {
+    data: categoryOptions,
+    isLoading: categoryLoading,
+    isError: categoryError,
+  } = useQuery(["categories"], fetchCategories);
+
+  if (locationLoading) {
+    // Return a loading indicator while brands are being fetched
+    return <CircularProgress />;
+  }
+
+  if (locationError) {
+    // Handle error state when fetching brands fails
+    return <div>Error loading Locations</div>;
+  }
+
+  if (categoryLoading) {
+    // Return a loading indicator while brands are being fetched
+    return <CircularProgress />;
+  }
+
+  if (categoryError) {
+    // Handle error state when fetching brands fails
+    return <div>Error loading categories</div>;
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault(); // Prevent the default form submission behavior
@@ -68,36 +104,87 @@ const EditShopDialog = ({
             ) : null}
           </Grid>
           <Grid item>
-            <TextField
-              label="Sted"
+            {/* Use CreatableSelect for the brand */}
+            <CreatableSelect
+            sx={{ marginTop: 2 }}
+              className="custom-select"
+              options={locationOptions}
               size="small"
-              value={shop?.location || ""} // Use optional chaining and provide a default value
-              error={Boolean(validationError?.location)} // Use optional chaining
-              onChange={(e) => {
-                setShop({ ...shop, location: e.target.value });
+              label="Lokasjon"
+              value={
+                shop?.location
+                  ? locationOptions.find((location) => location.name === shop.location)
+                  : null
+              }
+              error={Boolean(validationError?.location)}
+              onChange={(selectedOption) => {
+                setShop({ ...shop, location: selectedOption?.name || "" });
                 resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
+                resetServerError();
               }}
+              getOptionLabel={(option) => option.name}
+              getOptionValue={(option) => option.name}
+              placeholder="Velg Lokasjon..."
+              isValidNewOption={(inputValue, selectValue, selectOptions) => {
+                return (
+                  inputValue.trim() !== "" &&
+                  !selectOptions.find(
+                    (option) => option.name === inputValue.trim()
+                  )
+                );
+              }}
+              getNewOptionData={(inputValue, optionLabel) => ({
+                name: inputValue.trim(),
+              })}
+              onCreateOption={(inputValue) => {
+                const newShop = { name: inputValue.trim() };
+                setShop({ ...shop, location: newShop.name || "" });
+                locationOptions.push(newShop);
+              }}
+              isClearable
+              formatCreateLabel={(inputValue) => `Ny Lokasjon: ${inputValue}`}
             />
-            {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="location" loading={loading} />
-            ) : null}
-          </Grid>
-          <Grid item>
-            <TextField
+            </Grid>
+            <Grid item>
+            {/* Use CreatableSelect for the brand */}
+            <CreatableSelect
+              className="custom-select"
+              options={categoryOptions}
               size="small"
               label="Kategori"
-              value={shop?.category || ""} // Use optional chaining and provide a default value
-              error={Boolean(validationError?.category)} // Use optional chaining
-              onChange={(e) => {
-                setShop({ ...shop, category: e.target.value });
+              value={
+                shop?.category
+                  ? categoryOptions.find((category) => category.name === shop.category)
+                  : null
+              }
+              error={Boolean(validationError?.category)}
+              onChange={(selectedOption) => {
+                setShop({ ...shop, category: selectedOption?.name || "" });
                 resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
+                resetServerError();
               }}
+              getOptionLabel={(option) => option.name}
+              getOptionValue={(option) => option.name}
+              placeholder="Velg Kategori..."
+              isValidNewOption={(inputValue, selectValue, selectOptions) => {
+                return (
+                  inputValue.trim() !== "" &&
+                  !selectOptions.find(
+                    (option) => option.name === inputValue.trim()
+                  )
+                );
+              }}
+              getNewOptionData={(inputValue, optionLabel) => ({
+                name: inputValue.trim(),
+              })}
+              onCreateOption={(inputValue) => {
+                const newCategory = { name: inputValue.trim() };
+                setShop({ ...shop, category: newCategory.name || "" });
+                categoryOptions.push(newCategory);
+              }}
+              isClearable
+              formatCreateLabel={(inputValue) => `Ny Kategori: ${inputValue}`}
             />
-            {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="category" loading={loading} />
-            ) : null}
           </Grid>
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
