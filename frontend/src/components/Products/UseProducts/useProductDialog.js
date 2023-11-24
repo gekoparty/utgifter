@@ -1,8 +1,6 @@
 import { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { useQuery } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
-import useBrandDialog from "../../Brands/UseBrand/UseBrandDialog";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../Store/Store";
 import { addProductValidationSchema } from "../../../validation/validationSchema";
@@ -21,10 +19,7 @@ const useProductDialog = (initialProduct = null) => {
 
   const { sendRequest, loading } = useCustomHttp("/api/products");
   const { dispatch, state } = useContext(StoreContext);
-  //const { loading: brandLoading, brands } = useBrandDialog();
-
-  //console.log("brands", brands)
-
+  
   const resetServerError = useCallback(() => {
     dispatch({
       type: "RESET_ERROR",
@@ -125,11 +120,7 @@ const useProductDialog = (initialProduct = null) => {
         url = `/api/products/${initialProduct._id}`;
         method = "PUT";
       } else {
-        if (initialProduct === undefined) {
-          formattedProduct.brand = product.brand;
-        } else {
-          formattedProduct.brand = formatComponentFields(product.brand, "product").name;
-        }
+        formattedProduct.brand = formatComponentFields(product.brand, "product").name;
       }
   
       const { data, error: addDataError } = await sendRequest(
@@ -153,7 +144,7 @@ const useProductDialog = (initialProduct = null) => {
         if (initialProduct) {
           dispatch({ type: "UPDATE_ITEM", resource: "products", payload });
         } else {
-          // For new shops, add the location to the store if it doesn't exist
+          // For new Products, add the brand to the store if it doesn't exist
           const existingBrand = state.brands.find(
             (bra) => bra.name === newProduct.brand
           );
@@ -238,8 +229,6 @@ const useProductDialog = (initialProduct = null) => {
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
-    //brandLoading,
-    //brands,
   };
 };
 
