@@ -1,13 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   Box,
   Button,
   Grid,
   Snackbar,
-  SnackbarContent,
   Paper,
-  IconButton,
-  Typography,
   TextField,
   FormControl,
   InputLabel,
@@ -15,62 +12,128 @@ import {
   MenuItem,
   Checkbox,
   FormControlLabel,
+  Popover,
+  List,
+  ListItemButton,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import axios from "axios";
-import { DatePicker } from '@mui/x-date-pickers'
-
+import {
+  fetchBrands,
+  fetchLocations,
+  fetchCategories,
+  fetchShops,
+  fetchProducts,
+} from "../components/commons/Utils/apiUtils";
+import { DatePicker } from "@mui/x-date-pickers";
+import CreatableSelect from "react-select/creatable";
+import { useQuery } from "@tanstack/react-query";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
+import { FixedSizeList } from "react-window";
 
 const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // State variables for form fields
-  const [productName, setProductName] = useState("");
-  const [productType, setProductType] = useState("");
-  const [brand, setBrand] = useState("");
-  const [price, setPrice] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [shop, setShop] = useState("");
-  const [isPurchased, setIsPurchased] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const [expense, setExpense] = useState({
+    productName: "",
+    productType: "",
+    brand: "",
+    price: "",
+    quantity: "",
+    shop: "",
+    isPurchased: true,
+    selectedDate: null,
+  });
+
+  const [existingTypes, setExistingTypes] = useState([]); // Add existingTypes state
+
+  const handlePriceChange = (event) => {
+    // Assuming event.target.value is a valid number or an empty string
+    const formattedPrice =
+      event.target.value !== "" ? parseFloat(event.target.value) : "";
+
+    // Update the expense state, including the formatted price
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      price: formattedPrice,
+    }));
+  };
+
+  const handleOpenMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+  };
 
   // Other necessary functions and event handlers
 
-  const handleProductNameChange = (event) => {
-    setProductName(event.target.value);
+  const {
+    data: brandOptions,
+    isLoading: brandLoading,
+    isError: brandError,
+  } = useQuery(["brands"], fetchBrands);
+
+  const {
+    data: productOptions,
+    isLoading: productLoading,
+    isError: productError,
+  } = useQuery(["products"], fetchProducts);
+
+  const {
+    data: shopOptions,
+    isLoading: shopLoading,
+    isError: shopError,
+  } = useQuery(["shops"], fetchShops);
+
+  const {
+    data: categoryOptions,
+    isLoading: categoryLoading,
+    isError: categoryError,
+  } = useQuery(["categories"], fetchCategories);
+
+  const handleInputChange = (field, value) => {
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      [field]: value,
+    }));
   };
 
+  const handleProductChange = useCallback(
+    (productName) => {
+      console.log("Product clicked:", productName);
+
+      // Add the selected product type to the existing types
+      if (!existingTypes.includes(productName)) {
+        setExistingTypes((prevTypes) => [...prevTypes, productName]);
+      }
+
+      // Update the TextField value
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        productName,
+      }));
+
+      // Close the Popover
+      setAnchorEl(null);
+    },
+    [setExpense, existingTypes]
+  );
   const handleProductTypeChange = (event) => {
-    setProductType(event.target.value);
+    const selectedType = event.target.value;
+
+    // If the selected type is not in the existing types, update the state
+    if (!existingTypes.includes(selectedType)) {
+      handleInputChange("productType", selectedType);
+    }
   };
 
-  const handleBrandChange = (event) => {
-    setBrand(event.target.value);
-  };
-
-  const handlePriceChange = (event) => {
-    setPrice(event.target.value);
-  };
-
-  const handleQuantityChange = (event) => {
-    setQuantity(event.target.value);
-  };
-
-  const handleShopChange = (event) => {
-    setShop(event.target.value);
-  };
-
-  const handleIsPurchasedChange = (event) => {
-    setIsPurchased(event.target.checked);
-  };
-
-  const handleDateChange = (date) => {
-    setSelectedDate(date);
+  const handleNewTypeCreate = (inputValue) => {
+    handleInputChange("productType", inputValue);
   };
 
   const handleSubmit = async (event) => {
@@ -88,41 +151,101 @@ const Expenses = ({ drawerWidth = 240 }) => {
     setSnackbarOpen(false);
   };
 
+  const Row = ({ index, style }) => (
+    <ListItemButton
+      key={index}
+      style={style}
+      onClick={() => handleProductChange(productOptions[index].name)}
+    >
+      {productOptions[index].name}
+    </ListItemButton>
+  );
+
   const content = () => {
     return (
       <>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <TextField
-                label="Product Name"
-                value={productName}
-                onChange={handleProductNameChange}
-                fullWidth
-              />
+              {productOptions ? (
+                <>
+                  <TextField
+                    label="Product Name"
+                    value={expense.productName}
+                    onClick={handleOpenMenu}
+                    onChange={(event) => {
+                      // Handle changes if needed
+                    }}
+                    fullWidth
+                  />
+                  <Popover
+                    open={Boolean(anchorEl)}
+                    anchorEl={anchorEl}
+                    onClose={handleCloseMenu}
+                    anchorOrigin={{
+                      vertical: "bottom",
+                      horizontal: "left",
+                    }}
+                    transformOrigin={{
+                      vertical: "top",
+                      horizontal: "left",
+                    }}
+                  >
+                    <List>
+                      {productOptions.map((product, index) => (
+                        <ListItemButton
+                          key={index}
+                          onClick={() => handleProductChange(product.name)}
+                        >
+                          {product.name}
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Popover>
+                </>
+              ) : null}
             </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>Product Type</InputLabel>
-                <Select value={productType} onChange={handleProductTypeChange}>
-                  {/* Options for product types */}
-                  <MenuItem value="no-fat">No Fat</MenuItem>
-                  <MenuItem value="less-fat">Less Fat</MenuItem>
+                <Select
+                  value={expense.productType}
+                  onChange={handleProductTypeChange}
+                >
+                  {existingTypes.map((type) => (
+                    <MenuItem key={type} value={type}>
+                      {type}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12}>
-              <TextField
-                label="Brand"
-                value={brand}
-                onChange={handleBrandChange}
-                fullWidth
+              <CreatableSelect
+                className="custom-select"
+                options={brandOptions}
+                size="small"
+                label="Merke"
+                value={
+                  expense?.brand
+                    ? brandOptions?.find(
+                        (brand) => brand.name === expense.brand
+                      ) || null
+                    : null
+                }
+                onChange={(selectedOption) =>
+                  handleInputChange("brand", selectedOption?.name || "")
+                }
+                getOptionLabel={(option) => option.name}
+                getOptionValue={(option) => option.name}
+                placeholder="Velg Merke..."
+                // ... (other CreatableSelect props)
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 label="Price"
-                value={price}
+                value={expense.price}
                 onChange={handlePriceChange}
                 type="number"
                 fullWidth
@@ -131,28 +254,43 @@ const Expenses = ({ drawerWidth = 240 }) => {
             <Grid item xs={12}>
               <TextField
                 label="Quantity"
-                value={quantity}
-                onChange={handleQuantityChange}
+                value={expense.quantity}
+                onChange={(event) =>
+                  handleInputChange("quantity", event.target.value)
+                }
                 type="number"
                 fullWidth
               />
             </Grid>
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Shop</InputLabel>
-                <Select value={shop} onChange={handleShopChange}>
-                  {/* Options for shops */}
-                  <MenuItem value="shop1">Shop 1</MenuItem>
-                  <MenuItem value="shop2">Shop 2</MenuItem>
-                </Select>
-              </FormControl>
+              <CreatableSelect
+                className="custom-select"
+                options={shopOptions}
+                size="small"
+                label="Butikk"
+                value={
+                  expense?.shop
+                    ? shopOptions?.find((shop) => shop.name === expense.shop) ||
+                      null
+                    : null
+                }
+                onChange={(selectedOption) =>
+                  handleInputChange("shop", selectedOption?.name || "")
+                }
+                getOptionLabel={(option) => option.name}
+                getOptionValue={(option) => option.name}
+                placeholder="Velg Butikk..."
+                // ... (other CreatableSelect props)
+              />
             </Grid>
             <Grid item xs={12}>
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={isPurchased}
-                    onChange={handleIsPurchasedChange}
+                    checked={expense.isPurchased}
+                    onChange={(event) =>
+                      handleInputChange("isPurchased", event.target.checked)
+                    }
                   />
                 }
                 label="Is Purchased"
@@ -161,8 +299,8 @@ const Expenses = ({ drawerWidth = 240 }) => {
             <Grid item xs={12}>
               <DatePicker
                 label="Date"
-                value={selectedDate}
-                onChange={handleDateChange}
+                value={expense.selectedDate}
+                onChange={(date) => handleInputChange("selectedDate", date)}
                 fullWidth
               />
             </Grid>
@@ -194,7 +332,9 @@ const Expenses = ({ drawerWidth = 240 }) => {
             justifyContent: "center",
           }}
         >
-          <Paper sx={{ p: 2 }}> {/* Add Paper component to contain the form */}
+          <Paper sx={{ p: 2 }}>
+            {" "}
+            {/* Add Paper component to contain the form */}
             {content()} {/* Render the form */}
           </Paper>
         </Box>

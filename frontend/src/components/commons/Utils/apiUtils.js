@@ -11,6 +11,21 @@ export const fetchLocations = async () => {
     const data = await response.json();
     return data;
   };
+  
+  export const fetchShops = async () => {
+    const fetchURL = new URL("/api/shops", API_URL); // Replace with your actual endpoint
+    const response = await fetch(fetchURL.href);
+    const data = await response.json();
+    return data;
+  };
+
+  export const fetchProducts = async () => {
+    const fetchURL = new URL("/api/products", API_URL); // Replace with your actual endpoint
+    const response = await fetch(fetchURL.href);
+    const data = await response.json();
+    return data;
+  };
+
 
   export const fetchCategories = async () => {
     const fetchURL = new URL("/api/categories", API_URL); // Replace with your actual endpoint

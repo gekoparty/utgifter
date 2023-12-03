@@ -10,6 +10,7 @@ const useProductDialog = (initialProduct = null) => {
     name: "",
     brand: "",
     measurementUnit: "",
+    type: "",
   };
 
   const [product, setProduct] = useState(
@@ -211,9 +212,11 @@ const useProductDialog = (initialProduct = null) => {
       !validationError?.name &&
       !validationError?.brand &&  // Update this line to use 'brand'
       !validationError?.measurementUnit &&
+      !validationError?.type && // Include type validation
       product?.name?.trim().length > 0 &&
       product?.brand?.length > 0 &&  // Update this line to use 'brand'
-      product?.measurementUnit?.trim().length > 0
+      product?.measurementUnit?.trim().length > 0 &&
+      product?.type?.length > 0 
     );
   };
 

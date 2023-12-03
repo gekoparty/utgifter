@@ -15,6 +15,8 @@ const measurementUnitOptions = [
   // Add more measurement unit options as needed
 ];
 
+const predefinedTypes = ["Matvare", "Jernhandel", "Elektronikk", "Bil"]; //
+
 const EditProductDialog = ({
   selectedProduct,
   open,
@@ -147,6 +149,37 @@ const EditProductDialog = ({
               isClearable
               formatCreateLabel={(inputValue) => `Nytt merke: ${inputValue}`}
             />
+          </Grid>
+          <Grid item>
+            <Select
+              label="Type"
+              options={predefinedTypes.map((type) => ({
+                value: type,
+                label: type,
+              }))}
+              value={
+                product?.type
+                  ? { value: product.type, label: product.type }
+                  : null
+              }
+              onChange={(selectedOption) => {
+                setProduct({
+                  ...product,
+                  type: selectedOption?.value || "",
+                });
+                resetValidationErrors();
+                resetServerError();
+              }}
+              isClearable
+              isSearchable
+            />
+            {displayError || validationError ? (
+              <ErrorHandling
+                resource="products"
+                field="type"
+                loading={loading}
+              />
+            ) : null}
           </Grid>
 
           <Grid item>
