@@ -51,7 +51,8 @@ const ProductScreen = () => {
   const tableColumns = useMemo(
     () => [
       { accessorKey: "name", header: "Produkter" }, // Use "Name" as the header for all resources
-      { accessorKey: "brand", header: "Merker" }, // Example for location
+      { accessorKey: "brand", header: "Merker" },
+      {accessorKey: "type", header: "Type"} // Example for location
       // Other columns as needed
     ],
     []
@@ -130,6 +131,7 @@ const ProductScreen = () => {
       _id: product._id,
       name: product.name,
       brand: product.brand,
+      type: product.type,
       measurementUnit: product.measurementUnit
     }));
     

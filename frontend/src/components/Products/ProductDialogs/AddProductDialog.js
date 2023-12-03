@@ -4,12 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
 import Select from "react-select";
 import PropTypes from "prop-types";
-import LinearProgress from '@mui/material/LinearProgress';
+import LinearProgress from "@mui/material/LinearProgress";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
 import { fetchBrands } from "../../commons/Utils/apiUtils";
-
 
 const measurementUnitOptions = [
   { value: "l", label: "Litres (l)" },
@@ -17,8 +16,9 @@ const measurementUnitOptions = [
   // Add more measurement unit options as needed
 ];
 
-const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
-  
+const predefinedTypes = ["Matvare", "Jernhandel", "Elektronikk", "Bil"]; // Add your predefined types here
+
+const AddProductDialog = ({ open, onClose, onAdd }) => {
   const {
     product,
     setProduct,
@@ -32,14 +32,12 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
     resetFormAndErrors,
   } = useProductDialog();
 
-
-
-   const {
+  const {
     data: brandOptions,
     isLoading: brandLoading,
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
-  
+
   const handleSubmit = async (event) => {
     event.preventDefault(); // Prevent the default form submission behavior
 
@@ -51,7 +49,6 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
       }
     }
   };
-
 
   return (
     <BasicDialog
@@ -123,7 +120,6 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
               }}
               isClearable
               formatCreateLabel={(inputValue) => `Nytt sted: ${inputValue}`}
-              
             />
             {brandLoading && <LinearProgress />}
             {displayError || validationError ? (
@@ -133,6 +129,25 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
                 loading={loading}
               />
             ) : null}
+          </Grid>
+          <Grid item>
+            <Select
+              options={predefinedTypes.map((type) => ({
+                value: type,
+                label: type,
+              }))}
+              value={
+                product?.type
+                  ? { value: product.type, label: product.type }
+                  : null
+              }
+              onChange={(selectedOption) => {
+                setProduct({ ...product, type: selectedOption?.value || "" });
+                resetValidationErrors();
+                resetServerError();
+              }}
+              isClearable
+            />
           </Grid>
           <Grid item>
             <Select
@@ -151,7 +166,7 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
               }}
               isClearable
             />
-            
+
             {displayError || validationError ? (
               <ErrorHandling
                 resource="products"
@@ -159,7 +174,6 @@ const AddProductDialog = ({ open, onClose, onAdd, brands }) => {
                 loading={loading}
               />
             ) : null}
-            
           </Grid>
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>

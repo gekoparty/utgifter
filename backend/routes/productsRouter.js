@@ -144,7 +144,7 @@ productsRouter.get("/", async (req, res) => {
 productsRouter.post("/", async (req, res) => {
   console.log("Request body:", JSON.stringify(req.body, null, 2));
   try {
-    const { name, brand, measurementUnit } = req.body;
+    const { name, brand, measurementUnit, type } = req.body;
 
     // Create or find the brand
     const slugifiedBrandName = slugify(brand, { lower: true });
@@ -177,6 +177,7 @@ productsRouter.post("/", async (req, res) => {
     const product = new Product({
       name,
       measurementUnit,
+      type,
       brands: brandId,
       slug: slugify(name, { lower: true }),
     });
@@ -221,7 +222,7 @@ productsRouter.put("/:id", async (req, res) => {
   const { id } = req.params;
   console.log("body", req.body);
   try {
-    const { name, brand, measurementUnit } = req.body;
+    const { name, brand, measurementUnit, type } = req.body;
     const brandIds = [];
 
     if (typeof brand === "string") {
@@ -268,6 +269,7 @@ productsRouter.put("/:id", async (req, res) => {
       name,
       measurementUnit,
       brands: brandIds,
+      type,
       slug: slugify(name, { lower: true }),
     };
 
