@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Box,
   Button,
@@ -11,9 +11,9 @@ import {
   Select,
   MenuItem,
   Checkbox,
+  List,
   FormControlLabel,
   Popover,
-  List,
   ListItemButton,
 } from "@mui/material";
 import {
@@ -35,8 +35,6 @@ const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  const [anchorEl, setAnchorEl] = useState(null);
-
   const [expense, setExpense] = useState({
     productName: "",
     productType: "",
@@ -48,118 +46,75 @@ const Expenses = ({ drawerWidth = 240 }) => {
     selectedDate: null,
   });
 
-  const [existingTypes, setExistingTypes] = useState([]); // Add existingTypes state
-
-  const handlePriceChange = (event) => {
-    // Assuming event.target.value is a valid number or an empty string
-    const formattedPrice =
-      event.target.value !== "" ? parseFloat(event.target.value) : "";
-
-    // Update the expense state, including the formatted price
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      price: formattedPrice,
-    }));
-  };
-
-  const handleOpenMenu = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
-  };
-
-  // Other necessary functions and event handlers
+  const [newProduct, setNewProduct] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const anchorRef = useRef(null);
 
   const {
-    data: brandOptions,
-    isLoading: brandLoading,
-    isError: brandError,
-  } = useQuery(["brands"], fetchBrands);
-
-  const {
-    data: productOptions,
+    data: productOptions, // Updated destructuring assignment here
     isLoading: productLoading,
     isError: productError,
   } = useQuery(["products"], fetchProducts);
 
-  const {
-    data: shopOptions,
-    isLoading: shopLoading,
-    isError: shopError,
-  } = useQuery(["shops"], fetchShops);
+  console.log("Product Options:", productOptions);
 
-  const {
-    data: categoryOptions,
-    isLoading: categoryLoading,
-    isError: categoryError,
-  } = useQuery(["categories"], fetchCategories);
-
-  const handleInputChange = (field, value) => {
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      [field]: value,
-    }));
-  };
-
-  const handleProductChange = useCallback(
-    (productName) => {
-      console.log("Product clicked:", productName);
-
-      // Add the selected product type to the existing types
-      if (!existingTypes.includes(productName)) {
-        setExistingTypes((prevTypes) => [...prevTypes, productName]);
-      }
-
-      // Update the TextField value
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        productName,
-      }));
-
-      // Close the Popover
-      setAnchorEl(null);
-    },
-    [setExpense, existingTypes]
-  );
-  const handleProductTypeChange = (event) => {
-    const selectedType = event.target.value;
-
-    // If the selected type is not in the existing types, update the state
-    if (!existingTypes.includes(selectedType)) {
-      handleInputChange("productType", selectedType);
-    }
-  };
-
-  const handleNewTypeCreate = (inputValue) => {
-    handleInputChange("productType", inputValue);
-  };
+  const filteredProductOptions = useMemo(() => {
+    if (!newProduct || !productOptions) return productOptions;
+    return productOptions.filter((product) =>
+      product.name.toLowerCase().includes(newProduct.toLowerCase())
+    );
+  }, [newProduct, productOptions]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     // Add logic to save the expense data to the database
   };
 
-  const handleSnackbarOpen = (message, severity) => {
-    setSnackbarOpen(true);
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
+  const handleNewProductChange = (newValue) => {
+    setNewProduct(newValue);
+    // Update the anchor element ref
+    if (newValue) {
+      setAnchorEl(anchorRef.current); // Maintain focus on the text field
+    } else {
+      setAnchorEl(null); // Close the popover if the input is empty
+    }
   };
 
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
+  const handleProductSelect = (product) => {
+    setSelectedProduct(product);
+    setNewProduct(product.name); // Update the TextField value with the selected product name
+    setAnchorEl(null); // Close the Popover when a product is selected
   };
 
-  const Row = ({ index, style }) => (
-    <ListItemButton
-      key={index}
-      style={style}
-      onClick={() => handleProductChange(productOptions[index].name)}
-    >
-      {productOptions[index].name}
-    </ListItemButton>
-  );
+  const handleOpenPopover = (event) => {
+    if (newProduct) {
+      // Open popover only if there is a newProduct value
+      setAnchorEl(event.currentTarget);
+    }
+  };
+  const handleClosePopover = () => {
+      setAnchorEl(null);
+  };
+
+  const Row = ({ index, style }) => {
+    // Check if filteredProductOptions[index] exists
+    const product = filteredProductOptions[index];
+
+    if (!product) {
+      return null; // Return null if product is not defined
+    }
+
+    return (
+      <ListItemButton
+        style={style}
+        key={product.id}
+        onClick={() => handleProductSelect(product)}
+      >
+        {product.name}
+      </ListItemButton>
+    );
+  };
 
   const content = () => {
     return (
@@ -167,147 +122,40 @@ const Expenses = ({ drawerWidth = 240 }) => {
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              {productOptions ? (
-                <>
-                  <TextField
-                    label="Product Name"
-                    value={expense.productName}
-                    onClick={handleOpenMenu}
-                    onChange={(event) => {
-                      // Handle changes if needed
-                    }}
-                    fullWidth
-                  />
-                  <Popover
-                    open={Boolean(anchorEl)}
-                    anchorEl={anchorEl}
-                    onClose={handleCloseMenu}
-                    anchorOrigin={{
-                      vertical: "bottom",
-                      horizontal: "left",
-                    }}
-                    transformOrigin={{
-                      vertical: "top",
-                      horizontal: "left",
-                    }}
+              <TextField
+                label="New Product"
+                value={newProduct}
+                onChange={(e) => handleNewProductChange(e.target.value)}
+                autoComplete="off"
+                onKeyUp={handleOpenPopover} // Open popover when typing
+                fullWidth
+              />
+              <Popover
+                open={Boolean(anchorEl)}
+                disableAutoFocus
+                disableEnforceFocus
+                anchorEl={anchorEl}
+                onClose={handleClosePopover}
+                anchorOrigin={{
+                  vertical: "bottom",
+                  horizontal: "left",
+                }}
+                transformOrigin={{
+                  vertical: "top",
+                  horizontal: "left",
+                }}
+              >
+                <List sx={{ width: 300 }}>
+                  <FixedSizeList
+                    height={300}
+                    width={300}
+                    itemCount={productOptions ? productOptions.length : 0}
+                    itemSize={50}
                   >
-                    <List>
-                      {productOptions.map((product, index) => (
-                        <ListItemButton
-                          key={index}
-                          onClick={() => handleProductChange(product.name)}
-                        >
-                          {product.name}
-                        </ListItemButton>
-                      ))}
-                    </List>
-                  </Popover>
-                </>
-              ) : null}
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Product Type</InputLabel>
-                <Select
-                  value={expense.productType}
-                  onChange={handleProductTypeChange}
-                >
-                  {existingTypes.map((type) => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <CreatableSelect
-                className="custom-select"
-                options={brandOptions}
-                size="small"
-                label="Merke"
-                value={
-                  expense?.brand
-                    ? brandOptions?.find(
-                        (brand) => brand.name === expense.brand
-                      ) || null
-                    : null
-                }
-                onChange={(selectedOption) =>
-                  handleInputChange("brand", selectedOption?.name || "")
-                }
-                getOptionLabel={(option) => option.name}
-                getOptionValue={(option) => option.name}
-                placeholder="Velg Merke..."
-                // ... (other CreatableSelect props)
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Price"
-                value={expense.price}
-                onChange={handlePriceChange}
-                type="number"
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Quantity"
-                value={expense.quantity}
-                onChange={(event) =>
-                  handleInputChange("quantity", event.target.value)
-                }
-                type="number"
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <CreatableSelect
-                className="custom-select"
-                options={shopOptions}
-                size="small"
-                label="Butikk"
-                value={
-                  expense?.shop
-                    ? shopOptions?.find((shop) => shop.name === expense.shop) ||
-                      null
-                    : null
-                }
-                onChange={(selectedOption) =>
-                  handleInputChange("shop", selectedOption?.name || "")
-                }
-                getOptionLabel={(option) => option.name}
-                getOptionValue={(option) => option.name}
-                placeholder="Velg Butikk..."
-                // ... (other CreatableSelect props)
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={expense.isPurchased}
-                    onChange={(event) =>
-                      handleInputChange("isPurchased", event.target.checked)
-                    }
-                  />
-                }
-                label="Is Purchased"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <DatePicker
-                label="Date"
-                value={expense.selectedDate}
-                onChange={(date) => handleInputChange("selectedDate", date)}
-                fullWidth
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Button type="submit" variant="contained" color="primary">
-                Save Expense
-              </Button>
+                    {Row}
+                  </FixedSizeList>
+                </List>
+              </Popover>
             </Grid>
           </Grid>
         </form>
@@ -354,7 +202,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
-        onClose={handleSnackbarClose}
+        // onClose={handleSnackbarClose}
       >
         {/* Snackbar Content */}
       </Snackbar>
