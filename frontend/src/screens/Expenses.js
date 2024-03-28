@@ -57,14 +57,20 @@ const Expenses = ({ drawerWidth = 240 }) => {
     isError: productError,
   } = useQuery(["products"], fetchProducts);
 
+  const {
+    data: shopOptions,
+    isLoading: shopLoading,
+    isError: shopError,
+  } = useQuery(["shops"], fetchShops); // Fetch shop options
+
   console.log("Product Options:", productOptions);
 
   const filteredProductOptions = useMemo(() => {
-    if (!newProduct || !productOptions) return productOptions;
+    if (!expense.productName || !productOptions) return productOptions;
     return productOptions.filter((product) =>
-      product.name.toLowerCase().includes(newProduct.toLowerCase())
+      product.name.toLowerCase().startsWith(expense.productName.toLowerCase())
     );
-  }, [newProduct, productOptions]);
+  }, [expense.productName, productOptions]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -72,7 +78,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
   };
 
   const handleNewProductChange = (newValue) => {
-    setNewProduct(newValue);
+    setExpense({ ...expense, productName: newValue }); // Merge into expense object as productName
     // Update the anchor element ref
     if (newValue) {
       setAnchorEl(anchorRef.current); // Maintain focus on the text field
@@ -83,16 +89,18 @@ const Expenses = ({ drawerWidth = 240 }) => {
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
-    setNewProduct(product.name); // Update the TextField value with the selected product name
+    setExpense({ ...expense, productName: product.name }); // Merge into expense object as productName
     setAnchorEl(null); // Close the Popover when a product is selected
   };
 
   const handleOpenPopover = (event) => {
-    if (newProduct) {
-      // Open popover only if there is a newProduct value
+    if (expense.productName) {
+      // Open popover only if there is a productName value
       setAnchorEl(event.currentTarget);
     }
   };
+  
+
   const handleClosePopover = () => {
       setAnchorEl(null);
   };
@@ -122,14 +130,17 @@ const Expenses = ({ drawerWidth = 240 }) => {
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
+            <FormControl fullWidth>
+            <InputLabel></InputLabel>
               <TextField
                 label="New Product"
-                value={newProduct}
+                value={expense.productName}
                 onChange={(e) => handleNewProductChange(e.target.value)}
                 autoComplete="off"
                 onKeyUp={handleOpenPopover} // Open popover when typing
                 fullWidth
               />
+              </FormControl>
               <Popover
                 open={Boolean(anchorEl)}
                 disableAutoFocus
@@ -157,6 +168,19 @@ const Expenses = ({ drawerWidth = 240 }) => {
                 </List>
               </Popover>
             </Grid>
+            {/* Add new TextField for adding a shop */}
+          <Grid item xs={12}>
+            <FormControl fullWidth>
+              <InputLabel></InputLabel>
+              <TextField
+               label="New Shop"
+                //value={shop}
+                //onChange={(e) => setExpense({ ...expense, shop: e.target.value })}
+                autoComplete="off"
+                fullWidth
+              />
+            </FormControl>
+          </Grid>
           </Grid>
         </form>
       </>
