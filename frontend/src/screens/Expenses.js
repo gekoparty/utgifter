@@ -13,7 +13,6 @@ import {
   Checkbox,
   List,
   FormControlLabel,
-  Popover,
   ListItemButton,
 } from "@mui/material";
 import {
@@ -27,7 +26,7 @@ import { DatePicker } from "@mui/x-date-pickers";
 import CreatableSelect from "react-select/creatable";
 import { useQuery } from "@tanstack/react-query";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
-import { FixedSizeList } from "react-window";
+import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
 
 const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -41,13 +40,19 @@ const Expenses = ({ drawerWidth = 240 }) => {
     brand: "",
     price: "",
     quantity: "",
-    shop: "",
+    shopName: "",
     isPurchased: true,
     selectedDate: null,
   });
 
   const [newProduct, setNewProduct] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedShop, setSelectedShop] = useState(null);
+  const [shopPopoverOpen, setShopPopoverOpen] = useState(false);
+  const [focusedField, setFocusedField] = useState(null);
+  const [popoverAnchorEl, setPopoverAnchorEl] = useState(null);
+  const [shopAnchorEl, setShopAnchorEl] = useState(null);
+  const [productAnchorEl, setProductAnchorEl] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const anchorRef = useRef(null);
 
@@ -64,6 +69,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
   } = useQuery(["shops"], fetchShops); // Fetch shop options
 
   console.log("Product Options:", productOptions);
+  console.log("Shop Options:", shopOptions);
 
   const filteredProductOptions = useMemo(() => {
     if (!expense.productName || !productOptions) return productOptions;
@@ -72,37 +78,59 @@ const Expenses = ({ drawerWidth = 240 }) => {
     );
   }, [expense.productName, productOptions]);
 
+  const filteredShopOptions = useMemo(() => {
+    if (!expense.shopName || !shopOptions) return shopOptions;
+    return shopOptions.filter((shop) =>
+      shop.name.toLowerCase().startsWith(expense.shopName.toLowerCase())
+    );
+  }, [expense.shopName, shopOptions]);
+
+  const handleFieldFocus = (fieldName) => {
+    setFocusedField(fieldName);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     // Add logic to save the expense data to the database
   };
+  const handleOpenShopPopover = (event) => {
+    if (shopOptions) {
+      setShopAnchorEl(event.currentTarget); // Set anchorEl for shop popover
+      setProductAnchorEl(null); // Close product popover if open
+      setShopPopoverOpen(true);
+    }
+  };
 
   const handleNewProductChange = (newValue) => {
-    setExpense({ ...expense, productName: newValue }); // Merge into expense object as productName
-    // Update the anchor element ref
-    if (newValue) {
-      setAnchorEl(anchorRef.current); // Maintain focus on the text field
-    } else {
-      setAnchorEl(null); // Close the popover if the input is empty
-    }
+    setExpense({ ...expense, productName: newValue });
+    handleFieldFocus("product");
+  };
+
+  const handleNewShopChange = (newValue) => {
+    setExpense({ ...expense, shopName: newValue });
+    handleFieldFocus("shop");
   };
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
-    setExpense({ ...expense, productName: product.name }); // Merge into expense object as productName
-    setAnchorEl(null); // Close the Popover when a product is selected
+    setExpense({ ...expense, productName: product.name });
+    setPopoverAnchorEl(null);
+  };
+  const handleShopSelect = (shop) => {
+    setSelectedShop(shop);
+    setExpense({ ...expense, shopName: shop.name });
+    setPopoverAnchorEl(null);
   };
 
-  const handleOpenPopover = (event) => {
+  const handleOpenProductPopover = (event) => {
     if (expense.productName) {
-      // Open popover only if there is a productName value
-      setAnchorEl(event.currentTarget);
+      setProductAnchorEl(event.currentTarget); // Set anchorEl for product popover
+      setShopAnchorEl(null); // Close shop popover if open
+      setShopPopoverOpen(false); // Ensure shop popover is closed
     }
   };
-  
-
   const handleClosePopover = () => {
-      setAnchorEl(null);
+    setAnchorEl(null);
   };
 
   const Row = ({ index, style }) => {
@@ -130,57 +158,54 @@ const Expenses = ({ drawerWidth = 240 }) => {
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12}>
-            <FormControl fullWidth>
-            <InputLabel></InputLabel>
-              <TextField
-                label="New Product"
-                value={expense.productName}
-                onChange={(e) => handleNewProductChange(e.target.value)}
-                autoComplete="off"
-                onKeyUp={handleOpenPopover} // Open popover when typing
-                fullWidth
-              />
+              <FormControl fullWidth>
+                <InputLabel></InputLabel>
+                <TextField
+                  label="New Product"
+                  value={expense.productName}
+                  onChange={(e) => handleNewProductChange(e.target.value)}
+                  autoComplete="off"
+                  onKeyDown={handleOpenProductPopover}
+                  onFocus={() => handleFieldFocus("product")}
+                  fullWidth
+                />
               </FormControl>
-              <Popover
-                open={Boolean(anchorEl)}
-                disableAutoFocus
-                disableEnforceFocus
-                anchorEl={anchorEl}
-                onClose={handleClosePopover}
-                anchorOrigin={{
-                  vertical: "bottom",
-                  horizontal: "left",
-                }}
-                transformOrigin={{
-                  vertical: "top",
-                  horizontal: "left",
-                }}
-              >
-                <List sx={{ width: 300 }}>
-                  <FixedSizeList
-                    height={300}
-                    width={300}
-                    itemCount={productOptions ? productOptions.length : 0}
-                    itemSize={50}
-                  >
-                    {Row}
-                  </FixedSizeList>
-                </List>
-              </Popover>
+              {focusedField === "product" && (
+                <SelectPopover
+                  open={Boolean(productAnchorEl)} // Use productAnchorEl for product popover
+                  anchorEl={productAnchorEl}
+                  onClose={() => setProductAnchorEl(null)}
+                  options={filteredProductOptions}
+                  onSelect={handleProductSelect}
+                  type="product"
+                />
+              )}
             </Grid>
             {/* Add new TextField for adding a shop */}
-          <Grid item xs={12}>
-            <FormControl fullWidth>
-              <InputLabel></InputLabel>
-              <TextField
-               label="New Shop"
-                //value={shop}
-                //onChange={(e) => setExpense({ ...expense, shop: e.target.value })}
-                autoComplete="off"
-                fullWidth
-              />
-            </FormControl>
-          </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel></InputLabel>
+                <TextField
+                  label="New Shop"
+                  autoComplete="off"
+                  onChange={(e) => handleNewShopChange(e.target.value)}
+                  onKeyDown={handleOpenShopPopover}
+                  onFocus={() => handleFieldFocus("shop")}
+                  fullWidth
+                  value={expense.shopName}
+                />
+              </FormControl>
+              {focusedField === "shop" && (
+                <SelectPopover
+                  open={Boolean(shopAnchorEl)} // Use shopPopoverOpen for shop popover
+                  anchorEl={shopAnchorEl}
+                  onClose={() => setShopAnchorEl(null)}
+                  options={filteredShopOptions}
+                  onSelect={handleShopSelect}
+                  type="shop"
+                />
+              )}
+            </Grid>
           </Grid>
         </form>
       </>
