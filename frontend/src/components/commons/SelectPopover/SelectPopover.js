@@ -1,11 +1,16 @@
 import { Popover, List, ListItemButton } from "@mui/material";
 import { FixedSizeList } from "react-window";
 
-const SelectPopover = ({ open, anchorEl, onClose, options, onSelect, type }) => {
-    const handleItemClick = (item) => {
-      onSelect(item);
-      onClose();
-    };
+const SelectPopover = ({ open=false, anchorEl, onClose, options, onSelect, type }) => {
+
+  console.log("Popover open:", open);
+
+
+  const handleItemClick = (item) => {
+    onSelect(item);
+    onClose(); // Close the popover after selecting an option
+  };
+
 
     console.log("Options", options)
 
