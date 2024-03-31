@@ -1,158 +1,124 @@
-import { useState, useMemo, useRef } from "react";
-import {
-  Box,
-  Button,
-  Grid,
-  Snackbar,
-  Paper,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  List,
-  FormControlLabel,
-  ListItemButton,
-} from "@mui/material";
-import {
-  fetchBrands,
-  fetchLocations,
-  fetchCategories,
-  fetchShops,
-  fetchProducts,
-} from "../components/commons/Utils/apiUtils";
-import { DatePicker } from "@mui/x-date-pickers";
-import CreatableSelect from "react-select/creatable";
-import { useQuery } from "@tanstack/react-query";
-import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
-import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
+import React, { useState, useEffect, useMemo } from 'react';
+import { Box, Grid, Paper, TextField, FormControl, InputLabel, Snackbar, Button } from '@mui/material';
+import { useQuery } from '@tanstack/react-query';
+import BasicDialog from '../components/commons/BasicDialog/BasicDialog';
+import SelectPopover from '../components/commons/SelectPopover/SelectPopover';
+import { fetchShops, fetchProducts } from '../components/commons/Utils/apiUtils';
 
 const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-
   const [expense, setExpense] = useState({
-    productName: "",
-    productType: "",
-    brand: "",
-    price: "",
-    quantity: "",
-    shopName: "",
-    isPurchased: true,
+    productName: '',
+    shopName: '',
     selectedDate: null,
   });
-
-  const [newProduct, setNewProduct] = useState("");
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedShop, setSelectedShop] = useState(null);
-  const [shopPopoverOpen, setShopPopoverOpen] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
-  const [popoverAnchorEl, setPopoverAnchorEl] = useState(null);
-  const [shopAnchorEl, setShopAnchorEl] = useState(null);
   const [productAnchorEl, setProductAnchorEl] = useState(null);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const anchorRef = useRef(null);
+  const [shopAnchorEl, setShopAnchorEl] = useState(null);
+  const [productOptions, setProductOptions] = useState([]);
+  const [shopOptions, setShopOptions] = useState([]);
+  const [filteredProductOptions, setFilteredProductOptions] = useState([]);
+  const [filteredShopOptions, setFilteredShopOptions] = useState([]);
 
-  const {
-    data: productOptions, // Updated destructuring assignment here
-    isLoading: productLoading,
-    isError: productError,
-  } = useQuery(["products"], fetchProducts);
+  const { isLoading: productLoading } = useQuery(['products'], () => fetchProducts(), {
+    onSuccess: (data) => {
+      setProductOptions(data);
+    },
+  });
+  const { isLoading: shopLoading } = useQuery(['shops'], () => fetchShops(), {
+    onSuccess: (data) => {
+      setShopOptions(data);
+    },
+  });
 
-  const {
-    data: shopOptions,
-    isLoading: shopLoading,
-    isError: shopError,
-  } = useQuery(["shops"], fetchShops); // Fetch shop options
+ 
 
-  console.log("Product Options:", productOptions);
-  console.log("Shop Options:", shopOptions);
+useEffect(() => {
+  // Update filtered options as their respective fields change
+  setFilteredProductOptions(filterOptions(productOptions, expense.productName));
+  setFilteredShopOptions(filterOptions(shopOptions, expense.shopName));
+}, [expense.productName, expense.shopName, productOptions, shopOptions]);
 
-  const filteredProductOptions = useMemo(() => {
-    if (!expense.productName || !productOptions) return productOptions;
-    return productOptions.filter((product) =>
-      product.name.toLowerCase().startsWith(expense.productName.toLowerCase())
-    );
-  }, [expense.productName, productOptions]);
+const handleFieldFocus = (fieldName) => {
+  setFocusedField(fieldName);
+  handlePopoverOpen(fieldName);
+};
 
-  const filteredShopOptions = useMemo(() => {
-    if (!expense.shopName || !shopOptions) return shopOptions;
-    return shopOptions.filter((shop) =>
-      shop.name.toLowerCase().startsWith(expense.shopName.toLowerCase())
-    );
-  }, [expense.shopName, shopOptions]);
+const handleFieldChange = (field, value) => {
+  console.log("Field changed:", field, "Value:", value);
+  setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+  
 
-  const handleFieldFocus = (fieldName) => {
-    setFocusedField(fieldName);
+  // Update filtered options based on the input value
+  const filteredOptions = filterOptions(
+      field === 'productName' ? productOptions : shopOptions,
+      value
+  );
+  console.log("Filtered options:", filteredOptions);
+
+  // Set the filtered options based on the field
+  if (field === 'productName') {
+      setFilteredProductOptions(filteredOptions);
+      setFocusedField(field);
+  } else {
+      setFilteredShopOptions(filteredOptions);
+      setFocusedField(field);
+  }
+
+  // Open popover when there is input in the TextField
+  if (value && value.trim() !== '') {
+    handlePopoverOpen(field);
+  }
+};
+
+  const handlePopoverClose = (field) => {
+    if (field === 'product') setProductAnchorEl(null);
+    if (field === 'shop') setShopAnchorEl(null);
   };
+
+
+  const handlePopoverOpen = (field, event) => {
+    const anchorEl = event ? event.currentTarget : document.activeElement;
+    if (field === 'product') {
+        setProductAnchorEl(anchorEl);
+        setShopAnchorEl(null);
+    }
+    if (field === 'shop') {
+        setShopAnchorEl(anchorEl);
+        setProductAnchorEl(null);
+    }
+    setFocusedField(field);
+};
+
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     // Add logic to save the expense data to the database
   };
-  const handleOpenShopPopover = (event) => {
-    if (shopOptions) {
-      setShopAnchorEl(event.currentTarget); // Set anchorEl for shop popover
-      setProductAnchorEl(null); // Close product popover if open
-      setShopPopoverOpen(true);
+
+  const filterOptions = (options, query) => {
+    return options.filter(option => option.name.toLowerCase().startsWith(query.toLowerCase()));
+  };
+
+  const handleFieldKeyDown = (fieldName) => {
+    if (!Boolean(productAnchorEl) && fieldName === 'product' && expense.productName.trim() !== '') {
+      handlePopoverOpen(fieldName);
+    } else if (!Boolean(shopAnchorEl) && fieldName === 'shop' && expense.shopName.trim() !== '') {
+      handlePopoverOpen(fieldName);
     }
   };
+  
 
-  const handleNewProductChange = (newValue) => {
-    setExpense({ ...expense, productName: newValue });
-    handleFieldFocus("product");
-  };
 
-  const handleNewShopChange = (newValue) => {
-    setExpense({ ...expense, shopName: newValue });
-    handleFieldFocus("shop");
-  };
 
-  const handleProductSelect = (product) => {
-    setSelectedProduct(product);
-    setExpense({ ...expense, productName: product.name });
-    setPopoverAnchorEl(null);
-  };
-  const handleShopSelect = (shop) => {
-    setSelectedShop(shop);
-    setExpense({ ...expense, shopName: shop.name });
-    setPopoverAnchorEl(null);
-  };
+  console.log("Expense object", expense)
 
-  const handleOpenProductPopover = (event) => {
-    if (expense.productName) {
-      setProductAnchorEl(event.currentTarget); // Set anchorEl for product popover
-      setShopAnchorEl(null); // Close shop popover if open
-      setShopPopoverOpen(false); // Ensure shop popover is closed
-    }
-  };
-  const handleClosePopover = () => {
-    setAnchorEl(null);
-  };
 
-  const Row = ({ index, style }) => {
-    // Check if filteredProductOptions[index] exists
-    const product = filteredProductOptions[index];
-
-    if (!product) {
-      return null; // Return null if product is not defined
-    }
-
-    return (
-      <ListItemButton
-        style={style}
-        key={product.id}
-        onClick={() => handleProductSelect(product)}
-      >
-        {product.name}
-      </ListItemButton>
-    );
-  };
 
   const content = () => {
+
+
     return (
       <>
         <form onSubmit={handleSubmit}>
@@ -163,22 +129,25 @@ const Expenses = ({ drawerWidth = 240 }) => {
                 <TextField
                   label="New Product"
                   value={expense.productName}
-                  onChange={(e) => handleNewProductChange(e.target.value)}
+                  onChange={(e) => handleFieldChange('productName', e.target.value)}
                   autoComplete="off"
-                  onKeyDown={handleOpenProductPopover}
-                  onFocus={() => handleFieldFocus("product")}
+                  onFocus={(e) => handlePopoverOpen('product', e)}
+                  onKeyDown={() => handleFieldKeyDown('product')} // Add this line
                   fullWidth
                 />
               </FormControl>
-              {focusedField === "product" && (
+              {focusedField === "product" && filteredProductOptions.length > 0 && (
                 <SelectPopover
-                  open={Boolean(productAnchorEl)} // Use productAnchorEl for product popover
-                  anchorEl={productAnchorEl}
-                  onClose={() => setProductAnchorEl(null)}
-                  options={filteredProductOptions}
-                  onSelect={handleProductSelect}
-                  type="product"
-                />
+                open={Boolean(productAnchorEl)}
+                anchorEl={productAnchorEl}
+                onClose={() => handlePopoverClose('product')}
+                options={filteredProductOptions}
+                onSelect={(product) => {
+                  handleFieldChange('productName', product.name);
+                  setProductAnchorEl(null); // Close the popover
+                }}
+                type="product"
+              />
               )}
             </Grid>
             {/* Add new TextField for adding a shop */}
@@ -188,22 +157,25 @@ const Expenses = ({ drawerWidth = 240 }) => {
                 <TextField
                   label="New Shop"
                   autoComplete="off"
-                  onChange={(e) => handleNewShopChange(e.target.value)}
-                  onKeyDown={handleOpenShopPopover}
-                  onFocus={() => handleFieldFocus("shop")}
+                  onChange={(e) => handleFieldChange('shopName', e.target.value)}
+                  onFocus={(e) => handlePopoverOpen('shop', e)}
+                  
                   fullWidth
                   value={expense.shopName}
                 />
               </FormControl>
               {focusedField === "shop" && (
                 <SelectPopover
-                  open={Boolean(shopAnchorEl)} // Use shopPopoverOpen for shop popover
-                  anchorEl={shopAnchorEl}
-                  onClose={() => setShopAnchorEl(null)}
-                  options={filteredShopOptions}
-                  onSelect={handleShopSelect}
-                  type="shop"
-                />
+                open={Boolean(shopAnchorEl)}
+                anchorEl={shopAnchorEl}
+                onClose={() => handlePopoverClose('shop')}
+                options={filteredShopOptions || []}
+                onSelect={(shop) => {
+                  handleFieldChange('shopName', shop.name);
+                  setShopAnchorEl(null); // Close the popover
+                }}
+                type="shop"
+              />
               )}
             </Grid>
           </Grid>
