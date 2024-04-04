@@ -53,27 +53,14 @@ const Expenses = ({ drawerWidth = 240 }) => {
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
 
-  // Memoized filtered options
-  const filteredProductOptions = useMemo(() => {
-    if (!expense.productName || !productOptions) return productOptions;
-    return productOptions.filter((product) =>
-      product.name.toLowerCase().startsWith(expense.productName.toLowerCase())
-    );
-  }, [expense.productName, productOptions]);
 
-  const filteredShopOptions = useMemo(() => {
-    if (!expense.shopName || !shopOptions) return shopOptions;
-    return shopOptions.filter((shop) =>
-      shop.name.toLowerCase().startsWith(expense.shopName.toLowerCase())
+  const filterOptions = (options, fieldName, filterValue) => {
+    if (!filterValue || !options) return options;
+    return options.filter((option) =>
+      option[fieldName].toLowerCase().startsWith(filterValue.toLowerCase())
     );
-  }, [expense.shopName, shopOptions]);
-
-  const filteredBrandOptions = useMemo(() => {
-    if (!expense.brandName || !brandOptions) return brandOptions;
-    return brandOptions.filter((brand) =>
-      brand.name.toLowerCase().startsWith(expense.brandName.toLowerCase())
-    );
-  }, [expense.brandName, brandOptions]);
+  };
+ 
 
   // Function to handle field changes
   const handleFieldChange = (field, value) => {
@@ -135,7 +122,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       productAnchorEl: null,
                     }))
                   }
-                  options={filteredProductOptions}
+                  options={filterOptions(productOptions, "name", expense.productName)}
                   onSelect={(product) => {
                     handleFieldChange("productName", product.name);
                     setAnchorState((prevAnchorState) => ({
@@ -172,7 +159,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       brandAnchorEl: null,
                     }))
                   }
-                  options={filteredBrandOptions}
+                  options={filterOptions(brandOptions, "name", expense.brandName)}
                   onSelect={(brand) => {
                     handleFieldChange("brandName", brand.name);
                     setAnchorState((prevAnchorState) => ({
@@ -210,7 +197,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       shopAnchorEl: null,
                     }))
                   }
-                  options={filteredShopOptions}
+                  options={filterOptions(shopOptions, "name", expense.shopName)}
                   onSelect={(shop) => {
                     handleFieldChange("shopName", shop.name);
                     setAnchorState((prevAnchorState) => ({
