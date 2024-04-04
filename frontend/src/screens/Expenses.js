@@ -1,124 +1,111 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Grid, Paper, TextField, FormControl, InputLabel, Snackbar, Button } from '@mui/material';
-import { useQuery } from '@tanstack/react-query';
-import BasicDialog from '../components/commons/BasicDialog/BasicDialog';
-import SelectPopover from '../components/commons/SelectPopover/SelectPopover';
-import { fetchShops, fetchProducts } from '../components/commons/Utils/apiUtils';
+import React, { useState, useMemo } from "react";
+import {
+  Box,
+  Button,
+  Grid,
+  Paper,
+  TextField,
+  FormControl,
+  InputLabel,
+  Snackbar,
+} from "@mui/material";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchBrands,
+  fetchShops,
+  fetchProducts,
+} from "../components/commons/Utils/apiUtils";
+import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
+import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
 
 const Expenses = ({ drawerWidth = 240 }) => {
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [expense, setExpense] = useState({
-    productName: '',
-    shopName: '',
-    selectedDate: null,
+    productName: "",
+    shopName: "",
+    brandName: "",
+    price: "",
   });
-  const [focusedField, setFocusedField] = useState(null);
-  const [productAnchorEl, setProductAnchorEl] = useState(null);
-  const [shopAnchorEl, setShopAnchorEl] = useState(null);
-  const [productOptions, setProductOptions] = useState([]);
-  const [shopOptions, setShopOptions] = useState([]);
-  const [filteredProductOptions, setFilteredProductOptions] = useState([]);
-  const [filteredShopOptions, setFilteredShopOptions] = useState([]);
-
-  const { isLoading: productLoading } = useQuery(['products'], () => fetchProducts(), {
-    onSuccess: (data) => {
-      setProductOptions(data);
-    },
+  const [anchorState, setAnchorState] = useState({
+    productAnchorEl: null,
+    shopAnchorEl: null,
+    focusedField: null,
   });
-  const { isLoading: shopLoading } = useQuery(['shops'], () => fetchShops(), {
-    onSuccess: (data) => {
-      setShopOptions(data);
-    },
-  });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [quantity, setQuantity] = useState(1); // State to manage quantity
 
- 
+  // Fetching data using useQuery
+  const {
+    data: productOptions,
+    isLoading: productLoading,
+    isError: productError,
+  } = useQuery(["products"], fetchProducts);
+  const {
+    data: shopOptions,
+    isLoading: shopLoading,
+    isError: shopError,
+  } = useQuery(["shops"], fetchShops);
+  const {
+    data: brandOptions,
+    isLoading: brandLoading,
+    isError: brandError,
+  } = useQuery(["brands"], fetchBrands);
 
-useEffect(() => {
-  // Update filtered options as their respective fields change
-  setFilteredProductOptions(filterOptions(productOptions, expense.productName));
-  setFilteredShopOptions(filterOptions(shopOptions, expense.shopName));
-}, [expense.productName, expense.shopName, productOptions, shopOptions]);
+  // Memoized filtered options
+  const filteredProductOptions = useMemo(() => {
+    if (!expense.productName || !productOptions) return productOptions;
+    return productOptions.filter((product) =>
+      product.name.toLowerCase().startsWith(expense.productName.toLowerCase())
+    );
+  }, [expense.productName, productOptions]);
 
-const handleFieldFocus = (fieldName) => {
-  setFocusedField(fieldName);
-  handlePopoverOpen(fieldName);
-};
+  const filteredShopOptions = useMemo(() => {
+    if (!expense.shopName || !shopOptions) return shopOptions;
+    return shopOptions.filter((shop) =>
+      shop.name.toLowerCase().startsWith(expense.shopName.toLowerCase())
+    );
+  }, [expense.shopName, shopOptions]);
 
-const handleFieldChange = (field, value) => {
-  console.log("Field changed:", field, "Value:", value);
-  setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
-  
+  const filteredBrandOptions = useMemo(() => {
+    if (!expense.brandName || !brandOptions) return brandOptions;
+    return brandOptions.filter((brand) =>
+      brand.name.toLowerCase().startsWith(expense.brandName.toLowerCase())
+    );
+  }, [expense.brandName, brandOptions]);
 
-  // Update filtered options based on the input value
-  const filteredOptions = filterOptions(
-      field === 'productName' ? productOptions : shopOptions,
-      value
-  );
-  console.log("Filtered options:", filteredOptions);
-
-  // Set the filtered options based on the field
-  if (field === 'productName') {
-      setFilteredProductOptions(filteredOptions);
-      setFocusedField(field);
-  } else {
-      setFilteredShopOptions(filteredOptions);
-      setFocusedField(field);
-  }
-
-  // Open popover when there is input in the TextField
-  if (value && value.trim() !== '') {
-    handlePopoverOpen(field);
-  }
-};
-
-  const handlePopoverClose = (field) => {
-    if (field === 'product') setProductAnchorEl(null);
-    if (field === 'shop') setShopAnchorEl(null);
+  // Function to handle field changes
+  const handleFieldChange = (field, value) => {
+    setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
   };
 
+  // Function to handle popover opening
+  const handleOpenPopover = (field, event) => {
+    setAnchorState((prevAnchorState) => ({
+      ...prevAnchorState,
+      [`${field}AnchorEl`]: event.currentTarget,
+      focusedField: field,
+    }));
+  };
 
-  const handlePopoverOpen = (field, event) => {
-    const anchorEl = event ? event.currentTarget : document.activeElement;
-    if (field === 'product') {
-        setProductAnchorEl(anchorEl);
-        setShopAnchorEl(null);
-    }
-    if (field === 'shop') {
-        setShopAnchorEl(anchorEl);
-        setProductAnchorEl(null);
-    }
-    setFocusedField(field);
-};
+  // Function to handle quantity change
+  const handleQuantityChange = (value) => {
+    setQuantity(value);
+  };
 
+   // Function to calculate total price
+   const calculateTotalPrice = () => {
+    return expense.price * quantity;
+  };
 
+  // Function to handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
-    // Add logic to save the expense data to the database
+    // Logic to save expense data to the database
   };
-
-  const filterOptions = (options, query) => {
-    return options.filter(option => option.name.toLowerCase().startsWith(query.toLowerCase()));
-  };
-
-  const handleFieldKeyDown = (fieldName) => {
-    if (!Boolean(productAnchorEl) && fieldName === 'product' && expense.productName.trim() !== '') {
-      handlePopoverOpen(fieldName);
-    } else if (!Boolean(shopAnchorEl) && fieldName === 'shop' && expense.shopName.trim() !== '') {
-      handlePopoverOpen(fieldName);
-    }
-  };
-  
-
-
-
-  console.log("Expense object", expense)
-
-
 
   const content = () => {
-
-
     return (
       <>
         <form onSubmit={handleSubmit}>
@@ -127,27 +114,74 @@ const handleFieldChange = (field, value) => {
               <FormControl fullWidth>
                 <InputLabel></InputLabel>
                 <TextField
-                  label="New Product"
+                  label="Produkt"
                   value={expense.productName}
-                  onChange={(e) => handleFieldChange('productName', e.target.value)}
+                  onChange={(e) =>
+                    handleFieldChange("productName", e.target.value)
+                  }
                   autoComplete="off"
-                  onFocus={(e) => handlePopoverOpen('product', e)}
-                  onKeyDown={() => handleFieldKeyDown('product')} // Add this line
+                  //onKeyDown={handleOpenProductPopover}
+                  onFocus={(e) => handleOpenPopover("product", e)}
                   fullWidth
                 />
               </FormControl>
-              {focusedField === "product" && filteredProductOptions.length > 0 && (
+              {anchorState.focusedField === "product" && (
                 <SelectPopover
-                open={Boolean(productAnchorEl)}
-                anchorEl={productAnchorEl}
-                onClose={() => handlePopoverClose('product')}
-                options={filteredProductOptions}
-                onSelect={(product) => {
-                  handleFieldChange('productName', product.name);
-                  setProductAnchorEl(null); // Close the popover
-                }}
-                type="product"
-              />
+                  open={Boolean(anchorState.productAnchorEl)}
+                  anchorEl={anchorState.productAnchorEl}
+                  onClose={() =>
+                    setAnchorState((prevAnchorState) => ({
+                      ...prevAnchorState,
+                      productAnchorEl: null,
+                    }))
+                  }
+                  options={filteredProductOptions}
+                  onSelect={(product) => {
+                    handleFieldChange("productName", product.name);
+                    setAnchorState((prevAnchorState) => ({
+                      ...prevAnchorState,
+                      productAnchorEl: null,
+                    }));
+                  }}
+                  type="product"
+                />
+              )}
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel></InputLabel>
+                <TextField
+                  label="Merke"
+                  value={expense.brandName}
+                  onChange={(e) =>
+                    handleFieldChange("brandName", e.target.value)
+                  }
+                  autoComplete="off"
+                  //onKeyDown={handleOpenProductPopover}
+                  onFocus={(e) => handleOpenPopover("brand", e)}
+                  fullWidth
+                />
+              </FormControl>
+              {anchorState.focusedField === "brand" && (
+                <SelectPopover
+                  open={Boolean(anchorState.brandAnchorEl)}
+                  anchorEl={anchorState.brandAnchorEl}
+                  onClose={() =>
+                    setAnchorState((prevAnchorState) => ({
+                      ...prevAnchorState,
+                      brandAnchorEl: null,
+                    }))
+                  }
+                  options={filteredBrandOptions}
+                  onSelect={(brand) => {
+                    handleFieldChange("brandName", brand.name);
+                    setAnchorState((prevAnchorState) => ({
+                      ...prevAnchorState,
+                      productAnchorEl: null,
+                    }));
+                  }}
+                  type="brand"
+                />
               )}
             </Grid>
             {/* Add new TextField for adding a shop */}
@@ -155,28 +189,80 @@ const handleFieldChange = (field, value) => {
               <FormControl fullWidth>
                 <InputLabel></InputLabel>
                 <TextField
-                  label="New Shop"
+                  label="Butikk"
                   autoComplete="off"
-                  onChange={(e) => handleFieldChange('shopName', e.target.value)}
-                  onFocus={(e) => handlePopoverOpen('shop', e)}
-                  
+                  onChange={(e) =>
+                    handleFieldChange("shopName", e.target.value)
+                  }
+                  // onKeyDown={handleOpenShopPopover}
+                  onFocus={(e) => handleOpenPopover("shop", e)}
                   fullWidth
                   value={expense.shopName}
                 />
               </FormControl>
-              {focusedField === "shop" && (
+              {anchorState.focusedField === "shop" && (
                 <SelectPopover
-                open={Boolean(shopAnchorEl)}
-                anchorEl={shopAnchorEl}
-                onClose={() => handlePopoverClose('shop')}
-                options={filteredShopOptions || []}
-                onSelect={(shop) => {
-                  handleFieldChange('shopName', shop.name);
-                  setShopAnchorEl(null); // Close the popover
-                }}
-                type="shop"
-              />
+                  open={Boolean(anchorState.shopAnchorEl)}
+                  anchorEl={anchorState.shopAnchorEl}
+                  onClose={() =>
+                    setAnchorState((prevAnchorState) => ({
+                      ...prevAnchorState,
+                      shopAnchorEl: null,
+                    }))
+                  }
+                  options={filteredShopOptions}
+                  onSelect={(shop) => {
+                    handleFieldChange("shopName", shop.name);
+                    setAnchorState((prevAnchorState) => ({
+                      ...prevAnchorState,
+                      shopAnchorEl: null,
+                    }));
+                  }}
+                  type="shop"
+                />
               )}
+            </Grid>
+            {/* New fields for price and quantity */}
+            <Grid container item xs={12} spacing={2}>
+              <Grid item xs={4}>
+                <FormControl fullWidth>
+                  <InputLabel></InputLabel>
+                  <TextField
+                    label="Pris"
+                    type="number"
+                    value={expense.price}
+                    onChange={(e) => handleFieldChange("price", e.target.value)}
+                    autoComplete="off"
+                    fullWidth
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item xs={4}>
+                <FormControl fullWidth>
+                  <InputLabel></InputLabel>
+                  <TextField
+                    label="Antall"
+                    type="number"
+                    value={quantity}
+                    // Handle quantity separately
+                    onChange={(e) => handleQuantityChange(e.target.value)}
+                    autoComplete="off"
+                    fullWidth
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item xs={4}>
+                <FormControl fullWidth>
+                  <InputLabel></InputLabel>
+                  <TextField
+                    // Calculate total price based on price and quantity
+                    label="Total"
+                    InputProps={{ readOnly: true }}
+                    value={calculateTotalPrice()}
+                    fullWidth
+                  />
+                </FormControl>
+              </Grid>
             </Grid>
           </Grid>
         </form>
@@ -232,3 +318,4 @@ const handleFieldChange = (field, value) => {
 };
 
 export default Expenses;
+
