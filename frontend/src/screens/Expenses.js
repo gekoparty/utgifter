@@ -7,7 +7,9 @@ import {
   TextField,
   FormControl,
   InputLabel,
+  Checkbox,
   Snackbar,
+  FormControlLabel,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -35,6 +37,8 @@ const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [quantity, setQuantity] = useState(1); // State to manage quantity
+  const [hasDiscount, setHasDiscount] = useState(false); // State to track if the product has a discount
+  const [discountValue, setDiscountValue] = useState(0); // State to track the discount value
 
   // Fetching data using useQuery
   const {
@@ -53,14 +57,12 @@ const Expenses = ({ drawerWidth = 240 }) => {
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
 
-
   const filterOptions = (options, fieldName, filterValue) => {
     if (!filterValue || !options) return options;
     return options.filter((option) =>
       option[fieldName].toLowerCase().startsWith(filterValue.toLowerCase())
     );
   };
- 
 
   // Function to handle field changes
   const handleFieldChange = (field, value) => {
@@ -81,11 +83,21 @@ const Expenses = ({ drawerWidth = 240 }) => {
     setQuantity(value);
   };
 
-   // Function to calculate total price
-   const calculateTotalPrice = () => {
-    return expense.price * quantity;
+  // Function to handle discount checkbox change
+  const handleDiscountChange = (event) => {
+    setHasDiscount(event.target.checked);
   };
 
+  // Function to calculate total price
+  const calculateTotalPrice = () => {
+    let totalPrice = expense.price * quantity;
+    if (hasDiscount) {
+      // Apply discount if the product has a discount
+      // Adjust the totalPrice based on the discount value
+      totalPrice -= discountValue;
+    }
+    return parseFloat(totalPrice.toFixed(2)); // Round to two decimal places
+  };
   // Function to handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -122,7 +134,11 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       productAnchorEl: null,
                     }))
                   }
-                  options={filterOptions(productOptions, "name", expense.productName)}
+                  options={filterOptions(
+                    productOptions,
+                    "name",
+                    expense.productName
+                  )}
                   onSelect={(product) => {
                     handleFieldChange("productName", product.name);
                     setAnchorState((prevAnchorState) => ({
@@ -159,7 +175,11 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       brandAnchorEl: null,
                     }))
                   }
-                  options={filterOptions(brandOptions, "name", expense.brandName)}
+                  options={filterOptions(
+                    brandOptions,
+                    "name",
+                    expense.brandName
+                  )}
                   onSelect={(brand) => {
                     handleFieldChange("brandName", brand.name);
                     setAnchorState((prevAnchorState) => ({
@@ -208,6 +228,35 @@ const Expenses = ({ drawerWidth = 240 }) => {
                   type="shop"
                 />
               )}
+            </Grid>
+            {/* Add Checkbox for discount */}
+            <Grid container item xs={12} spacing={2}>
+              <Grid item xs={6}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={hasDiscount}
+                      onChange={handleDiscountChange}
+                    />
+                  }
+                  label="Har rabatt"
+                />
+              </Grid>
+              <Grid item xs={6}>
+                {hasDiscount && (
+                  <FormControl fullWidth>
+                    <InputLabel></InputLabel>
+                    <TextField
+                      label="Rabattverdi"
+                      type="number"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      autoComplete="off"
+                      fullWidth
+                    />
+                  </FormControl>
+                )}
+              </Grid>
             </Grid>
             {/* New fields for price and quantity */}
             <Grid container item xs={12} spacing={2}>
@@ -305,4 +354,3 @@ const Expenses = ({ drawerWidth = 240 }) => {
 };
 
 export default Expenses;
-
