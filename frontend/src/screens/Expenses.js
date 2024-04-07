@@ -26,7 +26,9 @@ const Expenses = ({ drawerWidth = 240 }) => {
     productName: "",
     shopName: "",
     brandName: "",
-    price: "",
+    price: 0,
+    hasDiscount: false,
+    discountValue: 0,
   });
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
@@ -38,8 +40,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [quantity, setQuantity] = useState(1); // State to manage quantity
-  const [hasDiscount, setHasDiscount] = useState(false); // State to track if the product has a discount
-  const [discountValue, setDiscountValue] = useState(0); // State to track the discount value
+  
 
   // Fetching data using useQuery
   const {
@@ -66,9 +67,15 @@ const Expenses = ({ drawerWidth = 240 }) => {
   };
 
   // Function to handle field changes
-  const handleFieldChange = (field, value) => {
+const handleFieldChange = (field, value) => {
+  // If the field is 'hasDiscount' or 'discountValue', update them directly
+  if (field === 'hasDiscount' || field === 'discountValue') {
     setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
-  };
+  } else {
+    // Otherwise, update the expense object as usual
+    setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+  }
+};
 
   // Function to handle popover opening
   const handleOpenPopover = (field, event) => {
@@ -81,30 +88,43 @@ const Expenses = ({ drawerWidth = 240 }) => {
 
   // Function to handle quantity change
   const handleQuantityChange = (value) => {
-    setQuantity(value);
+    // Parse the value as a number before setting the state
+    setQuantity(parseInt(value));
   };
+// Function to handle discount checkbox change
 // Function to handle discount checkbox change
 const handleDiscountChange = (event) => {
   if (!event.target.checked) {
     // If the checkbox is unchecked, reset discount value and set hasDiscount to false
-    setDiscountValue(0);
-    setHasDiscount(false);
+    handleFieldChange('hasDiscount', false);
+    handleFieldChange('discountValue', 0);
   } else {
     // If the checkbox is checked, set hasDiscount to true
-    setHasDiscount(true);
+    handleFieldChange('hasDiscount', true);
   }
 };
 
-  // Function to calculate total price
-  const calculateTotalPrice = () => {
-    let totalPrice = expense.price * quantity;
-    if (hasDiscount) {
-      // Apply discount if the product has a discount
-      // Adjust the totalPrice based on the discount value
-      totalPrice -= discountValue;
-    }
-    return parseFloat(totalPrice.toFixed(2)); // Round to two decimal places
-  };
+const calculateTotalPrice = () => {
+  console.log('Price:', expense.price);
+  console.log('Quantity:', expense.quantity);
+  console.log('Discount Value:', expense.discountValue);
+
+  let totalPrice = expense.price * quantity;
+  console.log('Total Price (Before Discount):', totalPrice);
+
+  if (expense.hasDiscount) {
+    console.log('Applying Discount...');
+    totalPrice -= expense.discountValue;
+  }
+
+  console.log('Total Price (After Discount):', totalPrice);
+  
+  // Check if totalPrice is NaN after calculations
+  console.log('Is totalPrice NaN?', isNaN(totalPrice));
+
+  return parseFloat(totalPrice.toFixed(2));
+};
+  
   // Function to handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -242,7 +262,7 @@ const handleDiscountChange = (event) => {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={hasDiscount}
+                      checked={expense.hasDiscount}
                       onChange={handleDiscountChange}
                     />
                   }
@@ -250,14 +270,16 @@ const handleDiscountChange = (event) => {
                 />
               </Grid>
               <Grid item xs={6}>
-                {hasDiscount && (
+                {expense.hasDiscount && (
                   <FormControl fullWidth>
                     <InputLabel></InputLabel>
                     <TextField
                       label="Rabattverdi"
                       type="number"
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(e.target.value)}
+                      value={expense.discountValue}
+                      onChange={(e) =>
+                        handleFieldChange("discountValue", e.target.value)
+                      }
                       autoComplete="off"
                       fullWidth
                     />
