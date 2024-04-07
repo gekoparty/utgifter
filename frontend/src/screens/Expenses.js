@@ -17,6 +17,7 @@ import {
   fetchShops,
   fetchProducts,
 } from "../components/commons/Utils/apiUtils";
+
 import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
 
@@ -82,11 +83,17 @@ const Expenses = ({ drawerWidth = 240 }) => {
   const handleQuantityChange = (value) => {
     setQuantity(value);
   };
-
-  // Function to handle discount checkbox change
-  const handleDiscountChange = (event) => {
-    setHasDiscount(event.target.checked);
-  };
+// Function to handle discount checkbox change
+const handleDiscountChange = (event) => {
+  if (!event.target.checked) {
+    // If the checkbox is unchecked, reset discount value and set hasDiscount to false
+    setDiscountValue(0);
+    setHasDiscount(false);
+  } else {
+    // If the checkbox is checked, set hasDiscount to true
+    setHasDiscount(true);
+  }
+};
 
   // Function to calculate total price
   const calculateTotalPrice = () => {
@@ -239,7 +246,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       onChange={handleDiscountChange}
                     />
                   }
-                  label="Har rabatt"
+                  label="Rabatt"
                 />
               </Grid>
               <Grid item xs={6}>
