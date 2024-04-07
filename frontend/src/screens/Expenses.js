@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Button,
@@ -10,6 +10,9 @@ import {
   Checkbox,
   Snackbar,
   FormControlLabel,
+  FormLabel,
+  RadioGroup,
+  Radio,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -29,6 +32,9 @@ const Expenses = ({ drawerWidth = 240 }) => {
     price: 0,
     hasDiscount: false,
     discountValue: 0,
+    purchased: true,
+    purchaseDate: null, // Initialize to null
+    registeredDate: null // Initialize to null
   });
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
@@ -74,8 +80,13 @@ const handleFieldChange = (field, value) => {
   } else {
     // Otherwise, update the expense object as usual
     setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+   
   }
 };
+
+useEffect(() => {
+  console.log("expense object", expense);
+}, [expense]);
 
   // Function to handle popover opening
   const handleOpenPopover = (field, event) => {
@@ -105,22 +116,22 @@ const handleDiscountChange = (event) => {
 };
 
 const calculateTotalPrice = () => {
-  console.log('Price:', expense.price);
-  console.log('Quantity:', expense.quantity);
-  console.log('Discount Value:', expense.discountValue);
+  //console.log('Price:', expense.price);
+  //console.log('Quantity:', expense.quantity);
+  //console.log('Discount Value:', expense.discountValue);
 
   let totalPrice = expense.price * quantity;
-  console.log('Total Price (Before Discount):', totalPrice);
+  //console.log('Total Price (Before Discount):', totalPrice);
 
   if (expense.hasDiscount) {
-    console.log('Applying Discount...');
+    //console.log('Applying Discount...');
     totalPrice -= expense.discountValue;
   }
 
-  console.log('Total Price (After Discount):', totalPrice);
+  //console.log('Total Price (After Discount):', totalPrice);
   
   // Check if totalPrice is NaN after calculations
-  console.log('Is totalPrice NaN?', isNaN(totalPrice));
+  //console.log('Is totalPrice NaN?', isNaN(totalPrice));
 
   return parseFloat(totalPrice.toFixed(2));
 };
@@ -136,6 +147,34 @@ const calculateTotalPrice = () => {
       <>
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
+            {/* Radio buttons for selecting purchase mode */}
+            <Grid item xs={12}>
+                  <FormControl component="fieldset">
+                    <FormLabel component="legend">Purchase Mode</FormLabel>
+                    <RadioGroup
+                      aria-label="purchase-mode"
+                      name="purchaseMode"
+                      value={expense.purchased ? "purchased" : "registered"}
+                      onChange={(e) =>
+                        handleFieldChange(
+                          "purchased",
+                          e.target.value === "purchased"
+                        )
+                      }
+                    >
+                      <FormControlLabel
+                        value="purchased"
+                        control={<Radio />}
+                        label="Purchased"
+                      />
+                      <FormControlLabel
+                        value="registered"
+                        control={<Radio />}
+                        label="Registered"
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel></InputLabel>
