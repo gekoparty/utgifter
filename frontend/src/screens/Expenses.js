@@ -15,12 +15,13 @@ import {
   Radio,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import {
   fetchBrands,
   fetchShops,
   fetchProducts,
 } from "../components/commons/Utils/apiUtils";
-
+import dayjs from "dayjs";
 import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
 
@@ -33,8 +34,8 @@ const Expenses = ({ drawerWidth = 240 }) => {
     hasDiscount: false,
     discountValue: 0,
     purchased: true,
-    purchaseDate: null, // Initialize to null
-    registeredDate: null // Initialize to null
+    purchaseDate: dayjs().format(), // Default to current date
+    registeredDate: null, // Initially set to null
   });
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
@@ -71,7 +72,21 @@ const Expenses = ({ drawerWidth = 240 }) => {
       option[fieldName].toLowerCase().startsWith(filterValue.toLowerCase())
     );
   };
-
+  const handleDateChange = (date) => {
+    console.log("Date picked:", date); // Log the date picked
+    const formattedDate = dayjs(date).format(); // Format the date
+    console.log("Formatted date:", formattedDate); // Log the formatted date
+  
+    if (expense.purchased) {
+      // If purchased, update purchaseDate and set registeredDate to null
+      console.log("Updating purchaseDate");
+      setExpense((prevExpense) => ({ ...prevExpense, purchaseDate: formattedDate, registeredDate: null }));
+    } else {
+      // If registered, update registeredDate and set purchaseDate to null
+      console.log("Updating registeredDate");
+      setExpense((prevExpense) => ({ ...prevExpense, registeredDate: formattedDate, purchaseDate: null }));
+    }
+  };
   // Function to handle field changes
 const handleFieldChange = (field, value) => {
   // If the field is 'hasDiscount' or 'discountValue', update them directly
@@ -367,7 +382,16 @@ const calculateTotalPrice = () => {
                   />
                 </FormControl>
               </Grid>
-            </Grid>
+              {/* Conditional rendering of DatePicker */}
+              
+                <Grid item xs={6}>
+                <DatePicker
+               defaultValue={dayjs()}
+                  selected={expense.registeredDate || expense.purchaseDate}
+                  onChange={handleDateChange}
+                />
+                </Grid>
+              </Grid>
           </Grid>
         </form>
       </>
