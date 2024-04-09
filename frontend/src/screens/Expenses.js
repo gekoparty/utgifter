@@ -15,7 +15,7 @@ import {
   Radio,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {
   fetchBrands,
   fetchShops,
@@ -47,7 +47,6 @@ const Expenses = ({ drawerWidth = 240 }) => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [quantity, setQuantity] = useState(1); // State to manage quantity
-  
 
   // Fetching data using useQuery
   const {
@@ -76,32 +75,39 @@ const Expenses = ({ drawerWidth = 240 }) => {
     console.log("Date picked:", date); // Log the date picked
     const formattedDate = dayjs(date).format(); // Format the date
     console.log("Formatted date:", formattedDate); // Log the formatted date
-  
+
     if (expense.purchased) {
       // If purchased, update purchaseDate and set registeredDate to null
       console.log("Updating purchaseDate");
-      setExpense((prevExpense) => ({ ...prevExpense, purchaseDate: formattedDate, registeredDate: null }));
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        purchaseDate: formattedDate,
+        registeredDate: null,
+      }));
     } else {
       // If registered, update registeredDate and set purchaseDate to null
       console.log("Updating registeredDate");
-      setExpense((prevExpense) => ({ ...prevExpense, registeredDate: formattedDate, purchaseDate: null }));
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        registeredDate: formattedDate,
+        purchaseDate: null,
+      }));
     }
   };
   // Function to handle field changes
-const handleFieldChange = (field, value) => {
-  // If the field is 'hasDiscount' or 'discountValue', update them directly
-  if (field === 'hasDiscount' || field === 'discountValue') {
-    setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
-  } else {
-    // Otherwise, update the expense object as usual
-    setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
-   
-  }
-};
+  const handleFieldChange = (field, value) => {
+    // If the field is 'hasDiscount' or 'discountValue', update them directly
+    if (field === "hasDiscount" || field === "discountValue") {
+      setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+    } else {
+      // Otherwise, update the expense object as usual
+      setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+    }
+  };
 
-useEffect(() => {
-  console.log("expense object", expense);
-}, [expense]);
+  useEffect(() => {
+    console.log("expense object", expense);
+  }, [expense]);
 
   // Function to handle popover opening
   const handleOpenPopover = (field, event) => {
@@ -117,40 +123,40 @@ useEffect(() => {
     // Parse the value as a number before setting the state
     setQuantity(parseInt(value));
   };
-// Function to handle discount checkbox change
-// Function to handle discount checkbox change
-const handleDiscountChange = (event) => {
-  if (!event.target.checked) {
-    // If the checkbox is unchecked, reset discount value and set hasDiscount to false
-    handleFieldChange('hasDiscount', false);
-    handleFieldChange('discountValue', 0);
-  } else {
-    // If the checkbox is checked, set hasDiscount to true
-    handleFieldChange('hasDiscount', true);
-  }
-};
+  // Function to handle discount checkbox change
+  // Function to handle discount checkbox change
+  const handleDiscountChange = (event) => {
+    if (!event.target.checked) {
+      // If the checkbox is unchecked, reset discount value and set hasDiscount to false
+      handleFieldChange("hasDiscount", false);
+      handleFieldChange("discountValue", 0);
+    } else {
+      // If the checkbox is checked, set hasDiscount to true
+      handleFieldChange("hasDiscount", true);
+    }
+  };
 
-const calculateTotalPrice = () => {
-  //console.log('Price:', expense.price);
-  //console.log('Quantity:', expense.quantity);
-  //console.log('Discount Value:', expense.discountValue);
+  const calculateTotalPrice = () => {
+    //console.log('Price:', expense.price);
+    //console.log('Quantity:', expense.quantity);
+    //console.log('Discount Value:', expense.discountValue);
 
-  let totalPrice = expense.price * quantity;
-  //console.log('Total Price (Before Discount):', totalPrice);
+    let totalPrice = expense.price * quantity;
+    //console.log('Total Price (Before Discount):', totalPrice);
 
-  if (expense.hasDiscount) {
-    //console.log('Applying Discount...');
-    totalPrice -= expense.discountValue;
-  }
+    if (expense.hasDiscount) {
+      //console.log('Applying Discount...');
+      totalPrice -= expense.discountValue;
+    }
 
-  //console.log('Total Price (After Discount):', totalPrice);
-  
-  // Check if totalPrice is NaN after calculations
-  //console.log('Is totalPrice NaN?', isNaN(totalPrice));
+    //console.log('Total Price (After Discount):', totalPrice);
 
-  return parseFloat(totalPrice.toFixed(2));
-};
-  
+    // Check if totalPrice is NaN after calculations
+    //console.log('Is totalPrice NaN?', isNaN(totalPrice));
+
+    return parseFloat(totalPrice.toFixed(2));
+  };
+
   // Function to handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -164,32 +170,32 @@ const calculateTotalPrice = () => {
           <Grid container spacing={2}>
             {/* Radio buttons for selecting purchase mode */}
             <Grid item xs={12}>
-                  <FormControl component="fieldset">
-                    <FormLabel component="legend">Purchase Mode</FormLabel>
-                    <RadioGroup
-                      aria-label="purchase-mode"
-                      name="purchaseMode"
-                      value={expense.purchased ? "purchased" : "registered"}
-                      onChange={(e) =>
-                        handleFieldChange(
-                          "purchased",
-                          e.target.value === "purchased"
-                        )
-                      }
-                    >
-                      <FormControlLabel
-                        value="purchased"
-                        control={<Radio />}
-                        label="Purchased"
-                      />
-                      <FormControlLabel
-                        value="registered"
-                        control={<Radio />}
-                        label="Registered"
-                      />
-                    </RadioGroup>
-                  </FormControl>
-                </Grid>
+              <FormControl component="fieldset">
+                <FormLabel component="legend">Purchase Mode</FormLabel>
+                <RadioGroup
+                  aria-label="purchase-mode"
+                  name="purchaseMode"
+                  value={expense.purchased ? "purchased" : "registered"}
+                  onChange={(e) =>
+                    handleFieldChange(
+                      "purchased",
+                      e.target.value === "purchased"
+                    )
+                  }
+                >
+                  <FormControlLabel
+                    value="purchased"
+                    control={<Radio />}
+                    label="Purchased"
+                  />
+                  <FormControlLabel
+                    value="registered"
+                    control={<Radio />}
+                    label="Registered"
+                  />
+                </RadioGroup>
+              </FormControl>
+            </Grid>
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel></InputLabel>
@@ -383,15 +389,20 @@ const calculateTotalPrice = () => {
                 </FormControl>
               </Grid>
               {/* Conditional rendering of DatePicker */}
-              
-                <Grid item xs={6}>
+
+              <Grid item xs={6}>
                 <DatePicker
-               defaultValue={dayjs()}
+                  defaultValue={dayjs()}
                   selected={expense.registeredDate || expense.purchaseDate}
                   onChange={handleDateChange}
                 />
-                </Grid>
               </Grid>
+            </Grid>
+            <Grid container item xs={12} justifyContent="flex-end">
+              <Button variant="contained" type="submit">
+                Submit
+              </Button>
+            </Grid>
           </Grid>
         </form>
       </>
