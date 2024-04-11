@@ -97,7 +97,7 @@ const ProductScreen = () => {
   
     const response = await fetch(fetchURL.href);
     const json = await response.json();
-    console.log("json", json)
+    //console.log("json", json)
     const { meta } = json;
   
     // Fetch the associated brand data separately

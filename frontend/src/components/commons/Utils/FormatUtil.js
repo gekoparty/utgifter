@@ -23,6 +23,8 @@ const formatComponentFields = (name, componentName, fieldName) => {
     return capitalizedWords.join("-");
   };
 
+  console.log("Input:", name); // Log the input value
+
   if (fields.length === 1) {
     if (fieldName === "name") {
       return capitalizeWord(name); // Only format 'name' field as a string directly
@@ -37,8 +39,10 @@ const formatComponentFields = (name, componentName, fieldName) => {
     fields.forEach((field) => {
       formattedObject[field] = formatted;
     });
+    console.log("Formatted Output:", formattedObject);
     return formattedObject;
   }
+  
 };
 
 export { formatComponentFields };

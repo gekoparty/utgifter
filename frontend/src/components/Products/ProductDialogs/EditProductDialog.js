@@ -45,7 +45,7 @@ const EditProductDialog = ({
 
   const queryClient = useQueryClient();
 
-  console.log("data", brandOptions);
+  //console.log("data", brandOptions);
 
   if (brandLoading) {
     // Return a loading indicator while brands are being fetched
