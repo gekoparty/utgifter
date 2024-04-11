@@ -105,9 +105,9 @@ const Expenses = ({ drawerWidth = 240 }) => {
     }
   };
 
-  useEffect(() => {
+  /* useEffect(() => {
     console.log("expense object", expense);
-  }, [expense]);
+  }, [expense]); */
 
   // Function to handle popover opening
   const handleOpenPopover = (field, event) => {

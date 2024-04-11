@@ -8,7 +8,7 @@ import { addProductValidationSchema } from "../../../validation/validationSchema
 const useProductDialog = (initialProduct = null) => {
   const initialProductState = {
     name: "",
-    brand: "",
+    brands: [],
     measurementUnit: "",
     type: "",
   };
@@ -73,19 +73,21 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetFormAndErrors, dispatch]);
 
   const handleSaveProduct = async (onClose) => {
-    if (!product.name.trim() || !product.brand.trim()) {
-      return;
+    if (!product.name.trim() || product.brands.length === 0) {
+      return; // Handle empty product name or empty brands array
     }
   
     let formattedProduct;
     let validationErrors = {};
+
+    console.log("Product before formatting:", product);
   
     try {
       // Format the shop name, location, and category using the formatComponentFields function
       formattedProduct = {
         ...product,
         name: formatComponentFields(product.name, "product").name,
-        brand: formatComponentFields(product.brand, "product").name,
+        brands: product.brands.map((brand) => formatComponentFields(brand, "product").name),
       };
 
       console.log("formattedProduct", formattedProduct)
@@ -214,7 +216,7 @@ const useProductDialog = (initialProduct = null) => {
       !validationError?.measurementUnit &&
       !validationError?.type && // Include type validation
       product?.name?.trim().length > 0 &&
-      product?.brand?.length > 0 &&  // Update this line to use 'brand'
+      product?.brands?.length > 0 && // Update this line to use 'brand'
       product?.measurementUnit?.trim().length > 0 &&
       product?.type?.length > 0 
     );

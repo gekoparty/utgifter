@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState, useEffect} from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
@@ -16,6 +16,8 @@ const measurementUnitOptions = [
   // Add more measurement unit options as needed
 ];
 
+ // State to store selected brands
+
 const predefinedTypes = ["Matvare", "Jernhandel", "Elektronikk", "Bil"]; // Add your predefined types here
 
 const AddProductDialog = ({ open, onClose, onAdd }) => {
@@ -32,6 +34,11 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useProductDialog();
 
+  const [selectedBrands, setSelectedBrands] = useState([]);
+  useEffect(() => {
+    console.log("Product state:", product); // Log product state on every change
+  }, [product]);
+
   const {
     data: brandOptions,
     isLoading: brandLoading,
@@ -43,12 +50,26 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
 
     // Call the handleSaveShop function from the hook to save the new shop
     if (isFormValid()) {
-      const success = await handleSaveProduct(onClose);
+      const success = await handleSaveProduct(onClose, {
+        ...product,
+        brands: selectedBrands.map((brand) => brand.name), // Set brand as an array of brand names
+      });
       if (success) {
         onAdd({ name: product.name }); // Trigger the onAdd function to show the success snackbar with the shop name
       }
     }
   };
+
+  const handleBrandChange = (selectedOptions) => {
+  setSelectedBrands(selectedOptions);
+  setProduct({
+    ...product,
+    brands: selectedOptions.map((brand) => brand.name), // Set brands as an array of brand names
+  });
+  resetValidationErrors();
+  resetServerError();
+};
+
 
   return (
     <BasicDialog
@@ -88,26 +109,17 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
               options={brandOptions}
               size="small"
               label="Merke"
-              value={
-                product?.brand
-                  ? brandOptions.find((brand) => brand.name === product.brand)
-                  : null
-              } // Use optional chaining to handle empty shop location
+              isMulti 
+              value={product?.brands?.map((brand) => ({ name: brand })) || []} // Map brands to objects for CreatableSelect
               error={Boolean(validationError?.brand)} // Use optional chaining
-              onChange={(selectedOption) => {
-                setProduct({ ...product, brand: selectedOption?.name || "" });
-                resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
-              }}
+              onChange={handleBrandChange}
               getOptionLabel={(option) => option.name} // Set the label for each option
               getOptionValue={(option) => option.name} // Set the value for each option
               placeholder="Velg Merke..."
               isValidNewOption={(inputValue, selectValue, selectOptions) => {
                 return (
                   inputValue.trim() !== "" &&
-                  !selectOptions.find(
-                    (option) => option.name === inputValue.trim()
-                  )
+                  !selectOptions.find((option) => option.name === inputValue.trim())
                 );
               }}
               getNewOptionData={(inputValue, optionLabel) => ({
@@ -115,8 +127,12 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
               })}
               onCreateOption={(inputValue) => {
                 const newBrand = { name: inputValue.trim() };
-                setProduct({ ...product, brand: newBrand.name || "" });
-                brandOptions.push(newBrand);
+                setProduct((prevProduct) => ({
+                  ...prevProduct,
+                  brands: [...prevProduct.brands, newBrand.name], // Update brands directly
+                }));
+                resetValidationErrors();
+                resetServerError();
               }}
               isClearable
               formatCreateLabel={(inputValue) => `Nytt sted: ${inputValue}`}
