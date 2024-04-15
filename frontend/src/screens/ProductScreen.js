@@ -81,9 +81,9 @@ const ProductScreen = () => {
   
     const modifiedFilters = columnFilters.map((filter) => {
       if (filter.id === "brand") {
-        return { id: "brand", value: '' };
+        return { id: "brand", value: "" };
       } else if (filter.id === "category") {
-        return { id: "category", value: '' };
+        return { id: "category", value: "" };
       }
       return filter;
     });
@@ -97,48 +97,46 @@ const ProductScreen = () => {
   
     const response = await fetch(fetchURL.href);
     const json = await response.json();
-    //console.log("json", json)
-    const { meta } = json;
   
-    // Fetch the associated brand data separately
-    const brandData = await Promise.all(
-      json.products.map(async (product) => {
-        try {
-          if (product.brands && product.brands.length > 0) {
-            // Assuming there is only one brand reference per product
-            const brandId = product.brands[0];
-            const brandResponse = await fetch(`/api/brands/${brandId}`);
-            const brandData = await brandResponse.json();
-            return brandData.name; // Extract the brand name
-          } else {
-            return "N/A";
-          }
-        } catch (error) {
-          console.error("Error fetching brand data:", error);
-          return "N/A";
-        }
-      })
-    );
+    const products = json.products;
   
-    // Associate brand data with products
-    const productsWithAssociatedData = json.products.map((product, index) => ({
+    // Fetch brand names for each product
+    const brandPromises = products.map(async (product) => {
+      if (!product.brands || !product.brands.length) {
+        return ["N/A"]; // Handle products with no brands
+      }
+  
+      // Map each brand ID to its corresponding brand name
+      const brandNames = await Promise.all(
+        product.brands.map(async (brandId) => {
+          const brandResponse = await fetch(`/api/brands/${brandId}`);
+          const brandData = await brandResponse.json();
+          return brandData.name; // Extract the brand name
+        })
+      );
+  
+      return brandNames; // Return array of brand names
+    });
+  
+    const brandNamesArray = await Promise.all(brandPromises);
+  
+    // Associate brand names array with each product
+    const productsWithBrandNames = products.map((product, index) => ({
       ...product,
-      brand: brandData[index], // Keep the location and category as objects
+      brand: brandNamesArray[index], // Add brand names array property
     }));
-    
+  
     // Transform the data for rendering in the table
-    const transformedData = productsWithAssociatedData.map((product) => ({
+    const transformedData = productsWithBrandNames.map((product) => ({
       _id: product._id,
       name: product.name,
-      brand: product.brand,
+      brand: product.brand.join(", "), // Join brand names array
       type: product.type,
-      measurementUnit: product.measurementUnit
+      measurementUnit: product.measurementUnit,
     }));
-    
-    return { products: transformedData, meta };
-    
+  
+    return { products: transformedData, meta: json.meta };
   };
-
 
   if (sorting.length === 0) {
     setSorting([{ id: "name", desc: false }]);
