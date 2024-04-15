@@ -26,10 +26,8 @@ productsRouter.get("/", async (req, res) => {
             query = query.where(fieldFilter);
           } else if (id === "brand") {
             // Handle filtering for reference fields
-            const referenceField = `${id}`;
-            const referenceFilter = {};
-            referenceFilter[referenceField] = value; // Only pass the _id of the location or category
-            query = query.where(referenceField, referenceFilter[referenceField]);
+             // Only pass the _id of the location or category
+            query = query.where("brands", { $in: value }); // Use $in for array comparison
           }
         }
       });
@@ -102,16 +100,20 @@ productsRouter.get("/", async (req, res) => {
       if (parsedSorting.length > 0) {
         const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
         const { id, desc } = sortConfig;
-
-        // Build the sorting object
+    
         const sortObject = {};
-        sortObject[id] = desc ? -1 : 1;
-
+    
+        // Handle sorting by brand name if id is "brand"
+        if (id === "brand.name") {
+          sortObject["brand.name"] = desc ? 1 : -1; // Sort based on brand name within the array
+        } else {
+          sortObject[id] = desc ? -1 : 1; // Default sorting for other fields
+        }
+    
         query = query.sort(sortObject);
       }
       console.log("After sorting");
     }
-
     // Apply pagination
     if (start && size) {
       const startIndex = parseInt(start);
@@ -131,6 +133,7 @@ productsRouter.get("/", async (req, res) => {
     } else {
       // If not using pagination, just send the brands data
       const products = await query.exec();
+      console.log(products)
       res.json(products);
     }
   } catch (err) {
@@ -144,16 +147,18 @@ productsRouter.get("/", async (req, res) => {
 productsRouter.post("/", async (req, res) => {
   console.log("Request body:", JSON.stringify(req.body, null, 2));
   try {
-    const { name, brand, measurementUnit, type } = req.body;
+    const { name, brands, measurementUnit, type } = req.body;
 
-    // Create or find the brand
-    const slugifiedBrandName = slugify(brand, { lower: true });
+     // Handle each brand name in the array
+     const brandPromises = brands.map(async (brandName) => {
+      const slugifiedBrandName = slugify(brandName, { lower: true });
+      let brandId;
+
+    // Find existing brand or create a new one
     const existingBrand = await Brand.findOne({ slug: slugifiedBrandName });
-    let brandId;
-
     if (!existingBrand) {
       const newBrand = new Brand({
-        name: brand,
+        name: brandName,
         slug: slugifiedBrandName,
       });
 
@@ -162,11 +167,15 @@ productsRouter.post("/", async (req, res) => {
     } else {
       brandId = existingBrand._id;
     }
+    return brandId;
+  });
+
+  const brandIds = await Promise.all(brandPromises);
 
     // Check for duplicate product
     const existingProduct = await Product.findOne({
       slug: slugify(name, { lower: true }),
-      brands: brandId,
+      brands: { $in: brandIds }, // Check if all brands exist in the product
     });
 
     if (existingProduct) {
@@ -178,7 +187,7 @@ productsRouter.post("/", async (req, res) => {
       name,
       measurementUnit,
       type,
-      brands: brandId,
+      brands: brandIds,
       slug: slugify(name, { lower: true }),
     });
 
