@@ -231,20 +231,19 @@ productsRouter.put("/:id", async (req, res) => {
   const { id } = req.params;
   console.log("body", req.body);
   try {
-    const { name, brand, measurementUnit, type } = req.body;
+    const { name, brands, measurementUnit, type } = req.body;
     const brandIds = [];
 
-    if (typeof brand === "string") {
-      const slugifiedBrandName = slugify(brand, { lower: true });
-      const existingBrand = await Brand.findOne({
-        slug: slugifiedBrandName,
-      });
-
+    // Handle each brand name in the array
+    const brandPromises = brands.map(async (brandName) => {
+      const slugifiedBrandName = slugify(brandName, { lower: true });
       let brandId;
 
+      // Find existing brand or create a new one
+      const existingBrand = await Brand.findOne({ slug: slugifiedBrandName });
       if (!existingBrand) {
         const newBrand = new Brand({
-          name: brand,
+          name: brandName,
           slug: slugifiedBrandName,
         });
 
@@ -253,31 +252,18 @@ productsRouter.put("/:id", async (req, res) => {
       } else {
         brandId = existingBrand._id;
       }
-      brandIds.push(brandId);
-    }
-
-    const existingProduct = await Product.findOne({
-      _id: { $ne: id },
-      slug: slugify(name, { lower: true }),
+      return brandId;
     });
 
-    if (existingProduct) {
-      const existingProductWithBrands = await Product.findOne({
-        _id: { $ne: id },
-        slug: slugify(name, { lower: true }),
-        brands: { $in: brandIds },
-      });
-      if (existingProductWithBrands) {
-        return res
-          .status(400)
-          .json({ message: "Duplicate product with same brands" });
-      }
-    }
+    const resolvedBrandIds = await Promise.all(brandPromises);
+    
+    // Now, resolvedBrandIds contains the IDs of existing or newly created brands
 
+    // Update the product with the new data
     const updatedProduct = {
       name,
       measurementUnit,
-      brands: brandIds,
+      brands: resolvedBrandIds, // Assign the resolved brand IDs
       type,
       slug: slugify(name, { lower: true }),
     };
@@ -293,11 +279,11 @@ productsRouter.put("/:id", async (req, res) => {
     if (result) {
       res.status(200).json(result);
     } else {
-      res.status(404).json({ message: "Produkt ikke funnet" });
+      res.status(404).json({ message: "Product not found" });
     }
   } catch (error) {
-    console.error("server error", error);
-    res.status(500).json({ message: "Intern server error" });
+    console.error("Server error", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 

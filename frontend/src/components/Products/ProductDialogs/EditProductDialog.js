@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState, useEffect} from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
@@ -43,6 +43,22 @@ const EditProductDialog = ({
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
 
+  const [selectedBrands, setSelectedBrands] = useState([]);
+
+  console.log("selectedProduct:", selectedProduct);
+  useEffect(() => {
+    if (typeof selectedProduct.brand === 'string') {
+      setSelectedBrands(selectedProduct.brand.split(",").map((brand) => ({ name: brand.trim() })));
+    } else if (Array.isArray(selectedProduct.brand)) {
+      setSelectedBrands(selectedProduct.brand.map((brand) => ({ name: brand.trim() })));
+    } else {
+      setSelectedBrands([]);
+    }
+  }, [selectedProduct]);
+  console.log("selectedProduct:", selectedProduct);
+  console.log("product:", product);
+  console.log("selectedBrands:", selectedBrands);
+
   const queryClient = useQueryClient();
 
   //console.log("data", brandOptions);
@@ -61,11 +77,17 @@ const EditProductDialog = ({
     event.preventDefault();
 
     if (isFormValid()) {
-      // Update the 'brand' field to match the expected format
-      const updatedProduct = {
-        ...product,
-        brand: [{ name: product?.brand }],
-      };
+      // Extract brand names and slugs from selectedBrands array
+    const brandData = selectedBrands.map(brand => ({
+      name: brand.name       // Generate slug for the brand name
+    }));
+
+    // Update the 'brands' field to match the expected format
+    const updatedProduct = {
+      ...product,
+      brands: brandData
+    };
+  
 
       const success = await handleSaveProduct(onClose, updatedProduct);
       if (success) {
@@ -116,14 +138,15 @@ const EditProductDialog = ({
               options={brandOptions}
               size="small"
               label="Merke"
-              value={
-                product?.brand
-                  ? brandOptions.find((brand) => brand.name === product.brand)
-                  : null
-              }
+              value={selectedBrands}
+              isMulti
               error={Boolean(validationError?.brand)}
-              onChange={(selectedOption) => {
-                setProduct({ ...product, brand: selectedOption?.name || "" });
+              onChange={(selectedOptions) => {
+                setSelectedBrands(selectedOptions);
+                setProduct({
+                  ...product,
+                  brands: selectedOptions.map((option) => option.name), // Update product.brands with selected names
+                });
                 resetValidationErrors();
                 resetServerError();
               }}
@@ -143,7 +166,8 @@ const EditProductDialog = ({
               })}
               onCreateOption={(inputValue) => {
                 const newBrand = { name: inputValue.trim() };
-                setProduct({ ...product, brand: newBrand.name || "" });
+                setSelectedBrands([...selectedBrands, newBrand]);
+                setProduct({ ...product, brands: [...product.brands, newBrand.name] });
                 brandOptions.push(newBrand);
               }}
               isClearable
