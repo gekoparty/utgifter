@@ -1,5 +1,6 @@
 import express from "express";
 import Brand from "../models/brandSchema.js";
+import Product from "../models/productSchema.js";
 import slugify from "slugify";
 
 const brandsRouter = express.Router();
@@ -128,16 +129,24 @@ brandsRouter.post("/", async (req, res) => {
 
 brandsRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
   try {
-    const brand = await Brand.findByIdAndDelete(req.params.id);
-    if (!brand) {
+    // Find and delete the brand
+    const deletedBrand = await Brand.findByIdAndDelete(id);
+    if (!deletedBrand) {
       return res.status(404).send({ error: "Brand not found" });
     }
-    res.send(brand);
+    
+    // Update products referencing the deleted brand
+    const productsToUpdate = await Product.find({ brands: deletedBrand._id });
+    await Promise.all(productsToUpdate.map(async (product) => {
+      product.brands = product.brands.filter(brandId => brandId.toString() !== deletedBrand._id.toString());
+      await product.save();
+    }));
+    
+    res.send(deletedBrand);
   } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "Internal server error" });
+    console.error("Error deleting brand:", error);
+    return res.status(500).send({ error: "Internal server error" });
   }
 });
 
