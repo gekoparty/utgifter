@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
 import { dashboardTheme } from "./dashboardTheme";
 import CategoryScreen from './screens/CategoryScreen';
-import Expenses from "./screens/Expenses";
+import ExpenseScreen from "./screens/ExpenseScreen";
 import ShopScreen from './screens/ShopScreen';
 import BrandScreen from "./screens/BrandScreen";
 import LocationScreen from './screens/LocationScreen'
@@ -21,7 +21,7 @@ root.render(
         <Routes>
           <Route path="/" element={<App />}>
             <Route path="categories" element={<CategoryScreen />} />
-            <Route path="expenses" element={<Expenses />} />
+            <Route path="expenses" element={<ExpenseScreen />} />
             <Route path="shops" element={<ShopScreen />} />
             <Route path="brands" element={<BrandScreen />} />
             <Route path="locations" element={<LocationScreen />} />
