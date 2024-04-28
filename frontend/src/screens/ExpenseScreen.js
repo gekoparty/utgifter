@@ -13,6 +13,7 @@ import {
   FormLabel,
   RadioGroup,
   Radio,
+  InputAdornment,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -25,11 +26,13 @@ import dayjs from "dayjs";
 import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
 
-const Expenses = ({ drawerWidth = 240 }) => {
+const ExpenseScreen = ({ drawerWidth = 240 }) => {
   const [expense, setExpense] = useState({
     productName: "",
     shopName: "",
     brandName: "",
+    locationName: "",
+    volume: 0,
     price: 0,
     hasDiscount: false,
     discountValue: 0,
@@ -96,15 +99,16 @@ const Expenses = ({ drawerWidth = 240 }) => {
   };
   // Function to handle field changes
   const handleFieldChange = (field, value) => {
-    // If the field is 'hasDiscount' or 'discountValue', update them directly
     if (field === "hasDiscount" || field === "discountValue") {
       setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+    } else if (field === "shopName") {
+      // Splitting shop name and location name when setting shopName
+      const [shopName, locationName] = value.split(', ');
+      setExpense((prevExpense) => ({ ...prevExpense, shopName, locationName }));
     } else {
-      // Otherwise, update the expense object as usual
       setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
     }
   };
-
   /* useEffect(() => {
     console.log("expense object", expense);
   }, [expense]); */
@@ -116,6 +120,19 @@ const Expenses = ({ drawerWidth = 240 }) => {
       [`${field}AnchorEl`]: event.currentTarget,
       focusedField: field,
     }));
+  
+    // Set the measurement unit when product is selected
+    if (field === "product") {
+      const selectedProduct = productOptions.find(
+        (product) => product.name === expense.productName
+      );
+      if (selectedProduct) {
+        setExpense((prevExpense) => ({
+          ...prevExpense,
+          measurementUnit: selectedProduct.measurementUnit,
+        }));
+      }
+    }
   };
 
   // Function to handle quantity change
@@ -196,10 +213,12 @@ const Expenses = ({ drawerWidth = 240 }) => {
                 </RadioGroup>
               </FormControl>
             </Grid>
-            <Grid item xs={12}>
+            <Grid container item xs={12} spacing={2}>
+            <Grid item xs={8}>
               <FormControl fullWidth>
                 <InputLabel></InputLabel>
                 <TextField
+                variant="filled"
                   label="Produkt"
                   value={expense.productName}
                   onChange={(e) =>
@@ -211,6 +230,26 @@ const Expenses = ({ drawerWidth = 240 }) => {
                   fullWidth
                 />
               </FormControl>
+              </Grid>
+              <Grid item xs={4}>
+              <InputLabel></InputLabel>
+                <TextField
+                variant="filled"
+                  label="Volume"
+                  type="number"
+                  value={expense.volume}
+                  onChange={(e) =>
+                    handleFieldChange("volume", e.target.value)
+                  }
+                  autoComplete="off"
+                  //onKeyDown={handleOpenProductPopover}
+                  onFocus={(e) => handleOpenPopover("volume", e)}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">{expense.measurementUnit}</InputAdornment>,
+                  }}
+                  fullWidth
+                />
+                </Grid>
               {anchorState.focusedField === "product" && (
                 <SelectPopover
                   open={Boolean(anchorState.productAnchorEl)}
@@ -241,6 +280,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
               <FormControl fullWidth>
                 <InputLabel></InputLabel>
                 <TextField
+                variant="filled"
                   label="Merke"
                   value={expense.brandName}
                   onChange={(e) =>
@@ -279,21 +319,35 @@ const Expenses = ({ drawerWidth = 240 }) => {
               )}
             </Grid>
             {/* Add new TextField for adding a shop */}
-            <Grid item xs={12}>
+            <Grid container item xs={12} spacing={2}>
+              <Grid item xs={6}>
+                <FormControl fullWidth>
+                  <InputLabel></InputLabel>
+                  <TextField
+                  variant="filled"
+                    label="Butikk"
+                    autoComplete="off"
+                    onChange={(e) =>
+                      handleFieldChange("shopName", e.target.value)
+                    }
+                    // onKeyDown={handleOpenShopPopover}
+                    onFocus={(e) => handleOpenPopover("shop", e)}
+                    fullWidth
+                    value={expense.shopName}
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item xs={6}>
               <FormControl fullWidth>
-                <InputLabel></InputLabel>
+                {" "}
+                {/* Right side for location name */}
                 <TextField
-                  label="Butikk"
-                  autoComplete="off"
-                  onChange={(e) =>
-                    handleFieldChange("shopName", e.target.value)
-                  }
-                  // onKeyDown={handleOpenShopPopover}
-                  onFocus={(e) => handleOpenPopover("shop", e)}
-                  fullWidth
-                  value={expense.shopName}
+                  label="Lokasjon"
+                  disabled // Disables editing of the location name
+                  value={expense.locationName}
                 />
-              </FormControl>
+                </FormControl>
+              </Grid>
               {anchorState.focusedField === "shop" && (
                 <SelectPopover
                   open={Boolean(anchorState.shopAnchorEl)}
@@ -304,7 +358,14 @@ const Expenses = ({ drawerWidth = 240 }) => {
                       shopAnchorEl: null,
                     }))
                   }
-                  options={filterOptions(shopOptions, "name", expense.shopName)}
+                  options={filterOptions(
+                    shopOptions,
+                    "name",
+                    expense.shopName
+                  ).map((shop) => ({
+                    ...shop,
+                    name: `${shop.name}, ${shop.locationName}`, // Displaying shop name and location
+                  }))}
                   onSelect={(shop) => {
                     handleFieldChange("shopName", shop.name);
                     setAnchorState((prevAnchorState) => ({
@@ -334,6 +395,7 @@ const Expenses = ({ drawerWidth = 240 }) => {
                   <FormControl fullWidth>
                     <InputLabel></InputLabel>
                     <TextField
+                    color="warning"
                       label="Rabattverdi"
                       type="number"
                       value={expense.discountValue}
@@ -456,4 +518,4 @@ const Expenses = ({ drawerWidth = 240 }) => {
   );
 };
 
-export default Expenses;
+export default ExpenseScreen;

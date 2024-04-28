@@ -13,11 +13,28 @@ export const fetchLocations = async () => {
   };
   
   export const fetchShops = async () => {
-    const fetchURL = new URL("/api/shops", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href);
-    const data = await response.json();
-    return data;
-  };
+    try {
+      const fetchShopsURL = new URL("/api/shops", API_URL);
+      const shopsResponse = await fetch(fetchShopsURL.href);
+      const shopsData = await shopsResponse.json();
+  
+      const fetchLocationsURL = new URL("/api/locations", API_URL);
+      const locationsResponse = await fetch(fetchLocationsURL.href);
+      const locationsData = await locationsResponse.json();
+  
+      const shopsWithData = shopsData.map(shop => {
+        const location = locationsData.find(location => location._id === shop.location);
+        const locationName = location ? location.name : 'Unknown Location';
+        return { ...shop, locationName };
+      });
+  
+      console.log('Shops with location names:', shopsWithData);
+      return shopsWithData;
+    } catch (error) {
+      console.error('Error fetching shops:', error);
+      return [];
+    }
+};
 
   export const fetchProducts = async () => {
     const fetchURL = new URL("/api/products", API_URL); // Replace with your actual endpoint
