@@ -34,6 +34,31 @@ export const addProductValidationSchema = Yup.object().shape({
     measurementUnit: Yup.string().required("Må ha måleenhet")
 });
 
+export const addExpenseValidationSchema = Yup.object().shape({
+  productName: Yup.string()
+    .required("Navn kan ikke være tomt")
+    .min(2, "Navnet må være minst 2 tegn")
+    .max(20, "Maks 20 tegn"),
+  shopName: Yup.string()
+    .required("Navn kan ikke være tomt")
+    .min(2, "Navnet må være minst 2 tegn")
+    .max(20, "Maks 20 tegn"),
+  brandName: Yup.string()
+    .required("Navn kan ikke være tomt")
+    .min(2, "Navnet må være minst 2 tegn")
+    .max(20, "Maks 20 tegn"),
+  volume: Yup.number().required("Må ha et volum").positive("Må være positivt"),
+  price: Yup.number().required("Må ha en pris").positive("Må være positivt"),
+  hasDiscount: Yup.boolean(),
+  discountValue: Yup.number().when("hasDiscount", {
+    is: true,
+    then: Yup.number().required("Må ha rabattverdi").positive("Må være positivt"),
+  }),
+  quantity: Yup.number().required("Må ha et antall").positive("Må være positivt"),
+  purchaseDate: Yup.date().required("Må ha en kjøpsdato"),
+  registeredDate: Yup.date().nullable(),
+});
+
 export const addShopValidationSchema = Yup.object().shape({
   name: Yup.string()
     .required("Navn kan ikke være tomy")

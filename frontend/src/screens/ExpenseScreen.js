@@ -25,21 +25,32 @@ import {
 import dayjs from "dayjs";
 import SelectPopover from "../components/commons/SelectPopover/SelectPopover";
 import BasicDialog from "../components/commons/BasicDialog/BasicDialog";
+import useExpenseForm from "../components/Expenses/useExpenseForm";
+
+const defaultExpense = {
+  productName: '',
+  brandName: '',
+  shopName: '',
+  locationName: '',
+  price: 0,
+  volume: 0,
+  discountValue: 0,
+  hasDiscount: false,
+  purchased: false,
+  registeredDate: null,
+  purchaseDate: null,
+};
 
 const ExpenseScreen = ({ drawerWidth = 240 }) => {
-  const [expense, setExpense] = useState({
-    productName: "",
-    shopName: "",
-    brandName: "",
-    locationName: "",
-    volume: 0,
-    price: 0,
-    hasDiscount: false,
-    discountValue: 0,
-    purchased: true,
-    purchaseDate: dayjs().format(), // Default to current date
-    registeredDate: null, // Initially set to null
-  });
+  const {
+    expense = defaultExpense,
+    handleFieldChange,
+    handleSaveExpense,
+    isFormValid,
+    setExpense,
+  } = useExpenseForm();
+
+
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
     shopAnchorEl: null,
@@ -69,9 +80,14 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
   } = useQuery(["brands"], fetchBrands);
 
   const filterOptions = (options, fieldName, filterValue) => {
+    console.log("filterOptions called with:", { options, fieldName, filterValue });
     if (!filterValue || !options) return options;
+  
+    // Convert filterValue to string if it's an object
+    const filterText = typeof filterValue === "object" ? filterValue[fieldName] : filterValue;
+  
     return options.filter((option) =>
-      option[fieldName].toLowerCase().startsWith(filterValue.toLowerCase())
+      option[fieldName].toLowerCase().startsWith(filterText.toLowerCase())
     );
   };
   const handleDateChange = (date) => {
@@ -98,42 +114,32 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
     }
   };
   // Function to handle field changes
-  const handleFieldChange = (field, value) => {
-    if (field === "hasDiscount" || field === "discountValue") {
-      setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
-    } else if (field === "shopName") {
-      // Splitting shop name and location name when setting shopName
-      const [shopName, locationName] = value.split(', ');
-      setExpense((prevExpense) => ({ ...prevExpense, shopName, locationName }));
-    } else {
-      setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
-    }
-  };
+ 
   /* useEffect(() => {
     console.log("expense object", expense);
   }, [expense]); */
 
   // Function to handle popover opening
-  const handleOpenPopover = (field, event) => {
-    setAnchorState((prevAnchorState) => ({
-      ...prevAnchorState,
-      [`${field}AnchorEl`]: event.currentTarget,
-      focusedField: field,
-    }));
-  
-    // Set the measurement unit when product is selected
-    if (field === "product") {
-      const selectedProduct = productOptions.find(
-        (product) => product.name === expense.productName
-      );
-      if (selectedProduct) {
-        setExpense((prevExpense) => ({
-          ...prevExpense,
-          measurementUnit: selectedProduct.measurementUnit,
-        }));
-      }
+ const handleOpenPopover = (field, event) => {
+  setAnchorState((prevAnchorState) => ({
+    ...prevAnchorState,
+    [`${field}AnchorEl`]: event.currentTarget,
+    focusedField: field,
+  }));
+
+  // Set the measurement unit when product is selected
+  if (field === "product") {
+    const selectedProduct = productOptions.find(
+      (product) => product.name === expense.productName
+    );
+    if (selectedProduct) {
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        measurementUnit: selectedProduct.measurementUnit,
+      }));
     }
-  };
+  }
+};
 
   // Function to handle quantity change
   const handleQuantityChange = (value) => {
@@ -174,12 +180,17 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
     return parseFloat(totalPrice.toFixed(2));
   };
 
-  // Function to handle form submission
+  
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    // Logic to save expense data to the database
+    const isValid = isFormValid();
+    if (isValid) {
+      await handleSaveExpense(() => console.log("Expense saved!"));
+    } else {
+      console.log("Form is invalid, please correct the errors.");
+    }
   };
-
   const content = () => {
     return (
       <>
@@ -266,6 +277,7 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
                     expense.productName
                   )}
                   onSelect={(product) => {
+                    console.log("Product selected:", product);
                     handleFieldChange("productName", product.name);
                     setAnchorState((prevAnchorState) => ({
                       ...prevAnchorState,
@@ -349,32 +361,33 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
                 </FormControl>
               </Grid>
               {anchorState.focusedField === "shop" && (
-                <SelectPopover
-                  open={Boolean(anchorState.shopAnchorEl)}
-                  anchorEl={anchorState.shopAnchorEl}
-                  onClose={() =>
-                    setAnchorState((prevAnchorState) => ({
-                      ...prevAnchorState,
-                      shopAnchorEl: null,
-                    }))
-                  }
-                  options={filterOptions(
-                    shopOptions,
-                    "name",
-                    expense.shopName
-                  ).map((shop) => ({
-                    ...shop,
-                    name: `${shop.name}, ${shop.locationName}`, // Displaying shop name and location
-                  }))}
-                  onSelect={(shop) => {
-                    handleFieldChange("shopName", shop.name);
-                    setAnchorState((prevAnchorState) => ({
-                      ...prevAnchorState,
-                      shopAnchorEl: null,
-                    }));
-                  }}
-                  type="shop"
-                />
+                 <SelectPopover
+                 open={Boolean(anchorState.shopAnchorEl)}
+                 anchorEl={anchorState.shopAnchorEl}
+                 onClose={() =>
+                   setAnchorState((prevAnchorState) => ({
+                     ...prevAnchorState,
+                     shopAnchorEl: null,
+                   }))
+                 }
+                 options={filterOptions(
+                   shopOptions,
+                   "name",
+                   expense.shopName
+                 ).map((shop) => ({
+                   ...shop,
+                   displayName: `${shop.name}, ${shop.locationName}`, // Displaying shop name and location
+                 }))}
+                 onSelect={(shop) => {
+                   handleFieldChange("shopName", shop.name);
+                   handleFieldChange("locationName", shop.locationName); // Set the locationName when shop is selected
+                   setAnchorState((prevAnchorState) => ({
+                     ...prevAnchorState,
+                     shopAnchorEl: null,
+                   }));
+                 }}
+                 type="shop"
+               />
               )}
             </Grid>
             {/* Add Checkbox for discount */}
@@ -461,7 +474,7 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
               </Grid>
             </Grid>
             <Grid container item xs={12} justifyContent="flex-end">
-              <Button variant="contained" type="submit">
+              <Button variant="contained" type="submit" disabled={!isFormValid}>
                 Submit
               </Button>
             </Grid>
