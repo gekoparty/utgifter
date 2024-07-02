@@ -4,7 +4,8 @@ const formatComponentFields = (name, componentName, fieldName) => {
     brand: ["name"],
     location: ["name"],
     category: ["name"],
-    product: ["name", "brands"]
+    product: ["name", "brands"],
+    expense: ["productName", "brandName", "shopName"]
     // Add more components and their corresponding fields here if needed
   };
 
