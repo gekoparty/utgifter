@@ -184,13 +184,12 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const isValid = isFormValid();
-    if (isValid) {
-      await handleSaveExpense(() => console.log("Expense saved!"));
+    if (isFormValid()) {
+        await handleSaveExpense(() => console.log("Expense saved!"));
     } else {
-      console.log("Form is invalid, please correct the errors.");
+        console.log("Form is invalid, please correct the errors.");
     }
-  };
+};
   const content = () => {
     return (
       <>
@@ -474,7 +473,7 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
               </Grid>
             </Grid>
             <Grid container item xs={12} justifyContent="flex-end">
-              <Button variant="contained" type="submit" disabled={!isFormValid}>
+            <Button variant="contained" type="submit" disabled={!isFormValid()}>
                 Submit
               </Button>
             </Grid>
