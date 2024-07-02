@@ -1,55 +1,33 @@
-import { Popover, List, ListItemButton } from "@mui/material";
-import { FixedSizeList } from "react-window";
+import React from "react";
+import { Popover, List, ListItem, ListItemText } from "@mui/material";
 
-const SelectPopover = ({ open=false, anchorEl, onClose, options, onSelect, type }) => {
-
-  console.log("Popover open:", open);
-
-
-  const handleItemClick = (item) => {
-    onSelect(item);
-    onClose(); // Close the popover after selecting an option
-  };
-
-
-    console.log("Options", options)
-
-  return (
-    <Popover
-      disableAutoFocus
-      disableEnforceFocus
-      open={open}
-      anchorEl={anchorEl}
-      onClose={onClose}
-      anchorOrigin={{
-        vertical: "bottom",
-        horizontal: "left",
-      }}
-      transformOrigin={{
-        vertical: "top",
-        horizontal: "left",
-      }}
-    >
-      <List sx={{ width: 300 }}>
-        <FixedSizeList
-          height={300}
-          width={300}
-          itemCount={options ? options.length : 0}
-          itemSize={50}
+const SelectPopover = ({ open, anchorEl, onClose, options, onSelect }) => {
+    return (
+        <Popover
+            open={open}
+            anchorEl={anchorEl}
+            onClose={onClose}
+            anchorOrigin={{
+                vertical: "bottom",
+                horizontal: "left",
+            }}
         >
-          {({ index, style }) => (
-            <ListItemButton
-              style={style}
-              key={index}
-              onClick={() => handleItemClick(options[index])}
-            >
-              {options[index].name}
-            </ListItemButton>
-          )}
-        </FixedSizeList>
-      </List>
-    </Popover>
-  );
+            <List>
+                {options.map((option, index) => (
+                    <ListItem
+                        button
+                        key={index}
+                        onClick={() => {
+                            onSelect(option);
+                            onClose();
+                        }}
+                    >
+                        <ListItemText primary={option.displayName || option.name} />
+                    </ListItem>
+                ))}
+            </List>
+        </Popover>
+    );
 };
 
 export default SelectPopover;
