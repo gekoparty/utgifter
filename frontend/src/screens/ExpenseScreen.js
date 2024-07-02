@@ -364,29 +364,29 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
                  open={Boolean(anchorState.shopAnchorEl)}
                  anchorEl={anchorState.shopAnchorEl}
                  onClose={() =>
-                   setAnchorState((prevAnchorState) => ({
-                     ...prevAnchorState,
-                     shopAnchorEl: null,
-                   }))
+                     setAnchorState((prevAnchorState) => ({
+                         ...prevAnchorState,
+                         shopAnchorEl: null,
+                     }))
                  }
                  options={filterOptions(
-                   shopOptions,
-                   "name",
-                   expense.shopName
+                     shopOptions,
+                     "name",
+                     expense.shopName
                  ).map((shop) => ({
-                   ...shop,
-                   displayName: `${shop.name}, ${shop.locationName}`, // Displaying shop name and location
+                     ...shop,
+                     displayName: `${shop.name}, ${shop.locationName}`,
                  }))}
                  onSelect={(shop) => {
-                   handleFieldChange("shopName", shop.name);
-                   handleFieldChange("locationName", shop.locationName); // Set the locationName when shop is selected
-                   setAnchorState((prevAnchorState) => ({
-                     ...prevAnchorState,
-                     shopAnchorEl: null,
-                   }));
+                     handleFieldChange("shopName", shop.name);
+                     handleFieldChange("locationName", shop.locationName);
+                     setAnchorState((prevAnchorState) => ({
+                         ...prevAnchorState,
+                         shopAnchorEl: null,
+                     }));
                  }}
                  type="shop"
-               />
+             />
               )}
             </Grid>
             {/* Add Checkbox for discount */}

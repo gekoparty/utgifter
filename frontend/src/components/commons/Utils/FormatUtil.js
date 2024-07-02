@@ -15,36 +15,34 @@ const formatComponentFields = (name, componentName, fieldName) => {
   }
 
   const capitalizeWord = (word) => {
-    
     if (!word || typeof word !== 'string') {
       return ""; // Handle empty or non-string input
-    } // Handle empty word (e.g., multiple hyphens in a row)
-    const hyphenatedWords = word.split("-");
-    const capitalizedWords = hyphenatedWords.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-    return capitalizedWords.join("-");
+    }
+
+    // Split by spaces and hyphens to handle multi-word names and hyphenated words
+    const words = word.split(/[\s-]+/);
+    const capitalizedWords = words.map((w) => {
+      // Capitalize each word in the split array
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    });
+
+    // Join capitalized words back with spaces or hyphens
+    if (word.includes("-")) {
+      return capitalizedWords.join("-");
+    } else {
+      return capitalizedWords.join(" ");
+    }
   };
 
   console.log("Input:", name); // Log the input value
 
-  if (fields.length === 1) {
-    if (fieldName === "name") {
-      return capitalizeWord(name); // Only format 'name' field as a string directly
-    } else {
-      const formatted = capitalizeWord(name);
-      return { name: formatted }; // For other fields, return the formatted object
-    }
+  if (fields.includes(fieldName)) {
+    return capitalizeWord(name); // Format the specific field based on fieldName
   } else {
-    const formatted = capitalizeWord(name);
-    // If multiple fields, return an object with each field formatted
-    const formattedObject = {};
-    fields.forEach((field) => {
-      formattedObject[field] = formatted;
-    });
-    console.log("Formatted Output:", formattedObject);
-    return formattedObject;
+    return name; // Return unchanged if fieldName doesn't match expected fields
   }
-  
 };
 
 export { formatComponentFields };
+
 
