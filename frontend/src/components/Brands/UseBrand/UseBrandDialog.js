@@ -5,8 +5,6 @@ import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
-
-
 const useBrandDialog = (initialBrand = null) => {
   const [brandName, setBrandName] = useState(initialBrand?.name || "");
   const { sendRequest, loading } = useCustomHttp("/api/brands");
@@ -32,9 +30,7 @@ const useBrandDialog = (initialBrand = null) => {
     } else {
       resetFormAndErrors();
     }
-  }, [initialBrand, resetFormAndErrors, dispatch]);
-
-
+  }, [initialBrand, resetFormAndErrors]);
 
   const handleSaveBrand = async (onClose) => {
     if (typeof brandName !== "string" || brandName.trim().length === 0) {
@@ -55,9 +51,11 @@ const useBrandDialog = (initialBrand = null) => {
       return; // Exit the function if validation fails
     }
 
-    const formattedBrandName = formatComponentFields(brandName, "brand");
+    const formattedBrandName = {
+      name: formatComponentFields(brandName, "brand", "name")
+    };
 
-    console.log("formattedBrandName",formattedBrandName)
+    console.log("formattedBrandName", formattedBrandName);
 
     try {
       let url = "/api/brands";
@@ -68,11 +66,7 @@ const useBrandDialog = (initialBrand = null) => {
         method = "PUT";
       }
 
-      const { error: addDataError } = await sendRequest(
-        url,
-        method,
-        formattedBrandName
-      );
+      const { error: addDataError } = await sendRequest(url, method, formattedBrandName);
 
       if (addDataError) {
         dispatch({
@@ -93,22 +87,15 @@ const useBrandDialog = (initialBrand = null) => {
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
-        resource: "/api/brands",
+        resource: "brands",
         showError: true,
       });
     }
   };
 
-  const handleDeleteBrand = async (
-    selectedBrand,
-    onDeleteSuccess,
-    onDeleteFailure
-  ) => {
+  const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
     try {
-      const response = await sendRequest(
-        `/api/brands/${selectedBrand?._id}`,
-        "DELETE"
-      );
+      const response = await sendRequest(`/api/brands/${selectedBrand?._id}`, "DELETE");
       if (response.error) {
         onDeleteFailure(selectedBrand);
         return false; // Indicate deletion failure
@@ -137,13 +124,13 @@ const useBrandDialog = (initialBrand = null) => {
     brandName,
     setBrandName,
     loading,
-    handleSaveBrand, // Make sure to keep these functions accessible
+    handleSaveBrand,
     resetValidationErrors,
     resetServerError,
     displayError,
     validationError,
     isFormValid,
-    handleDeleteBrand, // Make sure to keep these functions accessible
+    handleDeleteBrand,
     resetFormAndErrors,
   };
 };

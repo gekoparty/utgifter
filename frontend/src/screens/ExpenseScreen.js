@@ -91,13 +91,10 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
     );
   };
   const handleDateChange = (date) => {
-    console.log("Date picked:", date); // Log the date picked
     const formattedDate = dayjs(date).format(); // Format the date
-    console.log("Formatted date:", formattedDate); // Log the formatted date
 
     if (expense.purchased) {
       // If purchased, update purchaseDate and set registeredDate to null
-      console.log("Updating purchaseDate");
       setExpense((prevExpense) => ({
         ...prevExpense,
         purchaseDate: formattedDate,
@@ -105,7 +102,6 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
       }));
     } else {
       // If registered, update registeredDate and set purchaseDate to null
-      console.log("Updating registeredDate");
       setExpense((prevExpense) => ({
         ...prevExpense,
         registeredDate: formattedDate,
@@ -113,11 +109,8 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
       }));
     }
   };
-  // Function to handle field changes
+
  
-  /* useEffect(() => {
-    console.log("expense object", expense);
-  }, [expense]); */
 
   // Function to handle popover opening
  const handleOpenPopover = (field, event) => {
@@ -442,9 +435,9 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
                   <TextField
                     label="Antall"
                     type="number"
-                    value={quantity}
+                    value={expense.quantity}
                     // Handle quantity separately
-                    onChange={(e) => handleQuantityChange(e.target.value)}
+                    onChange={(e) => handleFieldChange("quantity", e.target.value)}
                     autoComplete="off"
                     fullWidth
                   />
@@ -465,12 +458,20 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
               {/* Conditional rendering of DatePicker */}
 
               <Grid item xs={6}>
-                <DatePicker
-                  defaultValue={dayjs()}
-                  selected={expense.registeredDate || expense.purchaseDate}
-                  onChange={handleDateChange}
-                />
-              </Grid>
+  {expense.purchased ? (
+    <DatePicker
+      label="Purchase Date"
+      value={expense.purchaseDate ? dayjs(expense.purchaseDate) : null}
+      onChange={handleDateChange}
+    />
+  ) : (
+    <DatePicker
+      label="Registered Date"
+      value={expense.registeredDate ? dayjs(expense.registeredDate) : null}
+      onChange={handleDateChange}
+    />
+  )}
+</Grid>
             </Grid>
             <Grid container item xs={12} justifyContent="flex-end">
             <Button variant="contained" type="submit" disabled={!isFormValid()}>

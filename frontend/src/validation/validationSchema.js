@@ -55,8 +55,14 @@ export const addExpenseValidationSchema = Yup.object().shape({
     then: Yup.number().required("Må ha rabattverdi").positive("Må være positivt"),
   }),
   quantity: Yup.number().required("Må ha et antall").positive("Må være positivt"),
-  purchaseDate: Yup.date().required("Må ha en kjøpsdato"),
+  purchaseDate: Yup.date(),
   registeredDate: Yup.date().nullable(),
+}).test('date-validation', 'Må ha en kjøpsdato eller registreringsdato, men ikke begge', function (value) {
+  const { purchaseDate, registeredDate } = value;
+  if ((purchaseDate && registeredDate) || (!purchaseDate && !registeredDate)) {
+    return false;
+  }
+  return true;
 });
 
 export const addShopValidationSchema = Yup.object().shape({
