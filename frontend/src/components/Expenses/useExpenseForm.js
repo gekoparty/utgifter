@@ -11,6 +11,7 @@ const useExpenseForm = (initialExpense = null) => {
       shopName: "",
       brandName: "",
       locationName: "",
+      quantity: 1,
       volume: 0,
       price: 0,
       hasDiscount: false,
@@ -75,71 +76,111 @@ const useExpenseForm = (initialExpense = null) => {
       };
   
       const handleSaveExpense = async (onClose) => {
-        let formattedExpense = { ...expense };
+        if (!expense.productName.trim() || expense.brandName.length === 0) {
+            return; // Handle empty product name or empty brands array
+        }
+    
+        let formattedExpense;
         let validationErrors = {};
-      
+    
+        console.log("Expense before formatting:", expense);
+    
         try {
-          // Format fields before saving
-          formattedExpense = {
-            ...formattedExpense,
-            productName: formatComponentFields(expense.productName, "expense", "productName"),
-            brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
-            shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
-          };
-      
-          await addExpenseValidationSchema.validate(formattedExpense, {
-            abortEarly: false,
-          });
-        } catch (validationError) {
-          validationError.inner.forEach((err) => {
-            validationErrors[err.path] = { show: true, message: err.message };
-          });
-          dispatch({
-            type: "SET_VALIDATION_ERRORS",
-            resource: "expenses",
-            validationErrors: {
-              ...state.validationErrors?.expenses,
-              ...validationErrors,
-            },
-            showError: true,
-          });
-          return;
-        }
-      
-        try {
-          const url = initialExpense ? `/api/expenses/${initialExpense._id}` : "/api/expenses";
-          const method = initialExpense ? "PUT" : "POST";
-          const { data, error: addDataError } = await sendRequest(url, method, formattedExpense);
-      
-          if (addDataError) {
-            dispatch({
-              type: "SET_ERROR",
-              error: addDataError,
-              resource: "expenses",
-              showError: true,
+            const formattedProductName = formatComponentFields(expense.productName, "expense", "productName");
+            const formattedBrandName = formatComponentFields(expense.brandName, "expense", "brandName");
+            const formattedShopName = formatComponentFields(expense.shopName, "expense", "shopName");
+    
+            formattedExpense = {
+                ...expense,
+                productName: formattedProductName,
+                brandName: formattedBrandName,
+                shopName: formattedShopName,
+            };
+    
+            console.log("Formatted Expense:", formattedExpense);
+    
+            await addExpenseValidationSchema.validate(formattedExpense, {
+                abortEarly: false, // This ensures Yup collects all field errors
             });
-          } else {
-            const payload = data;
-            if (initialExpense) {
-              dispatch({ type: "UPDATE_ITEM", resource: "expenses", payload });
-            } else {
-              dispatch({ type: "ADD_ITEM", resource: "expenses", payload });
-              setExpense({});
-            }
-            dispatch({ type: "RESET_ERROR", resource: "expenses" });
-            dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
-            onClose();
-            return true;
-          }
-        } catch (fetchError) {
-          dispatch({
-            type: "SET_ERROR",
-            error: fetchError,
-            resource: "expenses",
-            showError: true,
-          });
+        } catch (validationError) {
+            validationError.inner.forEach((err) => {
+                validationErrors[err.path] = { show: true, message: err.message };
+            });
+            console.log("Field-specific errors:", validationErrors);
+            dispatch({
+                type: "SET_VALIDATION_ERRORS",
+                resource: "expenses",
+                validationErrors: {
+                    ...state.validationErrors?.expenses,
+                    ...validationErrors,
+                },
+                showError: true,
+            });
+            return;
         }
-      };
+    
+        const newExpense = formattedExpense;
+        console.log("newExpense", newExpense);
+    
+        try {
+            let url = "/api/expenses";
+            let method = "POST";
+    
+            if (initialExpense) {
+                url = `/api/expenses/${initialExpense._id}`;
+                method = "PUT";
+            }
+    
+            const { data, error: addDataError } = await sendRequest(
+                url,
+                method,
+                newExpense
+            );
+    
+            console.log("Response from the server:", data);
+    
+            if (addDataError) {
+                dispatch({
+                    type: "SET_ERROR",
+                    error: addDataError,
+                    resource: "expenses",
+                    showError: true,
+                });
+            } else {
+                const payload = data;
+                console.log(data);
+                if (initialExpense) {
+                    dispatch({ type: "UPDATE_ITEM", resource: "expenses", payload });
+                } else {
+                    // For new Products, add the brand to the store if it doesn't exist
+                    const existingBrand = state.brands.find(
+                        (bra) => bra.name === newExpense.brandName
+                    );
+                    if (!existingBrand) {
+                        dispatch({
+                            type: "ADD_ITEM",
+                            resource: "brands",
+                            payload: newExpense.brand,
+                        });
+                    }
+    
+                    dispatch({ type: "ADD_ITEM", resource: "expenses", payload });
+                    setExpense({});
+                }
+                dispatch({ type: "RESET_ERROR", resource: "expenses" });
+                dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
+                onClose();
+                return true;
+            }
+        } catch (fetchError) {
+            dispatch({
+                type: "SET_ERROR",
+                error: fetchError,
+                resource: "/api/expenses",
+                showError: true,
+            });
+        }
+    };
   
     const isFormValid = () => {
       return (

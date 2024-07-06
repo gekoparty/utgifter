@@ -17,10 +17,9 @@ const useProductDialog = (initialProduct = null) => {
     initialProduct ? initialProduct : { ...initialProductState }
   );
 
-
   const { sendRequest, loading } = useCustomHttp("/api/products");
   const { dispatch, state } = useContext(StoreContext);
-  
+
   const resetServerError = useCallback(() => {
     dispatch({
       type: "RESET_ERROR",
@@ -49,7 +48,6 @@ const useProductDialog = (initialProduct = null) => {
         ...prevProduct,
         ...initialProduct,
         measurementUnit: initialProduct.measurementUnit || "", // Set to an empty string if not provided
-        
       }));
       console.log("Initial Product:", initialProduct);
     } else {
@@ -57,7 +55,7 @@ const useProductDialog = (initialProduct = null) => {
     }
     return () => {
       isUnmounted = true;
-  
+
       if (!isUnmounted) {
         // Clear product-related data from the store only when leaving the page
         dispatch({
@@ -76,29 +74,32 @@ const useProductDialog = (initialProduct = null) => {
     if (!product.name.trim() || product.brands.length === 0) {
       return; // Handle empty product name or empty brands array
     }
-  
-    let formattedProduct;
+
+    let formattedProduct = { ...product };
     let validationErrors = {};
 
     console.log("Product before formatting:", product);
-  
-    try {
-      // Format the shop name, location, and category using the formatComponentFields function
-      formattedProduct = {
-        ...product,
-        name: formatComponentFields(product.name, "product").name,
-        brands: product.brands.map((brand) => formatComponentFields(brand, "product").name),
-      };
 
-      console.log("formattedProduct", formattedProduct)
-  
+    try {
+      // Format the product name
+      formattedProduct.name = formatComponentFields(product.name, "product", "name");
+      // Format the brands array correctly
+      formattedProduct.brands = product.brands.map((brand) =>
+        formatComponentFields(brand, "product", "brands")
+      );
+      formattedProduct.type = formatComponentFields(product.type, "product", "type");
+
+      console.log("formattedProduct", formattedProduct);
+
       await addProductValidationSchema.validate(formattedProduct, {
         abortEarly: false, // This ensures Yup collects all field errors
       });
     } catch (validationError) {
-      validationError.inner.forEach((err) => {
-        validationErrors[err.path] = { show: true, message: err.message };
-      });
+      if (validationError.inner) { // Ensure validationError.inner is defined
+        validationError.inner.forEach((err) => {
+          validationErrors[err.path] = { show: true, message: err.message };
+        });
+      }
       console.log("Field-specific errors:", validationErrors);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
@@ -111,29 +112,27 @@ const useProductDialog = (initialProduct = null) => {
       });
       return;
     }
-  
+
     const newProduct = formattedProduct;
-    console.log("newProduct", newProduct)
-  
+    console.log("newProduct", newProduct);
+
     try {
       let url = "/api/products";
       let method = "POST";
-  
+
       if (initialProduct) {
         url = `/api/products/${initialProduct._id}`;
         method = "PUT";
-      } else {
-        formattedProduct.brand = formatComponentFields(product.brand, "product").name;
       }
-  
+
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
         newProduct
       );
-  
+
       console.log("Response from the server:", data);
-  
+
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
@@ -149,16 +148,16 @@ const useProductDialog = (initialProduct = null) => {
         } else {
           // For new Products, add the brand to the store if it doesn't exist
           const existingBrand = state.brands.find(
-            (bra) => bra.name === newProduct.brand
+            (bra) => bra.name === newProduct.brands[0] // Assuming brands is an array
           );
           if (!existingBrand) {
             dispatch({
               type: "ADD_ITEM",
               resource: "brands",
-              payload: newProduct.brand,
+              payload: newProduct.brands[0],
             });
           }
-  
+
           dispatch({ type: "ADD_ITEM", resource: "products", payload });
           setProduct({});
         }
@@ -209,16 +208,15 @@ const useProductDialog = (initialProduct = null) => {
   const validationError = state.validationErrors?.products;
 
   const isFormValid = () => {
-   
     return (
       !validationError?.name &&
-      !validationError?.brand &&  // Update this line to use 'brand'
+      !validationError?.brands && // Update this line to use 'brands'
       !validationError?.measurementUnit &&
       !validationError?.type && // Include type validation
       product?.name?.trim().length > 0 &&
-      product?.brands?.length > 0 && // Update this line to use 'brand'
+      product?.brands?.length > 0 && // Update this line to use 'brands'
       product?.measurementUnit?.trim().length > 0 &&
-      product?.type?.length > 0 
+      product?.type?.length > 0
     );
   };
 
@@ -238,7 +236,7 @@ const useProductDialog = (initialProduct = null) => {
 };
 
 useProductDialog.propTypes = {
-  initialProduct: PropTypes.object,
+  initialProduct: PropTypes.object, // initialProduct is optional and should be an object
 };
 
 export default useProductDialog;

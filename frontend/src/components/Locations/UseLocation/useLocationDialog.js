@@ -57,10 +57,10 @@ const useLocationDialog = (initialLocation = null) => {
       return; // Exit the function if validation fails
     }
 
-    const formattedLocationName = formatComponentFields(
-      locationName,
-      "location"
-    );
+    const formattedLocationName = {
+      name: formatComponentFields( locationName, "location", "name"
+      )
+    }
     
 
     try {

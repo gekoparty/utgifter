@@ -69,8 +69,10 @@ const UseCategoryDialog = (initialCategory = null) => {
       return; // Exit the function if validation fails
     }
 
-    console.log("categoryName", categoryName)
-    const formattedCategoryName = formatComponentFields(categoryName, "category");
+    
+    const formattedCategoryName = {
+      name: formatComponentFields(categoryName, "category", "name")
+    } 
    
 
     try {

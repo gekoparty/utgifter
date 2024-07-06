@@ -6,7 +6,6 @@ const formatComponentFields = (name, componentName, fieldName) => {
     category: ["name"],
     product: ["name", "brands"],
     expense: ["productName", "brandName", "shopName"]
-    // Add more components and their corresponding fields here if needed
   };
 
   const fields = nameMappings[componentName];
@@ -34,10 +33,12 @@ const formatComponentFields = (name, componentName, fieldName) => {
     }
   };
 
-  console.log("Input:", name); // Log the input value
+  console.log(`Formatting: ${fieldName} of ${componentName} with input: ${name}`);
 
   if (fields.includes(fieldName)) {
-    return capitalizeWord(name); // Format the specific field based on fieldName
+    const formattedName = capitalizeWord(name); // Format the specific field based on fieldName
+    console.log(`Formatted ${fieldName} of ${componentName}: ${formattedName}`);
+    return formattedName;
   } else {
     return name; // Return unchanged if fieldName doesn't match expected fields
   }
