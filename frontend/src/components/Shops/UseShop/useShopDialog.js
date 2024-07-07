@@ -17,10 +17,6 @@ const useShopDialog = (initialShop = null) => {
     initialShop ? initialShop : { ...initialShopState }
   );
 
-  
-
-  
-
   const { sendRequest, loading } = useCustomHttp("/api/shops");
   const { dispatch, state } = useContext(StoreContext);
   const { loading: locationLoading, locations } = useLocationDialog();
@@ -52,9 +48,6 @@ const useShopDialog = (initialShop = null) => {
     } else {
       resetFormAndErrors();
     }
-
-    
-  
   }, [initialShop, resetFormAndErrors, dispatch]);
 
   useEffect(() => {
@@ -66,40 +59,38 @@ const useShopDialog = (initialShop = null) => {
       });
       dispatch({
         type: "CLEAR_RESOURCE",
-        resource: "locations"
-      })
+        resource: "locations",
+      });
       dispatch({
         type: "CLEAR_RESOURCE",
-        resource: "categories" 
-      })
+        resource: "categories",
+      });
     };
-  }, [dispatch])
-
+  }, [dispatch]);
 
   const handleSaveShop = async (onClose) => {
     if (!shop.name.trim() || !shop.location.trim() || !shop.category.trim()) {
       return;
     }
-  
-    let formattedShop;
+
+    let formattedShop = { ...shop }; // Initialize formattedShop with shop properties
     let validationErrors = {};
-  
+
     try {
       // Format the shop name, location, and category using the formatComponentFields function
-      formattedShop = {
-        ...shop,
-        name: formatComponentFields(shop.name, "shop").name,
-        location: formatComponentFields(shop.location, "shop").name,
-        category: formatComponentFields(shop.category, "shop").name,
-      };
-  
+      formattedShop.name = formatComponentFields(shop.name, "shop", "name"); // CHANGED: Formatting shop name
+      formattedShop.location = formatComponentFields(shop.location, "shop", "location"); // CHANGED: Formatting shop location
+      formattedShop.category = formatComponentFields(shop.category, "shop", "category"); // CHANGED: Formatting shop category
+
       await addShopValidationSchema.validate(formattedShop, {
         abortEarly: false, // This ensures Yup collects all field errors
       });
     } catch (validationError) {
-      validationError.inner.forEach((err) => {
-        validationErrors[err.path] = { show: true, message: err.message };
-      });
+      if (validationError.inner) { // Ensure validationError.inner is defined
+        validationError.inner.forEach((err) => {
+          validationErrors[err.path] = { show: true, message: err.message };
+        });
+      }
       console.log("Field-specific errors:", validationErrors);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
@@ -112,32 +103,26 @@ const useShopDialog = (initialShop = null) => {
       });
       return;
     }
-  
+
     const newShop = formattedShop;
-  
+
     try {
       let url = "/api/shops";
       let method = "POST";
-  
+
       if (initialShop) {
         url = `/api/shops/${initialShop._id}`;
         method = "PUT";
-      } else {
-        if (initialShop === undefined) {
-          formattedShop.location = shop.location;
-        } else {
-          formattedShop.location = formatComponentFields(shop.location, "shop").name;
-        }
       }
-  
+
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
         newShop
       );
-  
+
       console.log("Response from the server:", data);
-  
+
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
@@ -162,7 +147,7 @@ const useShopDialog = (initialShop = null) => {
               payload: newShop.location,
             });
           }
-  
+
           dispatch({ type: "ADD_ITEM", resource: "shops", payload });
           setShop({});
         }
