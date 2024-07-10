@@ -39,6 +39,7 @@ const defaultExpense = {
   purchased: false,
   registeredDate: null,
   purchaseDate: null,
+  type: "",
 };
 
 const ExpenseScreen = ({ drawerWidth = 240 }) => {
@@ -129,6 +130,7 @@ const ExpenseScreen = ({ drawerWidth = 240 }) => {
       setExpense((prevExpense) => ({
         ...prevExpense,
         measurementUnit: selectedProduct.measurementUnit,
+        type: selectedProduct.type,
       }));
     }
   }

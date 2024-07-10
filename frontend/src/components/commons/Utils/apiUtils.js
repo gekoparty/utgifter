@@ -57,3 +57,10 @@ export const fetchLocations = async () => {
     const data = await response.json();
     return data;
   };
+
+  export const fetchExpenses = async () => {
+    const fetchURL = new URL("/api/expenses", API_URL); // Replace with your actual endpoint
+    const response = await fetch(fetchURL.href);
+    const data = await response.json();
+    return data;
+  };
