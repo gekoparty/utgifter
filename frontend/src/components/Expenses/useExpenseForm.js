@@ -7,6 +7,7 @@ import useCustomHttp from "../../hooks/useHttp";
 
 const useExpenseForm = (initialExpense = null) => {
     const initialExpenseState = {
+      measurementUnit: "",
       productName: "",
       shopName: "",
       brandName: "",
@@ -90,11 +91,16 @@ const useExpenseForm = (initialExpense = null) => {
             const formattedBrandName = formatComponentFields(expense.brandName, "expense", "brandName");
             const formattedShopName = formatComponentFields(expense.shopName, "expense", "shopName");
     
+            // Extract the categoryName from product details if needed
+      
+            console.log("expense" , expense)
             formattedExpense = {
+              
                 ...expense,
                 productName: formattedProductName,
                 brandName: formattedBrandName,
                 shopName: formattedShopName,
+                
             };
     
             console.log("Formatted Expense:", formattedExpense);
