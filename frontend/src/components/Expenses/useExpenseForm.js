@@ -93,7 +93,7 @@ const useExpenseForm = (initialExpense = null) => {
     
             // Extract the categoryName from product details if needed
       
-            console.log("expense" , expense)
+console.log("expense" , expense)
             formattedExpense = {
               
                 ...expense,
