@@ -44,9 +44,42 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     return response.json();
   };
 
+  const fetchBrands = async () => {
+    const response = await fetch('/api/brands');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch brands`);
+    }
+    return response.json();
+  };
+
+  const fetchShops = async () => {
+    const response = await fetch('/api/shops');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch shops`);
+    }
+    const shops = await response.json();
+
+    // Fetch locations for each shop
+    const shopsWithLocations = await Promise.all(
+      shops.map(async (shop) => {
+        const locationResponse = await fetch(`/api/locations/${shop.location}`);
+        if (!locationResponse.ok) {
+          throw new Error(`Failed to fetch location details for location: ${shop.location}`);
+        }
+        const location = await locationResponse.json();
+        return { ...shop, locationName: location.name };
+      })
+    );
+
+    return shopsWithLocations;
+  };
+
   // Use useQuery hooks to fetch data
   const { data: products = [], isLoading: isLoadingProducts } = useQuery(['products'], fetchProducts, { enabled: open });
+  const { data: brands = [], isLoading: isLoadingBrands } = useQuery(['brands'], fetchBrands, { enabled: open });
+  const { data: shops = [], isLoading: isLoadingShops } = useQuery(['shops'], fetchShops, { enabled: open });
 
+  console.log(shops)
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
 
@@ -63,10 +96,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-  const handleFieldChangeInternal = (field, value) => {
+  const handleFieldChangeInternal = (field, value, additionalChanges = {}) => {
     setExpense((prevExpense) => ({
       ...prevExpense,
       [field]: value,
+      ...additionalChanges,
     }));
   };
 
@@ -109,6 +143,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               onSelect={(value) => handleFieldChangeInternal("productName", value.name)} // Change here to pass name instead of the whole object
               options={products.map(product => ({
                 name: product.name,
+                value: product.name,
               }))}
               title="Select Product"
             />
@@ -124,13 +159,16 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.brandAnchorEl)}
               anchorEl={anchorState.brandAnchorEl}
               onClose={() => handleClosePopover("brand")}
-              onSelect={(value) => handleFieldChangeInternal("brandName", value)} // Assuming options are strings like "Brand1", "Brand2", etc.
-              options={["Brand1", "Brand2", "Brand3"]} // Replace with actual options
+              onSelect={(value) => handleFieldChangeInternal("brandName", value.name)} // Assuming options are strings like "Brand1", "Brand2", etc.
+              options={brands.map(brand => ({
+                name: brand.name,
+                value: brand.name,
+              }))}
               title="Select Brand"
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField
+          <TextField
               fullWidth
               label="Shop"
               value={expense.shopName}
@@ -140,8 +178,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.shopAnchorEl)}
               anchorEl={anchorState.shopAnchorEl}
               onClose={() => handleClosePopover("shop")}
-              onSelect={(value) => handleFieldChangeInternal("shopName", value)} // Assuming options are strings like "Shop1", "Shop2", etc.
-              options={["Shop1", "Shop2", "Shop3"]} // Replace with actual options
+              onSelect={(shop) => handleFieldChangeInternal("shopName", shop.name, { locationName: shop.locationName })}
+              options={shops.map(shop => ({
+                name: `${shop.name}, ${shop.locationName}`, // Display shop and location together
+                value: { name: shop.name, locationName: shop.locationName },
+              }))}
               title="Select Shop"
             />
           </Grid>
@@ -150,7 +191,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               fullWidth
               label="Location"
               value={expense.locationName}
-              onChange={(e) => handleFieldChangeInternal("locationName", e.target.value)}
+              InputProps={{
+                readOnly: true,
+              }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
