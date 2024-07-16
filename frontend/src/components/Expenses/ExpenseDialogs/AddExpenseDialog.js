@@ -79,7 +79,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const { data: brands = [], isLoading: isLoadingBrands } = useQuery(['brands'], fetchBrands, { enabled: open });
   const { data: shops = [], isLoading: isLoadingShops } = useQuery(['shops'], fetchShops, { enabled: open });
 
-  console.log(shops)
+  console.log(shops);
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
 
@@ -97,11 +97,15 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const handleFieldChangeInternal = (field, value, additionalChanges = {}) => {
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      [field]: value,
-      ...additionalChanges,
-    }));
+    setExpense((prevExpense) => {
+      const updatedExpense = {
+        ...prevExpense,
+        [field]: value,
+        ...additionalChanges,
+      };
+      console.log(`Updated expense after changing ${field}:`, updatedExpense);
+      return updatedExpense;
+    });
   };
 
   // State variables and functions for popover management
@@ -123,6 +127,16 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       ...prevAnchorState,
       [`${field}AnchorEl`]: null,
     }));
+  };
+
+  const handleShopSelect = (shop) => {
+    console.log("Selected shop:", shop); // Add this line for debugging
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      shopName: shop.value, // Set only the shop name here
+      locationName: shop.locationName // Set the location name here
+    }));
+    handleClosePopover("shop");
   };
 
   return (
@@ -168,7 +182,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-          <TextField
+            <TextField
               fullWidth
               label="Shop"
               value={expense.shopName}
@@ -178,10 +192,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.shopAnchorEl)}
               anchorEl={anchorState.shopAnchorEl}
               onClose={() => handleClosePopover("shop")}
-              onSelect={(shop) => handleFieldChangeInternal("shopName", shop.name, { locationName: shop.locationName })}
+              onSelect={handleShopSelect}
               options={shops.map(shop => ({
-                name: `${shop.name}, ${shop.locationName}`, // Display shop and location together
-                value: { name: shop.name, locationName: shop.locationName },
+                name: `${shop.name}, ${shop.locationName}`, // Display shop and location together in the dropdown
+                value: shop.name,
+                locationName: shop.locationName,
               }))}
               title="Select Shop"
             />
@@ -251,3 +266,4 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 };
 
 export default AddExpenseDialog;
+
