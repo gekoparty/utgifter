@@ -4,6 +4,9 @@ import {
   Button,
   TextField,
   Grid,
+  InputAdornment,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -20,11 +23,14 @@ const defaultExpense = {
   price: 0,
   volume: 0,
   discountValue: 0,
+  discountAmount: 0, // Add discountAmount here
+  finalPrice: 0, // Add finalPrice here
   hasDiscount: false,
   purchased: false,
   registeredDate: null,
   purchaseDate: null,
   type: "",
+  measurementUnit: "",
 };
 
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
@@ -41,6 +47,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     if (!response.ok) {
       throw new Error(`Failed to fetch products`);
     }
+    console.log("Fetched products:", products); // Log the fetched products
     return response.json();
   };
 
@@ -103,11 +110,25 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         [field]: value,
         ...additionalChanges,
       };
+
+      // Calculate finalPrice and discountAmount when price or discountValue changes
+      if (field === 'price' || field === 'discountValue') {
+        const discountAmount = updatedExpense.hasDiscount
+          ? (updatedExpense.price * (updatedExpense.discountValue / 100))
+          : 0;
+        const finalPrice = updatedExpense.price - discountAmount;
+
+        updatedExpense.discountAmount = discountAmount.toFixed(2);
+        updatedExpense.finalPrice = finalPrice.toFixed(2);
+      }
+
+      if (field === 'volume') {
+        updatedExpense.volume = parseFloat(value);
+      }
       console.log(`Updated expense after changing ${field}:`, updatedExpense);
       return updatedExpense;
     });
   };
-
   // State variables and functions for popover management
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
@@ -139,6 +160,44 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleClosePopover("shop");
   };
 
+  const handleProductSelect = (product) => {
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      productName: product.name,
+      measurementUnit: product.measurementUnit
+    }));
+    handleClosePopover("product");
+  };
+
+  const [volumeDisplay, setVolumeDisplay] = useState("");
+
+  const handleVolumeChange = (event) => {
+    const value = event.target.value;
+    setVolumeDisplay(value);
+    const numericValue = parseFloat(value);
+    handleFieldChangeInternal("volume", numericValue);
+  };
+
+  const handleDiscountChange = (event) => {
+    const { checked } = event.target;
+    handleFieldChangeInternal("hasDiscount", checked);
+    if (!checked) {
+      handleFieldChangeInternal("discountValue", 0);
+    }
+  };
+
+  const handleDiscountValueChange = (event) => {
+    const value = parseFloat(event.target.value);
+    handleFieldChangeInternal("discountValue", value);
+  };
+
+  const calculateFinalPrice = () => {
+    if (expense.hasDiscount && expense.discountValue > 0) {
+      return (expense.price - (expense.price * (expense.discountValue / 100))).toFixed(2);
+    }
+    return expense.price;
+  };
+
   return (
     <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
       <Box sx={{ p: 2, position: 'relative' }}>
@@ -154,10 +213,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.productAnchorEl)}
               anchorEl={anchorState.productAnchorEl}
               onClose={() => handleClosePopover("product")}
-              onSelect={(value) => handleFieldChangeInternal("productName", value.name)} // Change here to pass name instead of the whole object
+              onSelect={handleProductSelect} // Change here to handle product selection
               options={products.map(product => ({
                 name: product.name,
                 value: product.name,
+                measurementUnit: product.measurementUnit, // Include measurementUnit in options
               }))}
               title="Select Product"
             />
@@ -221,12 +281,53 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField
+          <TextField
               fullWidth
               label="Volume"
               type="number"
-              value={expense.volume}
-              onChange={(e) => handleFieldChangeInternal("volume", parseFloat(e.target.value))}
+              value={volumeDisplay}
+              onChange={handleVolumeChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    {expense.measurementUnit}
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={expense.hasDiscount}
+                  onChange={handleDiscountChange}
+                  color="primary"
+                />
+              }
+              label="On Discount"
+            />
+          </Grid>
+          {expense.hasDiscount && (
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Discount Value (%)"
+                type="number"
+                value={expense.discountValue}
+                onChange={handleDiscountValueChange}
+              />
+            </Grid>
+          )}
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Final Price"
+              type="number"
+              value={calculateFinalPrice()}
+              InputProps={{
+                readOnly: true,
+              }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
