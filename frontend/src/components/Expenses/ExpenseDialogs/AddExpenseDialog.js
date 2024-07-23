@@ -36,10 +36,10 @@ const defaultExpense = {
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const {
     expense = defaultExpense,
-    handleFieldChange,
     handleSaveExpense,
     isFormValid,
     setExpense,
+    resetFormAndErrors,
   } = useExpenseForm();
 
   const fetchProducts = async () => {
@@ -58,6 +58,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }
     return response.json();
   };
+
+  
 
   const fetchShops = async () => {
     const response = await fetch('/api/shops');
@@ -85,6 +87,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const { data: products = [], isLoading: isLoadingProducts } = useQuery(['products'], fetchProducts, { enabled: open });
   const { data: brands = [], isLoading: isLoadingBrands } = useQuery(['brands'], fetchBrands, { enabled: open });
   const { data: shops = [], isLoading: isLoadingShops } = useQuery(['shops'], fetchShops, { enabled: open });
+
 
   console.log(shops);
   const handleDateChange = (date) => {
@@ -134,7 +137,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     productAnchorEl: null,
     brandAnchorEl: null,
     shopAnchorEl: null,
-  });
+      });
 
   const handleOpenPopover = (field, event) => {
     setAnchorState((prevAnchorState) => ({
@@ -161,13 +164,17 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const handleProductSelect = (product) => {
+    console.log("Selected product:", product); // Debug log
     setExpense((prevExpense) => ({
       ...prevExpense,
       productName: product.name,
+      type: product.type, // Ensure type is set
       measurementUnit: product.measurementUnit
     }));
     handleClosePopover("product");
   };
+
+  
 
   const [volumeDisplay, setVolumeDisplay] = useState("");
 
@@ -198,6 +205,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     return expense.price;
   };
 
+  
+
   return (
     <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
       <Box sx={{ p: 2, position: 'relative' }}>
@@ -217,6 +226,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               options={products.map(product => ({
                 name: product.name,
                 value: product.name,
+                type: product.type,
                 measurementUnit: product.measurementUnit, // Include measurementUnit in options
               }))}
               title="Select Product"
@@ -331,12 +341,18 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Type"
-              value={expense.type}
-              onChange={(e) => handleFieldChangeInternal("type", e.target.value)}
-            />
+          <TextField
+  fullWidth
+  label="Type"
+  value={expense.type || ''} // Ensure a default value to avoid uncontrolled input issues
+  InputProps={{
+    readOnly: true,
+  }}
+  InputLabelProps={{
+    shrink: true,
+  }}
+/>
+            
           </Grid>
           <Grid item xs={12} md={6}>
             <DatePicker
@@ -350,7 +366,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-        <Button onClick={onClose} sx={{ mr: 1 }}>
+        <Button onClick={() => { resetFormAndErrors(); onClose(); }} sx={{ mr: 1 }}>
           Cancel
         </Button>
         <Button
