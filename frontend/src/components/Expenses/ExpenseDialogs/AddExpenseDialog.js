@@ -23,10 +23,10 @@ const defaultExpense = {
   price: 0,
   volume: 0,
   discountValue: 0,
-  discountAmount: 0, // Add discountAmount here
-  finalPrice: 0, // Add finalPrice here
+  discountAmount: 0,
+  finalPrice: 0,
   hasDiscount: false,
-  purchased: false,
+  purchased: true,
   registeredDate: null,
   purchaseDate: null,
   type: "",
@@ -43,7 +43,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   } = useExpenseForm();
 
   const fetchProducts = async () => {
-    const response = await fetch('/api/products');
+    const response = await fetch("/api/products");
     if (!response.ok) {
       throw new Error(`Failed to fetch products`);
     }
@@ -52,17 +52,15 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const fetchBrands = async () => {
-    const response = await fetch('/api/brands');
+    const response = await fetch("/api/brands");
     if (!response.ok) {
       throw new Error(`Failed to fetch brands`);
     }
     return response.json();
   };
 
-  
-
   const fetchShops = async () => {
-    const response = await fetch('/api/shops');
+    const response = await fetch("/api/shops");
     if (!response.ok) {
       throw new Error(`Failed to fetch shops`);
     }
@@ -73,7 +71,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       shops.map(async (shop) => {
         const locationResponse = await fetch(`/api/locations/${shop.location}`);
         if (!locationResponse.ok) {
-          throw new Error(`Failed to fetch location details for location: ${shop.location}`);
+          throw new Error(
+            `Failed to fetch location details for location: ${shop.location}`
+          );
         }
         const location = await locationResponse.json();
         return { ...shop, locationName: location.name };
@@ -84,10 +84,21 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   // Use useQuery hooks to fetch data
-  const { data: products = [], isLoading: isLoadingProducts } = useQuery(['products'], fetchProducts, { enabled: open });
-  const { data: brands = [], isLoading: isLoadingBrands } = useQuery(['brands'], fetchBrands, { enabled: open });
-  const { data: shops = [], isLoading: isLoadingShops } = useQuery(['shops'], fetchShops, { enabled: open });
-
+  const { data: products = [], isLoading: isLoadingProducts } = useQuery(
+    ["products"],
+    fetchProducts,
+    { enabled: open }
+  );
+  const { data: brands = [], isLoading: isLoadingBrands } = useQuery(
+    ["brands"],
+    fetchBrands,
+    { enabled: open }
+  );
+  const { data: shops = [], isLoading: isLoadingShops } = useQuery(
+    ["shops"],
+    fetchShops,
+    { enabled: open }
+  );
 
   console.log(shops);
   const handleDateChange = (date) => {
@@ -114,30 +125,37 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         ...additionalChanges,
       };
 
-      // Calculate finalPrice and discountAmount when price or discountValue changes
-      if (field === 'price' || field === 'discountValue') {
+      if (field === "price" || field === "discountValue" || field === "discountAmount") {
         const discountAmount = updatedExpense.hasDiscount
-          ? (updatedExpense.price * (updatedExpense.discountValue / 100))
+          ? updatedExpense.discountValue > 0
+            ? updatedExpense.price * (updatedExpense.discountValue / 100)
+            : updatedExpense.discountAmount
           : 0;
         const finalPrice = updatedExpense.price - discountAmount;
+
+        if (field === "discountAmount" && updatedExpense.price > 0) {
+          updatedExpense.discountValue = ((value / updatedExpense.price) * 100).toFixed(2);
+        }
 
         updatedExpense.discountAmount = discountAmount.toFixed(2);
         updatedExpense.finalPrice = finalPrice.toFixed(2);
       }
 
-      if (field === 'volume') {
+      if (field === "volume") {
         updatedExpense.volume = parseFloat(value);
       }
-      console.log(`Updated expense after changing ${field}:`, updatedExpense);
+
       return updatedExpense;
     });
   };
+
+
   // State variables and functions for popover management
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
     brandAnchorEl: null,
     shopAnchorEl: null,
-      });
+  });
 
   const handleOpenPopover = (field, event) => {
     setAnchorState((prevAnchorState) => ({
@@ -153,12 +171,32 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }));
   };
 
+  const handlePurchaseChange = (event) => {
+    const isPurchased = event.target.checked;
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      purchased: isPurchased,
+      registeredDate: isPurchased ? null : prevExpense.registeredDate,
+      purchaseDate: isPurchased ? prevExpense.purchaseDate : null,
+    }));
+  };
+
+  const handleRegisterChange = (event) => {
+    const isRegistered = event.target.checked;
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      purchased: !isRegistered,
+      registeredDate: isRegistered ? prevExpense.registeredDate : null,
+      purchaseDate: isRegistered ? null : prevExpense.purchaseDate,
+    }));
+  };
+
   const handleShopSelect = (shop) => {
     console.log("Selected shop:", shop); // Add this line for debugging
     setExpense((prevExpense) => ({
       ...prevExpense,
       shopName: shop.value, // Set only the shop name here
-      locationName: shop.locationName // Set the location name here
+      locationName: shop.locationName, // Set the location name here
     }));
     handleClosePopover("shop");
   };
@@ -169,12 +207,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       ...prevExpense,
       productName: product.name,
       type: product.type, // Ensure type is set
-      measurementUnit: product.measurementUnit
+      measurementUnit: product.measurementUnit,
     }));
     handleClosePopover("product");
   };
-
-  
 
   const [volumeDisplay, setVolumeDisplay] = useState("");
 
@@ -190,22 +226,50 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleFieldChangeInternal("hasDiscount", checked);
     if (!checked) {
       handleFieldChangeInternal("discountValue", 0);
+      handleFieldChangeInternal("discountAmount", 0);
     }
   };
 
   const handleDiscountValueChange = (event) => {
-    const value = parseFloat(event.target.value);
-    handleFieldChangeInternal("discountValue", value);
+    const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
+    setExpense((prevExpense) => {
+      const discountAmount = value > 0 ? prevExpense.price * (value / 100) : 0;
+      const finalPrice = prevExpense.price - discountAmount;
+      return {
+        ...prevExpense,
+        discountValue: value,
+        discountAmount: discountAmount.toFixed(2),
+        finalPrice: finalPrice.toFixed(2),
+      };
+    });
+  };
+  const handleDiscountAmountChange = (event) => {
+    const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
+    setExpense((prevExpense) => {
+      const discountValue = prevExpense.price > 0 ? (value / prevExpense.price) * 100 : 0;
+      const finalPrice = prevExpense.price - value;
+      return {
+        ...prevExpense,
+        discountAmount: value,
+        discountValue: discountValue.toFixed(2),
+        finalPrice: finalPrice.toFixed(2),
+      };
+    });
   };
 
   const calculateFinalPrice = () => {
-    if (expense.hasDiscount && expense.discountValue > 0) {
-      return (expense.price - (expense.price * (expense.discountValue / 100))).toFixed(2);
+    if (expense.hasDiscount) {
+      if (expense.discountValue > 0) {
+        return (
+          expense.price -
+          expense.price * (expense.discountValue / 100)
+        ).toFixed(2);
+      } else if (expense.discountAmount > 0) {
+        return (expense.price - expense.discountAmount).toFixed(2);
+      }
     }
-    return expense.price;
+    return expense.price.toFixed(2);
   };
-
-  
 
   return (
     <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
@@ -222,12 +286,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.productAnchorEl)}
               anchorEl={anchorState.productAnchorEl}
               onClose={() => handleClosePopover("product")}
-              onSelect={handleProductSelect} // Change here to handle product selection
+              onSelect={handleProductSelect}
               options={products.map(product => ({
                 name: product.name,
                 value: product.name,
                 type: product.type,
-                measurementUnit: product.measurementUnit, // Include measurementUnit in options
+                measurementUnit: product.measurementUnit,
               }))}
               title="Select Product"
             />
@@ -243,7 +307,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.brandAnchorEl)}
               anchorEl={anchorState.brandAnchorEl}
               onClose={() => handleClosePopover("brand")}
-              onSelect={(value) => handleFieldChangeInternal("brandName", value.name)} // Assuming options are strings like "Brand1", "Brand2", etc.
+              onSelect={(value) => handleFieldChangeInternal("brandName", value.name)}
               options={brands.map(brand => ({
                 name: brand.name,
                 value: brand.name,
@@ -264,7 +328,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               onClose={() => handleClosePopover("shop")}
               onSelect={handleShopSelect}
               options={shops.map(shop => ({
-                name: `${shop.name}, ${shop.locationName}`, // Display shop and location together in the dropdown
+                name: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
                 locationName: shop.locationName,
               }))}
@@ -291,7 +355,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-          <TextField
+            <TextField
               fullWidth
               label="Volume"
               type="number"
@@ -319,15 +383,26 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           {expense.hasDiscount && (
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Discount Value (%)"
-                type="number"
-                value={expense.discountValue}
-                onChange={handleDiscountValueChange}
-              />
-            </Grid>
+            <>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Discount Value (%)"
+                  type="number"
+                  value={expense.discountValue}
+                  onChange={handleDiscountValueChange}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Discount Amount"
+                  type="number"
+                  value={expense.discountAmount}
+                  onChange={handleDiscountAmountChange}
+                />
+              </Grid>
+            </>
           )}
           <Grid item xs={12} md={6}>
             <TextField
@@ -341,18 +416,39 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-          <TextField
-  fullWidth
-  label="Type"
-  value={expense.type || ''} // Ensure a default value to avoid uncontrolled input issues
-  InputProps={{
-    readOnly: true,
-  }}
-  InputLabelProps={{
-    shrink: true,
-  }}
-/>
-            
+            <TextField
+              fullWidth
+              label="Type"
+              value={expense.type || ''}
+              InputProps={{
+                readOnly: true,
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={expense.purchased}
+                  onChange={handlePurchaseChange}
+                  color="primary"
+                />
+              }
+              label="Purchased"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!expense.purchased}
+                  onChange={handleRegisterChange}
+                  color="primary"
+                />
+              }
+              label="Registered"
+            />
           </Grid>
           <Grid item xs={12} md={6}>
             <DatePicker
@@ -366,7 +462,13 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-        <Button onClick={() => { resetFormAndErrors(); onClose(); }} sx={{ mr: 1 }}>
+        <Button
+          onClick={() => {
+            resetFormAndErrors();
+            onClose();
+          }}
+          sx={{ mr: 1 }}
+        >
           Cancel
         </Button>
         <Button
@@ -383,4 +485,3 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 };
 
 export default AddExpenseDialog;
-
