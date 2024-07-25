@@ -17,9 +17,13 @@ const useExpenseForm = (initialExpense = null) => {
     price: 0,
     hasDiscount: false,
     discountValue: 0,
+    discountAmount: 0,
+    finalPrice: 0,
     purchased: true,
     purchaseDate: dayjs().format(),
     registeredDate: null,
+    type: "",
+    pricePerUnit: 0,
   };
 
   const [expense, setExpense] = useState(
