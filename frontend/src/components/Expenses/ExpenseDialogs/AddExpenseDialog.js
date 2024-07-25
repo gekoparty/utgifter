@@ -44,6 +44,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useExpenseForm();
 
+
   const fetchProducts = async () => {
     const response = await fetch("/api/products");
     if (!response.ok) {
@@ -101,6 +102,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     fetchShops,
     { enabled: open }
   );
+
+  const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
   console.log(shops);
   const handleDateChange = (date) => {
@@ -235,7 +238,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleClosePopover("product");
   };
 
-  const [volumeDisplay, setVolumeDisplay] = useState("");
+  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+
+  useEffect(() => {
+    setVolumeDisplay(expense.volume || ""); // Sync volumeDisplay with expense.volume
+  }, [expense.volume]);
 
   const handleVolumeChange = (event) => {
     const value = event.target.value;
@@ -543,7 +550,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           variant="contained"
           color="primary"
           onClick={() => handleSaveExpense(onAdd)}
-          disabled={!isFormValid}
+          disabled={!isFormValid || isLoading}
         >
           Save
         </Button>
