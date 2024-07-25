@@ -25,6 +25,7 @@ const defaultExpense = {
   discountValue: 0,
   discountAmount: 0,
   finalPrice: 0,
+  quantity: 0,
   hasDiscount: false,
   purchased: true,
   registeredDate: null,
@@ -144,6 +145,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       if (field === "volume") {
         updatedExpense.volume = parseFloat(value);
       }
+  
+      if (field === "quantity") {
+        updatedExpense.quantity = parseInt(value);
+      }
+  
+      console.log('Updated Expense:', updatedExpense); 
 
       return updatedExpense;
     });
@@ -189,6 +196,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       registeredDate: isRegistered ? prevExpense.registeredDate : null,
       purchaseDate: isRegistered ? null : prevExpense.purchaseDate,
     }));
+  };
+
+  const handleQuantityChange = (event) => {
+    const value = event.target.value;
+    handleFieldChangeInternal("quantity", value);
   };
 
   const handleShopSelect = (shop) => {
@@ -368,6 +380,15 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   </InputAdornment>
                 ),
               }}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Units"
+              type="number"
+              value={expense.quantity}
+              onChange={handleQuantityChange}
             />
           </Grid>
           <Grid item xs={12} md={6}>
