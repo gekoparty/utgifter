@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -25,13 +25,14 @@ const defaultExpense = {
   discountValue: 0,
   discountAmount: 0,
   finalPrice: 0,
-  quantity: 0,
+  quantity: 1,
   hasDiscount: false,
   purchased: true,
   registeredDate: null,
   purchaseDate: null,
   type: "",
   measurementUnit: "",
+  pricePerUnit: 0, // New field for price per kg or L
 };
 
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
@@ -149,6 +150,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       if (field === "quantity") {
         updatedExpense.quantity = parseInt(value);
       }
+
+      // Calculate price per unit (kg or L) based on measurement unit
+      if (field === "finalPrice" || field === "volume" || field === "measurementUnit") {
+        updatedExpense.pricePerUnit = calculatePricePerUnit(updatedExpense.finalPrice, updatedExpense.volume, updatedExpense.measurementUnit);
+      }
   
       console.log('Updated Expense:', updatedExpense); 
 
@@ -156,6 +162,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     });
   };
 
+  // Helper function to calculate price per unit
+  const calculatePricePerUnit = (finalPrice, volume, measurementUnit) => {
+    if (!finalPrice || !volume || !measurementUnit) return 0;
+    return (finalPrice / volume).toFixed(2);
+  };
 
   // State variables and functions for popover management
   const [anchorState, setAnchorState] = useState({
@@ -252,9 +263,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         discountValue: value,
         discountAmount: discountAmount.toFixed(2),
         finalPrice: finalPrice.toFixed(2),
+        pricePerUnit: calculatePricePerUnit(finalPrice, prevExpense.volume, prevExpense.measurementUnit)
       };
     });
   };
+
   const handleDiscountAmountChange = (event) => {
     const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
     setExpense((prevExpense) => {
@@ -265,23 +278,29 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         discountAmount: value,
         discountValue: discountValue.toFixed(2),
         finalPrice: finalPrice.toFixed(2),
+        pricePerUnit: calculatePricePerUnit(finalPrice, prevExpense.volume, prevExpense.measurementUnit)
       };
     });
   };
 
+  useEffect(() => {
+    const finalPrice = calculateFinalPrice();
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      finalPrice,
+    }));
+  }, [expense.price, expense.discountValue, expense.discountAmount, expense.hasDiscount]);
+
   const calculateFinalPrice = () => {
     if (expense.hasDiscount) {
       if (expense.discountValue > 0) {
-        return (
-          expense.price -
-          expense.price * (expense.discountValue / 100)
-        ).toFixed(2);
-      } else if (expense.discountAmount > 0) {
-        return (expense.price - expense.discountAmount).toFixed(2);
+        return (expense.price - expense.price * (expense.discountValue / 100)).toFixed(2);
       }
+      return (expense.price - expense.discountAmount).toFixed(2);
     }
-    return expense.price.toFixed(2);
+    return expense.price;
   };
+
 
   return (
     <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
@@ -290,7 +309,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Product Name"
+              label="Produkt"
               value={expense.productName}
               onClick={(e) => handleOpenPopover("product", e)}
             />
@@ -311,7 +330,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Brand"
+              label="Merke"
               value={expense.brandName}
               onClick={(e) => handleOpenPopover("brand", e)}
             />
@@ -330,7 +349,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Shop"
+              label="Butikk"
               value={expense.shopName}
               onClick={(e) => handleOpenPopover("shop", e)}
             />
@@ -350,7 +369,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Location"
+              label="Lokasjon"
               value={expense.locationName}
               InputProps={{
                 readOnly: true,
@@ -360,16 +379,19 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Price"
+              label="Pris"
               type="number"
               value={expense.price}
               onChange={(e) => handleFieldChangeInternal("price", parseFloat(e.target.value))}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+              }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Volume"
+              label="Volume type/Mengde"
               type="number"
               value={volumeDisplay}
               onChange={handleVolumeChange}
@@ -382,10 +404,23 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               }}
             />
           </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label={`Price per ${expense.measurementUnit === "kg" ? "kg" : "L"}`}
+              value={expense.pricePerUnit}
+              InputProps={{
+                readOnly: true,
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </Grid>
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Units"
+              label="Antall"
               type="number"
               value={expense.quantity}
               onChange={handleQuantityChange}
@@ -400,7 +435,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   color="primary"
                 />
               }
-              label="On Discount"
+              label="Rabatt?"
             />
           </Grid>
           {expense.hasDiscount && (
@@ -408,19 +443,28 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Discount Value (%)"
+                  label="Rabatt i (%)"
                   type="number"
                   value={expense.discountValue}
                   onChange={handleDiscountValueChange}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">%</InputAdornment>,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Discount Amount"
+                  label="Rabatt i Kr"
                   type="number"
                   value={expense.discountAmount}
                   onChange={handleDiscountAmountChange}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+                  }}
                 />
               </Grid>
             </>
@@ -428,12 +472,15 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Final Price"
+              label="Pris m/u Rabatt"
               type="number"
               value={calculateFinalPrice()}
               InputProps={{
                 readOnly: true,
+                 startAdornment: <InputAdornment position="start">Kr</InputAdornment>
               }}
+             
+              
             />
           </Grid>
           <Grid item xs={12} md={6}>
