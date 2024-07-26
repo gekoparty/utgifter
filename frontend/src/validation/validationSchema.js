@@ -47,18 +47,32 @@ export const addExpenseValidationSchema = Yup.object().shape({
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
     .max(20, "Maks 20 tegn"),
-  volume: Yup.number().required("Må ha et volum").positive("Må være positivt"),
-  price: Yup.number().required("Må ha en pris").positive("Må være positivt"),
+  volume: Yup.number()
+    .required("Må ha et volum")
+    .positive("Må være positivt"),
+  price: Yup.number()
+    .required("Må ha en pris")
+    .positive("Må være positivt"),
   hasDiscount: Yup.boolean(),
   discountValue: Yup.number().when("hasDiscount", {
     is: true,
-    then: Yup.number().required("Må ha rabattverdi").positive("Må være positivt"),
+    then: schema => {
+      console.log("hasDiscount is true");
+      return schema.required("Må ha rabattverdi").positive("Må være positivt");
+    },
+    otherwise: schema => {
+      console.log("hasDiscount is false");
+      return schema.nullable();
+    },
   }),
-  quantity: Yup.number().required("Må ha et antall").positive("Må være positivt"),
-  purchaseDate: Yup.date(),
+  quantity: Yup.number()
+    .required("Må ha et antall")
+    .positive("Må være positivt"),
+  purchaseDate: Yup.date().nullable(),
   registeredDate: Yup.date().nullable(),
 }).test('date-validation', 'Må ha en kjøpsdato eller registreringsdato, men ikke begge', function (value) {
-  const { purchaseDate, registeredDate } = value;
+  const { purchaseDate, registeredDate } = value || {};
+  console.log("purchaseDate:", purchaseDate, "registeredDate:", registeredDate);
   if ((purchaseDate && registeredDate) || (!purchaseDate && !registeredDate)) {
     return false;
   }

@@ -50,7 +50,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     if (!response.ok) {
       throw new Error(`Failed to fetch products`);
     }
-    console.log("Fetched products:", products); // Log the fetched products
     return response.json();
   };
 
@@ -105,7 +104,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
-  console.log(shops);
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
 
@@ -158,17 +156,16 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       if (field === "finalPrice" || field === "volume" || field === "measurementUnit") {
         updatedExpense.pricePerUnit = calculatePricePerUnit(updatedExpense.finalPrice, updatedExpense.volume, updatedExpense.measurementUnit);
       }
-  
-      console.log('Updated Expense:', updatedExpense); 
-
       return updatedExpense;
     });
   };
 
   // Helper function to calculate price per unit
   const calculatePricePerUnit = (finalPrice, volume, measurementUnit) => {
-    if (!finalPrice || !volume || !measurementUnit) return 0;
-    return (finalPrice / volume).toFixed(2);
+    if (volume > 0 && finalPrice > 0) {
+      return (finalPrice / volume).toFixed(2);
+    }
+    return 0;
   };
 
   // State variables and functions for popover management
@@ -218,7 +215,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const handleShopSelect = (shop) => {
-    console.log("Selected shop:", shop); // Add this line for debugging
     setExpense((prevExpense) => ({
       ...prevExpense,
       shopName: shop.value, // Set only the shop name here
@@ -228,7 +224,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const handleProductSelect = (product) => {
-    console.log("Selected product:", product); // Debug log
     setExpense((prevExpense) => ({
       ...prevExpense,
       productName: product.name,

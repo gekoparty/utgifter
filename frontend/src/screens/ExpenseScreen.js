@@ -24,7 +24,7 @@ const INITIAL_PAGINATION = {
 };
 const INITIAL_SORTING = [{ id: "productName", desc: false }];
 const INITIAL_SELECTED_EXPENSE = {
-  _id: "",
+  _id: "",                // Assuming `_id` is used elsewhere, if not, you may remove it
   productName: "",
   brandName: "",
   shopName: "",
@@ -32,11 +32,16 @@ const INITIAL_SELECTED_EXPENSE = {
   price: 0,
   volume: 0,
   discountValue: 0,
+  discountAmount: 0,      // Add this if it's used in dialogs or forms
+  finalPrice: 0,          // Add this if it's used in dialogs or forms
+  quantity: 1,            // Add this if it's used in dialogs or forms
   hasDiscount: false,
-  purchased: false,
+  purchased: true,
   registeredDate: null,
   purchaseDate: null,
   type: "",
+  measurementUnit: "",    // Add this if it's used in dialogs or forms
+  pricePerUnit: 0         // Add this if it's used in dialogs or forms
 };
 const API_URL =
   process.env.NODE_ENV === "production"
@@ -93,7 +98,6 @@ const ExpenseScreen = () => {
 
     const response = await fetch(fetchURL.href);
     const json = await response.json();
-    console.log("All Expenses:", json.expenses);
     return { expenses: json.expenses, meta: json.meta };
   };
 

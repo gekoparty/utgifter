@@ -4,7 +4,6 @@ const expenseSchema = new mongoose.Schema({
   productName: {
     type: String,
     required: true,
-    unique: true,
   },
   brandName: {
     type: String,
@@ -18,11 +17,14 @@ const expenseSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
- 
   price: {
     type: Number,
     required: true,
     min: 0,
+  },
+  pricePerUnit: {
+    type: Number,  // Change to String to match payload format
+    required: false,
   },
   purchased: {
     type: Boolean,
@@ -51,6 +53,14 @@ const expenseSchema = new mongoose.Schema({
     required: false,
     default: 0,
   },
+  discountAmount: {
+    type: Number,  // Change to String to match payload format
+    required: false,
+  },
+  finalPrice: {
+    type: Number,  // Change to String to match payload format
+    required: true,
+  },
   quantity: {
     type: Number,
     required: true,
@@ -60,6 +70,10 @@ const expenseSchema = new mongoose.Schema({
     type: Number,
     required: true,
     default: 0,
+  },
+  locationName: {
+    type: String,
+    required: false,
   },
 }, {
   timestamps: true,
