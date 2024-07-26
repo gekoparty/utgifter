@@ -29,6 +29,7 @@ const useExpenseForm = (initialExpense = null) => {
   const [expense, setExpense] = useState(
     initialExpense ? initialExpense : { ...initialExpenseState }
   );
+  const [validationErrors, setValidationErrors] = useState({});
 
   const { sendRequest, loading } = useCustomHttp("/api/expenses");
   const { dispatch, state } = useContext(StoreContext);
@@ -51,10 +52,10 @@ const useExpenseForm = (initialExpense = null) => {
     setExpense(initialExpense ? initialExpense : initialExpenseState);
     resetServerError();
     resetValidationErrors();
+    setValidationErrors({});
   }, [initialExpense, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
-    let isUnmounted = false;
     if (initialExpense) {
       setExpense((prevExpense) => ({
         ...prevExpense,
@@ -64,101 +65,121 @@ const useExpenseForm = (initialExpense = null) => {
       resetFormAndErrors();
     }
     return () => {
-      isUnmounted = true;
-
-      if (!isUnmounted) {
-        dispatch({
-          type: "CLEAR_RESOURCE",
-          resource: "expenses",
-        });
-      }
+      dispatch({
+        type: "CLEAR_RESOURCE",
+        resource: "expenses",
+      });
     };
   }, [initialExpense, resetFormAndErrors, dispatch]);
 
+  const validateField = (field, value) => {
+    try {
+      addExpenseValidationSchema.validateSyncAt(field, { [field]: value });
+      setValidationErrors((prevErrors) => ({
+        ...prevErrors,
+        [field]: null,
+      }));
+    } catch (validationError) {
+      setValidationErrors((prevErrors) => ({
+        ...prevErrors,
+        [field]: validationError.message,
+      }));
+    }
+  };
+
   const handleFieldChange = (field, value) => {
-    console.log("handleFieldChange called with:", { field, value });
     setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+    validateField(field, value);
   };
 
   const handleSaveExpense = async (onClose) => {
-    if (!expense.productName.trim() || expense.brandName.length === 0) {
+    if (!expense || !expense.productName.trim() || !expense.brandName.trim()) {
+      console.error("Invalid expense:", expense);
       return; // Handle empty product name or empty brands array
     }
-
+  
     let formattedExpense;
     let validationErrors = {};
-
-    console.log("Expense before formatting:", expense);
-
+  
     try {
       const formattedProductName = formatComponentFields(
-        expense.productName,
-        "expense",
-        "productName"
+          expense.productName,
+          "expense",
+          "productName"
       );
       const formattedBrandName = formatComponentFields(
-        expense.brandName,
-        "expense",
-        "brandName"
+          expense.brandName,
+          "expense",
+          "brandName"
       );
       const formattedShopName = formatComponentFields(
-        expense.shopName,
-        "expense",
-        "shopName"
+          expense.shopName,
+          "expense",
+          "shopName"
+      );
+      const formattedLocationName = formatComponentFields(
+          expense.locationName,
+          "expense",
+          "locationName"
+      );
+      const formattedType = formatComponentFields(
+          expense.type,
+          "expense",
+          "type"
       );
 
-      // Extract the categoryName from product details if needed
-
-      console.log("expense", expense);
       formattedExpense = {
-        ...expense,
-        productName: formattedProductName,
-        brandName: formattedBrandName,
-        shopName: formattedShopName,
+          ...expense,
+          productName: formattedProductName,
+          brandName: formattedBrandName,
+          shopName: formattedShopName,
+          locationName: formattedLocationName,
+          type: formattedType,
       };
-
-      console.log("Formatted Expense:", formattedExpense);
-
+  
       await addExpenseValidationSchema.validate(formattedExpense, {
-        abortEarly: false, // This ensures Yup collects all field errors
+        abortEarly: false,
       });
     } catch (validationError) {
-      validationError.inner.forEach((err) => {
-        validationErrors[err.path] = { show: true, message: err.message };
-      });
-      console.log("Field-specific errors:", validationErrors);
-      dispatch({
-        type: "SET_VALIDATION_ERRORS",
-        resource: "expenses",
-        validationErrors: {
-          ...state.validationErrors?.expenses,
-          ...validationErrors,
-        },
-        showError: true,
-      });
+      if (validationError.inner) {
+        validationError.inner.forEach((err) => {
+          validationErrors[err.path] = { show: true, message: err.message };
+        });
+        dispatch({
+          type: "SET_VALIDATION_ERRORS",
+          resource: "expenses",
+          validationErrors: {
+            ...state.validationErrors?.expenses,
+            ...validationErrors,
+          },
+          showError: true,
+        });
+      } else {
+        console.error(validationError);
+      }
       return;
     }
-
+  
     const newExpense = formattedExpense;
     console.log("newExpense", newExpense);
-
+  
     try {
       let url = "/api/expenses";
       let method = "POST";
-
+  
       if (initialExpense) {
         url = `/api/expenses/${initialExpense._id}`;
         method = "PUT";
       }
-
+  
       const { data, error: addDataError } = await sendRequest(
         url,
         method,
         newExpense
       );
-
+  
       console.log("Response from the server:", data);
-
+  
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
@@ -168,24 +189,12 @@ const useExpenseForm = (initialExpense = null) => {
         });
       } else {
         const payload = data;
-        console.log(data);
+  
         if (initialExpense) {
           dispatch({ type: "UPDATE_ITEM", resource: "expenses", payload });
         } else {
-          // For new Products, add the brand to the store if it doesn't exist
-          const existingBrand = state.brands.find(
-            (bra) => bra.name === newExpense.brandName
-          );
-          if (!existingBrand) {
-            dispatch({
-              type: "ADD_ITEM",
-              resource: "brands",
-              payload: newExpense.brand,
-            });
-          }
-
-          dispatch({ type: "ADD_ITEM", resource: "expenses", payload });
-          setExpense({});
+          dispatch({ type: 'ADD_ITEM', resource: 'expenses', payload: newExpense });
+          setExpense(initialExpenseState)
         }
         dispatch({ type: "RESET_ERROR", resource: "expenses" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
@@ -204,9 +213,7 @@ const useExpenseForm = (initialExpense = null) => {
 
   const isFormValid = () => {
     return (
-      !state.validationErrors?.expenses?.productName &&
-      !state.validationErrors?.expenses?.brandName &&
-      !state.validationErrors?.expenses?.shopName &&
+      !Object.values(validationErrors).some((error) => error) &&
       expense.productName.trim().length > 0 &&
       expense.brandName.trim().length > 0 &&
       expense.shopName.trim().length > 0 &&

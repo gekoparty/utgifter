@@ -104,33 +104,8 @@ expensesRouter.post("/", async (req, res) => {
     const {
       productName,
       brandName,
-      measurementUnit, // Correct field name
-      type,
-      date,
-      price,
-      purchased,
-      shopName,
-      purchaseDate,
-      registeredDate,
-      hasDiscount,
-      discountValue,
-      quantity,
-      volume,
-    } = req.body;
-
-    const slug = slugify(productName, { lower: true });
-
-    const existingExpense = await Expense.findOne({ slug });
-    if (existingExpense) {
-      return res.status(400).json({ message: "duplicate" });
-    }
-
-    const expense = new Expense({
-      productName,
-      brandName,
       measurementUnit,
       type,
-      date,
       price,
       purchased,
       shopName,
@@ -138,18 +113,56 @@ expensesRouter.post("/", async (req, res) => {
       registeredDate,
       hasDiscount,
       discountValue,
+      discountAmount,
       quantity,
+      locationName,
       volume,
-      slug, // Save the slug to the database
-    });
+      finalPrice,
+      pricePerUnit,
+    } = req.body;
 
-    await expense.save();
-    res.status(201).json(expense);
+    // Ensure quantity is a positive integer
+    const quantityNumber = parseInt(quantity, 10);
+    if (isNaN(quantityNumber) || quantityNumber <= 0) {
+      return res.status(400).json({ message: "Invalid quantity value" });
+    }
+
+    // Create an array to hold all expense documents
+    const expensesToSave = [];
+
+    // Create each expense document based on quantity
+    for (let i = 0; i < quantityNumber; i++) {
+      const expense = new Expense({
+        productName,
+        brandName,
+        measurementUnit,
+        type,
+        price,
+        purchased,
+        shopName,
+        purchaseDate,
+        registeredDate,
+        hasDiscount,
+        discountValue,
+        discountAmount,
+        quantity: 1, // Set quantity to 1 for each document
+        volume,
+        locationName,
+        finalPrice,
+        pricePerUnit,
+      });
+
+      expensesToSave.push(expense);
+    }
+
+    // Save all expense documents
+    const savedExpenses = await Expense.insertMany(expensesToSave);
+
+    res.status(201).json(savedExpenses);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 
 export default expensesRouter;
