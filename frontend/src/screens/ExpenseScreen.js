@@ -60,13 +60,15 @@ const ExpenseScreen = () => {
 
   const tableColumns = useMemo(
     () => [
-      { accessorKey: "productName", header: "Product Name" },
-      { accessorKey: "brandName", header: "Brand" },
-      { accessorKey: "shopName", header: "Shop" },
-      { accessorKey: "locationName", header: "Location" },
-      { accessorKey: "price", header: "Price" },
-      { accessorKey: "volume", header: "Volume" },
+      { accessorKey: "productName", header: "Produkt" },
+      { accessorKey: "brandName", header: "Merke" },
+      { accessorKey: "shopName", header: "Butikk" },
+      { accessorKey: "locationName", header: "Sted" },
+      { accessorKey: "price", header: "Pris" },
+      { accessorKey: "volume", header: "Størrelse" },
       { accessorKey: "type", header: "Type" },
+      { accessorKey: "registeredDate", header: "Registrert" },
+      { accessorKey: "purchaseDate", header: "Kjøpt" },
     ],
     []
   );
