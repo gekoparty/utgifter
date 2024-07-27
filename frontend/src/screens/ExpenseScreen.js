@@ -126,6 +126,13 @@ const ExpenseScreen = () => {
   } = useSnackBar();
 
   const addExpenseHandler = (newExpense) => {
+    console.log("New Expense Data:", newExpense);
+    if (!newExpense || !newExpense.productName) {
+      console.error("Invalid expense data:", newExpense);
+      showErrorSnackbar("Failed to add expense due to missing product name.");
+      return;
+    }
+  
     showSuccessSnackbar(`Expense ${newExpense.productName} added successfully`);
     queryClient.invalidateQueries("expenses");
     refetch();
@@ -239,10 +246,10 @@ const ExpenseScreen = () => {
         />
       </Snackbar>
       <AddExpenseDialog
-        onClose={() => setAddExpenseDialogOpen(false)}
-        open={addExpenseDialogOpen}
-        onAdd={addExpenseHandler}
-      />
+  onClose={() => setAddExpenseDialogOpen(false)}
+  open={addExpenseDialogOpen}
+  onAdd={addExpenseHandler}  // Ensure this is correctly passed
+/>
     </TableLayout>
   );
 };
