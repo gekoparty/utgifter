@@ -26,15 +26,14 @@ const useExpenseForm = (initialExpense = null) => {
     pricePerUnit: 0,
   };
 
-  const [expense, setExpense] = useState(
-    initialExpense ? initialExpense : { ...initialExpenseState }
-  );
+  const [expense, setExpense] = useState(initialExpense ? initialExpense : { ...initialExpenseState });
   const [validationErrors, setValidationErrors] = useState({});
 
   const { sendRequest, loading } = useCustomHttp("/api/expenses");
   const { dispatch, state } = useContext(StoreContext);
 
   const resetServerError = useCallback(() => {
+    console.log("Resetting server error");
     dispatch({
       type: "RESET_ERROR",
       resource: "expenses",
@@ -42,6 +41,7 @@ const useExpenseForm = (initialExpense = null) => {
   }, [dispatch]);
 
   const resetValidationErrors = useCallback(() => {
+    console.log("Resetting validation errors");
     dispatch({
       type: "RESET_VALIDATION_ERRORS",
       resource: "expenses",
@@ -49,6 +49,7 @@ const useExpenseForm = (initialExpense = null) => {
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
+    console.log("Resetting form and errors");
     setExpense(initialExpense ? initialExpense : initialExpenseState);
     resetServerError();
     resetValidationErrors();
@@ -93,54 +94,39 @@ const useExpenseForm = (initialExpense = null) => {
   };
 
   const handleSaveExpense = async (onClose) => {
-    if (!expense || !expense.productName.trim() || !expense.brandName.trim()) {
-      console.error("Invalid expense:", expense);
-      return; // Handle empty product name or empty brands array
+    console.log("handleSaveExpense called with expense:", expense);
+
+    if (!expense) {
+      console.error("Expense is undefined");
+      return;
     }
-  
+
+    if (!expense.productName || !expense.brandName) {
+      console.error("Product name or Brand name is missing:", expense);
+      return;
+    }
+
     let formattedExpense;
     let validationErrors = {};
-  
-    try {
-      const formattedProductName = formatComponentFields(
-          expense.productName,
-          "expense",
-          "productName"
-      );
-      const formattedBrandName = formatComponentFields(
-          expense.brandName,
-          "expense",
-          "brandName"
-      );
-      const formattedShopName = formatComponentFields(
-          expense.shopName,
-          "expense",
-          "shopName"
-      );
-      const formattedLocationName = formatComponentFields(
-          expense.locationName,
-          "expense",
-          "locationName"
-      );
-      const formattedType = formatComponentFields(
-          expense.type,
-          "expense",
-          "type"
-      );
 
+    try {
+      // Ensure all required fields are present
       formattedExpense = {
-          ...expense,
-          productName: formattedProductName,
-          brandName: formattedBrandName,
-          shopName: formattedShopName,
-          locationName: formattedLocationName,
-          type: formattedType,
+        ...expense,
+        productName: formatComponentFields(expense.productName, "expense", "productName"),
+        brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
+        shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
+        locationName: formatComponentFields(expense.locationName, "expense", "locationName"),
+        type: formatComponentFields(expense.type, "expense", "type"),
       };
-  
-      await addExpenseValidationSchema.validate(formattedExpense, {
-        abortEarly: false,
-      });
+
+      console.log("Formatted expense:", formattedExpense);
+
+      // Validate formattedExpense
+      await addExpenseValidationSchema.validate(formattedExpense, { abortEarly: false });
+      console.log("Validation passed");
     } catch (validationError) {
+      console.error("Validation error:", validationError);
       if (validationError.inner) {
         validationError.inner.forEach((err) => {
           validationErrors[err.path] = { show: true, message: err.message };
@@ -155,32 +141,24 @@ const useExpenseForm = (initialExpense = null) => {
           showError: true,
         });
       } else {
-        console.error(validationError);
+        console.error("Unknown validation error:", validationError);
       }
       return;
     }
-  
-    const newExpense = formattedExpense;
-    console.log("newExpense", newExpense);
-  
+
     try {
       let url = "/api/expenses";
       let method = "POST";
-  
+
       if (initialExpense) {
         url = `/api/expenses/${initialExpense._id}`;
         method = "PUT";
       }
-  
-      const { data, error: addDataError } = await sendRequest(
-        url,
-        method,
-        newExpense
-      );
-  
-      console.log("Response from the server:", data);
-  
+
+      const { data, error: addDataError } = await sendRequest(url, method, formattedExpense);
+
       if (addDataError) {
+        console.error("API error:", addDataError);
         dispatch({
           type: "SET_ERROR",
           error: addDataError,
@@ -188,20 +166,25 @@ const useExpenseForm = (initialExpense = null) => {
           showError: true,
         });
       } else {
-        const payload = data;
-  
+        console.log("Expense saved successfully:", data);
         if (initialExpense) {
-          dispatch({ type: "UPDATE_ITEM", resource: "expenses", payload });
+          dispatch({ type: "UPDATE_ITEM", resource: "expenses", payload: data });
         } else {
-          dispatch({ type: 'ADD_ITEM', resource: 'expenses', payload: newExpense });
-          setExpense(initialExpenseState)
+          setExpense(initialExpenseState);
         }
         dispatch({ type: "RESET_ERROR", resource: "expenses" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
-        onClose();
-        return true;
+
+        if (Array.isArray(data)) {
+          data.forEach(expenseItem => onClose(expenseItem)); // Handle array of expenses
+        } else {
+          onClose(data);
+        }
+
+        return data;
       }
     } catch (fetchError) {
+      console.error("Fetch error:", fetchError);
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
@@ -212,13 +195,30 @@ const useExpenseForm = (initialExpense = null) => {
   };
 
   const isFormValid = () => {
+    const hasErrors = Object.values(validationErrors).some((error) => error);
+    const hasProductName = expense.productName.trim().length > 0;
+    const hasBrandName = expense.brandName.trim().length > 0;
+    const hasShopName = expense.shopName.trim().length > 0;
+    const hasVolume = expense.volume > 0;
+    const hasPrice = expense.price > 0;
+
+    console.log("Validation status:", {
+      hasErrors,
+      hasProductName,
+      hasBrandName,
+      hasShopName,
+      hasVolume,
+      hasPrice,
+      validationErrors,
+    });
+
     return (
-      !Object.values(validationErrors).some((error) => error) &&
-      expense.productName.trim().length > 0 &&
-      expense.brandName.trim().length > 0 &&
-      expense.shopName.trim().length > 0 &&
-      expense.volume > 0 &&
-      expense.price > 0
+      !hasErrors &&
+      hasProductName &&
+      hasBrandName &&
+      hasShopName &&
+      hasVolume &&
+      hasPrice
     );
   };
 

@@ -44,7 +44,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useExpenseForm();
 
-
   const fetchProducts = async () => {
     const response = await fetch("/api/products");
     if (!response.ok) {
@@ -104,11 +103,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
-  const formatDate = (date) => {
-    if (!date) return '';
-    return dayjs(date).format('DD.MM.YY'); // Change format as needed
-  };
-
+  
 
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
@@ -126,7 +121,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-
   const handleFieldChangeInternal = (field, value, additionalChanges = {}) => {
     setExpense((prevExpense) => {
       const updatedExpense = {
@@ -135,7 +129,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         ...additionalChanges,
       };
 
-      if (field === "price" || field === "discountValue" || field === "discountAmount") {
+      if (
+        field === "price" ||
+        field === "discountValue" ||
+        field === "discountAmount"
+      ) {
         const discountAmount = updatedExpense.hasDiscount
           ? updatedExpense.discountValue > 0
             ? updatedExpense.price * (updatedExpense.discountValue / 100)
@@ -144,7 +142,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         const finalPrice = updatedExpense.price - discountAmount;
 
         if (field === "discountAmount" && updatedExpense.price > 0) {
-          updatedExpense.discountValue = ((value / updatedExpense.price) * 100).toFixed(2);
+          updatedExpense.discountValue = (
+            (value / updatedExpense.price) *
+            100
+          ).toFixed(2);
         }
 
         updatedExpense.discountAmount = discountAmount.toFixed(2);
@@ -154,14 +155,22 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       if (field === "volume") {
         updatedExpense.volume = parseFloat(value);
       }
-  
+
       if (field === "quantity") {
         updatedExpense.quantity = parseInt(value);
       }
 
       // Calculate price per unit (kg or L) based on measurement unit
-      if (field === "finalPrice" || field === "volume" || field === "measurementUnit") {
-        updatedExpense.pricePerUnit = calculatePricePerUnit(updatedExpense.finalPrice, updatedExpense.volume, updatedExpense.measurementUnit);
+      if (
+        field === "finalPrice" ||
+        field === "volume" ||
+        field === "measurementUnit"
+      ) {
+        updatedExpense.pricePerUnit = calculatePricePerUnit(
+          updatedExpense.finalPrice,
+          updatedExpense.volume,
+          updatedExpense.measurementUnit
+        );
       }
       return updatedExpense;
     });
@@ -272,7 +281,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         discountValue: value,
         discountAmount: discountAmount.toFixed(2),
         finalPrice: finalPrice.toFixed(2),
-        pricePerUnit: calculatePricePerUnit(finalPrice, prevExpense.volume, prevExpense.measurementUnit)
+        pricePerUnit: calculatePricePerUnit(
+          finalPrice,
+          prevExpense.volume,
+          prevExpense.measurementUnit
+        ),
       };
     });
   };
@@ -280,14 +293,19 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const handleDiscountAmountChange = (event) => {
     const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
     setExpense((prevExpense) => {
-      const discountValue = prevExpense.price > 0 ? (value / prevExpense.price) * 100 : 0;
+      const discountValue =
+        prevExpense.price > 0 ? (value / prevExpense.price) * 100 : 0;
       const finalPrice = prevExpense.price - value;
       return {
         ...prevExpense,
         discountAmount: value,
         discountValue: discountValue.toFixed(2),
         finalPrice: finalPrice.toFixed(2),
-        pricePerUnit: calculatePricePerUnit(finalPrice, prevExpense.volume, prevExpense.measurementUnit)
+        pricePerUnit: calculatePricePerUnit(
+          finalPrice,
+          prevExpense.volume,
+          prevExpense.measurementUnit
+        ),
       };
     });
   };
@@ -298,22 +316,38 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       ...prevExpense,
       finalPrice,
     }));
-  }, [expense.price, expense.discountValue, expense.discountAmount, expense.hasDiscount]);
+  }, [
+    expense.price,
+    expense.discountValue,
+    expense.discountAmount,
+    expense.hasDiscount,
+  ]);
 
   const calculateFinalPrice = () => {
     if (expense.hasDiscount) {
       if (expense.discountValue > 0) {
-        return (expense.price - expense.price * (expense.discountValue / 100)).toFixed(2);
+        return (
+          expense.price -
+          expense.price * (expense.discountValue / 100)
+        ).toFixed(2);
       }
       return (expense.price - expense.discountAmount).toFixed(2);
     }
     return expense.price;
   };
 
+  const handleSaveButtonClick = () => {
+    console.log("Save button clicked");
+    handleSaveExpense((savedExpense) => {
+      console.log("handleSaveExpense callback invoked with:", savedExpense);
+      onAdd(savedExpense); // Pass the savedExpense data here
+      onClose();
+    });
+  };
 
   return (
     <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
-      <Box sx={{ p: 2, position: 'relative' }}>
+      <Box sx={{ p: 2, position: "relative" }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
             <TextField
@@ -327,7 +361,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               anchorEl={anchorState.productAnchorEl}
               onClose={() => handleClosePopover("product")}
               onSelect={handleProductSelect}
-              options={products.map(product => ({
+              options={products.map((product) => ({
                 name: product.name,
                 value: product.name,
                 type: product.type,
@@ -347,8 +381,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               open={Boolean(anchorState.brandAnchorEl)}
               anchorEl={anchorState.brandAnchorEl}
               onClose={() => handleClosePopover("brand")}
-              onSelect={(value) => handleFieldChangeInternal("brandName", value.name)}
-              options={brands.map(brand => ({
+              onSelect={(value) =>
+                handleFieldChangeInternal("brandName", value.name)
+              }
+              options={brands.map((brand) => ({
                 name: brand.name,
                 value: brand.name,
               }))}
@@ -367,7 +403,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               anchorEl={anchorState.shopAnchorEl}
               onClose={() => handleClosePopover("shop")}
               onSelect={handleShopSelect}
-              options={shops.map(shop => ({
+              options={shops.map((shop) => ({
                 name: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
                 locationName: shop.locationName,
@@ -391,9 +427,13 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               label="Pris"
               type="number"
               value={expense.price}
-              onChange={(e) => handleFieldChangeInternal("price", parseFloat(e.target.value))}
+              onChange={(e) =>
+                handleFieldChangeInternal("price", parseFloat(e.target.value))
+              }
               InputProps={{
-                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+                startAdornment: (
+                  <InputAdornment position="start">Kr</InputAdornment>
+                ),
               }}
             />
           </Grid>
@@ -416,7 +456,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label={`Price per ${expense.measurementUnit === "kg" ? "kg" : "L"}`}
+              label={`Price per ${
+                expense.measurementUnit === "kg" ? "kg" : "L"
+              }`}
               value={expense.pricePerUnit}
               InputProps={{
                 readOnly: true,
@@ -457,7 +499,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   value={expense.discountValue}
                   onChange={handleDiscountValueChange}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start">%</InputAdornment>,
+                    startAdornment: (
+                      <InputAdornment position="start">%</InputAdornment>
+                    ),
                   }}
                 />
               </Grid>
@@ -472,7 +516,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                     shrink: true,
                   }}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+                    startAdornment: (
+                      <InputAdornment position="start">Kr</InputAdornment>
+                    ),
                   }}
                 />
               </Grid>
@@ -486,17 +532,17 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               value={calculateFinalPrice()}
               InputProps={{
                 readOnly: true,
-                 startAdornment: <InputAdornment position="start">Kr</InputAdornment>
+                startAdornment: (
+                  <InputAdornment position="start">Kr</InputAdornment>
+                ),
               }}
-             
-              
             />
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
               label="Type"
-              value={expense.type || ''}
+              value={expense.type || ""}
               InputProps={{
                 readOnly: true,
               }}
@@ -530,7 +576,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <DatePicker
               label="Date"
-              value={dayjs(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
+              value={dayjs(
+                expense.purchased
+                  ? expense.purchaseDate
+                  : expense.registeredDate
+              )}
               onChange={handleDateChange}
               slotProps={{ textField: { fullWidth: true } }}
             />
@@ -539,7 +589,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-        <Button
+      <Button
           onClick={() => {
             resetFormAndErrors();
             onClose();
@@ -551,7 +601,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         <Button
           variant="contained"
           color="primary"
-          onClick={() => handleSaveExpense(onAdd)}
+          onClick={handleSaveButtonClick}
           disabled={!isFormValid || isLoading}
         >
           Save
