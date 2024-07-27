@@ -1,8 +1,12 @@
 import express from "express";
 import Expense from "../models/expenseSchema.js";
-import slugify from "slugify";
+import { format } from "date-fns"; // Import the date-fns library
 
 const expensesRouter = express.Router();
+
+const formatDate = (date) => {
+  return format(new Date(date), "dd.MM.yy");
+};
 
 expensesRouter.get("/", async (req, res) => {
   console.log("GET /api/expenses hit");
@@ -66,12 +70,25 @@ expensesRouter.get("/", async (req, res) => {
 
       const expenses = await query.exec();
 
+      // Format purchaseDate
+      const formattedExpenses = expenses.map(expense => ({
+        ...expense.toObject(),
+        purchaseDate: formatDate(expense.purchaseDate),
+      }));
+
       // Send response with both paginated data and total row count
-      res.json({ expenses, meta: { totalRowCount } });
+      res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
     } else {
       // If not using pagination, just send the expenses data
       const expenses = await query.exec();
-      res.json(expenses);
+
+      // Format purchaseDate
+      const formattedExpenses = expenses.map(expense => ({
+        ...expense.toObject(),
+        purchaseDate: formatDate(expense.purchaseDate),
+      }));
+
+      res.json(formattedExpenses);
     }
   } catch (err) {
     console.error(err.message);
