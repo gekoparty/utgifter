@@ -104,21 +104,29 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
+  const formatDateForDisplay = (date) => {
+    if (!date) return '';
+    return dayjs(date).format('DD.MM.YY');
+  };
+  
+  const formatDateForSaving = (date) => {
+    if (!date) return null;
+    return dayjs(date).format('MM.DD.YY');
+  };
+  
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
-
-    if (expense.purchased) {
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        purchaseDate: date,
-      }));
-    } else {
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        registeredDate: date,
-      }));
-    }
+  
+    const formattedDate = formatDateForSaving(date);
+    console.log("formattedDate", formattedDate)
+  
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      purchaseDate: expense.purchased ? formattedDate : prevExpense.purchaseDate,
+      registeredDate: !expense.purchased ? formattedDate : prevExpense.registeredDate,
+    }));
   };
+
 
   const handleFieldChangeInternal = (field, value, additionalChanges = {}) => {
     setExpense((prevExpense) => {
@@ -521,11 +529,22 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <DatePicker
+          <DatePicker
               label="Date"
               value={dayjs(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
               onChange={handleDateChange}
-              slotProps={{ textField: { fullWidth: true } }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  InputProps: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        {formatDateForDisplay(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
+                      </InputAdornment>
+                    ),
+                  },
+                },
+              }}
             />
           </Grid>
         </Grid>
