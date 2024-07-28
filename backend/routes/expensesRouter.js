@@ -182,4 +182,19 @@ expensesRouter.post("/", async (req, res) => {
   }
 });
 
+expensesRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(id);
+  try {
+    const expense = await Expense.findByIdAndDelete(req.params.id);
+    if (!expense) {
+      return res.status(404).send({ error: "Expense not found" });
+    }
+    res.send(expense);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
 export default expensesRouter;

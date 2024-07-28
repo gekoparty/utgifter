@@ -13,7 +13,7 @@ import useSnackBar from "../hooks/useSnackBar";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import AddExpenseDialog from "../components/Expenses/ExpenseDialogs/AddExpenseDialog"
-//import DeleteExpenseDialog from "../components/Expenses/ExpenseDialogs/DeleteExpenseDialog";
+import DeleteExpenseDialog from "../components/Expenses/ExpenseDialogs/DeleteExpenseDialog";
 //import EditExpenseDialog from "../components/Expenses/ExpenseDialogs/EditExpenseDialog";
 
 
@@ -207,7 +207,7 @@ const ExpenseScreen = () => {
         </Box>
       </Box>
 
-      {/* <DeleteExpenseDialog
+      <DeleteExpenseDialog
         open={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         dialogTitle="Confirm Deletion"
@@ -217,7 +217,7 @@ const ExpenseScreen = () => {
         onDeleteFailure={deleteFailureHandler}
       />
 
-      <EditExpenseDialog
+      {/* EditExpenseDialog
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
         cancelButton={<Button onClick={() => setEditModalOpen(false)}>Cancel</Button>}
@@ -225,7 +225,7 @@ const ExpenseScreen = () => {
         selectedExpense={selectedExpense}
         onUpdateSuccess={editSuccessHandler}
         onUpdateFailure={editFailureHandler}
-      /> */}
+      />  */}
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}

@@ -194,6 +194,34 @@ const useExpenseForm = (initialExpense = null) => {
     }
   };
 
+  const handleDeleteExpense = async (
+    selectedExpense,
+    onDeleteSuccess,
+    onDeleteFailure
+  ) => {
+    try {
+      const response = await sendRequest(
+        `/api/expenses/${selectedExpense?._id}`,
+        "DELETE"
+      );
+      if (response.error) {
+        onDeleteFailure(selectedExpense);
+        return false;
+      } else {
+        onDeleteSuccess(selectedExpense);
+        dispatch({
+          type: "DELETE_ITEM",
+          resource: "expenses",
+          payload: selectedExpense._id,
+        });
+        return true;
+      }
+    } catch (error) {
+      onDeleteFailure(selectedExpense);
+      return false; // Indicate deletion failure
+    }
+  };
+
   const isFormValid = () => {
     const hasErrors = Object.values(validationErrors).some((error) => error);
     const hasProductName = expense.productName.trim().length > 0;
@@ -226,6 +254,7 @@ const useExpenseForm = (initialExpense = null) => {
     isFormValid,
     loading,
     handleSaveExpense,
+    handleDeleteExpense,
     expense,
     setExpense,
     handleFieldChange,
