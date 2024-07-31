@@ -5,13 +5,13 @@ const shopSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
       minlength: 3,
-      maxlength: 50
+      maxlength: 50,
     },
     location: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Location", // Reference the 'Location' model
+      required: true,
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
@@ -39,7 +39,8 @@ const shopSchema = new mongoose.Schema(
   }
 );
 
-shopSchema.index({ slugifiedName: 1, location: 1 }, { unique: true });
+// Create a unique compound index on name and location
+shopSchema.index({ name: 1, location: 1 }, { unique: true });
 
 const Shop = mongoose.model("Shop", shopSchema);
 

@@ -19,18 +19,14 @@ const formatComponentFields = (name, componentName, fieldName) => {
     }
 
     // Split by spaces and hyphens to handle multi-word names and hyphenated words
-    const words = word.split(/[\s-]+/);
+    const words = word.split(/([\s-])/); // This regex preserves spaces and hyphens
     const capitalizedWords = words.map((w) => {
-      // Capitalize each word in the split array
-      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      // Capitalize each word unless it's a space or hyphen
+      return w.match(/[\s-]/) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
     });
 
-    // Join capitalized words back with spaces or hyphens
-    if (word.includes("-")) {
-      return capitalizedWords.join("-");
-    } else {
-      return capitalizedWords.join(" ");
-    }
+    // Join capitalized words back together
+    return capitalizedWords.join('');
   };
 
   console.log(`Formatting: ${fieldName} of ${componentName} with input: ${name}`);
@@ -45,5 +41,3 @@ const formatComponentFields = (name, componentName, fieldName) => {
 };
 
 export { formatComponentFields };
-
-

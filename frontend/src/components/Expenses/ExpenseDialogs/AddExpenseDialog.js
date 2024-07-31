@@ -11,6 +11,11 @@ import {
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import useExpenseForm from "../useExpenseForm";
+import {
+  calculateDiscountAmount,
+  calculateFinalPrice,
+  calculatePricePerUnit,
+} from "../../commons/Utils/expenseUtils"
 import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
 import SelectPopover from "../../commons/SelectPopover/SelectPopover"; // Adjust path as needed
@@ -103,8 +108,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
-  
-
+ 
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
 
@@ -135,11 +139,14 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         field === "discountAmount"
       ) {
         const discountAmount = updatedExpense.hasDiscount
-          ? updatedExpense.discountValue > 0
-            ? updatedExpense.price * (updatedExpense.discountValue / 100)
-            : updatedExpense.discountAmount
+          ? calculateDiscountAmount(updatedExpense.price, updatedExpense.discountValue)
           : 0;
-        const finalPrice = updatedExpense.price - discountAmount;
+
+        const finalPrice = calculateFinalPrice(
+          updatedExpense.price,
+          discountAmount,
+          updatedExpense.hasDiscount
+        );
 
         if (field === "discountAmount" && updatedExpense.price > 0) {
           updatedExpense.discountValue = (
@@ -149,7 +156,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         }
 
         updatedExpense.discountAmount = discountAmount.toFixed(2);
-        updatedExpense.finalPrice = finalPrice.toFixed(2);
+        updatedExpense.finalPrice = finalPrice;
       }
 
       if (field === "volume") {
@@ -176,14 +183,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     });
   };
 
-  // Helper function to calculate price per unit
-  const calculatePricePerUnit = (finalPrice, volume, measurementUnit) => {
-    if (volume > 0 && finalPrice > 0) {
-      return (finalPrice / volume).toFixed(2);
-    }
-    return 0;
-  };
-
+  
   // State variables and functions for popover management
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
@@ -274,13 +274,22 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const handleDiscountValueChange = (event) => {
     const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
     setExpense((prevExpense) => {
-      const discountAmount = value > 0 ? prevExpense.price * (value / 100) : 0;
-      const finalPrice = prevExpense.price - discountAmount;
+      const discountAmount = calculateDiscountAmount(
+        prevExpense.price,
+        value
+      );
+
+      const finalPrice = calculateFinalPrice(
+        prevExpense.price,
+        discountAmount,
+        prevExpense.hasDiscount
+      );
+
       return {
         ...prevExpense,
         discountValue: value,
         discountAmount: discountAmount.toFixed(2),
-        finalPrice: finalPrice.toFixed(2),
+        finalPrice: finalPrice,
         pricePerUnit: calculatePricePerUnit(
           finalPrice,
           prevExpense.volume,
@@ -289,18 +298,23 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       };
     });
   };
-
   const handleDiscountAmountChange = (event) => {
     const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
     setExpense((prevExpense) => {
       const discountValue =
         prevExpense.price > 0 ? (value / prevExpense.price) * 100 : 0;
-      const finalPrice = prevExpense.price - value;
+
+      const finalPrice = calculateFinalPrice(
+        prevExpense.price,
+        value,
+        prevExpense.hasDiscount
+      );
+
       return {
         ...prevExpense,
         discountAmount: value,
         discountValue: discountValue.toFixed(2),
-        finalPrice: finalPrice.toFixed(2),
+        finalPrice: finalPrice,
         pricePerUnit: calculatePricePerUnit(
           finalPrice,
           prevExpense.volume,
@@ -311,30 +325,25 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   useEffect(() => {
-    const finalPrice = calculateFinalPrice();
+    const discountAmount = calculateDiscountAmount(expense.price, expense.discountValue);
+    const finalPrice = calculateFinalPrice(expense.price, discountAmount, expense.hasDiscount);
+    const pricePerUnit = calculatePricePerUnit(finalPrice, expense.volume, expense.measurementUnit);
+  
     setExpense((prevExpense) => ({
       ...prevExpense,
-      finalPrice,
+      finalPrice: finalPrice,
+      discountAmount: discountAmount.toFixed(2),
+      pricePerUnit: pricePerUnit
     }));
   }, [
     expense.price,
     expense.discountValue,
-    expense.discountAmount,
     expense.hasDiscount,
+    expense.volume,
+    expense.measurementUnit
   ]);
 
-  const calculateFinalPrice = () => {
-    if (expense.hasDiscount) {
-      if (expense.discountValue > 0) {
-        return (
-          expense.price -
-          expense.price * (expense.discountValue / 100)
-        ).toFixed(2);
-      }
-      return (expense.price - expense.discountAmount).toFixed(2);
-    }
-    return expense.price;
-  };
+  
 
   const handleSaveButtonClick = () => {
     console.log("Save button clicked");
@@ -529,7 +538,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               fullWidth
               label="Pris m/u Rabatt"
               type="number"
-              value={calculateFinalPrice()}
+              value={expense.finalPrice} // or calculated value
               InputProps={{
                 readOnly: true,
                 startAdornment: (
@@ -589,7 +598,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-      <Button
+        <Button
           onClick={() => {
             resetFormAndErrors();
             onClose();
