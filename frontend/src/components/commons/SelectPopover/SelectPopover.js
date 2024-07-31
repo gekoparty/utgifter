@@ -1,7 +1,7 @@
 import React from "react";
 import { Popover, List, ListItem, ListItemText } from "@mui/material";
 
-const SelectPopover = ({ open, anchorEl, onClose, options, onSelect }) => {
+const SelectPopover = ({ open, anchorEl, onClose, options = [], onSelect }) => {
     return (
         <Popover
             open={open}

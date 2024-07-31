@@ -169,7 +169,7 @@ shopsRouter.post("/", async (req, res) => {
   try {
     const { name, location, category } = req.body;
     let locationId = location;
-    let categoryId = category; // Use the existing locationId parameter
+    let categoryId = category;
 
     if (typeof category === "string") {
       const existingCategory = await Category.findOne({
@@ -189,7 +189,6 @@ shopsRouter.post("/", async (req, res) => {
       }
     }
 
-    // Check if the location and category is provided as a string (name) instead of a reference
     if (typeof location === "string") {
       const existingLocation = await Location.findOne({
         slug: slugify(location, { lower: true }),
@@ -202,30 +201,21 @@ shopsRouter.post("/", async (req, res) => {
         });
 
         const savedLocation = await newLocation.save();
-        locationId = savedLocation._id; // Reassign the locationId using let
+        locationId = savedLocation._id;
       } else {
-        locationId = existingLocation._id; // Reassign the locationId using let
+        locationId = existingLocation._id;
       }
     }
 
     const slugifiedName = slugify(name, { lower: true });
-    //const slugifiedLocation = slugifiedPayload.location;
 
-    // Check if a shop with the same name already exists
     const existingShop = await Shop.findOne({
-      slugifiedName,
+      name,
+      location: locationId,
     });
 
     if (existingShop) {
-      // Check if the shop with the same name and location already exists
-      const existingShopWithLocation = await Shop.findOne({
-        slugifiedName,
-        location: locationId,
-      });
-
-      if (existingShopWithLocation) {
-        return res.status(400).json({ message: "duplicate" });
-      }
+      return res.status(400).json({ message: "A shop with the same name and location already exists." });
     }
 
     const shop = new Shop({
@@ -239,7 +229,6 @@ shopsRouter.post("/", async (req, res) => {
       const savedShop = await shop.save();
       console.log("Saved shop:", savedShop);
 
-      // Fetch the associated location document using populate
       const populatedShop = await Shop.findById(savedShop._id)
         .populate("location")
         .populate("category")
@@ -254,87 +243,82 @@ shopsRouter.post("/", async (req, res) => {
     console.error("Server error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
-});
+})
+
+
 
 shopsRouter.put("/:id", async (req, res) => {
   const shopId = req.params.id;
   console.log(req.body);
-  console.log(req.body);
 
   try {
-    const { name, location, category } = req.body; // Destructure directly from req.body
+    const { name, location, category } = req.body;
 
-    // Find the shop by its ID
     const shop = await Shop.findById(shopId);
 
     if (!shop) {
       return res.status(404).json({ message: "Shop not found" });
     }
 
-    // Check if the name already exists (excluding the current shop being updated)
+    const slugifiedName = slugify(name, { lower: true });
+
     const existingShop = await Shop.findOne({
-      slugifiedName: slugify(name, { lower: true }),
-      slugifiedLocation: slugify(location, { lower: true }),
+      name,
+      location,
       _id: { $ne: shopId },
     });
+
     if (existingShop) {
-      return res.status(400).json({ message: "duplicate" });
+      return res.status(400).json({ message: "A shop with the same name and location already exists." });
     }
 
-    // If the category exists, use its ObjectId; otherwise, create a new category
-    let locationObjectId;
+    let locationObjectId = shop.location;
+    if (location && typeof location === "string") {
+      const existingLocation = await Location.findOne({
+        slug: slugify(location, { lower: true }),
+      });
 
-    if (location !== "N/A") {
-      const existingLocation = await Location.findById(shop.location);
-      if (existingLocation) {
-        existingLocation.name = location;
-        await existingLocation.save();
-        locationObjectId = existingLocation._id;
-      } else {
+      if (!existingLocation) {
         const newLocation = new Location({
           name: location,
           slug: slugify(location, { lower: true }),
         });
+
         const savedLocation = await newLocation.save();
         locationObjectId = savedLocation._id;
+      } else {
+        locationObjectId = existingLocation._id;
       }
-    } else {
-      locationObjectId = null; // Set locationObjectId to null for "N/A"
     }
 
-    // If the category exists and it's not "N/A," use its ObjectId; otherwise, create a new category
-    let categoryObjectId;
+    let categoryObjectId = shop.category;
+    if (category && typeof category === "string") {
+      const existingCategory = await Category.findOne({
+        slug: slugify(category, { lower: true }),
+      });
 
-    if (category !== "N/A") {
-      const existingCategory = await Category.findById(shop.category);
-
-      if (existingCategory) {
-        existingCategory.name = category;
-        await existingCategory.save();
-        categoryObjectId = existingCategory._id;
-      } else {
-        console.log("creating new");
+      if (!existingCategory) {
         const newCategory = new Category({
           name: category,
           slug: slugify(category, { lower: true }),
         });
+
         const savedCategory = await newCategory.save();
         categoryObjectId = savedCategory._id;
+      } else {
+        categoryObjectId = existingCategory._id;
       }
-    } else {
-      categoryObjectId = null; // Set categoryObjectId to null for "N/A"
     }
 
-    // Update the shop fields
     shop.name = name;
     shop.location = locationObjectId;
     shop.category = categoryObjectId;
-    shop.slugifiedName = slugify(name, { lower: true });
+    shop.slugifiedName = slugifiedName;
 
     try {
       const updatedShop = await shop.save();
       console.log("Updated shop:", updatedShop);
-      // Fetch the updated shop data along with the associated location data using populate
+
       const populatedShop = await Shop.findById(updatedShop._id)
         .populate("location")
         .populate("category")

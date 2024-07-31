@@ -64,11 +64,16 @@ const ExpenseScreen = () => {
       { accessorKey: "brandName", header: "Merke" },
       { accessorKey: "shopName", header: "Butikk" },
       { accessorKey: "locationName", header: "Sted" },
-      { accessorKey: "price", header: "Pris" },
+      { accessorKey: "price", header: "OrignalPris" },
+      { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
       { accessorKey: "volume", header: "Størrelse" },
       { accessorKey: "type", header: "Type" },
       { accessorKey: "registeredDate", header: "Registrert" },
       { accessorKey: "purchaseDate", header: "Kjøpt" },
+      { accessorKey: "finalPrice", header: "Kjøpspris" },
+      { accessorKey: "discountValue", header: "Rabatt" },
+      { accessorKey: "discountAmount", header: "Rabatt i kr" },
+      { accessorKey: "purhchased", header: "Kjøpt" },
     ],
     []
   );
@@ -212,7 +217,7 @@ const ExpenseScreen = () => {
         onClose={() => setDeleteModalOpen(false)}
         dialogTitle="Confirm Deletion"
         cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>}
-        selectedExpense={selectedExpense}
+        selectedProduct={selectedExpense || {}} // Provide a fallback
         onDeleteSuccess={deleteSuccessHandler}
         onDeleteFailure={deleteFailureHandler}
       />
