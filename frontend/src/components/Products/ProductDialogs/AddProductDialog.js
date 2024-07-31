@@ -13,6 +13,7 @@ import { fetchBrands } from "../../commons/Utils/apiUtils";
 const measurementUnitOptions = [
   { value: "l", label: "Litres (l)" },
   { value: "kg", label: "Kilos (kg)" },
+  {value: "stk", label: "Stykk (stk"},
   // Add more measurement unit options as needed
 ];
 

@@ -213,14 +213,13 @@ const ExpenseScreen = () => {
       </Box>
 
       <DeleteExpenseDialog
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        dialogTitle="Confirm Deletion"
-        cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>}
-        selectedProduct={selectedExpense || {}} // Provide a fallback
-        onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={deleteFailureHandler}
-      />
+  open={deleteModalOpen}
+  onClose={() => setDeleteModalOpen(false)}
+  dialogTitle="Confirm Deletion"
+  selectedExpense={selectedExpense} // Corrected prop name
+  onDeleteSuccess={deleteSuccessHandler}
+  onDeleteFailure={deleteFailureHandler}
+/>
 
       {/* EditExpenseDialog
         open={editModalOpen}

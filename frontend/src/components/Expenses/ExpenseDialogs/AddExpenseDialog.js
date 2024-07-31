@@ -132,7 +132,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         [field]: value,
         ...additionalChanges,
       };
-
+  
       if (
         field === "price" ||
         field === "discountValue" ||
@@ -141,33 +141,29 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         const discountAmount = updatedExpense.hasDiscount
           ? calculateDiscountAmount(updatedExpense.price, updatedExpense.discountValue)
           : 0;
-
+  
         const finalPrice = calculateFinalPrice(
           updatedExpense.price,
           discountAmount,
           updatedExpense.hasDiscount
         );
-
+  
         if (field === "discountAmount" && updatedExpense.price > 0) {
           updatedExpense.discountValue = (
             (value / updatedExpense.price) *
             100
           ).toFixed(2);
         }
-
+  
         updatedExpense.discountAmount = discountAmount.toFixed(2);
         updatedExpense.finalPrice = finalPrice;
       }
-
+  
       if (field === "volume") {
         updatedExpense.volume = parseFloat(value);
       }
-
-      if (field === "quantity") {
-        updatedExpense.quantity = parseInt(value);
-      }
-
-      // Calculate price per unit (kg or L) based on measurement unit
+  
+      // Calculate price per unit based on measurement unit
       if (
         field === "finalPrice" ||
         field === "volume" ||
@@ -179,6 +175,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           updatedExpense.measurementUnit
         );
       }
+  
       return updatedExpense;
     });
   };
@@ -463,19 +460,25 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label={`Price per ${
-                expense.measurementUnit === "kg" ? "kg" : "L"
-              }`}
-              value={expense.pricePerUnit}
-              InputProps={{
-                readOnly: true,
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
+          <TextField
+  fullWidth
+  label={`Pris pr ${
+    expense.measurementUnit === "kg"
+      ? "kg"
+      : expense.measurementUnit === "L"
+      ? "L"
+      : expense.measurementUnit === "stk"
+      ? "stk"
+      : " " // Fallback in case of an unknown unit
+  }`}
+  value={expense.pricePerUnit}
+  InputProps={{
+    readOnly: true,
+  }}
+  InputLabelProps={{
+    shrink: true,
+  }}
+/>
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
