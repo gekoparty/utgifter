@@ -28,7 +28,7 @@ export const addProductValidationSchema = Yup.object().shape({
   name: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
-    .max(20, "Maks 20 tegn")
+    .max(30, "Maks 20 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"), 
     brands: Yup.array().of(Yup.string().required("Brand navn er påkrævet")),
     measurementUnit: Yup.string().required("Må ha måleenhet")
@@ -38,7 +38,7 @@ export const addExpenseValidationSchema = Yup.object().shape({
   productName: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
-    .max(20, "Maks 20 tegn"),
+    .max(30, "Maks 20 tegn"),
   shopName: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")

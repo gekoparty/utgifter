@@ -21,7 +21,7 @@ const productSchema = new mongoose.Schema(
     },
     measurementUnit: {
         type: String, // You can use an enum or validation to ensure valid units
-        enum: ["l", "kg", "pieces", "grams", "millilitres", "etc"],
+        enum: ["l", "kg", "stk", "grams", "millilitres", "etc"],
         required: true,
       },
     brands: [

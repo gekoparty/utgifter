@@ -11,7 +11,10 @@ export const calculateFinalPrice = (price = 0, discountAmount = 0, hasDiscount =
 
 export const calculatePricePerUnit = (finalPrice = 0, volume = 1, measurementUnit) => {
   if (volume > 0 && finalPrice > 0) {
-    return (finalPrice / volume).toFixed(2);
+    if (measurementUnit === "stk") {
+      return (finalPrice / volume).toFixed(2); // Calculate price per piece
+    }
+    return (finalPrice / volume).toFixed(2); // Calculate price per unit (kg, L, etc.)
   }
   return 0;
 };
