@@ -8,6 +8,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
+import commonSelectStyles from "../../commons/Styles/SelectStyles";
 import { fetchBrands } from "../../commons/Utils/apiUtils";
 
 const measurementUnitOptions = [
@@ -72,6 +73,8 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
 };
 
 
+
+
   return (
     <BasicDialog
       open={open}
@@ -105,8 +108,9 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
             ) : null}
           </Grid>
           <Grid item>
-            <CreatableSelect
-              className="custom-select"
+            
+          <CreatableSelect
+             styles={commonSelectStyles}
               options={brandOptions}
               size="small"
               label="Merke"
@@ -149,6 +153,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
           </Grid>
           <Grid item>
             <Select
+            styles={commonSelectStyles}
               options={predefinedTypes.map((type) => ({
                 value: type,
                 label: type,
@@ -168,6 +173,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
           </Grid>
           <Grid item>
             <Select
+            styles={commonSelectStyles}
               id="measurementUnit"
               options={measurementUnitOptions}
               value={measurementUnitOptions.find(
