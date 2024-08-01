@@ -18,6 +18,7 @@ import {
 } from "../../commons/Utils/expenseUtils"
 import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
+import useFetchData from "../../../hooks/useFetchData";
 import SelectPopover from "../../commons/SelectPopover/SelectPopover"; // Adjust path as needed
 
 const defaultExpense = {
@@ -49,61 +50,27 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useExpenseForm();
 
-  const fetchProducts = async () => {
-    const response = await fetch("/api/products");
-    if (!response.ok) {
-      throw new Error(`Failed to fetch products`);
-    }
-    return response.json();
-  };
 
-  const fetchBrands = async () => {
-    const response = await fetch("/api/brands");
-    if (!response.ok) {
-      throw new Error(`Failed to fetch brands`);
-    }
-    return response.json();
-  };
+  const { data: products, isLoading: isLoadingProducts } = useFetchData(
+    "products",
+    "/api/products"
+  );
 
-  const fetchShops = async () => {
-    const response = await fetch("/api/shops");
-    if (!response.ok) {
-      throw new Error(`Failed to fetch shops`);
-    }
-    const shops = await response.json();
+  const { data: brands, isLoading: isLoadingBrands } = useFetchData(
+    "brands",
+    "/api/brands"
+  );
 
-    // Fetch locations for each shop
-    const shopsWithLocations = await Promise.all(
-      shops.map(async (shop) => {
+  const { data: shops, isLoading: isLoadingShops } = useFetchData(
+    "shops",
+    "/api/shops",
+    async (shops) => {
+      return Promise.all(shops.map(async (shop) => {
         const locationResponse = await fetch(`/api/locations/${shop.location}`);
-        if (!locationResponse.ok) {
-          throw new Error(
-            `Failed to fetch location details for location: ${shop.location}`
-          );
-        }
         const location = await locationResponse.json();
         return { ...shop, locationName: location.name };
-      })
-    );
-
-    return shopsWithLocations;
-  };
-
-  // Use useQuery hooks to fetch data
-  const { data: products = [], isLoading: isLoadingProducts } = useQuery(
-    ["products"],
-    fetchProducts,
-    { enabled: open }
-  );
-  const { data: brands = [], isLoading: isLoadingBrands } = useQuery(
-    ["brands"],
-    fetchBrands,
-    { enabled: open }
-  );
-  const { data: shops = [], isLoading: isLoadingShops } = useQuery(
-    ["shops"],
-    fetchShops,
-    { enabled: open }
+      }));
+    }
   );
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
