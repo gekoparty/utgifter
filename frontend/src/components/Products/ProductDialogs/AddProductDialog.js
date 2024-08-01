@@ -37,6 +37,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
   } = useProductDialog();
 
   const [selectedBrands, setSelectedBrands] = useState([]);
+  
   useEffect(() => {
     if (open) {
         resetFormAndErrors(); // Reset form and errors using the hook
