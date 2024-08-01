@@ -8,7 +8,7 @@ import { addProductValidationSchema } from "../../../validation/validationSchema
 const useProductDialog = (initialProduct = null) => {
   const initialProductState = {
     name: "",
-    brands: [],
+    brands: [], // Initialize brands as an empty array
     measurementUnit: "",
     type: "",
   };
