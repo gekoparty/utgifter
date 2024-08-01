@@ -38,8 +38,11 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
 
   const [selectedBrands, setSelectedBrands] = useState([]);
   useEffect(() => {
-    console.log("Product state:", product); // Log product state on every change
-  }, [product]);
+    if (open) {
+        resetFormAndErrors(); // Reset form and errors using the hook
+        setSelectedBrands([]); // Reset selected brands
+    }
+}, [open]);
 
   const {
     data: brandOptions,
