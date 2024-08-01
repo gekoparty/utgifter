@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
-  TextField,
   Grid,
   InputAdornment,
   Checkbox,
@@ -11,14 +10,9 @@ import {
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import useExpenseForm from "../useExpenseForm";
-import {
-  calculateDiscountAmount,
-  calculateFinalPrice,
-  calculatePricePerUnit,
-} from "../../commons/Utils/expenseUtils";
 import ExpenseField from "../../commons/ExpenseField/ExpenseField";
 import dayjs from "dayjs";
-
+import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";
 import SelectPopover from "../../commons/SelectPopover/SelectPopover"; // Adjust path as needed
 
@@ -95,63 +89,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-  const handleFieldChangeInternal = (field, value, additionalChanges = {}) => {
-    setExpense((prevExpense) => {
-      const updatedExpense = {
-        ...prevExpense,
-        [field]: value,
-        ...additionalChanges,
-      };
-
-      if (
-        field === "price" ||
-        field === "discountValue" ||
-        field === "discountAmount"
-      ) {
-        const discountAmount = updatedExpense.hasDiscount
-          ? calculateDiscountAmount(
-              updatedExpense.price,
-              updatedExpense.discountValue
-            )
-          : 0;
-
-        const finalPrice = calculateFinalPrice(
-          updatedExpense.price,
-          discountAmount,
-          updatedExpense.hasDiscount
-        );
-
-        if (field === "discountAmount" && updatedExpense.price > 0) {
-          updatedExpense.discountValue = (
-            (value / updatedExpense.price) *
-            100
-          ).toFixed(2);
-        }
-
-        updatedExpense.discountAmount = discountAmount.toFixed(2);
-        updatedExpense.finalPrice = finalPrice;
-      }
-
-      if (field === "volume") {
-        updatedExpense.volume = parseFloat(value);
-      }
-
-      // Calculate price per unit based on measurement unit
-      if (
-        field === "finalPrice" ||
-        field === "volume" ||
-        field === "measurementUnit"
-      ) {
-        updatedExpense.pricePerUnit = calculatePricePerUnit(
-          updatedExpense.finalPrice,
-          updatedExpense.volume,
-          updatedExpense.measurementUnit
-        );
-      }
-
-      return updatedExpense;
-    });
-  };
+  const {
+    handleFieldChange,
+    handleDiscountAmountChange,
+    handleDiscountValueChange,
+  } = useHandleFieldChange(expense, setExpense);
 
   // State variables and functions for popover management
   const [anchorState, setAnchorState] = useState({
@@ -196,7 +138,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   const handleQuantityChange = (event) => {
     const value = event.target.value;
-    handleFieldChangeInternal("quantity", value);
+    handleFieldChange("quantity", value);
   };
 
   const handleShopSelect = (shop) => {
@@ -228,97 +170,17 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     const value = event.target.value;
     setVolumeDisplay(value);
     const numericValue = parseFloat(value);
-    handleFieldChangeInternal("volume", numericValue);
+    handleFieldChange("volume", numericValue);
   };
 
   const handleDiscountChange = (event) => {
     const { checked } = event.target;
-    handleFieldChangeInternal("hasDiscount", checked);
+    handleFieldChange("hasDiscount", checked);
     if (!checked) {
-      handleFieldChangeInternal("discountValue", 0);
-      handleFieldChangeInternal("discountAmount", 0);
+      handleFieldChange("discountValue", 0);
+      handleFieldChange("discountAmount", 0);
     }
   };
-
-  const handleDiscountValueChange = (event) => {
-    const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
-    setExpense((prevExpense) => {
-      const discountAmount = calculateDiscountAmount(prevExpense.price, value);
-
-      const finalPrice = calculateFinalPrice(
-        prevExpense.price,
-        discountAmount,
-        prevExpense.hasDiscount
-      );
-
-      return {
-        ...prevExpense,
-        discountValue: value,
-        discountAmount: discountAmount.toFixed(2),
-        finalPrice: finalPrice,
-        pricePerUnit: calculatePricePerUnit(
-          finalPrice,
-          prevExpense.volume,
-          prevExpense.measurementUnit
-        ),
-      };
-    });
-  };
-  const handleDiscountAmountChange = (event) => {
-    const value = parseFloat(event.target.value) || 0; // Use 0 if value is NaN
-    setExpense((prevExpense) => {
-      const discountValue =
-        prevExpense.price > 0 ? (value / prevExpense.price) * 100 : 0;
-
-      const finalPrice = calculateFinalPrice(
-        prevExpense.price,
-        value,
-        prevExpense.hasDiscount
-      );
-
-      return {
-        ...prevExpense,
-        discountAmount: value,
-        discountValue: discountValue.toFixed(2),
-        finalPrice: finalPrice,
-        pricePerUnit: calculatePricePerUnit(
-          finalPrice,
-          prevExpense.volume,
-          prevExpense.measurementUnit
-        ),
-      };
-    });
-  };
-
-  useEffect(() => {
-    const discountAmount = calculateDiscountAmount(
-      expense.price,
-      expense.discountValue
-    );
-    const finalPrice = calculateFinalPrice(
-      expense.price,
-      discountAmount,
-      expense.hasDiscount
-    );
-    const pricePerUnit = calculatePricePerUnit(
-      finalPrice,
-      expense.volume,
-      expense.measurementUnit
-    );
-
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      finalPrice: finalPrice,
-      discountAmount: discountAmount.toFixed(2),
-      pricePerUnit: pricePerUnit,
-    }));
-  }, [
-    expense.price,
-    expense.discountValue,
-    expense.hasDiscount,
-    expense.volume,
-    expense.measurementUnit,
-  ]);
 
   const handleSaveButtonClick = () => {
     console.log("Save button clicked");
@@ -366,7 +228,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               anchorEl={anchorState.brandAnchorEl}
               onClose={() => handleClosePopover("brand")}
               onSelect={(value) =>
-                handleFieldChangeInternal("brandName", value.name)
+                handleFieldChange("brandName", value.name)
               }
               options={brands.map((brand) => ({
                 name: brand.name,
