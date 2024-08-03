@@ -60,10 +60,27 @@ const ExpenseScreen = () => {
 
   const tableColumns = useMemo(
     () => [
-      { accessorKey: "productName", header: "Produkt" },
-      { accessorKey: "brandName", header: "Merke" },
-      { accessorKey: "shopName", header: "Butikk" },
-      { accessorKey: "locationName", header: "Sted" },
+      { 
+        accessorKey: "productName.name", 
+        header: "Produkt", 
+        // If you have nested accessor, ensure the table supports nested object access
+        Cell: ({ row }) => row.original.productName.name // Adjust if needed based on your table library
+      },
+      { 
+        accessorKey: "brandName.name", 
+        header: "Merke",
+        Cell: ({ row }) => row.original.brandName.name // Adjust as necessary
+      },
+      { 
+        accessorKey: "shopName.name", 
+        header: "Butikk", 
+        Cell: ({ row }) => row.original.shopName.name // Adjust as necessary
+      },
+      { 
+        accessorKey: "locationName.name", 
+        header: "Sted", 
+        Cell: ({ row }) => row.original.locationName.name // Adjust as necessary
+      },
       { accessorKey: "price", header: "OrignalPris" },
       { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
       { accessorKey: "volume", header: "Størrelse" },
@@ -73,7 +90,7 @@ const ExpenseScreen = () => {
       { accessorKey: "finalPrice", header: "Kjøpspris" },
       { accessorKey: "discountValue", header: "Rabatt" },
       { accessorKey: "discountAmount", header: "Rabatt i kr" },
-      { accessorKey: "purhchased", header: "Kjøpt" },
+      { accessorKey: "purchased", header: "Kjøpt" },
     ],
     []
   );

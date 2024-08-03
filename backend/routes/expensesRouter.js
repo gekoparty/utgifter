@@ -1,5 +1,9 @@
 import express from "express";
 import Expense from "../models/expenseSchema.js";
+import Product from "../models/productSchema.js";
+import Brand from "../models/brandSchema.js";
+import Shop from "../models/shopSchema.js";
+import Location from "../models/locationScema.js";
 import { format } from "date-fns"; // Import the date-fns library
 
 const expensesRouter = express.Router();
@@ -36,7 +40,10 @@ expensesRouter.get("/", async (req, res) => {
       const globalFilterRegex = new RegExp(globalFilter, "i");
       query = query.find({
         $or: [
-          { productName: globalFilterRegex }, // Assuming 'productName' is a field in your data
+          { productName: globalFilterRegex },
+          { brandName: globalFilterRegex },
+          { shopName: globalFilterRegex },
+          { locationName: globalFilterRegex },
           // Add other fields here that you want to include in the global filter
         ],
       });
@@ -68,7 +75,12 @@ expensesRouter.get("/", async (req, res) => {
       // Apply pagination
       query = query.skip(startIndex).limit(pageSize);
 
-      const expenses = await query.exec();
+      const expenses = await query
+        .populate('productName', 'name')
+        .populate('brandName', 'name')
+        .populate('shopName', 'name')
+        .populate('locationName', 'name')
+        .exec();
 
       // Format purchaseDate
       const formattedExpenses = expenses.map(expense => ({
@@ -80,7 +92,12 @@ expensesRouter.get("/", async (req, res) => {
       res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
     } else {
       // If not using pagination, just send the expenses data
-      const expenses = await query.exec();
+      const expenses = await query
+        .populate('productName', 'name')
+        .populate('brandName', 'name')
+        .populate('shopName', 'name')
+        .populate('locationName', 'name')
+        .exec();
 
       // Format purchaseDate
       const formattedExpenses = expenses.map(expense => ({
@@ -138,6 +155,16 @@ expensesRouter.post("/", async (req, res) => {
       pricePerUnit,
     } = req.body;
 
+    // Find or create references
+    const product = await Product.findOne({ name: productName });
+    const brand = await Brand.findOne({ name: brandName });
+    const shop = await Shop.findOne({ name: shopName });
+    const location = locationName ? await Location.findOne({ name: locationName }) : null;
+
+    if (!product || !brand || !shop) {
+      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+    }
+
     // Ensure quantity is a positive integer
     const quantityNumber = parseInt(quantity, 10);
     if (isNaN(quantityNumber) || quantityNumber <= 0) {
@@ -150,13 +177,13 @@ expensesRouter.post("/", async (req, res) => {
     // Create each expense document based on quantity
     for (let i = 0; i < quantityNumber; i++) {
       const expense = new Expense({
-        productName,
-        brandName,
+        productName: product._id,
+        brandName: brand._id,
         measurementUnit,
         type,
         price,
         purchased,
-        shopName,
+        shopName: shop._id,
         purchaseDate,
         registeredDate,
         hasDiscount,
@@ -164,7 +191,7 @@ expensesRouter.post("/", async (req, res) => {
         discountAmount,
         quantity: 1, // Set quantity to 1 for each document
         volume,
-        locationName,
+        locationName: location ? location._id : null,
         finalPrice,
         pricePerUnit,
       });
