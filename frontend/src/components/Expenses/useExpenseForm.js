@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useContext, useMemo } from "react";
 import dayjs from "dayjs";
 import { formatComponentFields } from "../commons/Utils/FormatUtil";
 import { StoreContext } from "../../Store/Store";
@@ -6,7 +6,8 @@ import { addExpenseValidationSchema } from "../../validation/validationSchema";
 import useCustomHttp from "../../hooks/useHttp";
 
 const useExpenseForm = (initialExpense = null) => {
-  const initialExpenseState = {
+  // Memoize the initialExpenseState
+  const initialExpenseState = useMemo(() => ({
     measurementUnit: "",
     productName: "",
     shopName: "",
@@ -24,7 +25,7 @@ const useExpenseForm = (initialExpense = null) => {
     registeredDate: null,
     type: "",
     pricePerUnit: 0,
-  };
+  }), []);
 
   const [expense, setExpense] = useState(initialExpense ? initialExpense : { ...initialExpenseState });
   const [validationErrors, setValidationErrors] = useState({});
@@ -33,7 +34,6 @@ const useExpenseForm = (initialExpense = null) => {
   const { dispatch, state } = useContext(StoreContext);
 
   const resetServerError = useCallback(() => {
-    console.log("Resetting server error");
     dispatch({
       type: "RESET_ERROR",
       resource: "expenses",
@@ -41,7 +41,6 @@ const useExpenseForm = (initialExpense = null) => {
   }, [dispatch]);
 
   const resetValidationErrors = useCallback(() => {
-    console.log("Resetting validation errors");
     dispatch({
       type: "RESET_VALIDATION_ERRORS",
       resource: "expenses",
@@ -49,12 +48,11 @@ const useExpenseForm = (initialExpense = null) => {
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
-    console.log("Resetting form and errors");
     setExpense(initialExpense ? initialExpense : initialExpenseState);
     resetServerError();
     resetValidationErrors();
     setValidationErrors({});
-  }, [initialExpense, resetServerError, resetValidationErrors]);
+  }, [initialExpense, initialExpenseState, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
     if (initialExpense) {
@@ -110,7 +108,6 @@ const useExpenseForm = (initialExpense = null) => {
     let validationErrors = {};
 
     try {
-      // Ensure all required fields are present
       formattedExpense = {
         ...expense,
         productName: formatComponentFields(expense.productName, "expense", "productName"),
@@ -122,7 +119,6 @@ const useExpenseForm = (initialExpense = null) => {
 
       console.log("Formatted expense:", formattedExpense);
 
-      // Validate formattedExpense
       await addExpenseValidationSchema.validate(formattedExpense, { abortEarly: false });
       console.log("Validation passed");
     } catch (validationError) {
@@ -167,11 +163,7 @@ const useExpenseForm = (initialExpense = null) => {
         });
       } else {
         console.log("Expense saved successfully:", data);
-        if (initialExpense) {
-          dispatch({ type: "UPDATE_ITEM", resource: "expenses", payload: data });
-        } else {
-          setExpense(initialExpenseState);
-        }
+        setExpense(initialExpenseState); // Reset the form after saving
         dispatch({ type: "RESET_ERROR", resource: "expenses" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
 
