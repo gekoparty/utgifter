@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 const expenseSchema = new mongoose.Schema({
   productName: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
     required: true,
   },
   brandName: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Brand',
     required: true,
   },
   measurementUnit: {
@@ -23,7 +25,7 @@ const expenseSchema = new mongoose.Schema({
     min: 0,
   },
   pricePerUnit: {
-    type: Number,  // Change to String to match payload format
+    type: Number, 
     required: false,
   },
   purchased: {
@@ -32,7 +34,8 @@ const expenseSchema = new mongoose.Schema({
     default: false,
   },
   shopName: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Shop',
     required: true,
   },
   purchaseDate: {
@@ -54,11 +57,11 @@ const expenseSchema = new mongoose.Schema({
     default: 0,
   },
   discountAmount: {
-    type: Number,  // Change to String to match payload format
+    type: Number,
     required: false,
   },
   finalPrice: {
-    type: Number,  // Change to String to match payload format
+    type: Number,
     required: true,
   },
   quantity: {
@@ -72,7 +75,8 @@ const expenseSchema = new mongoose.Schema({
     default: 0,
   },
   locationName: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Location',
     required: false,
   },
 }, {
