@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState, useEffect } from "react";
+import { useCallback, useContext, useState, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
@@ -6,12 +6,13 @@ import { StoreContext } from "../../../Store/Store";
 import { addProductValidationSchema } from "../../../validation/validationSchema";
 
 const useProductDialog = (initialProduct = null) => {
-  const initialProductState = {
+  // Memoize the initialProductState
+  const initialProductState = useMemo(() => ({
     name: "",
     brands: [], // Initialize brands as an empty array
     measurementUnit: "",
     type: "",
-  };
+  }), []);
 
   const [product, setProduct] = useState(
     initialProduct ? initialProduct : { ...initialProductState }
@@ -38,11 +39,9 @@ const useProductDialog = (initialProduct = null) => {
     setProduct(initialProduct ? initialProduct : initialProductState);
     resetServerError();
     resetValidationErrors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialProduct, resetServerError, resetValidationErrors]);
+  }, [initialProduct, initialProductState, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
-    let isUnmounted = false;
     if (initialProduct) {
       setProduct((prevProduct) => ({
         ...prevProduct,
@@ -53,20 +52,10 @@ const useProductDialog = (initialProduct = null) => {
     } else {
       resetFormAndErrors();
     }
-    return () => {
-      isUnmounted = true;
 
-      if (!isUnmounted) {
-        // Clear product-related data from the store only when leaving the page
-        dispatch({
-          type: "CLEAR_RESOURCE",
-          resource: "products",
-        });
-        dispatch({
-          type: "CLEAR_RESOURCE",
-          resource: "brands",
-        });
-      }
+    return () => {
+      dispatch({ type: "CLEAR_RESOURCE", resource: "products" });
+      dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
     };
   }, [initialProduct, resetFormAndErrors, dispatch]);
 
@@ -95,7 +84,7 @@ const useProductDialog = (initialProduct = null) => {
         abortEarly: false, // This ensures Yup collects all field errors
       });
     } catch (validationError) {
-      if (validationError.inner) { // Ensure validationError.inner is defined
+      if (validationError.inner) {
         validationError.inner.forEach((err) => {
           validationErrors[err.path] = { show: true, message: err.message };
         });
@@ -125,11 +114,7 @@ const useProductDialog = (initialProduct = null) => {
         method = "PUT";
       }
 
-      const { data, error: addDataError } = await sendRequest(
-        url,
-        method,
-        newProduct
-      );
+      const { data, error: addDataError } = await sendRequest(url, method, newProduct);
 
       console.log("Response from the server:", data);
 
@@ -141,26 +126,7 @@ const useProductDialog = (initialProduct = null) => {
           showError: true,
         });
       } else {
-        const payload = data;
-        console.log(data);
-        if (initialProduct) {
-          dispatch({ type: "UPDATE_ITEM", resource: "products", payload });
-        } else {
-          // For new Products, add the brand to the store if it doesn't exist
-          const existingBrand = state.brands.find(
-            (bra) => bra.name === newProduct.brands[0] // Assuming brands is an array
-          );
-          if (!existingBrand) {
-            dispatch({
-              type: "ADD_ITEM",
-              resource: "brands",
-              payload: newProduct.brands[0],
-            });
-          }
-
-          dispatch({ type: "ADD_ITEM", resource: "products", payload });
-          setProduct({});
-        }
+        // Handle success, but no need to update the store
         dispatch({ type: "RESET_ERROR", resource: "products" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
         onClose();
@@ -210,11 +176,11 @@ const useProductDialog = (initialProduct = null) => {
   const isFormValid = () => {
     return (
       !validationError?.name &&
-      !validationError?.brands && // Update this line to use 'brands'
+      !validationError?.brands && 
       !validationError?.measurementUnit &&
-      !validationError?.type && // Include type validation
+      !validationError?.type &&
       product?.name?.trim().length > 0 &&
-      product?.brands?.length > 0 && // Update this line to use 'brands'
+      product?.brands?.length > 0 &&
       product?.measurementUnit?.trim().length > 0 &&
       product?.type?.length > 0
     );
