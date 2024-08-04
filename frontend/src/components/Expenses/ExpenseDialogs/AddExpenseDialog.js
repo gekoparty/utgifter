@@ -186,7 +186,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     console.log("Save button clicked");
     handleSaveExpense((savedExpense) => {
       console.log("handleSaveExpense callback invoked with:", savedExpense);
-      onAdd(savedExpense); // Pass the savedExpense data here
+      const productName = savedExpense.productName || "Unknown Product";
+      onAdd({ ...savedExpense, productName }) // Pass the savedExpense data here
       onClose();
     });
   };
