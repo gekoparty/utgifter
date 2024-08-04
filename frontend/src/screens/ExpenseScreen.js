@@ -165,7 +165,8 @@ const ExpenseScreen = () => {
   };
 
   const deleteSuccessHandler = (deletedExpense) => {
-    showSuccessSnackbar(`Expense ${deletedExpense.productName} deleted successfully`);
+    const productName = deletedExpense.productName?.name || deletedExpense.productName;
+    showSuccessSnackbar(`Expense "${productName}" deleted successfully`);
     queryClient.invalidateQueries("expenses");
     refetch();
   };
@@ -219,7 +220,9 @@ const ExpenseScreen = () => {
                 setEditModalOpen(true);
               }}
               handleDelete={(expense) => {
+                console.log("Delete clicked for:", expense);
                 setSelectedExpense(expense);
+                console.log("Opening delete modal...");
                 setDeleteModalOpen(true);
               }}
               editModalOpen={editModalOpen}

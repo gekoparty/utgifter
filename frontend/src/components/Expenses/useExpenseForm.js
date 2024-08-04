@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import dayjs from "dayjs";
 import { formatComponentFields } from "../commons/Utils/FormatUtil";
 import { StoreContext } from "../../Store/Store";
@@ -6,7 +6,6 @@ import { addExpenseValidationSchema } from "../../validation/validationSchema";
 import useCustomHttp from "../../hooks/useHttp";
 
 const useExpenseForm = (initialExpense = null) => {
-  // Memoize the initialExpenseState
   const initialExpenseState = useMemo(() => ({
     measurementUnit: "",
     productName: "",
@@ -45,13 +44,13 @@ const useExpenseForm = (initialExpense = null) => {
       type: "RESET_VALIDATION_ERRORS",
       resource: "expenses",
     });
+    setValidationErrors({});
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
     setExpense(initialExpense ? initialExpense : initialExpenseState);
     resetServerError();
     resetValidationErrors();
-    setValidationErrors({});
   }, [initialExpense, initialExpenseState, resetServerError, resetValidationErrors]);
 
   useEffect(() => {
@@ -63,6 +62,7 @@ const useExpenseForm = (initialExpense = null) => {
     } else {
       resetFormAndErrors();
     }
+
     return () => {
       dispatch({
         type: "CLEAR_RESOURCE",
@@ -164,8 +164,7 @@ const useExpenseForm = (initialExpense = null) => {
       } else {
         console.log("Expense saved successfully:", data);
         setExpense(initialExpenseState); // Reset the form after saving
-        dispatch({ type: "RESET_ERROR", resource: "expenses" });
-        dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
+        resetFormAndErrors();
 
         if (Array.isArray(data)) {
           data.forEach(expenseItem => onClose(expenseItem)); // Handle array of expenses
@@ -192,25 +191,26 @@ const useExpenseForm = (initialExpense = null) => {
     onDeleteFailure
   ) => {
     try {
+      console.log("Attempting to delete expense:", selectedExpense);
+  
       const response = await sendRequest(
         `/api/expenses/${selectedExpense?._id}`,
         "DELETE"
       );
+  
       if (response.error) {
+        console.error("Failed to delete expense:", response.error);
         onDeleteFailure(selectedExpense);
         return false;
       } else {
+        console.log("Expense deleted successfully:", selectedExpense);
         onDeleteSuccess(selectedExpense);
-        dispatch({
-          type: "DELETE_ITEM",
-          resource: "expenses",
-          payload: selectedExpense._id,
-        });
         return true;
       }
     } catch (error) {
+      console.error("Error during delete request:", error);
       onDeleteFailure(selectedExpense);
-      return false; // Indicate deletion failure
+      return false;
     }
   };
 
