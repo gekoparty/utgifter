@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";
 import SelectPopover from "../../commons/SelectPopover/SelectPopover"; // Adjust path as needed
+import useFilter from "../../../hooks/useFilter";
 
 const defaultExpense = {
   productName: "",
@@ -73,6 +74,25 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
+  // Use the useFilter hook
+  const {
+    filterText: productFilterText,
+    setFilterText: setProductFilterText,
+    filteredOptions: filteredProducts,
+  } = useFilter(products, 'name');
+
+  const {
+    filterText: brandFilterText,
+    setFilterText: setBrandFilterText,
+    filteredOptions: filteredBrands,
+  } = useFilter(brands, 'name');
+
+  const {
+    filterText: shopFilterText,
+    setFilterText: setShopFilterText,
+    filteredOptions: filteredShops,
+  } = useFilter(shops, 'name');
+
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
 
@@ -95,6 +115,35 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleDiscountValueChange,
   } = useHandleFieldChange(expense, setExpense);
 
+  const handleProductInputChange = (event) => {
+    const value = event.target.value;
+    console.log("Product input changed:", value);
+    setProductFilterText(value);
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      productName: value,
+    }));
+
+    if (value) {
+      console.log("Attempting to open product popover");
+      setAnchorState((prevAnchorState) => ({
+        ...prevAnchorState,
+        productAnchorEl: event.currentTarget,
+      }));
+    } else {
+      console.log("Closing product popover");
+      handleClosePopover("product");
+    }
+  };
+
+  const handleBrandInputChange = (event) => {
+    setBrandFilterText(event.target.value);
+  };
+
+  const handleShopInputChange = (event) => {
+    setShopFilterText(event.target.value);
+  };
+
   // State variables and functions for popover management
   const [anchorState, setAnchorState] = useState({
     productAnchorEl: null,
@@ -103,6 +152,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   });
 
   const handleOpenPopover = (field, event) => {
+    console.log(`Opening ${field} popover`);
     setAnchorState((prevAnchorState) => ({
       ...prevAnchorState,
       [`${field}AnchorEl`]: event.currentTarget,
@@ -110,6 +160,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const handleClosePopover = (field) => {
+    console.log(`Closing ${field} popover`);
     setAnchorState((prevAnchorState) => ({
       ...prevAnchorState,
       [`${field}AnchorEl`]: null,
@@ -187,7 +238,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleSaveExpense((savedExpense) => {
       console.log("handleSaveExpense callback invoked with:", savedExpense);
       const productName = savedExpense.productName || "Unknown Product";
-      onAdd({ ...savedExpense, productName }) // Pass the savedExpense data here
+      onAdd({ ...savedExpense, productName }); // Pass the savedExpense data here
       onClose();
     });
   };
@@ -199,16 +250,24 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <ExpenseField
               fullWidth
-              label="Produkt"
+              label="Product"
               value={expense.productName}
-              onClick={(e) => handleOpenPopover("product", e)}
+              onClick={(e) => {
+                console.log("Product input clicked");
+                handleOpenPopover("product", e);
+              }}
+              onFocus={(e) => {
+                console.log("Product input focused");
+                handleOpenPopover("product", e);
+              }} // Open on focus too
+              onChange={handleProductInputChange} // Use the correct handler
             />
             <SelectPopover
               open={Boolean(anchorState.productAnchorEl)}
               anchorEl={anchorState.productAnchorEl}
               onClose={() => handleClosePopover("product")}
               onSelect={handleProductSelect}
-              options={products.map((product) => ({
+              options={filteredProducts.map((product) => ({
                 name: product.name,
                 value: product.name,
                 type: product.type,
@@ -220,9 +279,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <ExpenseField
               fullWidth
-              label="Merke"
+              label="Brand"
               value={expense.brandName}
               onClick={(e) => handleOpenPopover("brand", e)}
+              onFocus={(e) => handleOpenPopover("brand", e)}
+              onChange={handleBrandInputChange}
             />
             <SelectPopover
               open={Boolean(anchorState.brandAnchorEl)}
@@ -231,7 +292,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               onSelect={(value) =>
                 handleFieldChange("brandName", value.name)
               }
-              options={brands.map((brand) => ({
+              options={filteredBrands.map((brand) => ({
                 name: brand.name,
                 value: brand.name,
               }))}
@@ -241,16 +302,18 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <ExpenseField
               fullWidth
-              label="Butikk"
+              label="Shop"
               value={expense.shopName}
               onClick={(e) => handleOpenPopover("shop", e)}
+              onFocus={(e) => handleOpenPopover("shop", e)}
+              onChange={handleShopInputChange}
             />
             <SelectPopover
               open={Boolean(anchorState.shopAnchorEl)}
               anchorEl={anchorState.shopAnchorEl}
               onClose={() => handleClosePopover("shop")}
               onSelect={handleShopSelect}
-              options={shops.map((shop) => ({
+              options={filteredShops.map((shop) => ({
                 name: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
                 locationName: shop.locationName,
@@ -260,7 +323,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           </Grid>
           <Grid item xs={12} md={6}>
             <ExpenseField
-              label="Lokasjon"
+              label="Location"
               value={expense.locationName}
               InputProps={{
                 readOnly: true,
@@ -284,7 +347,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           </Grid>
           <Grid item xs={12} md={6}>
             <ExpenseField
-              label="Volume type/Mengde"
+              label="Volume type/Quantity"
               type="number"
               value={volumeDisplay}
               onChange={handleVolumeChange}
@@ -299,14 +362,14 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           </Grid>
           <Grid item xs={12}>
             <ExpenseField
-              label={`Pris pr ${
+              label={`Price per ${
                 expense.measurementUnit === "kg"
                   ? "kg"
                   : expense.measurementUnit === "L"
                   ? "L"
                   : expense.measurementUnit === "stk"
-                  ? "stk"
-                  : " " // Fallback in case of an unknown unit
+                  ? "piece"
+                  : " "
               }`}
               value={expense.pricePerUnit}
               InputProps={{
@@ -319,7 +382,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           </Grid>
           <Grid item xs={12} md={6}>
             <ExpenseField
-              label="Antall"
+              label="Quantity"
               type="number"
               value={expense.quantity}
               onChange={handleQuantityChange}
@@ -334,14 +397,14 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   color="primary"
                 />
               }
-              label="Rabatt?"
+              label="Discount?"
             />
           </Grid>
           {expense.hasDiscount && (
             <>
               <Grid item xs={12} md={6}>
                 <ExpenseField
-                  label="Rabatt i (%)"
+                  label="Discount (%)"
                   type="number"
                   value={expense.discountValue}
                   onChange={handleDiscountValueChange}
@@ -354,7 +417,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <ExpenseField
-                  label="Rabatt i Kr"
+                  label="Discount (Kr)"
                   type="number"
                   value={expense.discountAmount}
                   onChange={handleDiscountAmountChange}
@@ -372,7 +435,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           )}
           <Grid item xs={12} md={6}>
             <ExpenseField
-              label="Pris m/u Rabatt"
+              label="Price with/without Discount"
               type="number"
               value={expense.finalPrice} // or calculated value
               InputProps={{
