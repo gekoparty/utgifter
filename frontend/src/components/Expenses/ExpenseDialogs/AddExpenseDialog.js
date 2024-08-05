@@ -35,7 +35,7 @@ const defaultExpense = {
   measurementUnit: "",
   pricePerUnit: 0, // New field for price per kg or L
 };
-
+//test
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const {
     expense = defaultExpense,
