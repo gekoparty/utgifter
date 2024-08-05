@@ -208,6 +208,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               }
               onChange={handleProductSelect}
               placeholder="Velg Produkt"
+              menuPortalTarget={document.body}
+              styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 9999 })
+              }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
@@ -225,6 +229,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               }
               onChange={handleBrandSelect}
               placeholder="Velg Merke"
+              menuPortalTarget={document.body}
+              styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 9999 })
+              }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
@@ -243,6 +251,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               }
               onChange={handleShopSelect}
               placeholder="Velg Butikk"
+              menuPortalTarget={document.body}
+              styles={{
+                menuPortal: (base) => ({ ...base, zIndex: 9999 })
+              }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
