@@ -10,12 +10,11 @@ import {
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import useExpenseForm from "../useExpenseForm";
-import ExpenseField from "../../commons/ExpenseField/ExpenseField";
+import ExpenseField from "../../commons/ExpenseField/ExpenseField"
 import dayjs from "dayjs";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
-import useFetchData from "../../../hooks/useFetchData";
-import SelectPopover from "../../commons/SelectPopover/SelectPopover"; // Adjust path as needed
-import useFilter from "../../../hooks/useFilter";
+import useFetchData from "../../../hooks/useFetchData";// Adjust path as needed
+import Select from "react-select"
 
 const defaultExpense = {
   productName: "",
@@ -75,23 +74,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
 
   // Use the useFilter hook
-  const {
-    filterText: productFilterText,
-    setFilterText: setProductFilterText,
-    filteredOptions: filteredProducts,
-  } = useFilter(products, 'name');
+ 
 
-  const {
-    filterText: brandFilterText,
-    setFilterText: setBrandFilterText,
-    filteredOptions: filteredBrands,
-  } = useFilter(brands, 'name');
-
-  const {
-    filterText: shopFilterText,
-    setFilterText: setShopFilterText,
-    filteredOptions: filteredShops,
-  } = useFilter(shops, 'name');
 
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
@@ -115,57 +99,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleDiscountValueChange,
   } = useHandleFieldChange(expense, setExpense);
 
-  const handleProductInputChange = (event) => {
-    const value = event.target.value;
-    console.log("Product input changed:", value);
-    setProductFilterText(value);
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      productName: value,
-    }));
 
-    if (value) {
-      console.log("Attempting to open product popover");
-      setAnchorState((prevAnchorState) => ({
-        ...prevAnchorState,
-        productAnchorEl: event.currentTarget,
-      }));
-    } else {
-      console.log("Closing product popover");
-      handleClosePopover("product");
-    }
-  };
 
-  const handleBrandInputChange = (event) => {
-    setBrandFilterText(event.target.value);
-  };
+  
+  
 
-  const handleShopInputChange = (event) => {
-    setShopFilterText(event.target.value);
-  };
-
-  // State variables and functions for popover management
-  const [anchorState, setAnchorState] = useState({
-    productAnchorEl: null,
-    brandAnchorEl: null,
-    shopAnchorEl: null,
-  });
-
-  const handleOpenPopover = (field, event) => {
-    console.log(`Opening ${field} popover`);
-    setAnchorState((prevAnchorState) => ({
-      ...prevAnchorState,
-      [`${field}AnchorEl`]: event.currentTarget,
-    }));
-  };
-
-  const handleClosePopover = (field) => {
-    console.log(`Closing ${field} popover`);
-    setAnchorState((prevAnchorState) => ({
-      ...prevAnchorState,
-      [`${field}AnchorEl`]: null,
-    }));
-  };
+ 
 
   const handlePurchaseChange = (event) => {
     const isPurchased = event.target.checked;
@@ -195,21 +134,26 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const handleShopSelect = (shop) => {
     setExpense((prevExpense) => ({
       ...prevExpense,
-      shopName: shop.value, // Set only the shop name here
-      locationName: shop.locationName, // Set the location name here
+      shopName: shop ? shop.value : "", // Handle null case
+      locationName: shop ? shop.locationName : "", // Handle null case
     }));
-    handleClosePopover("shop");
   };
 
+  const handleBrandSelect = (selectedOption) => {
+    setExpense((prevExpense) => ({
+      ...prevExpense,
+      brandName: selectedOption ? selectedOption.name : "", // Handle null case
+    }));
+  };
   const handleProductSelect = (product) => {
     setExpense((prevExpense) => ({
       ...prevExpense,
-      productName: product.name,
-      type: product.type, // Ensure type is set
-      measurementUnit: product.measurementUnit,
+      productName: product ? product.name : "", // Handle null case
+      type: product ? product.type : "", // Handle null case
+      measurementUnit: product ? product.measurementUnit : "", // Handle null case
     }));
-    handleClosePopover("product");
   };
+  
 
   const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
 
@@ -247,78 +191,58 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
       <Box sx={{ p: 2, position: "relative" }}>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              fullWidth
-              label="Product"
-              value={expense.productName}
-              onClick={(e) => {
-                console.log("Product input clicked");
-                handleOpenPopover("product", e);
-              }}
-              onFocus={(e) => {
-                console.log("Product input focused");
-                handleOpenPopover("product", e);
-              }} // Open on focus too
-              onChange={handleProductInputChange} // Use the correct handler
-            />
-            <SelectPopover
-              open={Boolean(anchorState.productAnchorEl)}
-              anchorEl={anchorState.productAnchorEl}
-              onClose={() => handleClosePopover("product")}
-              onSelect={handleProductSelect}
-              options={filteredProducts.map((product) => ({
-                name: product.name,
+        <Grid item xs={12} md={6}>
+            <Select
+            isClearable
+              options={products.map((product) => ({
+                label: product.name,
                 value: product.name,
+                name: product.name,
                 type: product.type,
                 measurementUnit: product.measurementUnit,
               }))}
-              title="Select Product"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              fullWidth
-              label="Brand"
-              value={expense.brandName}
-              onClick={(e) => handleOpenPopover("brand", e)}
-              onFocus={(e) => handleOpenPopover("brand", e)}
-              onChange={handleBrandInputChange}
-            />
-            <SelectPopover
-              open={Boolean(anchorState.brandAnchorEl)}
-              anchorEl={anchorState.brandAnchorEl}
-              onClose={() => handleClosePopover("brand")}
-              onSelect={(value) =>
-                handleFieldChange("brandName", value.name)
+              value={
+                expense.productName
+                  ? { label: expense.productName, value: expense.productName }
+                  : null
               }
-              options={filteredBrands.map((brand) => ({
-                name: brand.name,
-                value: brand.name,
-              }))}
-              title="Select Brand"
+              onChange={handleProductSelect}
+              placeholder="Velg Produkt"
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <ExpenseField
-              fullWidth
-              label="Shop"
-              value={expense.shopName}
-              onClick={(e) => handleOpenPopover("shop", e)}
-              onFocus={(e) => handleOpenPopover("shop", e)}
-              onChange={handleShopInputChange}
+            <Select
+            isClearable
+              options={brands.map((brand) => ({
+                label: brand.name,
+                value: brand.name,
+                name: brand.name,
+              }))}
+              value={
+                expense.brandName
+                  ? { label: expense.brandName, value: expense.brandName }
+                  : null
+              }
+              onChange={handleBrandSelect}
+              placeholder="Velg Merke"
             />
-            <SelectPopover
-              open={Boolean(anchorState.shopAnchorEl)}
-              anchorEl={anchorState.shopAnchorEl}
-              onClose={() => handleClosePopover("shop")}
-              onSelect={handleShopSelect}
-              options={filteredShops.map((shop) => ({
-                name: `${shop.name}, ${shop.locationName}`,
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Select
+            isClearable
+              options={shops.map((shop) => ({
+                label: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
+                name: shop.name,
                 locationName: shop.locationName,
               }))}
-              title="Select Shop"
+              value={
+                expense.shopName
+                  ? { label: expense.shopName, value: expense.shopName }
+                  : null
+              }
+              onChange={handleShopSelect}
+              placeholder="Velg Butikk"
             />
           </Grid>
           <Grid item xs={12} md={6}>
