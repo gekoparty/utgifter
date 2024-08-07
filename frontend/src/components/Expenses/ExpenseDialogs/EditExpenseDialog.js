@@ -6,37 +6,53 @@ import {
   InputAdornment,
   Checkbox,
   FormControlLabel,
+  CircularProgress,
 } from "@mui/material";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import useExpenseForm from "../useExpenseForm";
+import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import ExpenseField from "../../commons/ExpenseField/ExpenseField";
 import dayjs from "dayjs";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";
 import Select from "react-select";
 
-const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
+const EditExpenseDialog = ({
+  open,
+  onClose,
+  selectedExpense,
+  onUpdateSuccess,
+  onUpdateFailure,
+}) => {
+ 
   const {
     expense,
     setExpense,
+    loading,
     handleSaveExpense,
+    resetValidationErrors,
+    resetServerError,
+    displayError,
+    validationError,
     isFormValid,
     resetFormAndErrors,
   } = useExpenseForm(selectedExpense);
 
+  console.log("Current expense state:", expense);
+  console.log("Is form valid:", isFormValid());
 
-  const { data: products, isLoading: isLoadingProducts } = useFetchData(
+  const { data: productOptions, isLoading: isLoadingProducts, isError: productError } = useFetchData(
     "products",
     "/api/products"
   );
 
-  const { data: brands, isLoading: isLoadingBrands } = useFetchData(
+  const { data: brandOptions, isLoading: isLoadingBrands, isError: brandError } = useFetchData(
     "brands",
     "/api/brands"
   );
 
-  const { data: shops, isLoading: isLoadingShops } = useFetchData(
+  const { data: shopOptions, isLoading: isLoadingShops, isError: shopError } = useFetchData(
     "shops",
     "/api/shops",
     async (shops) => {
@@ -54,37 +70,44 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
   
-  useEffect(() => {
-    if (selectedExpense) {
-      setExpense({
-        productName: selectedExpense.productName?.name ?? "",
-        brandName: selectedExpense.brandName?.name ?? "",
-        shopName: selectedExpense.shopName?.name ?? "",
-        locationName: selectedExpense.locationName?.name ?? "",
-        measurementUnit: selectedExpense.measurementUnit ?? "",
-        volume: selectedExpense.volume ?? 0,
-        price: selectedExpense.price ?? 0,
-        discountValue: selectedExpense.discountValue ?? 0,
-        discountAmount: selectedExpense.discountAmount ?? 0,
-        finalPrice: selectedExpense.finalPrice ?? 0,
-        hasDiscount: selectedExpense.hasDiscount ?? false,
-        type: selectedExpense.type ?? "",
-        purchased: selectedExpense.purchased ?? false,
-        purchaseDate: selectedExpense.purchaseDate ?? null,
-        registeredDate: selectedExpense.registeredDate ?? null,
-        quantity: 1,
-      });
-    }
-  }, [selectedExpense, setExpense]);
-  
-  
-  
-  
   const {
     handleFieldChange,
     handleDiscountAmountChange,
     handleDiscountValueChange,
   } = useHandleFieldChange(expense, setExpense);
+
+  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+
+  useEffect(() => {
+    setVolumeDisplay(expense.volume || "");
+  }, [expense.volume]);
+
+
+  
+  if(isLoading) {
+    return <CircularProgress />
+  }
+
+  if (productError) {
+    // Handle error state when fetching brands fails
+    return <div>Error loading Products</div>;
+  }
+
+  if (brandError) {
+    // Return a loading indicator while brands are being fetched
+    return <div>Error loading brands </div>;
+  }
+
+  if (shopError) {
+    // Handle error state when fetching brands fails
+    return <div>Error loading Shops</div>;
+  }
+
+  
+
+
+  
+  
 
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
@@ -129,6 +152,8 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
       type: product ? product.type : "",
       measurementUnit: product ? product.measurementUnit : "",
     }));
+    resetValidationErrors();
+                resetServerError();
   };
 
   const handleBrandSelect = (selectedOption) => {
@@ -146,11 +171,7 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
     }));
   };
 
-  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
-
-  useEffect(() => {
-    setVolumeDisplay(expense.volume || "");
-  }, [expense.volume]);
+  
 
   const handleVolumeChange = (event) => {
     const value = event.target.value;
@@ -170,20 +191,39 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
 
   const handleSaveButtonClick = () => {
     handleSaveExpense((savedExpense) => {
-      onUpdate(savedExpense);
+      onUpdateSuccess(savedExpense);
       onClose();
     });
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent the default form submission behavior
+
+    // Call the handleSaveShop function from the hook to save the updated shop
+    if (isFormValid()) {
+      const success = await handleSaveButtonClick(onClose);
+      if (success) {
+        onUpdateSuccess(selectedExpense);
+      } else {
+        onUpdateFailure();
+      }
+    }
+  };
+
+
 
   return (
-    <BasicDialog open={open} onClose={onClose} dialogTitle="Edit Expense">
+    <BasicDialog open={open} onClose={() => {
+      resetFormAndErrors();
+      onClose();
+    }} dialogTitle="Edit Expense">
+      <form onSubmit={handleSubmit}>
       <Box sx={{ p: 2, position: "relative" }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
             <Select
               isClearable
-              options={products.map((product) => ({
+              options={productOptions.map((product) => ({
                 label: product.name,
                 value: product.name,
                 type: product.type,
@@ -201,11 +241,14 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
                 menuPortal: (base) => ({ ...base, zIndex: 9999 }),
               }}
             />
+             {displayError || validationError ? (
+              <ErrorHandling resource="products" field="name" loading={isLoading} />
+            ) : null}
           </Grid>
           <Grid item xs={12} md={6}>
             <Select
               isClearable
-              options={brands.map((brand) => ({
+              options={brandOptions.map((brand) => ({
                 label: brand.name,
                 value: brand.name,
               }))}
@@ -225,7 +268,7 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
           <Grid item xs={12} md={6}>
             <Select
               isClearable
-              options={shops.map((shop) => ({
+              options={shopOptions.map((shop) => ({
                 label: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
                 locationName: shop.locationName,
@@ -300,7 +343,7 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
               InputLabelProps={{
                 shrink: true,
               }}
-            />
+            ></ExpenseField>
           </Grid>
 
           <Grid item xs={12} md={6}>
@@ -420,15 +463,20 @@ const EditExpenseDialog = ({ open, onClose, selectedExpense, onUpdate }) => {
         >
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSaveButtonClick}
-          disabled={!isFormValid || isLoading}
-        >
-          Save
-        </Button>
+        <Button type="submit" disabled={loading || !isFormValid()}>
+            {loading ? <CircularProgress size={24} /> : "Save"}
+          </Button>
+          <Button
+            onClick={() => {
+              resetFormAndErrors();
+              onClose();
+            }}
+            sx={{ ml: 2 }}
+          >
+            Cancel
+          </Button>
       </Box>
+      </form>
     </BasicDialog>
   );
 };

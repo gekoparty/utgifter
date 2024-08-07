@@ -45,7 +45,6 @@ expensesRouter.get("/", async (req, res) => {
           { brandName: globalFilterRegex },
           { shopName: globalFilterRegex },
           { locationName: globalFilterRegex },
-          // Add other fields here that you want to include in the global filter
         ],
       });
     }
@@ -83,9 +82,13 @@ expensesRouter.get("/", async (req, res) => {
         .populate('locationName', 'name')
         .exec();
 
-      // Format purchaseDate
+      // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
         ...expense.toObject(),
+        productName: expense.productName?.name,
+        brandName: expense.brandName?.name,
+        shopName: expense.shopName?.name,
+        locationName: expense.locationName?.name,
         purchaseDate: formatDate(expense.purchaseDate),
       }));
 
@@ -100,9 +103,13 @@ expensesRouter.get("/", async (req, res) => {
         .populate('locationName', 'name')
         .exec();
 
-      // Format purchaseDate
+      // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
         ...expense.toObject(),
+        productName: expense.productName?.name,
+        brandName: expense.brandName?.name,
+        shopName: expense.shopName?.name,
+        locationName: expense.locationName?.name,
         purchaseDate: formatDate(expense.purchaseDate),
       }));
 
@@ -118,18 +125,33 @@ expensesRouter.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const expense = await Expense.findById(id);
+    // Fetch the specific expense and populate the referenced fields
+    const expense = await Expense.findById(id)
+      .populate('productName', 'name')
+      .populate('brandName', 'name')
+      .populate('shopName', 'name')
+      .populate('locationName', 'name');
 
     if (!expense) {
       return res.status(404).send({ error: "Expense not found" });
     }
 
-    res.json(expense);
+    // Format the date if needed and transform populated fields to plain strings
+    const formattedExpense = {
+      ...expense.toObject(),
+      productName: expense.productName?.name || expense.productName,
+      brandName: expense.brandName?.name || expense.brandName,
+      shopName: expense.shopName?.name || expense.shopName,
+      locationName: expense.locationName?.name || expense.locationName,
+      purchaseDate: formatDate(expense.purchaseDate),
+    };
+
+    res.json(formattedExpense);
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-});
+})
 
 expensesRouter.post("/", async (req, res) => {
   console.log("POST /api/expenses hit");
@@ -228,7 +250,7 @@ expensesRouter.put("/:id", async (req, res) => {
     discountValue,
     discountAmount,
     quantity,
-    locationName,  // Required for creating/updating a shop
+    locationName,
     volume,
     finalPrice,
     pricePerUnit,
@@ -280,7 +302,7 @@ expensesRouter.put("/:id", async (req, res) => {
       await shop.save();
     }
 
-    // Find the expense by ID and update it
+    // Update the expense
     const updatedExpense = await Expense.findByIdAndUpdate(
       id,
       {
@@ -303,18 +325,45 @@ expensesRouter.put("/:id", async (req, res) => {
         pricePerUnit,
       },
       { new: true } // Return the updated document
-    );
+    )
+    .populate('productName', 'name')
+    .populate('brandName', 'name')
+    .populate('shopName', 'name')
+    .populate('locationName', 'name');
 
     if (!updatedExpense) {
       return res.status(404).json({ message: "Expense not found." });
     }
 
-    res.json(updatedExpense);
+    // Format response data
+    const formattedExpense = {
+      _id: updatedExpense._id,
+      productName: updatedExpense.productName.name,
+      brandName: updatedExpense.brandName.name,
+      shopName: updatedExpense.shopName.name,
+      locationName: updatedExpense.locationName ? updatedExpense.locationName.name : null,
+      measurementUnit: updatedExpense.measurementUnit,
+      type: updatedExpense.type,
+      price: updatedExpense.price,
+      purchased: updatedExpense.purchased,
+      purchaseDate: updatedExpense.purchaseDate,
+      registeredDate: updatedExpense.registeredDate,
+      hasDiscount: updatedExpense.hasDiscount,
+      discountValue: updatedExpense.discountValue,
+      discountAmount: updatedExpense.discountAmount,
+      quantity: updatedExpense.quantity,
+      volume: updatedExpense.volume,
+      finalPrice: updatedExpense.finalPrice,
+      pricePerUnit: updatedExpense.pricePerUnit,
+    };
+
+    res.json(formattedExpense);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 
 expensesRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
