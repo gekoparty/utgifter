@@ -23,6 +23,8 @@ class ErrorBoundary extends Component {
       return (
         <ErrorHandling
           resource="global" // Set a global resource name for the ErrorHandling component
+          loading={false} // Pass default value if no specific loading state is available
+          field="" // Pass default value if no specific field is available
         />
       );
     }

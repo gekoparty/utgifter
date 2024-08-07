@@ -61,25 +61,24 @@ const ExpenseScreen = () => {
   const tableColumns = useMemo(
     () => [
       { 
-        accessorKey: "productName.name", 
+        accessorKey: "productName", 
         header: "Produkt", 
-        // If you have nested accessor, ensure the table supports nested object access
-        Cell: ({ row }) => row.original.productName.name // Adjust if needed based on your table library
+        Cell: ({ row }) => row.original.productName // Directly access the flattened field
       },
       { 
-        accessorKey: "brandName.name", 
+        accessorKey: "brandName", 
         header: "Merke",
-        Cell: ({ row }) => row.original.brandName.name // Adjust as necessary
+        Cell: ({ row }) => row.original.brandName // Directly access the flattened field
       },
       { 
-        accessorKey: "shopName.name", 
+        accessorKey: "shopName", 
         header: "Butikk", 
-        Cell: ({ row }) => row.original.shopName.name // Adjust as necessary
+        Cell: ({ row }) => row.original.shopName // Directly access the flattened field
       },
       { 
-        accessorKey: "locationName.name", 
+        accessorKey: "locationName", 
         header: "Sted", 
-        Cell: ({ row }) => row.original.locationName.name // Adjust as necessary
+        Cell: ({ row }) => row.original.locationName // Directly access the flattened field
       },
       { accessorKey: "price", header: "OrignalPris" },
       { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
@@ -154,7 +153,6 @@ const ExpenseScreen = () => {
       showErrorSnackbar("Failed to add expense due to missing product name.");
       return;
     }
-  
     showSuccessSnackbar(`Expense ${newExpense.productName} added successfully`);
     queryClient.invalidateQueries("expenses");
     refetch();
@@ -175,8 +173,8 @@ const ExpenseScreen = () => {
     showErrorSnackbar("Failed to update expense");
   };
 
-  const editSuccessHandler = (selectedExpense) => {
-    showSuccessSnackbar(`Expense ${selectedExpense.productName} updated successfully`);
+  const editSuccessHandler = (updatedExpense) => {
+    showSuccessSnackbar(`Expense ${updatedExpense.productName} updated successfully`);
     queryClient.invalidateQueries("expenses");
     refetch();
   };
@@ -233,23 +231,21 @@ const ExpenseScreen = () => {
       </Box>
 
       <DeleteExpenseDialog
-  open={deleteModalOpen}
-  onClose={() => setDeleteModalOpen(false)}
-  dialogTitle="Confirm Deletion"
-  selectedExpense={selectedExpense} // Corrected prop name
-  onDeleteSuccess={deleteSuccessHandler}
-  onDeleteFailure={deleteFailureHandler}
-/>
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        dialogTitle="Confirm Deletion"
+        selectedExpense={selectedExpense}
+        onDeleteSuccess={deleteSuccessHandler}
+        onDeleteFailure={deleteFailureHandler}
+      />
 
       <EditExpenseDialog
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        cancelButton={<Button onClick={() => setEditModalOpen(false)}>Cancel</Button>}
-        dialogTitle="Edit Expense"
         selectedExpense={selectedExpense}
         onUpdateSuccess={editSuccessHandler}
         onUpdateFailure={editFailureHandler}
-      /> 
+      />
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -270,10 +266,10 @@ const ExpenseScreen = () => {
         />
       </Snackbar>
       <AddExpenseDialog
-  onClose={() => setAddExpenseDialogOpen(false)}
-  open={addExpenseDialogOpen}
-  onAdd={addExpenseHandler}  // Ensure this is correctly passed
-/>
+        onClose={() => setAddExpenseDialogOpen(false)}
+        open={addExpenseDialogOpen}
+        onAdd={addExpenseHandler}
+      />
     </TableLayout>
   );
 };
