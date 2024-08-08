@@ -9,9 +9,22 @@ import { format } from "date-fns"; // Import the date-fns library
 
 const expensesRouter = express.Router();
 
-const formatDate = (date) => {
-  return format(new Date(date), "dd.MM.yy");
-};
+
+function formatDate(date) {
+  // Check if date is null or undefined
+  if (!date) {
+    return ''; // Return an empty string if date is null or undefined
+  }
+
+  // Ensure the date is a valid Date object
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    return ''; // Return an empty string if the date is invalid
+  }
+
+  // Format the date
+  return format(parsedDate, 'yyyy-dd-MM'); // Adjust format as needed
+}
 
 expensesRouter.get("/", async (req, res) => {
   console.log("GET /api/expenses hit");
@@ -84,6 +97,7 @@ expensesRouter.get("/", async (req, res) => {
 
       // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
+        
         ...expense.toObject(),
         productName: expense.productName?.name,
         brandName: expense.brandName?.name,
