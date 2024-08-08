@@ -67,17 +67,17 @@ const ExpenseScreen = () => {
         header: "Produkt", 
         Cell: ({ row }) => row.original.productName // Directly access the flattened field
       },
-      
-      { accessorKey: "price", header: "OrignalPris" },
-      { accessorKey: "finalPrice", header: "Kjøpspris" },
-      { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
-      { accessorKey: "discountValue", header: "Rabatt" },
-      { accessorKey: "discountAmount", header: "Rabatt i kr" },
       { 
         accessorKey: "brandName", 
         header: "Merke",
         Cell: ({ row }) => row.original.brandName // Directly access the flattened field
       },
+      { accessorKey: "price", header: "OrignalPris" },
+      { accessorKey: "finalPrice", header: "Kjøpspris" },
+      { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
+      { accessorKey: "discountValue", header: "Rabatt" },
+      { accessorKey: "discountAmount", header: "Rabatt i kr" },
+      
       { 
         accessorKey: "shopName", 
         header: "Butikk", 

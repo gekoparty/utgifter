@@ -10,6 +10,8 @@ import { format } from "date-fns"; // Import the date-fns library
 const expensesRouter = express.Router();
 
 
+const getDefaultValue = (value) => value || 'n/a';
+
 function formatDate(date) {
   // Check if date is null or undefined
   if (!date) {
@@ -97,12 +99,11 @@ expensesRouter.get("/", async (req, res) => {
 
       // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
-        
         ...expense.toObject(),
-        productName: expense.productName?.name,
-        brandName: expense.brandName?.name,
-        shopName: expense.shopName?.name,
-        locationName: expense.locationName?.name,
+        productName: getDefaultValue(expense.productName?.name),
+        brandName: getDefaultValue(expense.brandName?.name),
+        shopName: getDefaultValue(expense.shopName?.name),
+        locationName: getDefaultValue(expense.locationName?.name),
         purchaseDate: formatDate(expense.purchaseDate),
         registeredDate: formatDate(expense.registeredDate)
       }));
@@ -121,10 +122,10 @@ expensesRouter.get("/", async (req, res) => {
       // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
         ...expense.toObject(),
-        productName: expense.productName?.name,
-        brandName: expense.brandName?.name,
-        shopName: expense.shopName?.name,
-        locationName: expense.locationName?.name,
+        productName: getDefaultValue(expense.productName?.name),
+        brandName: getDefaultValue(expense.brandName?.name),
+        shopName: getDefaultValue(expense.shopName?.name),
+        locationName: getDefaultValue(expense.locationName?.name),
         purchaseDate: formatDate(expense.purchaseDate),
         registeredDate: formatDate(expense.registeredDate)
       }));
