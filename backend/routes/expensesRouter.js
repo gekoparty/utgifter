@@ -90,6 +90,7 @@ expensesRouter.get("/", async (req, res) => {
         shopName: expense.shopName?.name,
         locationName: expense.locationName?.name,
         purchaseDate: formatDate(expense.purchaseDate),
+        registeredDate: formatDate(expense.registeredDate)
       }));
 
       // Send response with both paginated data and total row count
@@ -111,6 +112,7 @@ expensesRouter.get("/", async (req, res) => {
         shopName: expense.shopName?.name,
         locationName: expense.locationName?.name,
         purchaseDate: formatDate(expense.purchaseDate),
+        registeredDate: formatDate(expense.registeredDate)
       }));
 
       res.json(formattedExpenses);
