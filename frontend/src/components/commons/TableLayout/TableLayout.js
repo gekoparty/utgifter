@@ -15,7 +15,7 @@ const TableLayout = ({ children }) => {
           
         }}
       >
-        <Box sx={{ width: "100%", maxWidth: "800px" }}>
+        <Box sx={{ width: "100%", maxWidth: "1000px" }}>
           {children}
         </Box>
       </Box>

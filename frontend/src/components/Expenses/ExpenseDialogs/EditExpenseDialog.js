@@ -189,26 +189,24 @@ const EditExpenseDialog = ({
     }
   };
 
-  const handleSaveButtonClick = () => {
-    handleSaveExpense((savedExpense) => {
-      onUpdateSuccess(savedExpense);
+  const handleSaveButtonClick = async () => {
+    try {
+      await handleSaveExpense(); // Assuming this returns a promise that resolves on success and rejects on failure
+      onUpdateSuccess(expense);  // Notify parent of success
       onClose();
-    });
+    } catch (error) {
+      onUpdateFailure(); // Notify parent of failure
+    }
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent the default form submission behavior
+    event.preventDefault();
 
-    // Call the handleSaveShop function from the hook to save the updated shop
     if (isFormValid()) {
-      const success = await handleSaveButtonClick(onClose);
-      if (success) {
-        onUpdateSuccess(selectedExpense);
-      } else {
-        onUpdateFailure();
-      }
+      await handleSaveButtonClick();
     }
   };
+
 
 
 

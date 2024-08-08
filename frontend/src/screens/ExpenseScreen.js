@@ -67,6 +67,12 @@ const ExpenseScreen = () => {
         header: "Produkt", 
         Cell: ({ row }) => row.original.productName // Directly access the flattened field
       },
+      
+      { accessorKey: "price", header: "OrignalPris" },
+      { accessorKey: "finalPrice", header: "Kjøpspris" },
+      { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
+      { accessorKey: "discountValue", header: "Rabatt" },
+      { accessorKey: "discountAmount", header: "Rabatt i kr" },
       { 
         accessorKey: "brandName", 
         header: "Merke",
@@ -82,16 +88,10 @@ const ExpenseScreen = () => {
         header: "Sted", 
         Cell: ({ row }) => row.original.locationName // Directly access the flattened field
       },
-      { accessorKey: "price", header: "OrignalPris" },
-      { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
       { accessorKey: "volume", header: "Størrelse" },
       { accessorKey: "type", header: "Type" },
-      { accessorKey: "registeredDate", header: "Registrert" },
-      { accessorKey: "purchaseDate", header: "Kjøpt" },
-      { accessorKey: "finalPrice", header: "Kjøpspris" },
-      { accessorKey: "discountValue", header: "Rabatt" },
-      { accessorKey: "discountAmount", header: "Rabatt i kr" },
-      { accessorKey: "purchased", header: "Kjøpt" },
+      { accessorKey: "purchaseDate", header: "Kjøpt Dato:" },
+      { accessorKey: "registeredDate", header: "Registrert Pris:" },
     ],
     []
   );

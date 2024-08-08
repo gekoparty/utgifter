@@ -41,10 +41,12 @@ const expenseSchema = new mongoose.Schema({
   purchaseDate: {
     type: Date,
     required: false,
+    default: null, // Ensure it remains null if not set
   },
   registeredDate: {
     type: Date,
     required: false,
+    default: null
   },
   hasDiscount: {
     type: Boolean,
