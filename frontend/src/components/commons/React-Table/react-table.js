@@ -52,7 +52,9 @@ const Table = ({
         <MenuItem key="delete" onClick={() => handleDelete(row.original)}>
           Slett
         </MenuItem>,
-      ]}
+      ]
+    }
+      
       //manualSorting
       muiToolbarAlertBannerProps={
         isError
