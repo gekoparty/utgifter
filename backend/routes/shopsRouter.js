@@ -249,106 +249,83 @@ shopsRouter.post("/", async (req, res) => {
 
 shopsRouter.put("/:id", async (req, res) => {
   const shopId = req.params.id;
-  console.log(req.body);
+  const { name, location, category } = req.body;
 
   try {
-    const { name, location, category } = req.body;
-
+    // Find the existing shop
     const shop = await Shop.findById(shopId);
-
     if (!shop) {
       return res.status(404).json({ message: "Shop not found" });
     }
 
-    const slugifiedName = slugify(name, { lower: true });
-
-    const existingShop = await Shop.findOne({
-      name,
-      location,
-      _id: { $ne: shopId },
-    });
-
-    if (existingShop) {
-      return res.status(400).json({ message: "A shop with the same name and location already exists." });
-    }
-
-    let locationObjectId = shop.location;
+    // Handle the location logic
+    let locationObjectId;
     if (location && typeof location === "string") {
-      const existingLocation = await Location.findOne({
-        slug: slugify(location, { lower: true }),
-      });
+      // Try to find the location by name
+      const existingLocation = await Location.findOne({ name: location });
 
       if (!existingLocation) {
+        // Location does not exist, so create it
         const newLocation = new Location({
           name: location,
           slug: slugify(location, { lower: true }),
         });
-
         const savedLocation = await newLocation.save();
         locationObjectId = savedLocation._id;
       } else {
+        // Location exists, use its ObjectId
         locationObjectId = existingLocation._id;
       }
+    } else {
+      // If location is not provided or not a string, keep the existing one
+      locationObjectId = shop.location;
     }
 
-    let categoryObjectId = shop.category;
+    // Handle the category logic
+    let categoryObjectId;
     if (category && typeof category === "string") {
-      const existingCategory = await Category.findOne({
-        slug: slugify(category, { lower: true }),
-      });
+      const existingCategory = await Category.findOne({ name: category });
 
       if (!existingCategory) {
+        // Category does not exist, so create it
         const newCategory = new Category({
           name: category,
           slug: slugify(category, { lower: true }),
         });
-
         const savedCategory = await newCategory.save();
         categoryObjectId = savedCategory._id;
       } else {
+        // Category exists, use its ObjectId
         categoryObjectId = existingCategory._id;
       }
+    } else {
+      // If category is not provided or not a string, keep the existing one
+      categoryObjectId = shop.category;
     }
 
+    // Update the shop with the new data
     shop.name = name;
-    shop.location = locationObjectId;
+    shop.location = locationObjectId; // Now we have the correct ObjectId
     shop.category = categoryObjectId;
-    shop.slugifiedName = slugifiedName;
+    shop.slugifiedName = slugify(name, { lower: true });
 
-    try {
-      const updatedShop = await shop.save();
-      console.log("Updated shop:", updatedShop);
+    // Save the updated shop
+    const updatedShop = await shop.save();
 
-      const populatedShop = await Shop.findById(updatedShop._id)
-        .populate("location")
-        .populate("category")
-        .exec();
+    // Optionally, populate the updated shop with its references
+    const populatedShop = await Shop.findById(updatedShop._id)
+      .populate("location")
+      .populate("category");
 
-      res.status(200).json(populatedShop);
-    } catch (saveError) {
-      console.error("Error saving updated shop:", saveError);
-      res.status(500).json({ message: "Error saving updated shop" });
-    }
+    // Send the updated shop back in the response
+    res.status(200).json(populatedShop);
   } catch (error) {
     console.error("Server error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
-shopsRouter.delete("/:id", async (req, res) => {
-  const { id } = req.params;
-  console.log(id);
-  try {
-    const shop = await Shop.findByIdAndDelete(req.params.id);
-    if (!shop) {
-      return res.status(404).send({ error: "Shop not found" });
-    }
-    res.send(shop);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: "Internal server error" });
-  }
-});
+
 
 shopsRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
