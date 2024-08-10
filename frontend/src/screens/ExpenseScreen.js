@@ -60,42 +60,147 @@ const ExpenseScreen = () => {
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  const [priceStatsByType, setPriceStatsByType] = useState({});
+
+  const calculatePriceStatsByType = (data) => {
+    const stats = {};
+    const groupedByType = data.reduce((acc, item) => {
+      if (!acc[item.type]) acc[item.type] = [];
+      acc[item.type].push(item.pricePerUnit);
+      return acc;
+    }, {});
+
+    for (const [type, prices] of Object.entries(groupedByType)) {
+      prices.sort((a, b) => a - b);
+      const min = prices[0];
+      const max = prices[prices.length - 1];
+      const median = prices[Math.floor(prices.length / 2)];
+      stats[type] = { min, max, median };
+    }
+
+    return stats;
+  };
+
   const tableColumns = useMemo(
     () => [
       { 
         accessorKey: "productName", 
         header: "Produkt", 
-        Cell: ({ row }) => row.original.productName // Directly access the flattened field
+        Cell: ({ row }) => row.original.productName 
       },
       { 
         accessorKey: "brandName", 
         header: "Merke",
-        Cell: ({ row }) => row.original.brandName // Directly access the flattened field
+        Cell: ({ row }) => row.original.brandName 
       },
-      { accessorKey: "price", header: "OrignalPris",
-        size:200
-       },
-      { accessorKey: "finalPrice", header: "Kjøpspris" },
-      { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
-      { accessorKey: "discountValue", header: "Rabatt" },
-      { accessorKey: "discountAmount", header: "Rabatt i kr" },
-      
+      { 
+        accessorKey: "price", 
+        header: "OriginalPris",
+        size: 170,
+        Cell: ({ cell }) => (
+          <Box>
+            {cell.getValue()?.toLocaleString('nb-NO', {
+              style: 'currency',
+              currency: 'NOK',
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Box>
+        ),
+      },
+      { 
+        accessorKey: "finalPrice", 
+        header: "Kjøpspris",
+        Cell: ({ cell }) => (
+          <Box>
+            {cell.getValue()?.toLocaleString('nb-NO', {
+              style: 'currency',
+              currency: 'NOK',
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Box>
+        ),
+      },
+      { 
+        accessorKey: "pricePerUnit", 
+        header: "Pris pr kg/l",
+        Cell: ({ cell, row }) => {
+          const price = cell.getValue();
+          const type = row.original.type;
+          const stats = priceStatsByType[type] || { min: 0, max: 0, median: 0 };
+
+          console.log(`Price: ${price}, Type: ${type}, Stats:`, stats); // Debug output
+
+          let color = 'yellow'; // Default color
+
+          if (stats.median > 0) {
+            if (price <= stats.min + (stats.median - stats.min) / 2) {
+              color = 'green'; // Less than median
+            } else if (price >= stats.max - (stats.max - stats.median) / 2) {
+              color = 'red'; // Greater than median
+            }
+          }
+
+          return (
+            <Box
+              component="span"
+              sx={{
+                backgroundColor: color,
+                borderRadius: '0.25rem',
+                color: '#fff',
+                p: '0.25rem',
+              }}
+            >
+              {price?.toLocaleString('nb-NO', {
+                style: 'currency',
+                currency: 'NOK',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </Box>
+          );
+        },
+      },
+      { 
+        accessorKey: "discountValue", 
+        header: "% Rabatt",
+        Cell: ({ cell }) => (
+          <Box>
+            {`${cell.getValue()} %`}
+          </Box>
+        ),
+      },
+      { 
+        accessorKey: "discountAmount", 
+        header: "Rabatt kr",
+        Cell: ({ cell }) => (
+          <Box>
+            {cell.getValue()?.toLocaleString('nb-NO', {
+              style: 'currency',
+              currency: 'NOK',
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </Box>
+        ),
+      },
       { 
         accessorKey: "shopName", 
         header: "Butikk", 
-        Cell: ({ row }) => row.original.shopName // Directly access the flattened field
+        Cell: ({ row }) => row.original.shopName 
       },
       { 
         accessorKey: "locationName", 
         header: "Sted", 
-        Cell: ({ row }) => row.original.locationName // Directly access the flattened field
+        Cell: ({ row }) => row.original.locationName 
       },
       { accessorKey: "volume", header: "Størrelse" },
       { accessorKey: "type", header: "Type" },
-      { accessorKey: "purchaseDate", header: "Kjøpt Dato:" },
-      { accessorKey: "registeredDate", header: "Registrert Pris:" },
+      { accessorKey: "measurementUnit", header: "Enhet" },
+      { accessorKey: "quantity", header: "Antall" },
     ],
-    []
+    [priceStatsByType]
   );
 
   // React Query
@@ -125,6 +230,11 @@ const ExpenseScreen = () => {
 
     const response = await fetch(fetchURL.href);
     const json = await response.json();
+
+    // Calculate price stats by type
+    const stats = calculatePriceStatsByType(json.expenses);
+    setPriceStatsByType(stats);
+
     return { expenses: json.expenses, meta: json.meta };
   };
 
