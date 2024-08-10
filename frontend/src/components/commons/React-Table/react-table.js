@@ -35,6 +35,7 @@ const Table = ({
 
   return (
     <MaterialReactTable
+   
       columns={columnsConfig}
       data={data}
       initialState={{ showColumnFilters: true }}

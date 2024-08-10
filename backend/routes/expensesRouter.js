@@ -34,7 +34,6 @@ expensesRouter.get("/", async (req, res) => {
 
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
-    console.log("Received query parameters:", { columnFilters, globalFilter, sorting, start, size });
 
     let query = Expense.find();
 
@@ -97,6 +96,9 @@ expensesRouter.get("/", async (req, res) => {
         .populate('locationName', 'name')
         .exec();
 
+        // Log the populated expenses
+      console.log("Populated expenses:", expenses);
+
       // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
         ...expense.toObject(),
@@ -107,6 +109,9 @@ expensesRouter.get("/", async (req, res) => {
         purchaseDate: formatDate(expense.purchaseDate),
         registeredDate: formatDate(expense.registeredDate)
       }));
+
+      // Log the formatted expenses
+      console.log("Formatted expenses:", formattedExpenses);
 
       // Send response with both paginated data and total row count
       res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
@@ -119,6 +124,9 @@ expensesRouter.get("/", async (req, res) => {
         .populate('locationName', 'name')
         .exec();
 
+        // Log the populated expenses
+      console.log("Populated expenses without pagination:", expenses);
+
       // Flatten and format expenses
       const formattedExpenses = expenses.map(expense => ({
         ...expense.toObject(),
@@ -129,6 +137,9 @@ expensesRouter.get("/", async (req, res) => {
         purchaseDate: formatDate(expense.purchaseDate),
         registeredDate: formatDate(expense.registeredDate)
       }));
+
+       // Log the formatted expenses
+       console.log("Formatted expenses without pagination:", formattedExpenses);
 
       res.json(formattedExpenses);
     }

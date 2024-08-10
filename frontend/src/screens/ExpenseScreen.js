@@ -72,7 +72,9 @@ const ExpenseScreen = () => {
         header: "Merke",
         Cell: ({ row }) => row.original.brandName // Directly access the flattened field
       },
-      { accessorKey: "price", header: "OrignalPris" },
+      { accessorKey: "price", header: "OrignalPris",
+        size:200
+       },
       { accessorKey: "finalPrice", header: "Kjøpspris" },
       { accessorKey: "pricePerUnit", header: "Pris pr kg/l" },
       { accessorKey: "discountValue", header: "Rabatt" },
