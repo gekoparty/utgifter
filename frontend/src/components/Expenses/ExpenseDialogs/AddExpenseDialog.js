@@ -59,6 +59,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     "shops",
     "/api/shops",
     async (shops) => {
+      console.log(shops)
       return Promise.all(
         shops.map(async (shop) => {
           const locationResponse = await fetch(
@@ -72,6 +73,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   );
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
+
+  // Add console.log statements to check the data
+  console.log("Products fetched:", products);
+  console.log("Brands fetched:", brands);
+  console.log("Shops fetched:", shops);
 
   // Use the useFilter hook
  
