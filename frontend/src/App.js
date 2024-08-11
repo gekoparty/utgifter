@@ -8,8 +8,8 @@ import { useState, useEffect } from "react";
 import { StoreProvider } from "./Store/Store";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PermanentDrawerLeft from "./components/NavBar/PermanentDrawerLeft";
-import { LocalizationProvider } from "@mui/x-date-pickers";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import the QueryClient and QueryClientProvider
 import "dayjs/locale/nb";
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
