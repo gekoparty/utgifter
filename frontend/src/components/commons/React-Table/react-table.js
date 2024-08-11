@@ -43,13 +43,36 @@ const Table = ({
         showColumnFilters: true,
         ...initialState, // Use initialState if provided
       }}
+      
       manualPagination
       manualSorting
       enablePagination
       enableColumnResizing
       enableRowActions
+      enableStickyHeader // Enable sticky header
+      enableStickyFooter // Enable sticky footer
+      muiTableHeadCellProps={{
+        sx: (theme) => ({
+          backgroundColor: theme.palette.mode === 'dark'
+            ? theme.palette.grey[800]
+            : theme.palette.grey[200],
+          color: theme.palette.mode === 'dark'
+            ? theme.palette.common.white
+            : theme.palette.common.black,
+        }),
+      }}
+      muiTableBodyCellProps={{
+        sx: (theme) => ({
+          backgroundColor: theme.palette.mode === 'dark'
+            ? theme.palette.grey[900]
+            : theme.palette.grey[50],
+          color: theme.palette.mode === 'dark'
+            ? theme.palette.grey[300]
+            : theme.palette.grey[800],
+        }),
+      }}
       localization={MRT_Localization_NO}
-      positionActionsColumn="last"
+      positionActionsColumn="first"
       renderRowActionMenuItems={({ row }) => [
         <MenuItem key="edit" onClick={() => handleEdit(row.original)}>
           Rediger
