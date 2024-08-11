@@ -23,7 +23,8 @@ const Table = ({
   sorting,
   handleDelete,
   handleEdit,
-  meta
+  meta,
+  initialState, // add this prop to accept initialState
   
 }) => {
   const columnsConfig = useMemo(() => columns, [columns]);
@@ -38,7 +39,10 @@ const Table = ({
    
       columns={columnsConfig}
       data={data}
-      initialState={{ showColumnFilters: true }}
+      initialState={{
+        showColumnFilters: true,
+        ...initialState, // Use initialState if provided
+      }}
       manualPagination
       manualSorting
       enablePagination
