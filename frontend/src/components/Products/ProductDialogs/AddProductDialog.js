@@ -20,7 +20,7 @@ const measurementUnitOptions = [
 
  // State to store selected brands
 
-const predefinedTypes = ["Matvare", "Jernhandel", "Elektronikk", "Bil"]; // Add your predefined types here
+const predefinedTypes = ["Matvare", "Jernvare", "Elektronikk", "Bil", "Artikler"]; // Add your predefined types here
 
 const AddProductDialog = ({ open, onClose, onAdd }) => {
   const {

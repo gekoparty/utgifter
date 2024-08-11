@@ -30,38 +30,55 @@ function formatDate(date) {
 
 expensesRouter.get("/", async (req, res) => {
   console.log("GET /api/expenses hit");
-  console.log(req.body);
 
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     let query = Expense.find();
 
+    // Populate fields
+    query = query.populate('productName', 'name')
+                 .populate('brandName', 'name')
+                 .populate('shopName', 'name')
+                 .populate('locationName', 'name');
+
+    // Execute the initial query to get all records for filtering
+    let expenses = await query.exec();
+
     // Apply columnFilters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      filters.forEach((filter) => {
-        const { id, value } = filter;
-        if (id && value) {
-          const fieldFilter = {};
-          fieldFilter[id] = new RegExp(`^${value}`, "i");
-          query = query.where(fieldFilter);
-        }
+      console.log("Parsed columnFilters:", filters);
+
+      expenses = expenses.filter(expense => {
+        return filters.every(filter => {
+          const { id, value } = filter;
+          if (id && value) {
+            if (['productName', 'brandName', 'shopName', 'locationName'].includes(id)) {
+              return new RegExp(`^${value}`, "i").test(expense[id]?.name);
+            } else {
+              return new RegExp(`^${value}`, "i").test(expense[id]);
+            }
+          }
+          return true;
+        });
       });
     }
 
     // Apply globalFilter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      query = query.find({
-        $or: [
-          { productName: globalFilterRegex },
-          { brandName: globalFilterRegex },
-          { shopName: globalFilterRegex },
-          { locationName: globalFilterRegex },
-        ],
+      console.log("Applying globalFilter with value:", globalFilterRegex);
+
+      expenses = expenses.filter(expense => {
+        return ['productName', 'brandName', 'shopName', 'locationName'].some(field => {
+          return globalFilterRegex.test(expense[field]?.name);
+        });
       });
     }
+
+    // Get total row count after filtering
+    const totalRowCount = expenses.length;
 
     // Apply sorting
     if (sorting) {
@@ -70,11 +87,16 @@ expensesRouter.get("/", async (req, res) => {
         const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
         const { id, desc } = sortConfig;
 
-        // Build the sorting object
-        const sortObject = {};
-        sortObject[id] = desc ? -1 : 1;
+        expenses = expenses.sort((a, b) => {
+          let fieldA = id === 'purchaseDate' || id === 'registeredDate' ? new Date(a[id]) : (a[id]?.name || a[id]);
+          let fieldB = id === 'purchaseDate' || id === 'registeredDate' ? new Date(b[id]) : (b[id]?.name || b[id]);
 
-        query = query.sort(sortObject);
+          if (desc) {
+            return fieldA > fieldB ? -1 : fieldA < fieldB ? 1 : 0;
+          } else {
+            return fieldA < fieldB ? -1 : fieldA > fieldB ? 1 : 0;
+          }
+        });
       }
     }
 
@@ -83,72 +105,28 @@ expensesRouter.get("/", async (req, res) => {
       const startIndex = parseInt(start);
       const pageSize = parseInt(size);
 
-      // Query total row count before pagination
-      const totalRowCount = await Expense.countDocuments(query);
-
-      // Apply pagination
-      query = query.skip(startIndex).limit(pageSize);
-
-      const expenses = await query
-        .populate('productName', 'name')
-        .populate('brandName', 'name')
-        .populate('shopName', 'name')
-        .populate('locationName', 'name')
-        .exec();
-
-        // Log the populated expenses
-      console.log("Populated expenses:", expenses);
-
-      // Flatten and format expenses
-      const formattedExpenses = expenses.map(expense => ({
-        ...expense.toObject(),
-        productName: getDefaultValue(expense.productName?.name),
-        brandName: getDefaultValue(expense.brandName?.name),
-        shopName: getDefaultValue(expense.shopName?.name),
-        locationName: getDefaultValue(expense.locationName?.name),
-        purchaseDate: formatDate(expense.purchaseDate),
-        registeredDate: formatDate(expense.registeredDate)
-      }));
-
-      // Log the formatted expenses
-      console.log("Formatted expenses:", formattedExpenses);
-
-      // Send response with both paginated data and total row count
-      res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
-    } else {
-      // If not using pagination, just send the expenses data
-      const expenses = await query
-        .populate('productName', 'name')
-        .populate('brandName', 'name')
-        .populate('shopName', 'name')
-        .populate('locationName', 'name')
-        .exec();
-
-        // Log the populated expenses
-      console.log("Populated expenses without pagination:", expenses);
-
-      // Flatten and format expenses
-      const formattedExpenses = expenses.map(expense => ({
-        ...expense.toObject(),
-        productName: getDefaultValue(expense.productName?.name),
-        brandName: getDefaultValue(expense.brandName?.name),
-        shopName: getDefaultValue(expense.shopName?.name),
-        locationName: getDefaultValue(expense.locationName?.name),
-        purchaseDate: formatDate(expense.purchaseDate),
-        registeredDate: formatDate(expense.registeredDate)
-      }));
-
-       // Log the formatted expenses
-       console.log("Formatted expenses without pagination:", formattedExpenses);
-
-      res.json(formattedExpenses);
+      expenses = expenses.slice(startIndex, startIndex + pageSize);
     }
+
+    // Format the expenses
+    const formattedExpenses = expenses.map(expense => ({
+      ...expense.toObject(),
+      productName: expense.productName?.name || '',
+      brandName: expense.brandName?.name || '',
+      shopName: expense.shopName?.name || '',
+      locationName: expense.locationName?.name || '',
+      purchaseDate: formatDate(expense.purchaseDate),
+      registeredDate: formatDate(expense.registeredDate)
+    }));
+
+    // Send response with both paginated data and total row count
+    res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
+
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
   }
 });
-
 expensesRouter.get("/:id", async (req, res) => {
   const { id } = req.params;
 

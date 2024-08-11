@@ -195,10 +195,10 @@ const ExpenseScreen = () => {
         header: "Sted", 
         Cell: ({ row }) => row.original.locationName 
       },
+      { accessorKey: "purchaseDate", header: "Kjøpt dato" },
+      { accessorKey: "registeredDate", header: "Registrert dato" },
       { accessorKey: "volume", header: "Størrelse" },
       { accessorKey: "type", header: "Type" },
-      { accessorKey: "measurementUnit", header: "Enhet" },
-      { accessorKey: "quantity", header: "Antall" },
     ],
     [priceStatsByType]
   );
