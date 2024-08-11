@@ -7,7 +7,8 @@ import EditIcon from "@mui/icons-material/Edit";
 
 const TableRowItem = ({ item, onDelete, onEdit, headers, columnRenderers }) => {
   return (
-    <TableRow>
+    <TableRow
+    >
       {headers.map((header) => {
         if (header === "Delete" || header === "Edit") {
           return (

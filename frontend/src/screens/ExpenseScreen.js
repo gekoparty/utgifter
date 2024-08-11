@@ -2,17 +2,13 @@ import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
-  MenuItem,
   IconButton,
   Snackbar,
   SnackbarContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
-import {
-  MaterialReactTable,
-  useMaterialReactTable,
-} from 'material-react-table';
+
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery } from "@tanstack/react-query";
@@ -213,9 +209,6 @@ const ExpenseScreen = () => {
     [priceStatsByType]
   );
 
-  const tableState = {
-    columnPinning: { left: ['productName', 'brandName'], right: ['finalPrice'] },
-  };
 
   
 
@@ -325,6 +318,8 @@ const ExpenseScreen = () => {
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
           {expensesData && (
             <ReactTable
+
+            
               data={expensesData?.expenses}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
@@ -353,10 +348,11 @@ const ExpenseScreen = () => {
                 console.log("Opening delete modal...");
                 setDeleteModalOpen(true);
               }}
+              
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
               initialState={{
-                columnPinning: { left: ['productName', 'brandName'], right: ['finalPrice'] },
+                columnPinning: { left: ['mrt-row-actions','productName', 'brandName'], right: ['finalPrice'] },
               }}
             />
           )}
