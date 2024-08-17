@@ -2,7 +2,7 @@ import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
 import useBrandDialog from "../UseBrand/UseBrandDialog";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
-import { useQueryClient } from "@tanstack/react-query"; 
+
 
 const DeleteBrandDialog = ({
   open,
