@@ -1,7 +1,7 @@
 import React from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";

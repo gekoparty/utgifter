@@ -1,6 +1,6 @@
 import React, {useState, useEffect} from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import CreatableSelect from "react-select/creatable";
 import Select from "react-select";
 import PropTypes from "prop-types";
@@ -56,13 +56,7 @@ const EditProductDialog = ({
       setSelectedBrands([]);
     }
   }, [selectedProduct]);
-  console.log("selectedProduct:", selectedProduct);
-  console.log("product:", product);
-  console.log("selectedBrands:", selectedBrands);
-
-  const queryClient = useQueryClient();
-
-  //console.log("data", brandOptions);
+  
 
   if (brandLoading) {
     // Return a loading indicator while brands are being fetched

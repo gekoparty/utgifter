@@ -30,10 +30,11 @@ function formatDate(date) {
 
 expensesRouter.get("/", async (req, res) => {
   console.log("GET /api/expenses hit");
+  
 
   try {
-    const { columnFilters, globalFilter, sorting, start, size } = req.query;
-
+    const { columnFilters, globalFilter, sorting, start, size, minPrice, maxPrice } = req.query;
+    console.log(minPrice, maxPrice)
     let query = Expense.find();
 
     // Populate fields
@@ -41,6 +42,12 @@ expensesRouter.get("/", async (req, res) => {
                  .populate('brandName', 'name')
                  .populate('shopName', 'name')
                  .populate('locationName', 'name');
+
+    // Apply price range filtering
+    if (minPrice !== undefined && maxPrice !== undefined) {
+      query = query.where('price').gte(minPrice).lte(maxPrice);
+    }
+
 
     // Execute the initial query to get all records for filtering
     let expenses = await query.exec();

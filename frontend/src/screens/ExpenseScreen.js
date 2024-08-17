@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo , useCallback} from "react";
 import {
   Box,
   Button,
   IconButton,
   Snackbar,
   SnackbarContent,
+  Slider,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
-
+import debounce from 'lodash/debounce';
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +52,28 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
+    // Debounced Price Range Filter Component
+const PriceRangeFilter = ({ value, onChange }) => {
+  const handleSliderChange = (event, newValue) => {
+    onChange(newValue);
+  };
+
+  return (
+    <Box sx={{ width: 300, mb: 2 }}>
+      <Slider
+        value={value}
+        onChange={handleSliderChange}
+        valueLabelDisplay="auto"
+        min={0}
+        max={1000}
+        step={10}
+      />
+    </Box>
+  );
+};
+    
+    
+
 const ExpenseScreen = () => {
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -60,7 +83,7 @@ const ExpenseScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-
+  const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
   const [priceStatsByType, setPriceStatsByType] = useState({});
 
   const calculatePriceStatsByType = (data) => {
@@ -81,6 +104,10 @@ const ExpenseScreen = () => {
 
     return stats;
   };
+
+ 
+
+  
 
   const tableColumns = useMemo(
     () => [
@@ -206,7 +233,7 @@ const ExpenseScreen = () => {
       { accessorKey: 'volume', header: 'Størrelse', enableColumnPinning: true },
       { accessorKey: 'type', header: 'Type', enableColumnPinning: true },
     ],
-    [priceStatsByType]
+    [priceStatsByType, priceRangeFilter]
   );
 
 
@@ -221,6 +248,7 @@ const ExpenseScreen = () => {
     pagination.pageIndex,
     pagination.pageSize,
     sorting,
+   
   ];
 
   const fetchExpenses = async () => {
@@ -236,6 +264,10 @@ const ExpenseScreen = () => {
     );
     fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
     fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    fetchURL.searchParams.set("minPrice", `${priceRangeFilter[0]}`);
+    if (priceRangeFilter[1] < 1000) {
+      fetchURL.searchParams.set("maxPrice", `${priceRangeFilter[1]}`);
+    }
 
     const response = await fetch(fetchURL.href);
     const json = await response.json();
@@ -302,24 +334,32 @@ const ExpenseScreen = () => {
     refetch();
   };
 
+  const debouncedRefetch = useCallback(
+    debounce(() => {
+      refetch(); // Trigger the refetch here
+    }, 1000), // Adjust the delay as necessary
+    []
+  );
+
+  const handlePriceRangeChange = (newRange) => {
+    setPriceRangeFilter(newRange);
+    debouncedRefetch(); // Call the debounced function
+  };
+  
+
   return (
     <TableLayout>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddExpenseDialogOpen(true)}
-        >
+        <Button variant="contained" color="primary" onClick={() => setAddExpenseDialogOpen(true)}>
           New Expense
         </Button>
+        <PriceRangeFilter value={priceRangeFilter} onChange={handlePriceRangeChange} />
       </Box>
 
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
           {expensesData && (
             <ReactTable
-
-            
               data={expensesData?.expenses}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
@@ -343,12 +383,9 @@ const ExpenseScreen = () => {
                 setEditModalOpen(true);
               }}
               handleDelete={(expense) => {
-                console.log("Delete clicked for:", expense);
                 setSelectedExpense(expense);
-                console.log("Opening delete modal...");
                 setDeleteModalOpen(true);
               }}
-              
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
               initialState={{
