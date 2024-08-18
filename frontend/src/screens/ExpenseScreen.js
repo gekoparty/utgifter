@@ -17,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import AddExpenseDialog from "../components/Expenses/ExpenseDialogs/AddExpenseDialog"
 import DeleteExpenseDialog from "../components/Expenses/ExpenseDialogs/DeleteExpenseDialog";
 import EditExpenseDialog from "../components/Expenses/ExpenseDialogs/EditExpenseDialog";
+import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 
 //test
 
@@ -106,7 +107,7 @@ const ExpenseScreen = () => {
   };
 
  
-
+ const renderDetailPanel = useCallback(({ row }) => <DetailPanel row={row} />, []);
   
 
   const tableColumns = useMemo(
@@ -346,6 +347,7 @@ const ExpenseScreen = () => {
     debouncedRefetch(); // Call the debounced function
   };
   
+  
 
   return (
     <TableLayout>
@@ -388,9 +390,11 @@ const ExpenseScreen = () => {
               }}
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
+              
               initialState={{
                 columnPinning: { left: ['mrt-row-actions','productName', 'brandName'], right: ['finalPrice'] },
               }}
+              renderDetailPanel={renderDetailPanel}
             />
           )}
         </Box>

@@ -25,6 +25,7 @@ const Table = ({
   handleEdit,
   meta,
   initialState, // add this prop to accept initialState
+  renderDetailPanel,  // Add this prop to render detail panels
   
 }) => {
   const columnsConfig = useMemo(() => columns, [columns]);
@@ -113,6 +114,7 @@ const Table = ({
         sorting,
         pagination
       }}
+      renderDetailPanel={renderDetailPanel} 
     />
   );
 };
