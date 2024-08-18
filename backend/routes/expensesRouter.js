@@ -38,10 +38,13 @@ expensesRouter.get("/", async (req, res) => {
     let query = Expense.find();
 
     // Populate fields
+   // Only populate fields if needed for filtering or sorting
+   if (columnFilters || globalFilter) {
     query = query.populate('productName', 'name')
                  .populate('brandName', 'name')
                  .populate('shopName', 'name')
                  .populate('locationName', 'name');
+  }
 
     // Apply price range filtering
     if (minPrice !== undefined && maxPrice !== undefined) {

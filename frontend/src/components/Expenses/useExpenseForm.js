@@ -6,7 +6,7 @@ import useFetchData from "../../hooks/useFetchData";
 import { addExpenseValidationSchema } from "../../validation/validationSchema";
 import useCustomHttp from "../../hooks/useHttp";
 
-const useExpenseForm = (initialExpense = null) => {
+const useExpenseForm = (initialExpense = null, expenseId = null) => {
   const initialExpenseState = useMemo(() => ({
     measurementUnit: "",
     productName: "",
@@ -29,7 +29,7 @@ const useExpenseForm = (initialExpense = null) => {
 
   const [expense, setExpense] = useState(initialExpense ? initialExpense : { ...initialExpenseState });
   const [validationErrors, setValidationErrors] = useState({});
-
+  const [error, setError] = useState(null);
   const { sendRequest, loading } = useCustomHttp("/api/expenses");
   const { dispatch, state } = useContext(StoreContext);
 
@@ -59,6 +59,25 @@ const useExpenseForm = (initialExpense = null) => {
       );
     }
   );
+
+  useEffect(() => {
+    if (expenseId) {
+      const fetchExpenseById = async () => {
+        try {
+          const response = await fetch(`/api/expenses/${expenseId}`);
+          const data = await response.json();
+          setExpense((prevExpense) => ({
+            ...prevExpense,
+            ...data,
+          }));
+        } catch (fetchError) {
+          console.error("Error fetching expense:", fetchError);
+          setError(fetchError.message || "Error fetching expense details");
+        }
+      };
+      fetchExpenseById();
+    }
+  }, [expenseId]);
 
   const resetServerError = useCallback(() => {
     dispatch({
@@ -291,6 +310,7 @@ const useExpenseForm = (initialExpense = null) => {
   return {
     isFormValid,
     loading,
+    error,
     handleSaveExpense,
     handleDeleteExpense,
     expense,
