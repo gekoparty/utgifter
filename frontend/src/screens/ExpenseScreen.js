@@ -119,43 +119,6 @@ const ExpenseScreen = () => {
         enableColumnPinning: true, // This column can be pinned
       },
       {
-        accessorKey: 'brandName',
-        header: 'Merke',
-        Cell: ({ row }) => row.original.brandName,
-        enableColumnPinning: true, // This column can be pinned
-      },
-      {
-        accessorKey: 'price',
-        header: 'OriginalPris',
-        size: 170,
-        Cell: ({ cell }) => (
-          <Box>
-            {cell.getValue()?.toLocaleString('nb-NO', {
-              style: 'currency',
-              currency: 'NOK',
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </Box>
-        ),
-        enableColumnPinning: true, // This column can be pinned
-      },
-      {
-        accessorKey: 'finalPrice',
-        header: 'Kjøpspris',
-        Cell: ({ cell }) => (
-          <Box>
-            {cell.getValue()?.toLocaleString('nb-NO', {
-              style: 'currency',
-              currency: 'NOK',
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </Box>
-        ),
-        enableColumnPinning: true, // This column can be pinned
-      },
-      {
         accessorKey: 'pricePerUnit',
         header: 'Pris pr kg/l',
         Cell: ({ cell, row }) => {
@@ -196,43 +159,16 @@ const ExpenseScreen = () => {
         },
         enableColumnPinning: true, // This column can be pinned
       },
-      {
-        accessorKey: 'discountValue',
-        header: '% Rabatt',
-        Cell: ({ cell }) => <Box>{`${cell.getValue()} %`}</Box>,
-        enableColumnPinning: true, // This column can be pinned
-      },
-      {
-        accessorKey: 'discountAmount',
-        header: 'Rabatt kr',
-        Cell: ({ cell }) => (
-          <Box>
-            {cell.getValue()?.toLocaleString('nb-NO', {
-              style: 'currency',
-              currency: 'NOK',
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </Box>
-        ),
-        enableColumnPinning: true, // This column can be pinned
-      },
+     
       {
         accessorKey: 'shopName',
         header: 'Butikk',
         Cell: ({ row }) => row.original.shopName,
         enableColumnPinning: true, // This column can be pinned
       },
-      {
-        accessorKey: 'locationName',
-        header: 'Sted',
-        Cell: ({ row }) => row.original.locationName,
-        enableColumnPinning: true, // This column can be pinned
-      },
+      
       { accessorKey: 'purchaseDate', header: 'Kjøpt dato', enableColumnPinning: true },
-      { accessorKey: 'registeredDate', header: 'Registrert dato', enableColumnPinning: true },
-      { accessorKey: 'volume', header: 'Størrelse', enableColumnPinning: true },
-      { accessorKey: 'type', header: 'Type', enableColumnPinning: true },
+     
     ],
     [priceStatsByType, priceRangeFilter]
   );
