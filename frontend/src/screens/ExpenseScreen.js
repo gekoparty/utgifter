@@ -353,6 +353,7 @@ const ExpenseScreen = () => {
         onUpdateFailure={editFailureHandler}
       />
 
+
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -371,11 +372,13 @@ const ExpenseScreen = () => {
           }
         />
       </Snackbar>
-      <AddExpenseDialog
-        onClose={() => setAddExpenseDialogOpen(false)}
-        open={addExpenseDialogOpen}
-        onAdd={addExpenseHandler}
-      />
+      {addExpenseDialogOpen && (
+  <AddExpenseDialog
+    onClose={() => setAddExpenseDialogOpen(false)}
+    open={addExpenseDialogOpen}
+    onAdd={addExpenseHandler}
+  />
+)}
     </TableLayout>
   );
 };

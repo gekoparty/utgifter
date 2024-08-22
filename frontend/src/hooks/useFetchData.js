@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
-const useFetchData = (queryKey, url, transformData) => {
-  const { data = [], isLoading } = useQuery(
+const useFetchData = (queryKey, url, transformData = (data) => data, options = {}) => {
+  const queryResult = useQuery(
     [queryKey],
     async () => {
       const response = await fetch(url);
@@ -11,10 +11,18 @@ const useFetchData = (queryKey, url, transformData) => {
       const data = await response.json();
       return transformData ? transformData(data) : data;
     },
-    { enabled: true } // Adjust as needed
+    {
+      enabled: options.enabled !== false, // Disable auto-fetching if `enabled` is false
+      ...options,
+    }
   );
 
-  return { data, isLoading };
+  return {
+    data: queryResult.data,
+    isLoading: queryResult.isLoading,
+    error: queryResult.error,
+    refetch: queryResult.refetch,
+  };
 };
 
 export default useFetchData;
