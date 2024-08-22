@@ -45,21 +45,25 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useExpenseForm();
 
-  const { data: products, isLoading: isLoadingProducts } = useFetchData(
+  const { data: products, isLoading: isLoadingProducts, refetch: refetchProducts } = useFetchData(
     "products",
-    "/api/products"
+    "/api/products",
+    null,
+    { enabled: false }
   );
 
-  const { data: brands, isLoading: isLoadingBrands } = useFetchData(
+  const { data: brands, isLoading: isLoadingBrands, refetch: refetchBrands } = useFetchData(
     "brands",
-    "/api/brands"
+    "/api/brands",
+    null,
+    { enabled: false } // disable auto-fetching
   );
 
-  const { data: shops, isLoading: isLoadingShops } = useFetchData(
+  const { data: shops, isLoading: isLoadingShops,refetch: refetchShops } = useFetchData(
     "shops",
     "/api/shops",
     async (shops) => {
-      console.log(shops)
+      console.log(shops) 
       return Promise.all(
         shops.map(async (shop) => {
           const locationResponse = await fetch(
@@ -69,10 +73,21 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           return { ...shop, locationName: location.name };
         })
       );
-    }
+    },
+    { enabled: false } // disable auto-fetching
   );
 
-  const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
+   // Trigger data fetching when the dialog opens
+   useEffect(() => {
+    console.log("open", open)
+    if (open) {
+      refetchProducts();
+      refetchBrands();
+      refetchShops();
+    }
+  }, [open, refetchProducts, refetchBrands, refetchShops]);
+
+  const isLoading = !open || isLoadingProducts || isLoadingBrands || isLoadingShops;
 
   // Add console.log statements to check the data
   console.log("Products fetched:", products);
@@ -200,13 +215,13 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         <Grid item xs={12} md={6}>
             <Select
             isClearable
-              options={products.map((product) => ({
-                label: product.name,
-                value: product.name,
-                name: product.name,
-                type: product.type,
-                measurementUnit: product.measurementUnit,
-              }))}
+            options={(products || []).map((product) => ({
+              label: product.name,
+              value: product.name,
+              name: product.name,
+              type: product.type,
+              measurementUnit: product.measurementUnit,
+            }))}
               value={
                 expense.productName
                   ? { label: expense.productName, value: expense.productName }
@@ -223,7 +238,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <Select
             isClearable
-              options={brands.map((brand) => ({
+              options={(brands || []).map((brand) => ({
                 label: brand.name,
                 value: brand.name,
                 name: brand.name,
@@ -244,7 +259,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           <Grid item xs={12} md={6}>
             <Select
             isClearable
-              options={shops.map((shop) => ({
+              options={(shops || []).map((shop) => ({
                 label: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
                 name: shop.name,

@@ -34,17 +34,21 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   const { dispatch, state } = useContext(StoreContext);
 
   // Fetch necessary data
-  const { data: productsOptions, isLoading: productsLoading } = useFetchData(
+  const { data: productsOptions, isLoading: productsLoading, refetch: refetchProducts  } = useFetchData(
     "products",
-    "/api/products"
+    "/api/products",
+    null,
+    { enabled: false } 
   );
 
-  const { data: brandOptions, isLoading: brandsLoading } = useFetchData(
+  const { data: brandOptions, isLoading: brandsLoading, refetch: refetchBrands } = useFetchData(
     "brands",
-    "/api/brands"
+    "/api/brands",
+    null,
+    { enabled: false } // Disable auto-fetching
   );
 
-  const { data: shopOptions, isLoading: shopsLoading } = useFetchData(
+  const { data: shopOptions, isLoading: shopsLoading, refetch: refetchShops  } = useFetchData(
     "shopsWithLocations",
     "/api/shops",
     async (shops) => {
@@ -57,7 +61,8 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
           return { ...shop, locationName: location.name };
         })
       );
-    }
+    },
+    
   );
 
   useEffect(() => {

@@ -44,12 +44,16 @@ const EditExpenseDialog = ({
 
   const { data: productOptions, isLoading: isLoadingProducts, isError: productError } = useFetchData(
     "products",
-    "/api/products"
+    "/api/products",
+    undefined,
+    { enabled: open }
   );
 
   const { data: brandOptions, isLoading: isLoadingBrands, isError: brandError } = useFetchData(
     "brands",
-    "/api/brands"
+    "/api/brands",
+    undefined,
+    { enabled: open }
   );
 
   const { data: shopOptions, isLoading: isLoadingShops, isError: shopError } = useFetchData(
@@ -65,7 +69,8 @@ const EditExpenseDialog = ({
           return { ...shop, locationName: location.name };
         })
       );
-    }
+    },
+    { enabled: open }
   );
 
   const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops;
@@ -81,6 +86,13 @@ const EditExpenseDialog = ({
   useEffect(() => {
     setVolumeDisplay(expense.volume || "");
   }, [expense.volume]);
+
+  useEffect(() => {
+    if (open && selectedExpense) {
+      // Fetch data or reset form when the dialog is opened
+      setExpense(selectedExpense);
+    }
+  }, [open, selectedExpense, setExpense]);
 
 
   
@@ -103,11 +115,6 @@ const EditExpenseDialog = ({
     return <div>Error loading Shops</div>;
   }
 
-  
-
-
-  
-  
 
   const handleDateChange = (date) => {
     if (!dayjs(date).isValid()) return;
