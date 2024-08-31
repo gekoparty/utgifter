@@ -131,7 +131,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     };
   }, [initialExpense, resetFormAndErrors, dispatch]);
 
-  const validateField = (field, value) => {
+  const validateField = useCallback((field, value) => {
     try {
       addExpenseValidationSchema.validateSyncAt(field, { [field]: value });
       setValidationErrors((prevErrors) => ({
@@ -144,12 +144,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         [field]: validationError.message,
       }));
     }
-  };
+  }, []);
 
-  const handleFieldChange = (field, value) => {
-    setExpense((prevExpense) => ({ ...prevExpense, [field]: value }));
+  const handleFieldChange = useCallback((field, value) => {
+    setExpense(prev => ({ ...prev, [field]: value }));
     validateField(field, value);
-  };
+  }, [validateField]);
+
 
   const handleSaveExpense = async (onClose) => {
     console.log("handleSaveExpense called with expense:", expense);
@@ -168,6 +169,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     let validationErrors = {};
   
     try {
+      console.log("Initial expense object:", expense);
       formattedExpense = {
         ...expense,
         productName: formatComponentFields(expense.productName, "expense", "productName"),
@@ -175,6 +177,8 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
         locationName: formatComponentFields(expense.locationName, "expense", "locationName"),
         type: formatComponentFields(expense.type, "expense", "type"),
+        purchaseDate: expense.purchased ? expense.purchaseDate : null,
+        registeredDate: !expense.purchased ? expense.registeredDate : null,
       };
   
       console.log("Formatted expense:", formattedExpense);
@@ -211,9 +215,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         url = `/api/expenses/${initialExpense._id}`;
         method = "PUT";
       }
+
+      console.log("Sending request to:", url);
+    console.log("Request method:", method);
+    console.log("Payload being sent:", formattedExpense);
   
       const { data, error: addDataError } = await sendRequest(url, method, formattedExpense);
-  
+      
       if (addDataError) {
         console.error("API error:", addDataError);
         dispatch({
@@ -225,7 +233,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         return;
       }
   
-      console.log("Expense saved successfully:", data);
+      console.log("Response from API:", data);
   
       // Reset the form and errors after saving
       setExpense(initialExpenseState);
@@ -278,39 +286,15 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     }
   };
 
-  const isFormValid = () => {
-    // Log the values of productName, brandName, and shopName before trimming
-  console.log("Before trim:", {
-    productName: expense.productName,
-    brandName: expense.brandName,
-    shopName: expense.shopName,
-  });
-    const hasErrors = Object.values(validationErrors).some((error) => error);
-    const hasProductName = expense.productName.trim().length > 0;
-    const hasBrandName = expense.brandName.trim().length > 0;
-    const hasShopName = expense.shopName.trim().length > 0;
-    const hasVolume = expense.volume > 0;
-    const hasPrice = expense.price > 0;
-  
-    console.log("Validation status:", {
-      hasErrors,
-      hasProductName,
-      hasBrandName,
-      hasShopName,
-      hasVolume,
-      hasPrice,
-      validationErrors,
-    });
-  
-    return (
-      !hasErrors &&
-      hasProductName &&
-      hasBrandName &&
-      hasShopName &&
-      hasVolume &&
-      hasPrice
+  const isFormValid = useCallback(() => {
+    const hasErrors = Object.values(validationErrors).some(error => error);
+    const hasRequiredFields = ["productName", "brandName", "shopName"].every(
+      field => expense[field]?.trim().length > 0
     );
-  };
+    const hasVolumeAndPrice = expense.volume > 0 && expense.price > 0;
+
+    return !hasErrors && hasRequiredFields && hasVolumeAndPrice;
+  }, [expense, validationErrors]);
 
   return {
     isFormValid,

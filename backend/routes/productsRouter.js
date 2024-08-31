@@ -31,7 +31,7 @@ productsRouter.get("/", async (req, res) => {
           }
         }
       });
-      console.log("After applying filters: columfilter");
+      
     }
     
 
@@ -84,13 +84,13 @@ productsRouter.get("/", async (req, res) => {
         ;
     
         // Log the results for debugging
-        console.log("Matched Products:", matchedProducts);
+       
     
       } catch (error) {
         console.error("Error in query:", error);
         res.status(500).json({ error: "Internal Server Error" }); // Handle errors
       }
-      console.log("After applying filters: global");
+     
     }
 
     // Apply sorting
@@ -112,7 +112,7 @@ productsRouter.get("/", async (req, res) => {
     
         query = query.sort(sortObject);
       }
-      console.log("After sorting");
+    
     }
     // Apply pagination
     if (start && size) {
@@ -129,23 +129,23 @@ productsRouter.get("/", async (req, res) => {
 
       // Send response with both paginated data and total row count
       res.json({ products, meta: { totalRowCount } });
-      console.log("Before sending the response:");
+   
     } else {
       // If not using pagination, just send the brands data
       const products = await query.exec();
-      console.log(products)
+     
       res.json(products);
     }
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Server Error");
   }
-  console.log("After sorting and pagination:");
+ 
   
 });
 
 productsRouter.post("/", async (req, res) => {
-  console.log("Request body:", JSON.stringify(req.body, null, 2));
+ 
   try {
     const { name, brands, measurementUnit, type } = req.body;
 
@@ -192,10 +192,10 @@ productsRouter.post("/", async (req, res) => {
     });
 
     try {
-      console.log(product);
+      
 
       const savedProduct = await product.save();
-      console.log("Saved product:", savedProduct);
+      
 
       const populatedProduct = await Product.findById(savedProduct._id)
         .populate("brands")
@@ -214,7 +214,7 @@ productsRouter.post("/", async (req, res) => {
 
 productsRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
+  
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) {
@@ -229,7 +229,7 @@ productsRouter.delete("/:id", async (req, res) => {
 
 productsRouter.put("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log("body", req.body);
+  
   try {
     const { name, brands, measurementUnit, type } = req.body;
     const brandIds = [];
@@ -268,7 +268,7 @@ productsRouter.put("/:id", async (req, res) => {
       slug: slugify(name, { lower: true }),
     };
 
-    console.log(updatedProduct);
+    
 
     const result = await Product.findByIdAndUpdate(id, updatedProduct, {
       new: true,

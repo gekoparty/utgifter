@@ -6,16 +6,11 @@ const locationsRouter = express.Router();
 
 
 locationsRouter.get("/", async (req, res) => {
-  console.log(req.body)
+ 
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    console.log("Received query parameters:");
-    console.log("columnFilters:", columnFilters);
-    console.log("globalFilter:", globalFilter);
-    console.log("sorting:", sorting);
-    console.log("start", start);
-    console.log("size", size);
+  
 
     let query = Location.find();
 
@@ -97,7 +92,7 @@ locationsRouter.get("/:id", async (req, res) => {
   
   locationsRouter.delete("/:id", async (req, res) => {
     const { id } = req.params;
-    console.log(id);
+    
     try {
       const location = await Location.findByIdAndDelete(req.params.id);
       if (!location) {
@@ -111,7 +106,7 @@ locationsRouter.get("/:id", async (req, res) => {
   });
 
   locationsRouter.post("/", async (req, res) => {
-    console.log(req.body);
+   
     try {
       const { name } = req.body;
       const slug = slugify(name, { lower: true });

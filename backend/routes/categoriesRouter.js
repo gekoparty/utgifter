@@ -87,7 +87,7 @@ categoriesRouter.get("/:id", async (req, res) => {
 });
 
 categoriesRouter.post("/", async (req, res) => {
-  console.log(req.body);
+  
   try {
     const { name } = req.body;
     const slug = slugify(name, { lower: true });
@@ -112,7 +112,7 @@ categoriesRouter.post("/", async (req, res) => {
 
 categoriesRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
+ 
   try {
     const category = await Category.findByIdAndDelete(req.params.id);
     if (!category) {

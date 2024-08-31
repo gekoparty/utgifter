@@ -29,12 +29,9 @@ function formatDate(date) {
 }
 
 expensesRouter.get("/", async (req, res) => {
-  console.log("GET /api/expenses hit");
-  
-
   try {
     const { columnFilters, globalFilter, sorting, start, size, minPrice, maxPrice } = req.query;
-    console.log(minPrice, maxPrice)
+    
     let query = Expense.find();
 
     // Populate fields
@@ -58,7 +55,7 @@ expensesRouter.get("/", async (req, res) => {
     // Apply columnFilters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      console.log("Parsed columnFilters:", filters);
+      
 
       expenses = expenses.filter(expense => {
         return filters.every(filter => {
@@ -78,7 +75,7 @@ expensesRouter.get("/", async (req, res) => {
     // Apply globalFilter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      console.log("Applying globalFilter with value:", globalFilterRegex);
+   
 
       expenses = expenses.filter(expense => {
         return ['productName', 'brandName', 'shopName', 'locationName'].some(field => {
@@ -170,8 +167,7 @@ expensesRouter.get("/:id", async (req, res) => {
 })
 
 expensesRouter.post("/", async (req, res) => {
-  console.log("POST /api/expenses hit");
-  console.log(req.body);
+  
 
   try {
     const {
@@ -383,7 +379,7 @@ expensesRouter.put("/:id", async (req, res) => {
 
 expensesRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
+  
   try {
     const expense = await Expense.findByIdAndDelete(req.params.id);
     if (!expense) {

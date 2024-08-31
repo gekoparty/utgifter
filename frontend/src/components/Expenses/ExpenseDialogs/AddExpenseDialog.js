@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";// Adjust path as needed
 import Select from "react-select"
+import WindowedSelect from "react-windowed-select";
 
 const defaultExpense = {
   productName: "",
@@ -49,14 +50,14 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     "products",
     "/api/products",
     null,
-    { enabled: false }
+    { enabled: open }
   );
 
   const { data: brands, isLoading: isLoadingBrands, refetch: refetchBrands } = useFetchData(
     "brands",
     "/api/brands",
     null,
-    { enabled: false } // disable auto-fetching
+    { enabled: open } // disable auto-fetching
   );
 
   const { data: shops, isLoading: isLoadingShops,refetch: refetchShops } = useFetchData(
@@ -74,18 +75,24 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         })
       );
     },
-    { enabled: false } // disable auto-fetching
+    { enabled: open
+     } // disable auto-fetching
   );
 
    // Trigger data fetching when the dialog opens
    useEffect(() => {
-    console.log("open", open)
     if (open) {
-      refetchProducts();
-      refetchBrands();
-      refetchShops();
+      if (!products || products.length === 0) {
+        refetchProducts();
+      }
+      if (!brands || brands.length === 0) {
+        refetchBrands();
+      }
+      if (!shops || shops.length === 0) {
+        refetchShops();
+      }
     }
-  }, [open, refetchProducts, refetchBrands, refetchShops]);
+  }, [open, products, brands, shops, refetchProducts, refetchBrands, refetchShops]);
 
   const isLoading = !open || isLoadingProducts || isLoadingBrands || isLoadingShops;
 
@@ -213,15 +220,15 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       <Box sx={{ p: 2, position: "relative" }}>
         <Grid container spacing={2}>
         <Grid item xs={12} md={6}>
-            <Select
-            isClearable
-            options={(products || []).map((product) => ({
-              label: product.name,
-              value: product.name,
-              name: product.name,
-              type: product.type,
-              measurementUnit: product.measurementUnit,
-            }))}
+        <WindowedSelect
+              isClearable
+              options={(products || []).map((product) => ({
+                label: product.name,
+                value: product.name,
+                name: product.name,
+                type: product.type,
+                measurementUnit: product.measurementUnit,
+              }))}
               value={
                 expense.productName
                   ? { label: expense.productName, value: expense.productName }
@@ -231,51 +238,56 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               placeholder="Velg Produkt"
               menuPortalTarget={document.body}
               styles={{
-                menuPortal: (base) => ({ ...base, zIndex: 9999 })
+                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
               }}
+              windowedMenuHeight={300}
+              itemSize={35}
+              onMenuScrollToBottom={() => {
+                // Lazy load more products
+                console.log("Scrolled to bottom - fetch more products");
+              }}
+              loadingMessage={() => "Loading products..."}
+              noOptionsMessage={() => "No products found"}
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <Select
-            isClearable
-              options={(brands || []).map((brand) => ({
-                label: brand.name,
-                value: brand.name,
-                name: brand.name,
-              }))}
-              value={
-                expense.brandName
-                  ? { label: expense.brandName, value: expense.brandName }
-                  : null
-              }
-              onChange={handleBrandSelect}
-              placeholder="Velg Merke"
-              menuPortalTarget={document.body}
-              styles={{
-                menuPortal: (base) => ({ ...base, zIndex: 9999 })
-              }}
-            />
+          <WindowedSelect
+  isClearable
+  options={(brands || []).map((brand) => ({
+    label: brand.name,
+    value: brand.name,
+    name: brand.name,
+  }))}
+  value={expense.brandName ? { label: expense.brandName, value: expense.brandName } : null}
+  onChange={handleBrandSelect}
+  placeholder="Velg Merke"
+  menuPortalTarget={document.body}
+  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+  windowedMenuHeight={300}  // Controls the dropdown height
+  itemSize={35}             // Approximate height of each dropdown item in pixels
+  onMenuScrollToBottom={() => {
+    // Fetch more options when the user scrolls to the bottom
+    console.log("Scrolled to bottom - fetch more data");
+  }}
+  filterOption={(option, inputValue) =>
+    option.label.toLowerCase().includes(inputValue.toLowerCase())
+  }
+/>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Select
-            isClearable
+          <WindowedSelect
+              isClearable
               options={(shops || []).map((shop) => ({
                 label: `${shop.name}, ${shop.locationName}`,
                 value: shop.name,
                 name: shop.name,
                 locationName: shop.locationName,
               }))}
-              value={
-                expense.shopName
-                  ? { label: expense.shopName, value: expense.shopName }
-                  : null
-              }
+              value={expense.shopName ? { label: expense.shopName, value: expense.shopName } : null}
               onChange={handleShopSelect}
               placeholder="Velg Butikk"
               menuPortalTarget={document.body}
-              styles={{
-                menuPortal: (base) => ({ ...base, zIndex: 9999 })
-              }}
+              styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
