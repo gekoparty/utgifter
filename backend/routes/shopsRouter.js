@@ -11,12 +11,7 @@ shopsRouter.get("/", async (req, res) => {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
     
 
-    console.log("Received query parameters:");
-    console.log("columnFilters:", columnFilters);
-    console.log("globalFilter:", globalFilter);
-    console.log("sorting:", sorting);
-    console.log("start", start);
-    console.log("size", size);
+    
     let query = Shop.find();
 
     
@@ -40,7 +35,7 @@ shopsRouter.get("/", async (req, res) => {
           }
         }
       });
-      console.log("After applying filters: columfilter");
+     
     }
     
 
@@ -109,13 +104,13 @@ shopsRouter.get("/", async (req, res) => {
         ]);
     
         // Log the results for debugging
-        console.log("Matched Shops:", matchedShops);
+        
     
       } catch (error) {
         console.error("Error in query:", error);
         res.status(500).json({ error: "Internal Server Error" }); // Handle errors
       }
-      console.log("After applying filters: global");
+     
     }
 
     // Apply sorting
@@ -132,7 +127,7 @@ shopsRouter.get("/", async (req, res) => {
 
         query = query.sort(sortObject);
       }
-      console.log("After sorting");
+      
     }
 
     // Apply pagination
@@ -150,7 +145,7 @@ shopsRouter.get("/", async (req, res) => {
 
       // Send response with both paginated data and total row count
       res.json({ shops, meta: { totalRowCount } });
-      console.log("Before sending the response:");
+     
     } else {
       // If not using pagination, just send the brands data
       const shops = await query.exec();
@@ -160,12 +155,12 @@ shopsRouter.get("/", async (req, res) => {
     console.error(err.message);
     res.status(500).send("Server Error");
   }
-  console.log("After sorting and pagination:");
+ 
   
 });
 
 shopsRouter.post("/", async (req, res) => {
-  console.log(req.body);
+
   try {
     const { name, location, category } = req.body;
     let locationId = location;
@@ -227,7 +222,7 @@ shopsRouter.post("/", async (req, res) => {
 
     try {
       const savedShop = await shop.save();
-      console.log("Saved shop:", savedShop);
+    
 
       const populatedShop = await Shop.findById(savedShop._id)
         .populate("location")
@@ -329,7 +324,7 @@ shopsRouter.put("/:id", async (req, res) => {
 
 shopsRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  console.log(id);
+
   try {
     const shop = await Shop.findByIdAndDelete(req.params.id);
     if (!shop) {

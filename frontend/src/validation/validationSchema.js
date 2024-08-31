@@ -72,7 +72,7 @@ export const addExpenseValidationSchema = Yup.object().shape({
   registeredDate: Yup.date().nullable(),
 }).test('date-validation', 'Må ha en kjøpsdato eller registreringsdato, men ikke begge', function (value) {
   const { purchaseDate, registeredDate } = value || {};
-  console.log("purchaseDate:", purchaseDate, "registeredDate:", registeredDate);
+ 
   if ((purchaseDate && registeredDate) || (!purchaseDate && !registeredDate)) {
     return false;
   }

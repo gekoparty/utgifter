@@ -6,16 +6,11 @@ import slugify from "slugify";
 const brandsRouter = express.Router();
 
 brandsRouter.get("/", async (req, res) => {
-  console.log(req.body)
+  
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    console.log("Received query parameters:");
-    console.log("columnFilters:", columnFilters);
-    console.log("globalFilter:", globalFilter);
-    console.log("sorting:", sorting);
-    console.log("start", start);
-    console.log("size", size);
+    
 
     let query = Brand.find();
 
@@ -103,7 +98,7 @@ brandsRouter.get("/:id", async (req, res) => {
 });
 
 brandsRouter.post("/", async (req, res) => {
-  console.log(req.body);
+  
   try {
     const { name } = req.body;
 

@@ -126,7 +126,7 @@ const ExpenseScreen = () => {
           const type = row.original.type;
           const stats = priceStatsByType[type] || { min: 0, max: 0, median: 0 };
 
-          console.log(`Price: ${price}, Type: ${type}, Stats:`, stats); // Debug output
+        
 
           let color = 'yellow'; // Default color
 

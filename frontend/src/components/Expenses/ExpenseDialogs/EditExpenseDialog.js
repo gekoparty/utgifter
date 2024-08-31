@@ -39,8 +39,7 @@ const EditExpenseDialog = ({
     resetFormAndErrors,
   } = useExpenseForm(selectedExpense);
 
-  console.log("Current expense state:", expense);
-  console.log("Is form valid:", isFormValid());
+  
 
   const { data: productOptions, isLoading: isLoadingProducts, isError: productError } = useFetchData(
     "products",
