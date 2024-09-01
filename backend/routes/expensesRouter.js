@@ -25,7 +25,7 @@ function formatDate(date) {
   }
 
   // Format the date
-  return format(parsedDate, 'yyyy-dd-MM'); // Adjust format as needed
+  return format(parsedDate, 'dd MMMM yyyy'); // Outputs: 12 January 2024
 }
 
 expensesRouter.get("/", async (req, res) => {

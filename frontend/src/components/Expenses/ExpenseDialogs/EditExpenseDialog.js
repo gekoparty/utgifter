@@ -37,7 +37,8 @@ const EditExpenseDialog = ({
     validationError,
     isFormValid,
     resetFormAndErrors,
-  } = useExpenseForm(selectedExpense);
+    
+  } = useExpenseForm(selectedExpense, selectedExpense?._id, onClose);
 
   
 
@@ -170,13 +171,21 @@ const EditExpenseDialog = ({
   };
 
   const handleShopSelect = (shop) => {
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      shopName: shop ? shop.label : "",
-      locationName: shop ? shop.locationName : "",
-    }));
+    if (shop) {
+      const [selectedShopName, selectedLocationName] = shop.label.split(", ").map((str) => str.trim());
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        shopName: selectedShopName,
+        locationName: selectedLocationName,
+      }));
+    } else {
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        shopName: "",
+        locationName: "",
+      }));
+    }
   };
-
   
 
   const handleVolumeChange = (event) => {
@@ -470,15 +479,7 @@ const EditExpenseDialog = ({
         <Button type="submit" disabled={loading || !isFormValid()}>
             {loading ? <CircularProgress size={24} /> : "Save"}
           </Button>
-          <Button
-            onClick={() => {
-              resetFormAndErrors();
-              onClose();
-            }}
-            sx={{ ml: 2 }}
-          >
-            Cancel
-          </Button>
+          
       </Box>
       </form>
     </BasicDialog>

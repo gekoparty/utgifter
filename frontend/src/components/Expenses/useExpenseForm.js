@@ -6,7 +6,7 @@ import useFetchData from "../../hooks/useFetchData";
 import { addExpenseValidationSchema } from "../../validation/validationSchema";
 import useCustomHttp from "../../hooks/useHttp";
 
-const useExpenseForm = (initialExpense = null, expenseId = null) => {
+const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
   const initialExpenseState = useMemo(() => ({
     measurementUnit: "",
     productName: "",
@@ -26,6 +26,8 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     type: "",
     pricePerUnit: 0,
   }), []);
+
+  
 
   const [expense, setExpense] = useState(initialExpense ? initialExpense : { ...initialExpenseState });
   const [validationErrors, setValidationErrors] = useState({});
