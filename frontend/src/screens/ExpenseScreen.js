@@ -271,7 +271,7 @@ const ExpenseScreen = () => {
     refetch();
   };
 
-  const debouncedRefetch = useCallback(
+  const debouncedRefetch = (
     debounce(() => {
       refetch(); // Trigger the refetch here
     }, 1000), // Adjust the delay as necessary

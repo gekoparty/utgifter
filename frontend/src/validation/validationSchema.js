@@ -3,7 +3,7 @@ import * as Yup from "yup";
 export const addBrandValidationSchema = Yup.object().shape({
   brandName: Yup.string()
     .required("Navn kan ikke være tomt")
-    .min(2, "Navnet må være minst 2 tegn")
+    .min(1, "Navnet må være minst 2 tegn")
     .max(20, "Maks 20 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
 });
@@ -45,7 +45,7 @@ export const addExpenseValidationSchema = Yup.object().shape({
     .max(20, "Maks 20 tegn"),
   brandName: Yup.string()
     .required("Navn kan ikke være tomt")
-    .min(2, "Navnet må være minst 2 tegn")
+    .min(1, "Navnet må være minst 1 tegn")
     .max(20, "Maks 20 tegn"),
   volume: Yup.number()
     .required("Må ha et volum")

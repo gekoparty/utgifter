@@ -16,7 +16,8 @@ const measurementUnitOptions = [
   // Add more measurement unit options as needed
 ];
 
-const predefinedTypes = ["Matvare", "Jernhandel", "Elektronikk", "Bil"]; //
+const predefinedTypes = ["Matvare", "Ferje", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
+
 
 const EditProductDialog = ({
   selectedProduct,
