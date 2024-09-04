@@ -16,7 +16,7 @@ const measurementUnitOptions = [
   // Add more measurement unit options as needed
 ];
 
-const predefinedTypes = ["Matvare", "Gave","Gambling","Pakke","Ferje", "Hår/Hud", "Brev/Pakke", "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
+const predefinedTypes = ["Matvare", "Soverom","Alkohol","Bil","Gave","Hage", "Kjøkken", "Gambling","Datautstyr","Pakke","Ferje", "Hår/Hud", "Brev/Pakke", "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
 
 
 const EditProductDialog = ({
