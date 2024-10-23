@@ -368,35 +368,58 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            {availableMeasures.length > 0 ? (
-              <WindowedSelect
-                isClearable
-                options={availableMeasures.map((measure) => ({
-                  label: measure.toString(),
-                  value: measure,
-                }))}
-                value={volumeDisplay ? { label: volumeDisplay, value: volumeDisplay } : null}
-                onChange={handleVolumeChange}
-                placeholder="Velg Volum"
-                menuPortalTarget={document.body}
-                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-              />
-            ) : (
-              <ExpenseField
-                label="Volum (Manuell)"
-                type="number"
-                value={volumeDisplay}
-                onChange={handleManualVolumeInput}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      {expense.measurementUnit}
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            )}
-          </Grid>
+  {availableMeasures.length > 0 ? (
+    <Box sx={{ position: 'relative' }}>
+      <WindowedSelect
+        isClearable
+        options={availableMeasures.map((measure) => ({
+          label: measure.toString(),
+          value: measure,
+        }))}
+        value={volumeDisplay ? { label: volumeDisplay, value: volumeDisplay } : null}
+        onChange={handleVolumeChange}
+        placeholder="Velg Volum"
+        menuPortalTarget={document.body}
+        styles={{
+          menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+          control: (base) => ({
+            ...base,
+            paddingRight: expense.measurementUnit ? '40px' : base.paddingRight, // Add padding for adornment
+          }),
+        }}
+      />
+      {expense.measurementUnit && (
+        <InputAdornment
+          position="end"
+          sx={{
+            position: 'absolute',
+            right: 10,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            pointerEvents: 'none', // Prevent interaction
+            color: 'rgba(0, 0, 0, 0.54)', // Matches default MUI adornment color
+          }}
+        >
+          {expense.measurementUnit}
+        </InputAdornment>
+      )}
+    </Box>
+  ) : (
+    <ExpenseField
+      label="Volum (Manuell)"
+      type="number"
+      value={volumeDisplay}
+      onChange={handleManualVolumeInput}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            {expense.measurementUnit}
+          </InputAdornment>
+        ),
+      }}
+    />
+  )}
+</Grid>
           <Grid item xs={12}>
             <ExpenseField
               label={`Price per ${
