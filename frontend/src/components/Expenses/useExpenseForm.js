@@ -116,11 +116,22 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
         shopName: typeof initialExpense.shopName === 'object' ? initialExpense.shopName.name : initialExpense.shopName,
         locationName: typeof initialExpense.locationName === 'object' ? initialExpense.locationName.name : initialExpense.locationName,
       };
-      
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        ...normalizedExpense,
-      }));
+  
+      // Ensure productsOptions is defined before accessing it
+      if (productsOptions && productsOptions.length > 0) {
+        const selectedProduct = productsOptions.find(product => product.name === normalizedExpense.productName);
+        const productMeasures = selectedProduct?.measures || []; // Default to empty array if no measures
+        
+        console.log("Product measures:", productMeasures); // Debugging log
+  
+        setExpense((prevExpense) => ({
+          ...prevExpense,
+          ...normalizedExpense,
+          measures: productMeasures,  // Add the measures to the expense state
+        }));
+      } else {
+        console.warn("productsOptions is undefined or empty"); // Debugging log for when options are not available
+      }
     } else {
       resetFormAndErrors();
     }
@@ -131,7 +142,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
         resource: "expenses",
       });
     };
-  }, [initialExpense, resetFormAndErrors, dispatch]);
+  }, [initialExpense, resetFormAndErrors, dispatch, productsOptions]); 
 
   const validateField = useCallback((field, value) => {
     try {
@@ -150,8 +161,29 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
 
   const handleFieldChange = useCallback((field, value) => {
     setExpense(prev => ({ ...prev, [field]: value }));
+  
+    // Ensure productsOptions is defined before accessing it
+    if (field === 'productName' && productsOptions && productsOptions.length > 0) {
+      const selectedProduct = productsOptions.find(product => product.name === value);
+  
+      // Add log to check if selectedProduct exists and has measures
+      console.log("Selected product for field change:", selectedProduct);
+      const productMeasures = selectedProduct?.measures || []; // Default to empty array if no measures
+  
+      // Debugging log
+      console.log("Selected product measures for field change:", productMeasures);
+  
+      setExpense(prev => ({
+        ...prev,
+        measurementUnit: productMeasures.length > 0 ? productMeasures[0] : "", // Set default measure if available
+        measures: productMeasures,  // Store the measures in the state
+      }));
+    } else if (field === 'productName') {
+      console.warn("productsOptions is undefined or empty"); // Debugging log
+    }
+  
     validateField(field, value);
-  }, [validateField]);
+  }, [validateField, productsOptions]);
 
 
   const handleSaveExpense = async (onClose) => {

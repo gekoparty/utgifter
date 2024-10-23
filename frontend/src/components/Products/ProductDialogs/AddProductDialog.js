@@ -202,6 +202,56 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
               />
             ) : null}
           </Grid>
+          <Grid item>
+  <CreatableSelect
+    styles={commonSelectStyles}
+    options={[]} // No predefined options
+    isMulti
+    value={
+      product?.measures?.map((measure) => ({ value: measure, label: measure })) || []
+    }
+    onChange={(selectedOptions) => {
+      const selectedMeasures = selectedOptions.map((option) => option.value);
+      setProduct({ ...product, measures: selectedMeasures });
+      resetValidationErrors();
+      resetServerError();
+    }}
+    getOptionLabel={(option) => option.label} // Set the label for each option
+    getOptionValue={(option) => option.value} // Set the value for each option
+    placeholder="Legg til mål..."
+    
+    // This isValidNewOption will validate numbers, including decimals
+    isValidNewOption={(inputValue) => {
+      // Check if the input is a valid number (integer or decimal)
+      const numberPattern = /^\d+(\.\d+)?$/; // RegEx pattern to allow integers and decimals
+      return numberPattern.test(inputValue.trim());
+    }}
+    
+    getNewOptionData={(inputValue) => ({
+      value: inputValue.trim(),
+      label: inputValue.trim(),
+    })}
+    
+    onCreateOption={(inputValue) => {
+      const trimmedValue = inputValue.trim();
+      const numberPattern = /^\d+(\.\d+)?$/; // RegEx to allow integers and decimals
+      if (numberPattern.test(trimmedValue)) {
+        setProduct((prevProduct) => ({
+          ...prevProduct,
+          measures: [...(prevProduct.measures || []), trimmedValue], // Add valid numeric measure (integer or decimal)
+        }));
+        resetValidationErrors();
+        resetServerError();
+      } else {
+        // Handle invalid input (though this should not happen due to isValidNewOption)
+        console.error("Invalid measure input. It must be a valid number.");
+      }
+    }}
+    
+    isClearable
+  />
+</Grid>
+          
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
           <Button type="submit" disabled={loading || !isFormValid()}>

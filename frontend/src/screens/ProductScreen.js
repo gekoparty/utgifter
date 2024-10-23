@@ -50,10 +50,21 @@ const ProductScreen = () => {
   
   const tableColumns = useMemo(
     () => [
-      { accessorKey: "name", header: "Produkter" }, // Use "Name" as the header for all resources
+      { accessorKey: "name", header: "Produkter" },
       { accessorKey: "brand", header: "Merker" },
-      {accessorKey: "type", header: "Type"} // Example for location
-      // Other columns as needed
+      { accessorKey: "type", header: "Type" },
+      {
+        accessorKey: "measures", // This is your measures column
+        header: "Mål",
+        cell: ({ cell }) => {
+          const measures = cell.getValue(); // Get the measures from the cell
+          console.log('Measures:', measures); // Log measures for debugging
+          if (Array.isArray(measures)) {
+            return measures.join(" "); // Join measures with a space
+          }
+          return measures; // Fallback if it's not an array
+        },
+      },
     ],
     []
   );
@@ -133,6 +144,7 @@ const ProductScreen = () => {
       brand: product.brand.join(", "), // Join brand names array
       type: product.type,
       measurementUnit: product.measurementUnit,
+      measures: product.measures || [], // Ensure this includes measures
     }));
   
     return { products: transformedData, meta: json.meta };
