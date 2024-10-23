@@ -46,17 +46,30 @@ const EditProductDialog = ({
   } = useQuery(["brands"], fetchBrands);
 
   const [selectedBrands, setSelectedBrands] = useState([]);
+  const [measures, setMeasures] = useState([]); // State for handling measures
 
   console.log("selectedProduct:", selectedProduct);
+  // Effect for handling selected product changes
   useEffect(() => {
-    if (typeof selectedProduct.brand === 'string') {
-      setSelectedBrands(selectedProduct.brand.split(",").map((brand) => ({ name: brand.trim() })));
-    } else if (Array.isArray(selectedProduct.brand)) {
-      setSelectedBrands(selectedProduct.brand.map((brand) => ({ name: brand.trim() })));
-    } else {
-      setSelectedBrands([]);
+    if (open) { // Check if the dialog is open
+      // Set selected brands based on selected product
+      if (typeof selectedProduct.brand === 'string') {
+        setSelectedBrands(selectedProduct.brand.split(",").map((brand) => ({ name: brand.trim() })));
+      } else if (Array.isArray(selectedProduct.brand)) {
+        setSelectedBrands(selectedProduct.brand.map((brand) => ({ name: brand.trim() })));
+      } else {
+        setSelectedBrands([]);
+      }
+
+      if (Array.isArray(selectedProduct.measures)) {
+        // Ensure measures are converted to strings for CreatableSelect
+        console.log("Selected Product Measures:", selectedProduct.measures);
+        setMeasures(selectedProduct.measures.map(measure => measure.toString())); 
+      } else {
+        setMeasures([]); // Ensure measures is an empty array if none
+      }
     }
-  }, [selectedProduct]);
+}, [selectedProduct, open]); // Depend on selectedProduct and open
   
 
   if (brandLoading) {
@@ -81,7 +94,8 @@ const EditProductDialog = ({
     // Update the 'brands' field to match the expected format
     const updatedProduct = {
       ...product,
-      brands: brandData
+      brands: brandData,
+      measures: measures.map(measure => parseFloat(measure)), // Convert to float for backend
     };
   
 
@@ -229,6 +243,48 @@ const EditProductDialog = ({
                 loading={loading}
               />
             ) : null}
+          </Grid>
+          <Grid item>
+            <CreatableSelect
+              
+              options={[]} // No predefined options
+              isMulti
+              value={measures.map((measure) => ({ value: measure, label: measure }))} // Map measures to objects for display
+              onChange={(selectedOptions) => {
+                const selectedMeasures = selectedOptions.map((option) => option.value);
+                setMeasures(selectedMeasures);
+                setProduct({ ...product, measures: selectedMeasures });
+                resetValidationErrors();
+                resetServerError();
+              }}
+              getOptionLabel={(option) => option.label} // Set the label for each option
+              getOptionValue={(option) => option.value} // Set the value for each option
+              placeholder="Legg til mål..."
+              isValidNewOption={(inputValue) => {
+                const numberPattern = /^\d+(\.\d+)?$/; // RegEx pattern to allow integers and decimals
+                return numberPattern.test(inputValue.trim());
+              }}
+              getNewOptionData={(inputValue) => ({
+                value: inputValue.trim(),
+                label: inputValue.trim(),
+              })}
+              onCreateOption={(inputValue) => {
+                const trimmedValue = inputValue.trim();
+                const numberPattern = /^\d+(\.\d+)?$/; // RegEx to allow integers and decimals
+                if (numberPattern.test(trimmedValue)) {
+                  setMeasures((prevMeasures) => [...prevMeasures, trimmedValue]); // Add valid numeric measure
+                  setProduct((prevProduct) => ({
+                    ...prevProduct,
+                    measures: [...(prevProduct.measures || []), trimmedValue],
+                  }));
+                  resetValidationErrors();
+                  resetServerError();
+                } else {
+                  console.error("Invalid measure input. It must be a valid number.");
+                }
+              }}
+              isClearable
+            />
           </Grid>
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>

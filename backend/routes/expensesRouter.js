@@ -37,7 +37,7 @@ expensesRouter.get("/", async (req, res) => {
     // Populate fields
    // Only populate fields if needed for filtering or sorting
    if (columnFilters || globalFilter) {
-    query = query.populate('productName', 'name')
+    query = query.populate('productName', 'name measures')  // Include measures here
                  .populate('brandName', 'name')
                  .populate('shopName', 'name')
                  .populate('locationName', 'name');
@@ -121,6 +121,7 @@ expensesRouter.get("/", async (req, res) => {
       productName: expense.productName?.name || '',
       brandName: expense.brandName?.name || '',
       shopName: expense.shopName?.name || '',
+      measures: expense.productName?.measures || '',  // Include the measures field
       locationName: expense.locationName?.name || '',
       purchaseDate: formatDate(expense.purchaseDate),
       registeredDate: formatDate(expense.registeredDate)
@@ -140,7 +141,7 @@ expensesRouter.get("/:id", async (req, res) => {
   try {
     // Fetch the specific expense and populate the referenced fields
     const expense = await Expense.findById(id)
-      .populate('productName', 'name')
+    .populate('productName', 'name measures')  // Include measures here
       .populate('brandName', 'name')
       .populate('shopName', 'name')
       .populate('locationName', 'name');
@@ -155,6 +156,7 @@ expensesRouter.get("/:id", async (req, res) => {
       productName: expense.productName?.name || expense.productName,
       brandName: expense.brandName?.name || expense.brandName,
       shopName: expense.shopName?.name || expense.shopName,
+      measures: expense.productName?.measures || '',  // Include the measures field
       locationName: expense.locationName?.name || expense.locationName,
       purchaseDate: formatDate(expense.purchaseDate),
     };

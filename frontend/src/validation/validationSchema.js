@@ -31,7 +31,8 @@ export const addProductValidationSchema = Yup.object().shape({
     .max(45, "Maks 30 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"), 
     brands: Yup.array().of(Yup.string().required("Brand navn er påkrævet")),
-    measurementUnit: Yup.string().required("Må ha måleenhet")
+    measurementUnit: Yup.string().required("Må ha måleenhet"),
+    measures: Yup.array().of(Yup.string()), // Optional, no required validation for measures
 });
 
 export const addExpenseValidationSchema = Yup.object().shape({

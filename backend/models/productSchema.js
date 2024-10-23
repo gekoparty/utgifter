@@ -24,6 +24,10 @@ const productSchema = new mongoose.Schema(
         enum: ["l", "kg", "stk", "grams", "millilitres", "etc"],
         required: true,
       },
+      measures: { // Add this field
+        type: [Number], // Array of numbers for measures
+        default: [], // Default to an empty array
+      },
     brands: [
       {
         type: mongoose.Schema.Types.ObjectId,

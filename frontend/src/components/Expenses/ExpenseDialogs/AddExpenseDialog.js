@@ -46,6 +46,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useExpenseForm();
 
+  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+  const [availableMeasures, setAvailableMeasures] = useState([]);
+
+
   const { data: products, isLoading: isLoadingProducts, refetch: refetchProducts } = useFetchData(
     "products",
     "/api/products",
@@ -64,7 +68,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     "shops",
     "/api/shops",
     async (shops) => {
-      console.log(shops) 
+      //console.log(shops) 
       return Promise.all(
         shops.map(async (shop) => {
           const locationResponse = await fetch(
@@ -97,9 +101,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const isLoading = !open || isLoadingProducts || isLoadingBrands || isLoadingShops;
 
   // Add console.log statements to check the data
-  console.log("Products fetched:", products);
-  console.log("Brands fetched:", brands);
-  console.log("Shops fetched:", shops);
+  //console.log("Products fetched:", products);
+  //console.log("Brands fetched:", brands);
+  //console.log("Shops fetched:", shops);
 
   // Use the useFilter hook
  
@@ -173,28 +177,76 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       brandName: selectedOption ? selectedOption.name : "", // Handle null case
     }));
   };
-  const handleProductSelect = (product) => {
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      productName: product ? product.name : "", // Handle null case
-      type: product ? product.type : "", // Handle null case
-      measurementUnit: product ? product.measurementUnit : "", // Handle null case
-    }));
+  const handleProductSelect = (selectedOption) => {
+    if (selectedOption) {
+      console.log("Selected Product:", selectedOption);
+  
+      // Check if the product has measures
+      if (selectedOption.measures && selectedOption.measures.length > 0) {
+        const firstMeasure = selectedOption.measures[0]; // Use the first measure
+        setAvailableMeasures(selectedOption.measures);
+        
+        setExpense((prevExpense) => ({
+          ...prevExpense,
+          productName: selectedOption.name,
+          type: selectedOption.type,
+          measurementUnit: selectedOption.measurementUnit,
+          volume: firstMeasure, // Automatically set volume to the first available measure
+        }));
+  
+        setVolumeDisplay(firstMeasure.toString());
+      } else {
+        console.log("No measures available for this product.");
+        setAvailableMeasures([]); // Clear measures if none are available
+        setExpense((prevExpense) => ({
+          ...prevExpense,
+          productName: selectedOption.name,
+          type: selectedOption.type,
+          measurementUnit: selectedOption.measurementUnit,
+          volume: 0, // Reset the volume
+        }));
+        setVolumeDisplay("");
+      }
+    } else {
+      // Handle case where no product is selected (clearing the select)
+      setExpense((prevExpense) => ({
+        ...prevExpense,
+        productName: "",
+        type: "",
+        measurementUnit: "",
+        volume: 0,
+      }));
+      setAvailableMeasures([]);
+      setVolumeDisplay("");
+    }
   };
   
 
-  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+  
 
   useEffect(() => {
     setVolumeDisplay(expense.volume || ""); // Sync volumeDisplay with expense.volume
   }, [expense.volume]);
 
-  const handleVolumeChange = (event) => {
+  const handleVolumeChange = (selectedOption) => {
+    if (selectedOption) {
+      // If the user selects a volume from the list
+      setVolumeDisplay(selectedOption.label);
+      handleFieldChange("volume", parseFloat(selectedOption.label));
+    } else {
+      // If the user clears the selection or inputs manually
+      setVolumeDisplay("");
+      handleFieldChange("volume", 0);
+    }
+  };
+
+  const handleManualVolumeInput = (event) => {
     const value = event.target.value;
     setVolumeDisplay(value);
     const numericValue = parseFloat(value);
     handleFieldChange("volume", numericValue);
   };
+
 
   const handleDiscountChange = (event) => {
     const { checked } = event.target;
@@ -228,6 +280,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 name: product.name,
                 type: product.type,
                 measurementUnit: product.measurementUnit,
+                measures: product.measures, // Ensure that measures are passed
               }))}
               value={
                 expense.productName
@@ -315,19 +368,34 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <ExpenseField
-              label="Volume type/Quantity"
-              type="number"
-              value={volumeDisplay}
-              onChange={handleVolumeChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    {expense.measurementUnit}
-                  </InputAdornment>
-                ),
-              }}
-            />
+            {availableMeasures.length > 0 ? (
+              <WindowedSelect
+                isClearable
+                options={availableMeasures.map((measure) => ({
+                  label: measure.toString(),
+                  value: measure,
+                }))}
+                value={volumeDisplay ? { label: volumeDisplay, value: volumeDisplay } : null}
+                onChange={handleVolumeChange}
+                placeholder="Velg Volum"
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+              />
+            ) : (
+              <ExpenseField
+                label="Volum (Manuell)"
+                type="number"
+                value={volumeDisplay}
+                onChange={handleManualVolumeInput}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      {expense.measurementUnit}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
           </Grid>
           <Grid item xs={12}>
             <ExpenseField

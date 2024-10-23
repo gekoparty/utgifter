@@ -10,6 +10,7 @@ const useProductDialog = (initialProduct = null) => {
   const initialProductState = useMemo(() => ({
     name: "",
     brands: [], // Initialize brands as an empty array
+    measures: [], // Corrected here
     measurementUnit: "",
     type: "",
   }), []);
@@ -46,7 +47,8 @@ const useProductDialog = (initialProduct = null) => {
       setProduct((prevProduct) => ({
         ...prevProduct,
         ...initialProduct,
-        measurementUnit: initialProduct.measurementUnit || "", // Set to an empty string if not provided
+        measurementUnit: initialProduct.measurementUnit || "",
+        measures: initialProduct.measures || [], // Ensure this is "measures"
       }));
       console.log("Initial Product:", initialProduct);
     } else {

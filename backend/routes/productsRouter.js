@@ -7,6 +7,7 @@ import Brand from "../models/brandSchema.js";
 const productsRouter = express.Router();
 
 productsRouter.get("/", async (req, res) => {
+  console.log("Incoming request body:", req.body);
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
@@ -69,6 +70,7 @@ productsRouter.get("/", async (req, res) => {
             $project: {
               _id: 1,
               name: 1,
+              measures: 1, // Include the measures field
               brand: {
                 $cond: [
                   { $gt: [{ $size: "$brandData" }, 0] },
@@ -84,7 +86,7 @@ productsRouter.get("/", async (req, res) => {
         ;
     
         // Log the results for debugging
-       
+        console.log("Fetched products:", products);
     
       } catch (error) {
         console.error("Error in query:", error);
@@ -129,12 +131,14 @@ productsRouter.get("/", async (req, res) => {
 
       // Send response with both paginated data and total row count
       res.json({ products, meta: { totalRowCount } });
+      console.log(products)
    
     } else {
       // If not using pagination, just send the brands data
       const products = await query.exec();
      
       res.json(products);
+      console.log(products)
     }
   } catch (err) {
     console.error(err.message);
@@ -147,7 +151,7 @@ productsRouter.get("/", async (req, res) => {
 productsRouter.post("/", async (req, res) => {
  
   try {
-    const { name, brands, measurementUnit, type } = req.body;
+    const { name, brands, measurementUnit, type, measures } = req.body;
 
      // Handle each brand name in the array
      const brandPromises = brands.map(async (brandName) => {
@@ -187,6 +191,7 @@ productsRouter.post("/", async (req, res) => {
       name,
       measurementUnit,
       type,
+      measures: measures || [], // Save measures or default to an empty array
       brands: brandIds,
       slug: slugify(name, { lower: true }),
     });
@@ -228,10 +233,11 @@ productsRouter.delete("/:id", async (req, res) => {
 });
 
 productsRouter.put("/:id", async (req, res) => {
+  console.log("Incoming request body:", req.body);
   const { id } = req.params;
   
   try {
-    const { name, brands, measurementUnit, type } = req.body;
+    const { name, brands, measurementUnit, type, measures } = req.body;
     const brandIds = [];
 
     // Handle each brand name in the array
@@ -263,6 +269,7 @@ productsRouter.put("/:id", async (req, res) => {
     const updatedProduct = {
       name,
       measurementUnit,
+      measures: measures || [], // Update measures or default to an empty array
       brands: resolvedBrandIds, // Assign the resolved brand IDs
       type,
       slug: slugify(name, { lower: true }),

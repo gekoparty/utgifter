@@ -61,8 +61,8 @@ const getUpdatedErrorState = (state, action) => {
 // Reducer function to handle state transitions
 
 const reducer = (state, action) => {
-  console.log("Reducer action:", action);
-  console.log("Current state:", state);
+  //console.log("Reducer action:", action);
+  //console.log("Current state:", state);
 
   switch (action.type) {
     case "FETCH_REQUEST":
