@@ -52,24 +52,23 @@ const EditProductDialog = ({
   // Effect for handling selected product changes
   useEffect(() => {
     if (open) { // Check if the dialog is open
-      // Set selected brands based on selected product
-      if (typeof selectedProduct.brand === 'string') {
-        setSelectedBrands(selectedProduct.brand.split(",").map((brand) => ({ name: brand.trim() })));
-      } else if (Array.isArray(selectedProduct.brand)) {
-        setSelectedBrands(selectedProduct.brand.map((brand) => ({ name: brand.trim() })));
-      } else {
-        setSelectedBrands([]);
-      }
-
+      // Convert string or array brand into a consistent format for CreatableSelect
+      const initialBrands = Array.isArray(selectedProduct.brand)
+        ? selectedProduct.brand.map((brand) => ({ label: brand, value: brand }))
+        : typeof selectedProduct.brand === 'string'
+        ? selectedProduct.brand.split(',').map((brand) => ({ label: brand.trim(), value: brand.trim() }))
+        : [];
+  
+      setSelectedBrands(initialBrands);
+  
+      // Handle measures
       if (Array.isArray(selectedProduct.measures)) {
-        // Ensure measures are converted to strings for CreatableSelect
-        console.log("Selected Product Measures:", selectedProduct.measures);
         setMeasures(selectedProduct.measures.map(measure => measure.toString())); 
       } else {
-        setMeasures([]); // Ensure measures is an empty array if none
+        setMeasures([]);
       }
     }
-}, [selectedProduct, open]); // Depend on selectedProduct and open
+  }, [selectedProduct, open]);
   
 
   if (brandLoading) {
@@ -84,21 +83,17 @@ const EditProductDialog = ({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
-    if (isFormValid()) {
-      // Extract brand names and slugs from selectedBrands array
-    const brandData = selectedBrands.map(brand => ({
-      name: brand.name       // Generate slug for the brand name
-    }));
-
-    // Update the 'brands' field to match the expected format
-    const updatedProduct = {
-      ...product,
-      brands: brandData,
-      measures: measures.map(measure => parseFloat(measure)), // Convert to float for backend
-    };
   
-
+    if (isFormValid()) {
+      // Convert selectedBrands back into a plain array of brand names
+      const brandData = selectedBrands.map(brand => brand.value);
+  
+      const updatedProduct = {
+        ...product,
+        brands: brandData,  // Submit array of brand names
+        measures: measures.map(measure => parseFloat(measure)), // Convert to float
+      };
+  
       const success = await handleSaveProduct(onClose, updatedProduct);
       if (success) {
         onUpdateSuccess(selectedProduct);
@@ -142,48 +137,35 @@ const EditProductDialog = ({
           </Grid>
 
           <Grid item>
-            {/* Use CreatableSelect for the brand */}
-            <CreatableSelect
-              className="custom-select"
-              options={brandOptions}
-              size="small"
-              label="Merke"
-              value={selectedBrands}
-              isMulti
-              error={Boolean(validationError?.brand)}
-              onChange={(selectedOptions) => {
-                setSelectedBrands(selectedOptions);
-                setProduct({
-                  ...product,
-                  brands: selectedOptions.map((option) => option.name), // Update product.brands with selected names
-                });
-                resetValidationErrors();
-                resetServerError();
-              }}
-              getOptionLabel={(option) => option.name}
-              getOptionValue={(option) => option.name}
-              placeholder="Velg Merke..."
-              isValidNewOption={(inputValue, selectValue, selectOptions) => {
-                return (
-                  inputValue.trim() !== "" &&
-                  !selectOptions.find(
-                    (option) => option.name === inputValue.trim()
-                  )
-                );
-              }}
-              getNewOptionData={(inputValue, optionLabel) => ({
-                name: inputValue.trim(),
-              })}
-              onCreateOption={(inputValue) => {
-                const newBrand = { name: inputValue.trim() };
-                setSelectedBrands([...selectedBrands, newBrand]);
-                setProduct({ ...product, brands: [...product.brands, newBrand.name] });
-                brandOptions.push(newBrand);
-              }}
-              isClearable
-              formatCreateLabel={(inputValue) => `Nytt merke: ${inputValue}`}
-            />
-          </Grid>
+  <CreatableSelect
+    className="custom-select"
+    options={brandOptions?.map((brand) => ({ label: brand.name, value: brand.name })) || []}
+    value={selectedBrands}
+    isMulti
+    onChange={(selectedOptions) => {
+      setSelectedBrands(selectedOptions || []);
+      setProduct({
+        ...product,
+        brands: (selectedOptions || []).map(option => option.value), // Update product with selected brand values
+      });
+      resetValidationErrors();
+      resetServerError();
+    }}
+    getOptionLabel={(option) => option.label}
+    getOptionValue={(option) => option.value}
+    placeholder="Velg Merke..."
+    isClearable
+    formatCreateLabel={(inputValue) => `Nytt merke: ${inputValue}`}
+    onCreateOption={(inputValue) => {
+      const newBrand = { label: inputValue.trim(), value: inputValue.trim() };
+      setSelectedBrands([...selectedBrands, newBrand]);
+      setProduct({ 
+        ...product, 
+        brands: [...(product.brands || []), newBrand.value] 
+      });
+    }}
+  />
+</Grid>
           <Grid item>
             <Select
               label="Type"
