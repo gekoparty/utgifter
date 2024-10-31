@@ -20,7 +20,7 @@ const measurementUnitOptions = [
 
  // State to store selected brands
 
-const predefinedTypes = ["Matvare", "Alkohol", "Gambling", "Bil", "Soverom", "Båt/Fiske","Hus","Kjøkken", "Hage", "Datautstyr", "Gave","Ferje", "Reise", "Hår/Hud","Ferdigmat", "Brev/Pakke","Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
+const predefinedTypes = ["Matvare", "Elektronikk", "Hobby", "Katt","Alkohol", "Gambling", "Bil", "Soverom", "Båt/Fiske","Hus","Kjøkken", "Hage", "Datautstyr", "Gave","Ferje", "Reise", "Hår/Hud","Ferdigmat", "Brev/Pakke","Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
 
 const AddProductDialog = ({ open, onClose, onAdd }) => {
   const {
