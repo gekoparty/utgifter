@@ -16,7 +16,7 @@ const measurementUnitOptions = [
   // Add more measurement unit options as needed
 ];
 
-const predefinedTypes = ["Matvare", "Soverom","Alkohol","Bil","Båt/Fiske","Hus","Gave","Hage", "Kjøkken", "Gambling","Datautstyr","Pakke","Ferje", "Hår/Hud", "Brev/Pakke", "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
+const predefinedTypes = ["Matvare", "Elektronikk", "Hobby", "Katt","Soverom","Alkohol","Bil","Båt/Fiske","Hus","Gave","Hage", "Kjøkken", "Gambling","Datautstyr","Pakke","Ferje", "Hår/Hud", "Brev/Pakke", "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
 
 
 const EditProductDialog = ({
@@ -51,8 +51,7 @@ const EditProductDialog = ({
   console.log("selectedProduct:", selectedProduct);
   // Effect for handling selected product changes
   useEffect(() => {
-    if (open) { // Check if the dialog is open
-      // Convert string or array brand into a consistent format for CreatableSelect
+    if (open) {
       const initialBrands = Array.isArray(selectedProduct.brand)
         ? selectedProduct.brand.map((brand) => ({ label: brand, value: brand }))
         : typeof selectedProduct.brand === 'string'
@@ -61,15 +60,20 @@ const EditProductDialog = ({
   
       setSelectedBrands(initialBrands);
   
+      // Also make sure product.brands is set correctly when the dialog opens
+      setProduct({
+        ...selectedProduct,
+        brands: initialBrands.map((brand) => brand.value),
+      });
+  
       // Handle measures
       if (Array.isArray(selectedProduct.measures)) {
-        setMeasures(selectedProduct.measures.map(measure => measure.toString())); 
+        setMeasures(selectedProduct.measures.map((measure) => measure.toString()));
       } else {
         setMeasures([]);
       }
     }
   }, [selectedProduct, open]);
-  
 
   if (brandLoading) {
     // Return a loading indicator while brands are being fetched
@@ -85,13 +89,10 @@ const EditProductDialog = ({
     event.preventDefault();
   
     if (isFormValid()) {
-      // Convert selectedBrands back into a plain array of brand names
-      const brandData = selectedBrands.map(brand => brand.value);
-  
       const updatedProduct = {
         ...product,
-        brands: brandData,  // Submit array of brand names
-        measures: measures.map(measure => parseFloat(measure)), // Convert to float
+        brands: product.brands, // Make sure product.brands is properly set
+        measures: measures.map((measure) => parseFloat(measure)), // Convert to float
       };
   
       const success = await handleSaveProduct(onClose, updatedProduct);

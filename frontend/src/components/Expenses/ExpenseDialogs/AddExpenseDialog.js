@@ -14,7 +14,6 @@ import ExpenseField from "../../commons/ExpenseField/ExpenseField"
 import dayjs from "dayjs";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";// Adjust path as needed
-import Select from "react-select"
 import WindowedSelect from "react-windowed-select";
 
 const defaultExpense = {
@@ -476,19 +475,20 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <ExpenseField
-                  label="Discount (Kr)"
-                  type="number"
-                  value={expense.discountAmount}
-                  onChange={handleDiscountAmountChange}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">Kr</InputAdornment>
-                    ),
-                  }}
+              <ExpenseField
+  label="Discount (Kr)"
+  type="number"
+  value={expense.discountAmount || ""}  // Ensure controlled input
+  onChange={(e) => {
+    // Debounce logic can be added here if needed
+    handleDiscountAmountChange(e); 
+  }}
+  InputLabelProps={{
+    shrink: true,
+  }}
+  InputProps={{
+    startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+  }}
                 />
               </Grid>
             </>
