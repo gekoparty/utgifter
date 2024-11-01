@@ -5,7 +5,7 @@ import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationScema.js";
-import { format } from "date-fns"; // Import the date-fns library
+import { format, parse, isValid, getMonth, getYear, parseISO } from "date-fns";// Import the date-fns library
 
 const expensesRouter = express.Router();
 
@@ -27,6 +27,46 @@ function formatDate(date) {
   // Format the date
   return format(parsedDate, 'dd MMMM yyyy'); // Outputs: 12 January 2024
 }
+
+
+function parseDateInput(value) {
+  const now = new Date();
+  
+  // Attempt to parse full date (dd MMMM yyyy)
+  const fullDate = parse(value, "dd MMMM yyyy", new Date());
+  if (isValid(fullDate)) {
+    return fullDate; // returns a valid Date object
+  }
+
+  // Attempt to parse date with only day and month (dd MMMM)
+  const dayMonth = parse(value, "dd MMMM", new Date());
+  if (isValid(dayMonth)) {
+    return new Date(now.getFullYear(), dayMonth.getMonth(), dayMonth.getDate()); // Current year
+  }
+
+  // Attempt to parse only month (MMMM)
+  const monthOnly = parse(value, "MMMM", new Date());
+  if (isValid(monthOnly)) {
+    return new Date(now.getFullYear(), monthOnly.getMonth(), 1); // First day of the month
+  }
+
+  // Attempt to parse only year (yyyy)
+  const yearOnly = parse(value, "yyyy", new Date());
+  if (isValid(yearOnly)) {
+    return new Date(yearOnly.getFullYear(), 0, 1); // Return January 1st of that year
+  }
+
+  return null; // Return null if no valid date was found
+}
+
+// Function to get the month name from a date
+function getMonthName(date) {
+  if (!date) return '';
+  const parsedDate = new Date(date);
+  return isNaN(parsedDate.getTime()) ? '' : format(parsedDate, 'MMMM'); // e.g., "August"
+}
+
+
 
 expensesRouter.get("/", async (req, res) => {
   try {
@@ -52,16 +92,24 @@ expensesRouter.get("/", async (req, res) => {
     // Execute the initial query to get all records for filtering
     let expenses = await query.exec();
 
-    // Apply columnFilters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      
-
+    
       expenses = expenses.filter(expense => {
         return filters.every(filter => {
           const { id, value } = filter;
           if (id && value) {
-            if (['productName', 'brandName', 'shopName', 'locationName'].includes(id)) {
+            if (id === 'purchaseDate' || id === 'registeredDate') {
+              // Parse the input value into a date
+              const inputDate = parseDateInput(value);
+              if (inputDate) {
+                // Check if the expense date is within the same month
+                const expenseDate = new Date(expense[id]);
+                return expenseDate.getFullYear() === inputDate.getFullYear() && 
+                       expenseDate.getMonth() === inputDate.getMonth();
+              }
+              return false; // If parsing fails, exclude this expense
+            } else if (['productName', 'brandName', 'shopName', 'locationName'].includes(id)) {
               return new RegExp(`^${value}`, "i").test(expense[id]?.name);
             } else {
               return new RegExp(`^${value}`, "i").test(expense[id]);
