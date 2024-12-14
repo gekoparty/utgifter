@@ -4,7 +4,7 @@
   "proxy": "http://localhost:5000",
   "private": true,
   "dependencies": {
-    "@emotion/react": "^11.13.0",
+    "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@fontsource/roboto": "^4.5.8",
     "@mui/icons-material": "^5.16.7",
@@ -17,7 +17,7 @@
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.4.0",
-    "dayjs": "^1.11.8",
+    "dayjs": "^1.11.13",
     "formik": "^2.2.9",
     "loadash": "^1.0.0",
     "lodash": "^4.17.21",

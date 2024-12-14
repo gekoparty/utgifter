@@ -59,12 +59,6 @@ function parseDateInput(value) {
   return null; // Return null if no valid date was found
 }
 
-// Function to get the month name from a date
-function getMonthName(date) {
-  if (!date) return '';
-  const parsedDate = new Date(date);
-  return isNaN(parsedDate.getTime()) ? '' : format(parsedDate, 'MMMM'); // e.g., "August"
-}
 
 
 
