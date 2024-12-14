@@ -76,6 +76,7 @@ const PriceRangeFilter = ({ value, onChange }) => {
     
 
 const ExpenseScreen = () => {
+  
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
