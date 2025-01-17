@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Button,
@@ -150,10 +150,11 @@ const ProductScreen = () => {
     return { products: transformedData, meta: json.meta };
   };
 
-  if (sorting.length === 0) {
-    setSorting([{ id: "name", desc: false }]);
-  }
-
+  useEffect(() => {
+    if (sorting.length === 0) {
+      setSorting([{ id: "name", desc: false }]);
+    }
+  }, []);
   const {
     data: productsData,
     isError,
@@ -271,18 +272,17 @@ const ProductScreen = () => {
         onDeleteFailure={deleteFailureHandler}
        />
 
-       <EditProductDialog
-       open={editModalOpen}
-       onClose={()=> setEditModalOpen(false)}
-       cancelButton={
-        <Button onClick={()=> setEditModalOpen(false)}>Cancel</Button>
-       }
-       dialogTitle={"Edit Product"}
-       selectedProduct={selectedProduct}
-       onUpdateSuccess={editSuccessHandler}
-       onUpdateFailure={editFailureHandler}
-
-       />
+{selectedProduct._id && (
+  <EditProductDialog
+    open={editModalOpen}
+    onClose={() => setEditModalOpen(false)}
+    cancelButton={<Button onClick={() => setEditModalOpen(false)}>Cancel</Button>}
+    dialogTitle={"Edit Product"}
+    selectedProduct={selectedProduct}
+    onUpdateSuccess={editSuccessHandler}
+    onUpdateFailure={editFailureHandler}
+  />
+)}
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
