@@ -6,22 +6,30 @@ import { StoreContext } from "../../../Store/Store";
 import { addProductValidationSchema } from "../../../validation/validationSchema";
 
 const useProductDialog = (initialProduct = null) => {
-  // Memoize the initialProductState
-  const initialProductState = useMemo(() => ({
-    name: "",
-    brands: [], // Initialize brands as an empty array
-    measures: [], // Corrected here
-    measurementUnit: "",
-    type: "",
-  }), []);
+  // Initialize product state with memoization to prevent unnecessary recalculations
+  const initialProductState = useMemo(
+    () => ({
+      name: "",
+      brands: [], // Initialize brands as an empty array
+      measures: [], // Ensure measures is an array
+      measurementUnit: "",
+      type: "",
+    }),
+    []
+  );
 
+  // Local state to manage the product form
   const [product, setProduct] = useState(
     initialProduct ? initialProduct : { ...initialProductState }
   );
 
+  // Custom hook for HTTP requests
   const { sendRequest, loading } = useCustomHttp("/api/products");
+
+  // Context for global store management
   const { dispatch, state } = useContext(StoreContext);
 
+  // Reset server errors in the global store
   const resetServerError = useCallback(() => {
     dispatch({
       type: "RESET_ERROR",
@@ -29,6 +37,7 @@ const useProductDialog = (initialProduct = null) => {
     });
   }, [dispatch]);
 
+  // Reset validation errors in the global store
   const resetValidationErrors = useCallback(() => {
     dispatch({
       type: "RESET_VALIDATION_ERRORS",
@@ -36,54 +45,66 @@ const useProductDialog = (initialProduct = null) => {
     });
   }, [dispatch]);
 
+  // Reset the form and clear all errors
   const resetFormAndErrors = useCallback(() => {
     setProduct(initialProduct ? initialProduct : initialProductState);
     resetServerError();
     resetValidationErrors();
-  }, [initialProduct, initialProductState, resetServerError, resetValidationErrors]);
+  }, [
+    initialProduct,
+    initialProductState,
+    resetServerError,
+    resetValidationErrors,
+  ]);
 
+  // Initialize or reset the form when `initialProduct` changes
   useEffect(() => {
     if (initialProduct) {
       setProduct((prevProduct) => ({
         ...prevProduct,
         ...initialProduct,
         measurementUnit: initialProduct.measurementUnit || "",
-        measures: initialProduct.measures || [], // Ensure this is "measures"
+        measures: initialProduct.measures || [],
       }));
-      console.log("Initial Product:", initialProduct);
     } else {
       resetFormAndErrors();
     }
 
+    // Cleanup: Clear product and brand resources in the global store
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "products" });
       dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
     };
   }, [initialProduct, resetFormAndErrors, dispatch]);
 
+  // Save the product (either create or update)
   const handleSaveProduct = async (onClose) => {
     if (!product.name.trim() || product.brands.length === 0) {
-      return; // Handle empty product name or empty brands array
+      return; // Ensure product name and brands are valid
     }
 
     let formattedProduct = { ...product };
     let validationErrors = {};
 
-    console.log("Product before formatting:", product);
-
     try {
-      // Format the product name
-      formattedProduct.name = formatComponentFields(product.name, "product", "name");
-      // Format the brands array correctly
+      // Format fields for consistency
+      formattedProduct.name = formatComponentFields(
+        product.name,
+        "product",
+        "name"
+      );
       formattedProduct.brands = product.brands.map((brand) =>
         formatComponentFields(brand, "product", "brands")
       );
-      formattedProduct.type = formatComponentFields(product.type, "product", "type");
+      formattedProduct.type = formatComponentFields(
+        product.type,
+        "product",
+        "type"
+      );
 
-      console.log("formattedProduct", formattedProduct);
-
+      // Validate the product using the schema
       await addProductValidationSchema.validate(formattedProduct, {
-        abortEarly: false, // This ensures Yup collects all field errors
+        abortEarly: false,
       });
     } catch (validationError) {
       if (validationError.inner) {
@@ -91,7 +112,6 @@ const useProductDialog = (initialProduct = null) => {
           validationErrors[err.path] = { show: true, message: err.message };
         });
       }
-      console.log("Field-specific errors:", validationErrors);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "products",
@@ -104,21 +124,17 @@ const useProductDialog = (initialProduct = null) => {
       return;
     }
 
-    const newProduct = formattedProduct;
-    console.log("newProduct", newProduct);
-
     try {
-      let url = "/api/products";
-      let method = "POST";
+      const url = initialProduct
+        ? `/api/products/${initialProduct._id}`
+        : "/api/products";
+      const method = initialProduct ? "PUT" : "POST";
 
-      if (initialProduct) {
-        url = `/api/products/${initialProduct._id}`;
-        method = "PUT";
-      }
-
-      const { data, error: addDataError } = await sendRequest(url, method, newProduct);
-
-      console.log("Response from the server:", data);
+      const { data, error: addDataError } = await sendRequest(
+        url,
+        method,
+        formattedProduct
+      );
 
       if (addDataError) {
         dispatch({
@@ -128,7 +144,6 @@ const useProductDialog = (initialProduct = null) => {
           showError: true,
         });
       } else {
-        // Handle success, but no need to update the store
         dispatch({ type: "RESET_ERROR", resource: "products" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
         onClose();
@@ -144,6 +159,7 @@ const useProductDialog = (initialProduct = null) => {
     }
   };
 
+  // Delete a product
   const handleDeleteProduct = async (
     selectedProduct,
     onDeleteSuccess,
@@ -168,17 +184,19 @@ const useProductDialog = (initialProduct = null) => {
       }
     } catch (error) {
       onDeleteFailure(selectedProduct);
-      return false; // Indicate deletion failure
+      return false;
     }
   };
 
+  // Error and validation state from the global store
   const displayError = state.error?.products;
   const validationError = state.validationErrors?.products;
 
+  // Check if the form is valid
   const isFormValid = () => {
     return (
       !validationError?.name &&
-      !validationError?.brands && 
+      !validationError?.brands &&
       !validationError?.measurementUnit &&
       !validationError?.type &&
       product?.name?.trim().length > 0 &&
@@ -204,7 +222,7 @@ const useProductDialog = (initialProduct = null) => {
 };
 
 useProductDialog.propTypes = {
-  initialProduct: PropTypes.object, // initialProduct is optional and should be an object
+  initialProduct: PropTypes.object, // Optional prop for initializing the product
 };
 
 export default useProductDialog;

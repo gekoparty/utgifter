@@ -1,3 +1,4 @@
+// Import statements
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Button,
@@ -17,11 +18,10 @@ import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
 import commonSelectStyles from "../../commons/Styles/SelectStyles";
 import { fetchBrands } from "../../commons/Utils/apiUtils";
-import { measurementUnitOptions, predefinedTypes } from "../../commons/Consts/constants"
-
-
-
-
+import {
+  measurementUnitOptions,
+  predefinedTypes,
+} from "../../commons/Consts/constants";
 
 // Memoized components
 const MemoizedBasicDialog = React.memo(BasicDialog);
@@ -29,7 +29,9 @@ const MemoizedErrorHandling = React.memo(ErrorHandling);
 const MemoizedCreatableSelect = React.memo(CreatableSelect);
 const MemoizedSelect = React.memo(Select);
 
+// Main component definition
 const AddProductDialog = ({ open, onClose, onAdd }) => {
+  // Custom hook for product dialog logic
   const {
     product,
     setProduct,
@@ -43,65 +45,71 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useProductDialog();
 
+  // State for selected brands
   const [selectedBrands, setSelectedBrands] = useState([]);
 
-  // Memoize the formatted brands to avoid recalculating on each render
+  // Memoized formatted brands for performance
   const formattedBrands = useMemo(
     () => product?.brands?.map((brand) => ({ name: brand })) || [],
     [product?.brands]
   );
 
+  // Reset form and brands when dialog opens
   useEffect(() => {
     if (open) {
-      resetFormAndErrors(); // Reset form and errors using the hook
-      setSelectedBrands([]); // Reset selected brands
+      resetFormAndErrors();
+      setSelectedBrands([]);
     }
   }, [open]);
 
+  // Fetch brand options using React Query
   const {
     data: brandOptions,
     isLoading: brandLoading,
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
 
+  // Handle form submission
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent the default form submission behavior
-
-    // Call the handleSaveShop function from the hook to save the new shop
+    event.preventDefault();
     if (isFormValid()) {
       const success = await handleSaveProduct(onClose, {
         ...product,
-        brands: selectedBrands.map((brand) => brand.name), // Set brand as an array of brand names
+        brands: selectedBrands.map((brand) => brand.name),
       });
       if (success) {
-        onAdd({ name: product.name }); // Trigger the onAdd function to show the success snackbar with the shop name
+        onAdd({ name: product.name });
       }
     }
   };
 
+  // Handle changes to the brand selection
   const handleBrandChange = (selectedOptions) => {
     setSelectedBrands(selectedOptions);
     setProduct({
       ...product,
-      brands: selectedOptions.map((brand) => brand.name), // Set brands as an array of brand names
+      brands: selectedOptions.map((brand) => brand.name),
     });
     resetValidationErrors();
     resetServerError();
   };
 
+  // Render the component
   return (
     <Fade in={open} timeout={300}>
       <Box>
+        {/* Dialog Wrapper */}
         <MemoizedBasicDialog
           open={open}
           onClose={() => {
             resetFormAndErrors();
-            onClose(); // Close the dialog after resetting the form and errors
+            onClose();
           }}
           dialogTitle="Nytt Produkt"
         >
           <form onSubmit={handleSubmit}>
             <Grid container direction="column" spacing={2}>
+              {/* Product Name Input */}
               <Grid item>
                 <TextField
                   sx={{ marginTop: 2 }}
@@ -123,19 +131,19 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   />
                 ) : null}
               </Grid>
+
+              {/* Brand Selection */}
               <Grid item>
                 <MemoizedCreatableSelect
-                
                   styles={commonSelectStyles}
                   options={brandOptions}
                   size="small"
                   label="Merke"
                   isMulti
-                  value={formattedBrands} // Use memoized brands here// Map brands to objects for CreatableSelect
-                  error={Boolean(validationError?.brand)} // Use optional chaining
+                  value={formattedBrands}
                   onChange={handleBrandChange}
-                  getOptionLabel={(option) => option.name} // Set the label for each option
-                  getOptionValue={(option) => option.name} // Set the value for each option
+                  getOptionLabel={(option) => option.name}
+                  getOptionValue={(option) => option.name}
                   placeholder="Velg Merke..."
                   isValidNewOption={(
                     inputValue,
@@ -156,7 +164,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                     const newBrand = { name: inputValue.trim() };
                     setProduct((prevProduct) => ({
                       ...prevProduct,
-                      brands: [...prevProduct.brands, newBrand.name], // Update brands directly
+                      brands: [...prevProduct.brands, newBrand.name],
                     }));
                     resetValidationErrors();
                     resetServerError();
@@ -173,8 +181,10 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   />
                 ) : null}
               </Grid>
+
+              {/* Product Type Selection */}
               <Grid item>
-              <MemoizedSelect
+                <MemoizedSelect
                   styles={commonSelectStyles}
                   options={predefinedTypes.map((type) => ({
                     value: type,
@@ -196,8 +206,10 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   isClearable
                 />
               </Grid>
+
+              {/* Measurement Unit Selection */}
               <Grid item>
-              <MemoizedSelect
+                <MemoizedSelect
                   styles={commonSelectStyles}
                   id="measurementUnit"
                   options={measurementUnitOptions}
@@ -222,10 +234,12 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   />
                 ) : null}
               </Grid>
+
+              {/* Measures Input */}
               <Grid item>
                 <MemoizedCreatableSelect
                   styles={commonSelectStyles}
-                  options={[]} // No predefined options
+                  options={[]}
                   isMulti
                   value={
                     product?.measures?.map((measure) => ({
@@ -241,13 +255,11 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                     resetValidationErrors();
                     resetServerError();
                   }}
-                  getOptionLabel={(option) => option.label} // Set the label for each option
-                  getOptionValue={(option) => option.value} // Set the value for each option
+                  getOptionLabel={(option) => option.label}
+                  getOptionValue={(option) => option.value}
                   placeholder="Legg til mål..."
-                  // This isValidNewOption will validate numbers, including decimals
                   isValidNewOption={(inputValue) => {
-                    // Check if the input is a valid number (integer or decimal)
-                    const numberPattern = /^\d+(\.\d+)?$/; // RegEx pattern to allow integers and decimals
+                    const numberPattern = /^\d+(\.\d+)?$/;
                     return numberPattern.test(inputValue.trim());
                   }}
                   getNewOptionData={(inputValue) => ({
@@ -256,19 +268,18 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   })}
                   onCreateOption={(inputValue) => {
                     const trimmedValue = inputValue.trim();
-                    const numberPattern = /^\d+(\.\d+)?$/; // RegEx to allow integers and decimals
+                    const numberPattern = /^\d+(\.\d+)?$/;
                     if (numberPattern.test(trimmedValue)) {
                       setProduct((prevProduct) => ({
                         ...prevProduct,
                         measures: [
                           ...(prevProduct.measures || []),
                           trimmedValue,
-                        ], // Add valid numeric measure (integer or decimal)
+                        ],
                       }));
                       resetValidationErrors();
                       resetServerError();
                     } else {
-                      // Handle invalid input (though this should not happen due to isValidNewOption)
                       console.error(
                         "Invalid measure input. It must be a valid number."
                       );
@@ -278,6 +289,8 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                 />
               </Grid>
             </Grid>
+
+            {/* Action Buttons */}
             <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
               <Button type="submit" disabled={loading || !isFormValid()}>
                 {loading ? <CircularProgress size={24} /> : "Lagre"}
@@ -299,6 +312,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
   );
 };
 
+// Prop types validation
 AddProductDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,

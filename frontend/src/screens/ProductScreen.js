@@ -1,3 +1,4 @@
+// Import statements
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
@@ -6,70 +7,44 @@ import {
   Snackbar,
   SnackbarContent,
 } from "@mui/material";
-
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQuery } from "@tanstack/react-query";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AddProductDialog from "../components/Products/ProductDialogs/AddProductDialog";
 import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog";
-import EditProductDialog from '../components/Products/ProductDialogs/EditProductDialog';
-
+import EditProductDialog from "../components/Products/ProductDialogs/EditProductDialog";
 
 // Constants
-const INITIAL_PAGINATION = {
-  pageIndex: 0,
-  pageSize: 5,
-};
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 5 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const INITIAL_SELECTED_PRODUCT = {
-  _id: "",
-  name: "",
-};
+const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 const API_URL =
   process.env.NODE_ENV === "production"
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
 const ProductScreen = () => {
-  
+  // State variables
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
+  const [selectedProduct, setSelectedProduct] = useState(
+    INITIAL_SELECTED_PRODUCT
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  
-  
-  
-  
-  const tableColumns = useMemo(
-    () => [
-      { accessorKey: "name", header: "Produkter" },
-      { accessorKey: "brand", header: "Merker" },
-      { accessorKey: "type", header: "Type" },
-      {
-        accessorKey: "measures", // This is your measures column
-        header: "Mål",
-        cell: ({ cell }) => {
-          const measures = cell.getValue(); // Get the measures from the cell
-          console.log('Measures:', measures); // Log measures for debugging
-          if (Array.isArray(measures)) {
-            return measures.join(" "); // Join measures with a space
-          }
-          return measures; // Fallback if it's not an array
-        },
-      },
-    ],
-    []
+  // Memoized values
+  const memoizedSelectedProduct = useMemo(
+    () => selectedProduct,
+    [selectedProduct]
   );
 
-  // React Query
+  // React Query client and hooks
   const queryClient = useQueryClient();
   const queryKey = [
     "products",
@@ -80,95 +55,7 @@ const ProductScreen = () => {
     sorting,
   ];
 
-  // Define your query function
-  const fetchData = async () => {
-    const fetchURL = new URL("/api/products", API_URL);
-  
-    fetchURL.searchParams.set(
-      "start",
-      `${pagination.pageIndex * pagination.pageSize}`
-    );
-    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-  
-    const modifiedFilters = columnFilters.map((filter) => {
-      if (filter.id === "brand") {
-        return { id: "brand", value: "" };
-      } else if (filter.id === "category") {
-        return { id: "category", value: "" };
-      }
-      return filter;
-    });
-  
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(modifiedFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-  
-    const response = await fetch(fetchURL.href);
-    const json = await response.json();
-  
-    const products = json.products;
-  
-    // Fetch brand names for each product
-    const brandPromises = products.map(async (product) => {
-      if (!product.brands || !product.brands.length) {
-        return ["N/A"]; // Handle products with no brands
-      }
-  
-      // Map each brand ID to its corresponding brand name
-      const brandNames = await Promise.all(
-        product.brands.map(async (brandId) => {
-          const brandResponse = await fetch(`/api/brands/${brandId}`);
-          const brandData = await brandResponse.json();
-          return brandData.name; // Extract the brand name
-        })
-      );
-  
-      return brandNames; // Return array of brand names
-    });
-  
-    const brandNamesArray = await Promise.all(brandPromises);
-  
-    // Associate brand names array with each product
-    const productsWithBrandNames = products.map((product, index) => ({
-      ...product,
-      brand: brandNamesArray[index], // Add brand names array property
-    }));
-  
-    // Transform the data for rendering in the table
-    const transformedData = productsWithBrandNames.map((product) => ({
-      _id: product._id,
-      name: product.name,
-      brand: product.brand.join(", "), // Join brand names array
-      type: product.type,
-      measurementUnit: product.measurementUnit,
-      measures: product.measures || [], // Ensure this includes measures
-    }));
-  
-    return { products: transformedData, meta: json.meta };
-  };
-
-  useEffect(() => {
-    if (sorting.length === 0) {
-      setSorting([{ id: "name", desc: false }]);
-    }
-  }, []);
-  const {
-    data: productsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  })
-
-
+  // Snackbar state and handlers from custom hook
   const {
     snackbarOpen,
     snackbarMessage,
@@ -178,38 +65,116 @@ const ProductScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  
+  // Table columns configuration
+  const tableColumns = useMemo(
+    () => [
+      { accessorKey: "name", header: "Produkter" },
+      { accessorKey: "brand", header: "Merker" },
+      { accessorKey: "type", header: "Type" },
+      {
+        accessorKey: "measures",
+        header: "Mål",
+        cell: ({ cell }) => {
+          const measures = cell.getValue();
+          if (Array.isArray(measures)) return measures.join(" ");
+          return measures || "N/A";
+        },
+      },
+    ],
+    []
+  );
 
+  // Fetch function for products
+  const fetchData = async () => {
+    const fetchURL = new URL("/api/products", API_URL);
+    fetchURL.searchParams.set(
+      "start",
+      `${pagination.pageIndex * pagination.pageSize}`
+    );
+    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+
+    const response = await fetch(fetchURL.href);
+    const json = await response.json();
+    const products = json.products;
+
+    const brandNamesArray = await Promise.all(
+      products.map(async (product) => {
+        if (!product.brands || !product.brands.length) return ["N/A"];
+        return Promise.all(
+          product.brands.map(async (brandId) => {
+            const res = await fetch(`/api/brands/${brandId}`);
+            const data = await res.json();
+            return data.name;
+          })
+        );
+      })
+    );
+
+    return {
+      products: products.map((product, idx) => ({
+        ...product,
+        brand: brandNamesArray[idx].join(", "),
+      })),
+      meta: json.meta,
+    };
+  };
+
+  // React Query hook for data fetching
+  const {
+    data: productsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true,
+    refetchOnMount: true,
+  });
+
+  // Ensure default sorting
+  useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+  // Handlers for product actions
   const addProductHandler = (newProduct) => {
-    showSuccessSnackbar(`Butikk ${newProduct.name} er lagt til`)
+    showSuccessSnackbar(`Produkt ${newProduct.name} er lagt til`);
     queryClient.invalidateQueries("products");
     refetch();
-  }
+  };
 
   const deleteFailureHandler = (failedProduct) => {
-    showErrorSnackbar(`Failed to delete product ${failedProduct.name}`)
-  }
+    showErrorSnackbar(`Kunne ikke slette produktet ${failedProduct.name}`);
+  };
 
-  const deleteSuccessHandler = (deletedProduct) =>  {
-    showSuccessSnackbar(`Product ${deletedProduct} deleted successfully` )
-
+  const deleteSuccessHandler = (deletedProduct) => {
+    showSuccessSnackbar(`Produkt ${deletedProduct} slettet`);
     queryClient.invalidateQueries("products");
     refetch();
-  }
+  };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update products")
-  }
+    showErrorSnackbar("Kunne ikke oppdatere produktet");
+  };
 
-  const editSuccessHandler = (selectedProduct) => {
-    showSuccessSnackbar(`Product ${selectedProduct.name} updated succesfully`)
+  const editSuccessHandler = (updatedProduct) => {
+    showSuccessSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
     queryClient.invalidateQueries("products");
     refetch();
-  }
+  };
 
-
+  // JSX structure
   return (
     <TableLayout>
+      {/* Add Product Button */}
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
           variant="contained"
@@ -220,9 +185,10 @@ const ProductScreen = () => {
         </Button>
       </Box>
 
+      {/* Products Table */}
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
-        {productsData && (
+          {productsData && (
             <ReactTable
               data={productsData?.products}
               columns={tableColumns}
@@ -240,10 +206,7 @@ const ProductScreen = () => {
               sorting={sorting}
               meta={productsData?.meta}
               setSelectedProduct={setSelectedProduct}
-              totalRowCount={productsData?.meta?.totalRowCount} 
-              rowCount={productsData?.meta?.totalRowCount ?? 0}
               handleEdit={(product) => {
-                console.log("Selected Product:", product);
                 setSelectedProduct(product);
                 setEditModalOpen(true);
               }}
@@ -251,39 +214,36 @@ const ProductScreen = () => {
                 setSelectedProduct(product);
                 setDeleteModalOpen(true);
               }}
-              editModalOpen={editModalOpen}
-              setDeleteModalOpen={setDeleteModalOpen}
-              
             />
           )}
         </Box>
       </Box>
-      
 
+      {/* Dialogs */}
       <DeleteProductDialog
         open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
         dialogTitle="Confirm Deletion"
-        cancelButton={
-          <Button onClick={()=> setDeleteModalOpen(false)}>Cancel</Button>
-        }
+        onClose={() => setDeleteModalOpen(false)}
         selectedProduct={selectedProduct}
         onDeleteSuccess={deleteSuccessHandler}
         onDeleteFailure={deleteFailureHandler}
-       />
+      />
+      {memoizedSelectedProduct._id && (
+        <EditProductDialog
+          open={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          selectedProduct={selectedProduct}
+          onUpdateSuccess={editSuccessHandler}
+          onUpdateFailure={editFailureHandler}
+        />
+      )}
+      <AddProductDialog
+        open={addProductDialogOpen}
+        onClose={() => setAddProductDialogOpen(false)}
+        onAdd={addProductHandler}
+      />
 
-{selectedProduct._id && (
-  <EditProductDialog
-    open={editModalOpen}
-    onClose={() => setEditModalOpen(false)}
-    cancelButton={<Button onClick={() => setEditModalOpen(false)}>Cancel</Button>}
-    dialogTitle={"Edit Product"}
-    selectedProduct={selectedProduct}
-    onUpdateSuccess={editSuccessHandler}
-    onUpdateFailure={editFailureHandler}
-  />
-)}
-
+      {/* Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -306,13 +266,6 @@ const ProductScreen = () => {
           }
         />
       </Snackbar>
-      <AddProductDialog
-        onClose={() => setAddProductDialogOpen(false)}
-        //locations={locationsData}
-        //categories={categoriesData}
-        open={addProductDialogOpen}
-        onAdd={addProductHandler}
-      ></AddProductDialog>
     </TableLayout>
   );
 };
