@@ -76,7 +76,7 @@ const EditProductDialog = ({
           : []
       );
     }
-  }, [selectedProduct, open]);
+  }, [selectedProduct, open, setProduct]);
 
   // Handle brand query loading state
   if (brandLoading) {

@@ -60,7 +60,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
       resetFormAndErrors();
       setSelectedBrands([]);
     }
-  }, [open]);
+  }, [open, resetFormAndErrors]);
 
   // Fetch brand options using React Query
   const {
@@ -172,14 +172,27 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   isClearable
                   formatCreateLabel={(inputValue) => `Nytt sted: ${inputValue}`}
                 />
-                {brandLoading && <LinearProgress />}
-                {displayError || validationError ? (
+
+                {/* Show LinearProgress when brand is loading */}
+                {brandLoading && <LinearProgress sx={{ mt: 2 }} />}
+
+                {/* Displaying brand fetch error */}
+                {brandError && (
+                  <MemoizedErrorHandling
+                    resource="brands"
+                    field="brand"
+                    loading={brandLoading}
+                  />
+                )}
+
+                {/* Displaying form validation or other errors */}
+                {(displayError || validationError) && (
                   <MemoizedErrorHandling
                     resource="products"
                     field="brand"
                     loading={loading}
                   />
-                ) : null}
+                )}
               </Grid>
 
               {/* Product Type Selection */}

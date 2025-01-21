@@ -139,7 +139,7 @@ const useProductDialog = (initialProduct = null) => {
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
-          error: addDataError,
+          error: data.error || addDataError,
           resource: "products",
           showError: true,
         });
@@ -218,6 +218,7 @@ const useProductDialog = (initialProduct = null) => {
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
+   
   };
 };
 
