@@ -17,47 +17,11 @@ import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
 import commonSelectStyles from "../../commons/Styles/SelectStyles";
 import { fetchBrands } from "../../commons/Utils/apiUtils";
+import { measurementUnitOptions, predefinedTypes } from "../../commons/Consts/constants"
 
-const measurementUnitOptions = [
-  { value: "l", label: "Litres (l)" },
-  { value: "kg", label: "Kilos (kg)" },
-  { value: "stk", label: "Stykk (stk" },
-  // Add more measurement unit options as needed
-];
 
-// State to store selected brands
 
-const predefinedTypes = [
-  "Matvare",
-  "Medesin",
-  "Elektronikk",
-  "Hobby",
-  "Katt",
-  "Alkohol",
-  "Gambling",
-  "Bil",
-  "Soverom",
-  "Båt/Fiske",
-  "Hus",
-  "Kjøkken",
-  "Hage",
-  "Datautstyr",
-  "Gave",
-  "Ferje",
-  "Reise",
-  "Hår/Hud",
-  "Ferdigmat",
-  "Brev/Pakke",
-  "Jernvare",
-  "Elektronikk",
-  "Bil",
-  "Artikler",
-  "Klær",
-  "Verktøy",
-  "Tobakk",
-];
 
-// Add your predefined types here
 
 // Memoized components
 const MemoizedBasicDialog = React.memo(BasicDialog);

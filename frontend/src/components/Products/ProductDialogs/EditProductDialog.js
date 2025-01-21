@@ -8,15 +8,8 @@ import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../UseProducts/useProductDialog";
 import { fetchBrands } from "../../commons/Utils/apiUtils";
+import { measurementUnitOptions, predefinedTypes } from "../../commons/Consts/constants"
 
-const measurementUnitOptions = [
-  { value: "l", label: "Litres (l)" },
-  { value: "kg", label: "Kilos (kg)" },
-  {value: "stk", label: "Stykk (stk"},
-  // Add more measurement unit options as needed
-];
-
-const predefinedTypes = ["Matvare", "Medesin","Elektronikk", "Hobby", "Katt","Soverom","Alkohol","Bil","Båt/Fiske","Hus","Gave","Hage", "Kjøkken", "Gambling","Datautstyr","Pakke","Ferje", "Hår/Hud", "Brev/Pakke", "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler", "Klær", "Verktøy", "Tobakk"]; // Add your predefined types here
 
 
 const EditProductDialog = ({
