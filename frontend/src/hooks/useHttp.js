@@ -11,46 +11,31 @@ const useCustomHttp = (initialUrl) => {
   });
 
   const sendRequest = useCallback(async (url, method = "GET", payload = null) => {
-    setHttpState((prevHttpState) => ({
-      ...prevHttpState,
-      loading: true,
-    }));
-
-    const source = axios.CancelToken.source();
+    setHttpState((prev) => ({ ...prev, loading: true, error: null }));
+    const controller = new AbortController();
 
     try {
-      const requestConfig = {
+      const response = await axios.request({
         url,
         method,
-        cancelToken: source.token,
-        data: payload, // Simplified payload handling
-      };
+        data: payload,
+        signal: controller.signal,
+      });
 
-      const response = await axios.request(requestConfig);
-
-      if (response && response.data) {
-        setHttpState((prevHttpState) => ({
-          ...prevHttpState,
-          data: response.data,
-          loading: false,
-        }));
-
-        return { data: response.data, error: null };
-      } else {
-        throw new Error("Invalid response");
-      }
+      setHttpState({ data: response.data, loading: false, error: null, resource: url });
+      return { data: response.data, error: null };
     } catch (error) {
-      if (!axios.isCancel(error)) {
-        setHttpState((prevHttpState) => ({
-          ...prevHttpState,
-          error: error.response?.data || error.message,
-          loading: false,
-          resource: url,
-        }));
-      }
+      setHttpState({
+        data: null,
+        loading: false,
+        error: {
+          message: error.response?.data || error.message,
+          status: error.response?.status,
+          url,
+        },
+        resource: url,
+      });
       return { data: null, error };
-    } finally {
-      source.cancel();
     }
   }, []);
 
