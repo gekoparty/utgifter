@@ -25,9 +25,9 @@ import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 // Constants
 const INITIAL_PAGINATION = {
   pageIndex: 0,
-  pageSize: 5,
+  pageSize: 10,
 };
-const INITIAL_SORTING = [{ id: "productName", desc: false }];
+const INITIAL_SORTING = [{ id: "purchaseDate", desc: true}];
 const INITIAL_SELECTED_EXPENSE = {
   _id: "",                // Assuming `_id` is used elsewhere, if not, you may remove it
   productName: "",

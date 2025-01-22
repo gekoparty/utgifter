@@ -87,22 +87,16 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
   }, [expenseId]);
 
   const resetServerError = useCallback(() => {
-    dispatch({
-      type: "RESET_ERROR",
-      resource: "expenses",
-    });
+    dispatch({ type: "RESET_ERROR", resource: "expenses" });
   }, [dispatch]);
 
   const resetValidationErrors = useCallback(() => {
-    dispatch({
-      type: "RESET_VALIDATION_ERRORS",
-      resource: "expenses",
-    });
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
     setValidationErrors({});
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
-    setExpense(initialExpense ? initialExpense : initialExpenseState);
+    setExpense(initialExpense || initialExpenseState);
     resetServerError();
     resetValidationErrors();
   }, [initialExpense, initialExpenseState, resetServerError, resetValidationErrors]);
@@ -144,18 +138,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
     };
   }, [initialExpense, resetFormAndErrors, dispatch, productsOptions]); 
 
-  const validateField = useCallback((field, value) => {
+   // Validate Field
+   const validateField = useCallback((field, value) => {
     try {
       addExpenseValidationSchema.validateSyncAt(field, { [field]: value });
-      setValidationErrors((prevErrors) => ({
-        ...prevErrors,
-        [field]: null,
-      }));
-    } catch (validationError) {
-      setValidationErrors((prevErrors) => ({
-        ...prevErrors,
-        [field]: validationError.message,
-      }));
+      setValidationErrors((prev) => ({ ...prev, [field]: null }));
+    } catch (err) {
+      setValidationErrors((prev) => ({ ...prev, [field]: err.message }));
     }
   }, []);
 
@@ -291,34 +280,17 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
     }
   };
 
-  const handleDeleteExpense = async (
-    selectedExpense,
-    onDeleteSuccess,
-    onDeleteFailure
-  ) => {
-    try {
-      console.log("Attempting to delete expense:", selectedExpense);
-  
-      const response = await sendRequest(
-        `/api/expenses/${selectedExpense?._id}`,
-        "DELETE"
-      );
-  
-      if (response.error) {
-        console.error("Failed to delete expense:", response.error);
-        onDeleteFailure(selectedExpense);
-        return false;
-      } else {
-        console.log("Expense deleted successfully:", selectedExpense);
-        onDeleteSuccess(selectedExpense);
-        return true;
-      }
-    } catch (error) {
-      console.error("Error during delete request:", error);
-      onDeleteFailure(selectedExpense);
-      return false;
-    }
-  };
+ // Delete Expense
+ const handleDeleteExpense = async (expenseToDelete, onSuccess, onFailure) => {
+  try {
+    const { error } = await sendRequest(`/api/expenses/${expenseToDelete._id}`, "DELETE");
+    if (error) throw error;
+    onSuccess?.(expenseToDelete);
+    await refetchProducts();
+  } catch (err) {
+    onFailure?.(expenseToDelete);
+  }
+};
 
   const isFormValid = useCallback(() => {
     const hasErrors = Object.values(validationErrors).some(error => error);
@@ -332,7 +304,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
 
   return {
     isFormValid,
-    loading,
+    loading: loading || productsLoading || brandsLoading || shopsLoading,
     error,
     handleSaveExpense,
     handleDeleteExpense,
@@ -343,11 +315,11 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
     resetValidationErrors,
     resetFormAndErrors,
     productsOptions,
-    productsLoading,
     brandOptions,
-    brandsLoading,
+    refetchProducts,
+    refetchBrands,
+    refetchShops,
     shopOptions,
-    shopsLoading,
   };
 };
 
