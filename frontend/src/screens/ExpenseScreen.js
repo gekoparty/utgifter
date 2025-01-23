@@ -1,4 +1,4 @@
-import React, { useState, useMemo , useCallback} from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Box,
   Button,
@@ -9,27 +9,24 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
-import debounce from 'lodash/debounce';
+import debounce from "lodash/debounce";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
-import AddExpenseDialog from "../components/Expenses/ExpenseDialogs/AddExpenseDialog"
+import AddExpenseDialog from "../components/Expenses/ExpenseDialogs/AddExpenseDialog";
 import DeleteExpenseDialog from "../components/Expenses/ExpenseDialogs/DeleteExpenseDialog";
 import EditExpenseDialog from "../components/Expenses/ExpenseDialogs/EditExpenseDialog";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
-
-//test
-
 
 // Constants
 const INITIAL_PAGINATION = {
   pageIndex: 0,
   pageSize: 10,
 };
-const INITIAL_SORTING = [{ id: "purchaseDate", desc: true}];
+const INITIAL_SORTING = [{ id: "purchaseDate", desc: true }];
 const INITIAL_SELECTED_EXPENSE = {
-  _id: "",                // Assuming `_id` is used elsewhere, if not, you may remove it
+  _id: "",
   productName: "",
   brandName: "",
   shopName: "",
@@ -37,30 +34,30 @@ const INITIAL_SELECTED_EXPENSE = {
   price: 0,
   volume: 0,
   discountValue: 0,
-  discountAmount: 0,      // Add this if it's used in dialogs or forms
-  finalPrice: 0,          // Add this if it's used in dialogs or forms
-  quantity: 1,            // Add this if it's used in dialogs or forms
+  discountAmount: 0,
+  finalPrice: 0,
+  quantity: 1,
   hasDiscount: false,
   purchased: true,
   registeredDate: null,
   purchaseDate: null,
   type: "",
-  measurementUnit: "",    // Add this if it's used in dialogs or forms
-  pricePerUnit: 0         // Add this if it's used in dialogs or forms
+  measurementUnit: "",
+  pricePerUnit: 0,
 };
 const API_URL =
   process.env.NODE_ENV === "production"
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
-    // Debounced Price Range Filter Component
+// Debounced Price Range Filter Component
 const PriceRangeFilter = ({ value, onChange }) => {
   const handleSliderChange = (event, newValue) => {
     onChange(newValue);
   };
 
   return (
-    <Box sx={{ width: 300, mb: 2 }}>
+    <Box sx={{ width: 300, mb: 2 }} data-testid="price-range-filter">
       <Slider
         value={value}
         onChange={handleSliderChange}
@@ -68,20 +65,20 @@ const PriceRangeFilter = ({ value, onChange }) => {
         min={0}
         max={1000}
         step={10}
+        data-testid="slider"
       />
     </Box>
   );
 };
-    
-    
 
 const ExpenseScreen = () => {
-  
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
+  const [selectedExpense, setSelectedExpense] = useState(
+    INITIAL_SELECTED_EXPENSE
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -107,35 +104,35 @@ const ExpenseScreen = () => {
     return stats;
   };
 
- 
- const renderDetailPanel = useCallback(({ row }) => <DetailPanel row={row} />, []);
-  
+  const renderDetailPanel = useCallback(
+    ({ row }) => <DetailPanel row={row} data-testid="detail-panel" />,
+    []
+  );
 
   const tableColumns = useMemo(
     () => [
       {
-        accessorKey: 'productName',
-        header: 'Produkt',
+        accessorKey: "productName",
+        header: "Produkt",
         Cell: ({ row }) => row.original.productName,
-        enableColumnPinning: true, // This column can be pinned
+        enableColumnPinning: true,
+        meta: { testId: "product-name-column" },
       },
       {
-        accessorKey: 'pricePerUnit',
-        header: 'Pris pr kg/l',
+        accessorKey: "pricePerUnit",
+        header: "Pris pr kg/l",
         Cell: ({ cell, row }) => {
           const price = cell.getValue();
           const type = row.original.type;
           const stats = priceStatsByType[type] || { min: 0, max: 0, median: 0 };
 
-        
-
-          let color = 'yellow'; // Default color
+          let color = "yellow";
 
           if (stats.median > 0) {
             if (price <= stats.min + (stats.median - stats.min) / 2) {
-              color = 'green'; // Less than median
+              color = "green";
             } else if (price >= stats.max - (stats.max - stats.median) / 2) {
-              color = 'red'; // Greater than median
+              color = "red";
             }
           }
 
@@ -144,40 +141,40 @@ const ExpenseScreen = () => {
               component="span"
               sx={{
                 backgroundColor: color,
-                borderRadius: '0.25rem',
-                color: '#fff',
-                p: '0.25rem',
+                borderRadius: "0.25rem",
+                color: "#fff",
+                p: "0.25rem",
               }}
+              data-testid={`price-${row.index}`}
             >
-              {price?.toLocaleString('nb-NO', {
-                style: 'currency',
-                currency: 'NOK',
+              {price?.toLocaleString("nb-NO", {
+                style: "currency",
+                currency: "NOK",
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </Box>
           );
         },
-        enableColumnPinning: true, // This column can be pinned
+        enableColumnPinning: true,
       },
-     
       {
-        accessorKey: 'shopName',
-        header: 'Butikk',
+        accessorKey: "shopName",
+        header: "Butikk",
         Cell: ({ row }) => row.original.shopName,
-        enableColumnPinning: true, // This column can be pinned
+        enableColumnPinning: true,
+        meta: { testId: "shop-name-column" },
       },
-      
-      { accessorKey: 'purchaseDate', header: 'Kjøpt dato', enableColumnPinning: true },
-     
+      {
+        accessorKey: "purchaseDate",
+        header: "Kjøpt dato",
+        enableColumnPinning: true,
+        meta: { testId: "purchase-date-column" },
+      },
     ],
     [priceStatsByType, priceRangeFilter]
   );
 
-
-  
-
-  // React Query
   const queryClient = useQueryClient();
   const queryKey = [
     "expenses",
@@ -186,7 +183,6 @@ const ExpenseScreen = () => {
     pagination.pageIndex,
     pagination.pageSize,
     sorting,
-   
   ];
 
   const fetchExpenses = async () => {
@@ -210,7 +206,6 @@ const ExpenseScreen = () => {
     const response = await fetch(fetchURL.href);
     const json = await response.json();
 
-    // Calculate price stats by type
     const stats = calculatePriceStatsByType(json.expenses);
     setPriceStatsByType(stats);
 
@@ -240,9 +235,7 @@ const ExpenseScreen = () => {
   } = useSnackBar();
 
   const addExpenseHandler = (newExpense) => {
-    console.log("New Expense Data:", newExpense);
     if (!newExpense || !newExpense.productName) {
-      console.error("Invalid expense data:", newExpense);
       showErrorSnackbar("Failed to add expense due to missing product name.");
       return;
     }
@@ -256,7 +249,8 @@ const ExpenseScreen = () => {
   };
 
   const deleteSuccessHandler = (deletedExpense) => {
-    const productName = deletedExpense.productName?.name || deletedExpense.productName;
+    const productName =
+      deletedExpense.productName?.name || deletedExpense.productName;
     showSuccessSnackbar(`Expense "${productName}" deleted successfully`);
     queryClient.invalidateQueries("expenses");
     refetch();
@@ -267,38 +261,68 @@ const ExpenseScreen = () => {
   };
 
   const editSuccessHandler = (updatedExpense) => {
-    showSuccessSnackbar(`Expense ${updatedExpense.productName} updated successfully`);
+    showSuccessSnackbar(
+      `Expense ${updatedExpense.productName} updated successfully`
+    );
     queryClient.invalidateQueries("expenses");
     refetch();
   };
 
-  const debouncedRefetch = (
-    debounce(() => {
-      refetch(); // Trigger the refetch here
-    }, 1000), // Adjust the delay as necessary
-    []
-  );
+  const debouncedRefetch =
+    (debounce(() => {
+      refetch();
+    }, 1000),
+    []);
 
   const handlePriceRangeChange = (newRange) => {
     setPriceRangeFilter(newRange);
-    debouncedRefetch(); // Call the debounced function
+    debouncedRefetch();
   };
-  
-  
 
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Button variant="contained" color="primary" onClick={() => setAddExpenseDialogOpen(true)}>
+      <Box
+        sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
+        data-testid="main-container"
+      >
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => setAddExpenseDialogOpen(true)}
+          data-testid="add-expense-button"
+        >
           New Expense
         </Button>
-        <PriceRangeFilter value={priceRangeFilter} onChange={handlePriceRangeChange} />
+        <PriceRangeFilter
+          value={priceRangeFilter}
+          onChange={handlePriceRangeChange}
+          data-testid="price-range-filter"
+        />
       </Box>
 
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
+      <Box
+        sx={{ width: "100%", display: "flex", justifyContent: "center" }}
+        data-testid="table-wrapper"
+      >
+        <Box
+          sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}
+          data-testid="table-container"
+        >
           {expensesData && (
             <ReactTable
+              muiTableContainerProps={{
+                sx: {
+                  width: "100%", // Ensure table spans full width
+                  overflowX: "auto", // Prevent horizontal overflow
+                },
+                "data-testid": "mui-table-container",
+              }}
+              muiTopToolbarProps={{
+                sx: {
+                  width: "100%", // Ensure the toolbar spans the full width
+                },
+                "data-testid": "mui-top-toolbar",
+              }}
               data={expensesData?.expenses}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
@@ -327,11 +351,14 @@ const ExpenseScreen = () => {
               }}
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
-              
               initialState={{
-                columnPinning: { left: ['mrt-row-actions','productName', 'brandName'], right: ['finalPrice'] },
+                columnPinning: {
+                  left: ["mrt-row-actions", "productName", "brandName"],
+                  right: ["finalPrice"],
+                },
               }}
               renderDetailPanel={renderDetailPanel}
+              data-testid="react-table"
             />
           )}
         </Box>
@@ -344,6 +371,7 @@ const ExpenseScreen = () => {
         selectedExpense={selectedExpense}
         onDeleteSuccess={deleteSuccessHandler}
         onDeleteFailure={deleteFailureHandler}
+        data-testid="delete-expense-dialog"
       />
 
       <EditExpenseDialog
@@ -352,14 +380,15 @@ const ExpenseScreen = () => {
         selectedExpense={selectedExpense}
         onUpdateSuccess={editSuccessHandler}
         onUpdateFailure={editFailureHandler}
+        data-testid="edit-expense-dialog"
       />
-
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        data-testid="snackbar"
       >
         <SnackbarContent
           sx={{
@@ -367,21 +396,26 @@ const ExpenseScreen = () => {
           }}
           message={snackbarMessage}
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+              data-testid="snackbar-close-icon"
+            >
               <CloseIcon />
             </IconButton>
           }
         />
       </Snackbar>
       {addExpenseDialogOpen && (
-  <AddExpenseDialog
-    onClose={() => setAddExpenseDialogOpen(false)}
-    open={addExpenseDialogOpen}
-    onAdd={addExpenseHandler}
-  />
-)}
+        <AddExpenseDialog
+          onClose={() => setAddExpenseDialogOpen(false)}
+          open={addExpenseDialogOpen}
+          onAdd={addExpenseHandler}
+          data-testid="add-expense-dialog"
+        />
+      )}
     </TableLayout>
   );
 };
-
 export default ExpenseScreen;

@@ -7,12 +7,11 @@ import EditIcon from "@mui/icons-material/Edit";
 
 const TableRowItem = ({ item, onDelete, onEdit, headers, columnRenderers }) => {
   return (
-    <TableRow
-    >
+    <TableRow data-testid="table-row">
       {headers.map((header) => {
         if (header === "Delete" || header === "Edit") {
           return (
-            <TableCell key={header}>
+            <TableCell key={header} data-testid={`table-cell-${header.toLowerCase()}`}>
               <IconButton
                 aria-label={header.toLowerCase()}
                 onClick={
@@ -21,6 +20,7 @@ const TableRowItem = ({ item, onDelete, onEdit, headers, columnRenderers }) => {
                     : () => onEdit(item)
                 }
                 color={header === "Delete" ? "success" : "secondary"}
+                data-testid={`${header.toLowerCase()}-button`}
               >
                 {header === "Delete" ? (
                   <DeleteIcon sx={{ fontSize: "inherit" }} />
@@ -33,13 +33,18 @@ const TableRowItem = ({ item, onDelete, onEdit, headers, columnRenderers }) => {
         } else if (columnRenderers && columnRenderers[header]) {
           // Check if a custom renderer is defined for the column
           return (
-            <TableCell key={header}>
+            <TableCell key={header} data-testid={`table-cell-${header.toLowerCase()}`}>
               {columnRenderers[header](item)} {/* Use the custom renderer */}
             </TableCell>
           );
         } else {
           return (
-            <TableCell key={header}>{item[header.toLowerCase()]}</TableCell>
+            <TableCell
+              key={header}
+              data-testid={`table-cell-${header.toLowerCase()}`}
+            >
+              {item[header.toLowerCase()]}
+            </TableCell>
           );
         }
       })}

@@ -187,7 +187,7 @@ const ProductScreen = () => {
 
       {/* Products Table */}
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
+        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2, maxWidth: "1200px" }}>
           {productsData && (
             <ReactTable
               data={productsData?.products}
