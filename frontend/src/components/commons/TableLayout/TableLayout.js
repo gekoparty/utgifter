@@ -1,27 +1,28 @@
-import {
-    Box,
-  } from "@mui/material";
+import { Box } from "@mui/material";
 
 const drawerWidth = 240;
 
 const TableLayout = ({ children }) => {
-    return (
+  return (
+    <Box
+      sx={{
+        flexGrow: 1,
+        marginLeft: `${drawerWidth}px`,
+        display: "flex",
+        justifyContent: "center",
+      }}
+      data-testid="table-layout"
+    >
       <Box
-        sx={{
-          flexGrow: 1,
-          marginLeft: `${drawerWidth}px`,
-          display: "flex",
-          justifyContent: "center",
-          
-        }}
+        sx={{ width: "100%", maxWidth: "1000px" }}
+        data-testid="table-layout-container"
       >
-        <Box sx={{ width: "100%", maxWidth: "1000px" }}>
-          {children}
-        </Box>
+        {children}
       </Box>
-    );
-  };
+    </Box>
+  );
+};
 
-  export default TableLayout;
+export default TableLayout;
 
   
