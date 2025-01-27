@@ -5,50 +5,125 @@ import IconButton from "@mui/material/IconButton";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
-const TableRowItem = ({ item, onDelete, onEdit, headers, columnRenderers }) => {
+// TableRowItem component
+const TableRowItem = ({ item, onDelete, onEdit, columns }) => {
   return (
-    <TableRow data-testid="table-row">
-      {headers.map((header) => {
-        if (header === "Delete" || header === "Edit") {
-          return (
-            <TableCell key={header} data-testid={`table-cell-${header.toLowerCase()}`}>
-              <IconButton
-                aria-label={header.toLowerCase()}
-                onClick={
-                  header === "Delete"
-                    ? () => onDelete(item)
-                    : () => onEdit(item)
-                }
-                color={header === "Delete" ? "success" : "secondary"}
-                data-testid={`${header.toLowerCase()}-button`}
+    <>
+      {/* Render Table Header */}
+      <TableRow data-testid="table-header">
+        {columns.map((column) => {
+          const { id, header, renderEditDelete, flexGrow, size, minSize, maxSize } = column;
+
+          if (header) {
+            return (
+              <TableCell
+                key={`header-${id}`}
+                data-testid={`table-cell-header-${id}`}
+                sx={{
+                  flexGrow: flexGrow || 1,
+                  minWidth: minSize || size || 150, // Set a default min size
+                  maxWidth: maxSize || size || 200, // Set a default max size
+                  textAlign: "center", // Align header text (optional)
+                }}
               >
-                {header === "Delete" ? (
-                  <DeleteIcon sx={{ fontSize: "inherit" }} />
-                ) : (
-                  <EditIcon sx={{ fontSize: "inherit" }} />
-                )}
-              </IconButton>
-            </TableCell>
-          );
-        } else if (columnRenderers && columnRenderers[header]) {
-          // Check if a custom renderer is defined for the column
-          return (
-            <TableCell key={header} data-testid={`table-cell-${header.toLowerCase()}`}>
-              {columnRenderers[header](item)} {/* Use the custom renderer */}
-            </TableCell>
-          );
-        } else {
+                {header} {/* This is where you show the column header */}
+              </TableCell>
+            );
+          }
+          return null; // In case there's no header defined, just skip
+        })}
+      </TableRow>
+
+      {/* Render Table Row */}
+      <TableRow data-testid="table-row">
+        {columns.map((column) => {
+          const {
+            id,
+            accessorKey,
+            renderEditDelete,
+            Cell,
+            flexGrow,
+            size,
+            minSize,
+            maxSize,
+          } = column;
+
+          // If the column has edit/delete actions
+          if (renderEditDelete) {
+            return (
+              <TableCell
+                key={id}
+                data-testid={`table-cell-${id}`}
+                sx={{
+                  flexGrow: flexGrow || 1,
+                  minWidth: minSize || size || 150,
+                  maxWidth: maxSize || size || 200,
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                <IconButton
+                  aria-label="edit"
+                  onClick={() => onEdit(item)}
+                  color="secondary"
+                  data-testid="edit-button"
+                >
+                  <EditIcon />
+                </IconButton>
+                <IconButton
+                  aria-label="delete"
+                  onClick={() => onDelete(item)}
+                  color="error"
+                  data-testid="delete-button"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </TableCell>
+            );
+          }
+
+          // If the column has a custom cell renderer (Cell)
+          if (Cell) {
+            return (
+              <TableCell
+                key={id}
+                data-testid={`table-cell-${id}`}
+                sx={{
+                  size: 200,
+                  flexGrow: flexGrow || 1,
+                  minWidth: minSize || size || 150,
+                  maxWidth: maxSize || size || 200,
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {Cell({ row: item })} {/* Custom cell content */}
+              </TableCell>
+            );
+          }
+
+          // Default behavior for regular columns
           return (
             <TableCell
-              key={header}
-              data-testid={`table-cell-${header.toLowerCase()}`}
+              key={id}
+              data-testid={`table-cell-${id}`}
+              sx={{
+                flexGrow: flexGrow || 0,
+                minWidth: minSize || size || 150,
+                maxWidth: maxSize || size || 200,
+                overflow: "hidden",
+                whiteSpace: "nowrap",
+                textOverflow: "ellipsis",
+              }}
             >
-              {item[header.toLowerCase()]}
+              {item[accessorKey]} {/* Default value for column */}
             </TableCell>
           );
-        }
-      })}
-    </TableRow>
+        })}
+      </TableRow>
+    </>
   );
 };
 

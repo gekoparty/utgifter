@@ -11,12 +11,14 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
+import { useTheme } from "@mui/material/styles"; // Import theme hook
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AddProductDialog from "../components/Products/ProductDialogs/AddProductDialog";
 import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog";
 import EditProductDialog from "../components/Products/ProductDialogs/EditProductDialog";
 
 // Constants
+
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 5 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
@@ -65,21 +67,51 @@ const ProductScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Table columns configuration
+  const theme = useTheme(); // Access the Material-UI theme
+
+  // Table columns configuration with flexGrow and size adjustments
   const tableColumns = useMemo(
     () => [
-      { accessorKey: "name", header: "Produkter" },
-      { accessorKey: "brand", header: "Merker" },
-      { accessorKey: "type", header: "Type" },
+      {
+        accessorKey: "name",
+        header: "Produkter",
+        size: 200, // Default size
+      grow: 2, // Grow to take 2/5 of available space
+      minSize: 150, // Minimum width
+      maxSize: 400, // Maximum width
+      },
+      {
+        accessorKey: "brand",
+        header: "Merker",
+        size: 200,
+      grow: 1, // Grow to take 1/5 of available space
+      minSize: 150,
+      maxSize: 300,
+      },
+      {
+        accessorKey: "type",
+        header: "Type",
+        size: 150,
+      grow: 1, // Grow to take 1/5 of available space
+      minSize: 100,
+      maxSize: 250,
+      },
       {
         accessorKey: "measures",
         header: "Mål",
+        size: 200,
+        grow: 1, // Grow to take 1/5 of available space
+        minSize: 150,
+        maxSize: 300,
         cell: ({ cell }) => {
           const measures = cell.getValue();
-          if (Array.isArray(measures)) return measures.join(" ");
-          return measures || "N/A";
+          return Array.isArray(measures)
+            ? measures.join(" ")
+            : measures || "N/A";
         },
       },
+      
+      
     ],
     []
   );
@@ -175,7 +207,10 @@ const ProductScreen = () => {
   return (
     <TableLayout>
       {/* Add Product Button */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+      <Box
+        data-testid="main-container1"
+        sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
+      >
         <Button
           variant="contained"
           color="primary"
@@ -186,37 +221,49 @@ const ProductScreen = () => {
       </Box>
 
       {/* Products Table */}
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2, maxWidth: "1200px" }}>
-          {productsData && (
-            <ReactTable
-              data={productsData?.products}
-              columns={tableColumns}
-              setColumnFilters={setColumnFilters}
-              setGlobalFilter={setGlobalFilter}
-              setSorting={setSorting}
-              setPagination={setPagination}
-              refetch={refetch}
-              isError={isError}
-              isFetching={isFetching}
-              isLoading={isLoading}
-              columnFilters={columnFilters}
-              globalFilter={globalFilter}
-              pagination={pagination}
-              sorting={sorting}
-              meta={productsData?.meta}
-              setSelectedProduct={setSelectedProduct}
-              handleEdit={(product) => {
-                setSelectedProduct(product);
-                setEditModalOpen(true);
-              }}
-              handleDelete={(product) => {
-                setSelectedProduct(product);
-                setDeleteModalOpen(true);
-              }}
-            />
-          )}
-        </Box>
+      <Box
+        data-testid="main-container2"
+        sx={{
+          width: "100%",
+          maxWidth: "100vw",
+          display: "flex",
+          justifyContent: "center",
+          boxShadow: 2,
+          flex: 1,
+          padding: "0",
+          margin: "0",
+        }}
+      >
+        
+        {productsData && (
+          <ReactTable
+          layoutMode="grid" // Enables column growth
+            data={productsData?.products}
+            columns={tableColumns}
+            setColumnFilters={setColumnFilters}
+            setGlobalFilter={setGlobalFilter}
+            setSorting={setSorting}
+            setPagination={setPagination}
+            refetch={refetch}
+            isError={isError}
+            isFetching={isFetching}
+            isLoading={isLoading}
+            columnFilters={columnFilters}
+            globalFilter={globalFilter}
+            pagination={pagination}
+            sorting={sorting}
+            meta={productsData?.meta}
+            setSelectedProduct={setSelectedProduct}
+            handleEdit={(product) => {
+              setSelectedProduct(product);
+              setEditModalOpen(true);
+            }}
+            handleDelete={(product) => {
+              setSelectedProduct(product);
+              setDeleteModalOpen(true);
+            }}
+          />
+        )}
       </Box>
 
       {/* Dialogs */}
@@ -245,27 +292,33 @@ const ProductScreen = () => {
 
       {/* Snackbar */}
       <Snackbar
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={handleSnackbarClose}
+  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+  open={snackbarOpen}
+  autoHideDuration={3000}
+  onClose={handleSnackbarClose}
+>
+  <SnackbarContent
+    sx={{
+      backgroundColor:
+        snackbarSeverity === "success"
+          ? theme.palette.success.main
+          : snackbarSeverity === "error"
+          ? theme.palette.error.main
+          : theme.palette.info.main, // Default to info if no severity
+      color: theme.palette.success.contrastText, // Use theme-based text contrast color
+    }}
+    message={snackbarMessage}
+    action={
+      <IconButton
+        size="small"
+        color="inherit"
+        onClick={handleSnackbarClose}
       >
-        <SnackbarContent
-          sx={{
-            backgroundColor: snackbarSeverity === "success" ? "green" : "red",
-          }}
-          message={snackbarMessage}
-          action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
-              <CloseIcon />
-            </IconButton>
-          }
-        />
-      </Snackbar>
+        <CloseIcon />
+      </IconButton>
+    }
+  />
+</Snackbar>;
     </TableLayout>
   );
 };

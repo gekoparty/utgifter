@@ -15,6 +15,7 @@ import AddCategoryDialog from "../components/Categories/CategoryDialogs/AddCateg
 import DeleteCategoryDialog from "../components/Categories/CategoryDialogs/DeleteCategoryDialog";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "@mui/material/styles";
 
 // Constants
 const INITIAL_PAGINATION = {
@@ -57,6 +58,8 @@ const CategoryScreen = () => {
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const theme = useTheme();
   
 
   const tableColumns = useMemo(
@@ -167,8 +170,7 @@ const CategoryScreen = () => {
           Ny Kategori
         </Button>
       </Box>
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
+      <Box sx={{ width: "100%", display: "flex", justifyContent: "center", boxShadow: 2  }}>
         {isLoading && <p>Loading...</p>}
         {isError && <p>An error occurred while fetching data.</p>}
         {!isLoading && !isError && (
@@ -202,7 +204,6 @@ const CategoryScreen = () => {
               setDeleteModalOpen={setDeleteModalOpen}
             />
           )}
-        </Box>
       </Box>
       <EditCategoryDialog
         open={editModalOpen}
@@ -236,7 +237,13 @@ const CategoryScreen = () => {
       >
         <SnackbarContent
           sx={{
-            backgroundColor: snackbarSeverity === "success" ? "green" : "red",
+            backgroundColor:
+              snackbarSeverity === "success"
+                ? theme.palette.success.main
+                : snackbarSeverity === "error"
+                ? theme.palette.error.main
+                : theme.palette.info.main, // Default to info if no severity
+            color: theme.palette.success.contrastText, // Use theme-based text contrast color
           }}
           message={snackbarMessage}
           action={
