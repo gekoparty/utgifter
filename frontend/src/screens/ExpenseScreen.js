@@ -14,6 +14,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "@mui/material/styles";
 import AddExpenseDialog from "../components/Expenses/ExpenseDialogs/AddExpenseDialog";
 import DeleteExpenseDialog from "../components/Expenses/ExpenseDialogs/DeleteExpenseDialog";
 import EditExpenseDialog from "../components/Expenses/ExpenseDialogs/EditExpenseDialog";
@@ -85,6 +86,8 @@ const ExpenseScreen = () => {
   const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
   const [priceStatsByType, setPriceStatsByType] = useState({});
 
+  const theme = useTheme();
+
   const calculatePriceStatsByType = (data) => {
     const stats = {};
     const groupedByType = data.reduce((acc, item) => {
@@ -125,25 +128,28 @@ const ExpenseScreen = () => {
           const price = cell.getValue();
           const type = row.original.type;
           const stats = priceStatsByType[type] || { min: 0, max: 0, median: 0 };
-
-          let color = "yellow";
-
+  
+          let backgroundColor = theme.palette.warning.main; // Default to warning
+          let textColor = theme.palette.warning.contrastText; // Default contrast text
+  
           if (stats.median > 0) {
             if (price <= stats.min + (stats.median - stats.min) / 2) {
-              color = "green";
+              backgroundColor = theme.palette.success.main; // Use success color
+              textColor = theme.palette.success.contrastText; // Success text contrast
             } else if (price >= stats.max - (stats.max - stats.median) / 2) {
-              color = "red";
+              backgroundColor = theme.palette.error.main; // Use error color
+              textColor = theme.palette.error.contrastText; // Error text contrast
             }
           }
-
+  
           return (
             <Box
               component="span"
               sx={{
-                backgroundColor: color,
+                backgroundColor,
+                color: textColor,
                 borderRadius: "0.25rem",
-                color: "#fff",
-                p: "0.25rem",
+                padding: "0.25rem",
               }}
               data-testid={`price-${row.index}`}
             >
@@ -166,6 +172,7 @@ const ExpenseScreen = () => {
         meta: { testId: "shop-name-column" },
       },
       {
+        
         accessorKey: "purchaseDate",
         header: "Kjøpt dato",
         enableColumnPinning: true,
@@ -301,13 +308,9 @@ const ExpenseScreen = () => {
       </Box>
 
       <Box
-        sx={{ width: "100%", display: "flex", justifyContent: "center" }}
+        sx={{ width: "100%", display: "flex", justifyContent: "center", boxShadow: 2  }}
         data-testid="table-wrapper"
       >
-        <Box
-          sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}
-          data-testid="table-container"
-        >
           {expensesData && (
             <ReactTable
               muiTableContainerProps={{
@@ -361,7 +364,6 @@ const ExpenseScreen = () => {
               data-testid="react-table"
             />
           )}
-        </Box>
       </Box>
 
       <DeleteExpenseDialog
@@ -391,9 +393,15 @@ const ExpenseScreen = () => {
         data-testid="snackbar"
       >
         <SnackbarContent
-          sx={{
-            backgroundColor: snackbarSeverity === "success" ? "green" : "red",
-          }}
+         sx={{
+          backgroundColor:
+            snackbarSeverity === "success"
+              ? theme.palette.success.main
+              : snackbarSeverity === "error"
+              ? theme.palette.error.main
+              : theme.palette.info.main, // Default to info if no severity
+          color: theme.palette.success.contrastText, // Use theme-based text contrast color
+        }}
           message={snackbarMessage}
           action={
             <IconButton

@@ -24,11 +24,13 @@ const Table = ({
   meta,
   initialState,
   renderDetailPanel,
+  layoutMode = "grid", // Default to "grid"
 }) => {
   const columnsConfig = useMemo(() => columns, [columns]);
 
   return (
     <MaterialReactTable
+      layoutMode={layoutMode}
       data-testid="material-react-table"
       columns={columnsConfig}
       data={data}
@@ -54,6 +56,8 @@ const Table = ({
             theme.palette.mode === "dark"
               ? theme.palette.common.white
               : theme.palette.common.black,
+              minWidth: 80, // Apply minWidth here within sx
+              maxWidth: 300, 
         }),
       }}
       muiTableBodyCellProps={{
@@ -66,6 +70,9 @@ const Table = ({
             theme.palette.mode === "dark"
               ? theme.palette.grey[300]
               : theme.palette.grey[800],
+          minWidth: 80, // Apply minWidth here within sx
+          maxWidth: 300, // Apply maxWidth here within sx
+          
         }),
       }}
       localization={MRT_Localization_NO}
@@ -119,6 +126,15 @@ const Table = ({
         pagination,
       }}
       renderDetailPanel={renderDetailPanel}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        flexGrow: 1, // Ensures table takes all available space
+        width: "100%", // Ensure the table takes up 100% width of its container
+        "& table": {
+          width: "100%", // Ensure the table itself fills its container
+        },
+      }}
     />
   );
 };
@@ -141,5 +157,3 @@ const ReactTable = ({
 );
 
 export default ReactTable;
-
-

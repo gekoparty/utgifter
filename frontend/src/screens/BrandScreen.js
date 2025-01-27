@@ -14,7 +14,7 @@ import AddBrandDialog from "../components/Brands/BrandDialogs/AddBrandDialog";
 import DeleteBrandDialog from "../components/Brands/BrandDialogs/DeleteBrandDialog";
 import EditBrandDialog from "../components/Brands/BrandDialogs/EditBrandDialog";
 import ReactTable from "../components/commons/React-Table/react-table";
-
+import { useTheme } from "@mui/material/styles";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
@@ -44,6 +44,8 @@ const BrandScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const theme = useTheme();
 
   const tableColumns = useMemo(
     () => [{ accessorKey: "name", header: "Merkenavn" }],
@@ -151,8 +153,7 @@ const BrandScreen = () => {
         </Button>
       </Box>
 
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-        <Box sx={{ width: "100%", minWidth: "500px", boxShadow: 2 }}>
+      <Box sx={{ width: "100%", display: "flex", justifyContent: "center", boxShadow: 2  }}>
           {brandsData && (
             <ReactTable
               data={brandsData.brands}
@@ -185,7 +186,6 @@ const BrandScreen = () => {
               setDeleteModalOpen={setDeleteModalOpen}
             />
           )}
-        </Box>
       </Box>
 
       <EditBrandDialog
@@ -220,7 +220,13 @@ const BrandScreen = () => {
       >
         <SnackbarContent
           sx={{
-            backgroundColor: snackbarSeverity === "success" ? "green" : "red",
+            backgroundColor:
+              snackbarSeverity === "success"
+                ? theme.palette.success.main
+                : snackbarSeverity === "error"
+                ? theme.palette.error.main
+                : theme.palette.info.main, // Default to info if no severity
+            color: theme.palette.success.contrastText, // Use theme-based text contrast color
           }}
           message={snackbarMessage}
           action={
