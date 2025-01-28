@@ -6,18 +6,16 @@ import {
   IconButton,
   Snackbar,
   SnackbarContent,
+  useTheme,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useTheme } from "@mui/material/styles"; // Import theme hook
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import AddProductDialog from "../components/Products/ProductDialogs/AddProductDialog";
 import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog";
 import EditProductDialog from "../components/Products/ProductDialogs/EditProductDialog";
-
-// Constants
 
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 5 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
@@ -40,6 +38,9 @@ const ProductScreen = () => {
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  // Theme for styling
+  const theme = useTheme();
+
   // Memoized values
   const memoizedSelectedProduct = useMemo(
     () => selectedProduct,
@@ -57,7 +58,7 @@ const ProductScreen = () => {
     sorting,
   ];
 
-  // Snackbar state and handlers from custom hook
+  // Snackbar state and handlers
   const {
     snackbarOpen,
     snackbarMessage,
@@ -67,40 +68,38 @@ const ProductScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  const theme = useTheme(); // Access the Material-UI theme
-
-  // Table columns configuration with flexGrow and size adjustments
+  // Table columns configuration
   const tableColumns = useMemo(
     () => [
       {
         accessorKey: "name",
         header: "Produkter",
-        size: 200, // Default size
-      grow: 2, // Grow to take 2/5 of available space
-      minSize: 150, // Minimum width
-      maxSize: 400, // Maximum width
+        size: 200,
+        grow: 2,
+        minSize: 150,
+        maxSize: 400,
       },
       {
         accessorKey: "brand",
         header: "Merker",
         size: 200,
-      grow: 1, // Grow to take 1/5 of available space
-      minSize: 150,
-      maxSize: 300,
+        grow: 1,
+        minSize: 150,
+        maxSize: 300,
       },
       {
         accessorKey: "type",
         header: "Type",
         size: 150,
-      grow: 1, // Grow to take 1/5 of available space
-      minSize: 100,
-      maxSize: 250,
+        grow: 1,
+        minSize: 100,
+        maxSize: 250,
       },
       {
         accessorKey: "measures",
         header: "Mål",
         size: 200,
-        grow: 1, // Grow to take 1/5 of available space
+        grow: 1,
         minSize: 150,
         maxSize: 300,
         cell: ({ cell }) => {
@@ -110,66 +109,47 @@ const ProductScreen = () => {
             : measures || "N/A";
         },
       },
-      
-      
     ],
     []
   );
 
-  // Fetch function for products
   const fetchData = async () => {
-    const fetchURL = new URL("/api/products", API_URL);
-    fetchURL.searchParams.set(
-      "start",
-      `${pagination.pageIndex * pagination.pageSize}`
-    );
-    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-
-    const response = await fetch(fetchURL.href);
-    const json = await response.json();
-    const products = json.products;
-
-    const brandNamesArray = await Promise.all(
-      products.map(async (product) => {
-        if (!product.brands || !product.brands.length) return ["N/A"];
-        return Promise.all(
-          product.brands.map(async (brandId) => {
-            const res = await fetch(`/api/brands/${brandId}`);
-            const data = await res.json();
-            return data.name;
-          })
-        );
-      })
-    );
-
-    return {
-      products: products.map((product, idx) => ({
-        ...product,
-        brand: brandNamesArray[idx].join(", "),
-      })),
-      meta: json.meta,
-    };
+    try {
+      const fetchURL = new URL("/api/products", API_URL);
+      fetchURL.searchParams.set(
+        "start",
+        `${pagination.pageIndex * pagination.pageSize}`
+      );
+      fetchURL.searchParams.set("size", `${pagination.pageSize}`);
+      fetchURL.searchParams.set(
+        "columnFilters",
+        JSON.stringify(columnFilters ?? [])
+      );
+      fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+      fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  
+      const response = await fetch(fetchURL.href);
+  
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText} (${response.status})`);
+      }
+  
+      const json = await response.json();
+      return json;
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      throw error; // This will show up in your React Query as an error state
+    }
   };
 
-  // React Query hook for data fetching
-  const {
-    data: productsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
+  const { data: productsData, isError, isFetching, isLoading, refetch } =
+    useQuery({
+      queryKey,
+      queryFn: fetchData,
+      keepPreviousData: true,
+      retry: 1, 
+      refetchOnMount: true,
+    });
 
   // Ensure default sorting
   useEffect(() => {
@@ -183,18 +163,10 @@ const ProductScreen = () => {
     refetch();
   };
 
-  const deleteFailureHandler = (failedProduct) => {
-    showErrorSnackbar(`Kunne ikke slette produktet ${failedProduct.name}`);
-  };
-
   const deleteSuccessHandler = (deletedProduct) => {
     showSuccessSnackbar(`Produkt ${deletedProduct} slettet`);
     queryClient.invalidateQueries("products");
     refetch();
-  };
-
-  const editFailureHandler = () => {
-    showErrorSnackbar("Kunne ikke oppdatere produktet");
   };
 
   const editSuccessHandler = (updatedProduct) => {
@@ -203,14 +175,9 @@ const ProductScreen = () => {
     refetch();
   };
 
-  // JSX structure
   return (
     <TableLayout>
-      {/* Add Product Button */}
-      <Box
-        data-testid="main-container1"
-        sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
           variant="contained"
           color="primary"
@@ -220,9 +187,7 @@ const ProductScreen = () => {
         </Button>
       </Box>
 
-      {/* Products Table */}
       <Box
-        data-testid="main-container2"
         sx={{
           width: "100%",
           maxWidth: "100vw",
@@ -234,11 +199,10 @@ const ProductScreen = () => {
           margin: "0",
         }}
       >
-        
         {productsData && (
           <ReactTable
-          layoutMode="grid" // Enables column growth
-            data={productsData?.products}
+            layoutMode="grid"
+            data={productsData.products}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
             setGlobalFilter={setGlobalFilter}
@@ -252,7 +216,7 @@ const ProductScreen = () => {
             globalFilter={globalFilter}
             pagination={pagination}
             sorting={sorting}
-            meta={productsData?.meta}
+            meta={productsData.meta}
             setSelectedProduct={setSelectedProduct}
             handleEdit={(product) => {
               setSelectedProduct(product);
@@ -266,14 +230,15 @@ const ProductScreen = () => {
         )}
       </Box>
 
-      {/* Dialogs */}
       <DeleteProductDialog
         open={deleteModalOpen}
-        dialogTitle="Confirm Deletion"
+        dialogTitle="Bekreft Sletting"
         onClose={() => setDeleteModalOpen(false)}
         selectedProduct={selectedProduct}
         onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={deleteFailureHandler}
+        onDeleteFailure={() =>
+          showErrorSnackbar(`Kunne ikke slette produktet ${selectedProduct.name}`)
+        }
       />
       {memoizedSelectedProduct._id && (
         <EditProductDialog
@@ -281,7 +246,9 @@ const ProductScreen = () => {
           onClose={() => setEditModalOpen(false)}
           selectedProduct={selectedProduct}
           onUpdateSuccess={editSuccessHandler}
-          onUpdateFailure={editFailureHandler}
+          onUpdateFailure={() =>
+            showErrorSnackbar("Kunne ikke oppdatere produktet")
+          }
         />
       )}
       <AddProductDialog
@@ -290,37 +257,43 @@ const ProductScreen = () => {
         onAdd={addProductHandler}
       />
 
-      {/* Snackbar */}
       <Snackbar
-  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-  open={snackbarOpen}
-  autoHideDuration={3000}
-  onClose={handleSnackbarClose}
->
-  <SnackbarContent
-    sx={{
-      backgroundColor:
-        snackbarSeverity === "success"
-          ? theme.palette.success.main
-          : snackbarSeverity === "error"
-          ? theme.palette.error.main
-          : theme.palette.info.main, // Default to info if no severity
-      color: theme.palette.success.contrastText, // Use theme-based text contrast color
-    }}
-    message={snackbarMessage}
-    action={
-      <IconButton
-        size="small"
-        color="inherit"
-        onClick={handleSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
       >
-        <CloseIcon />
-      </IconButton>
-    }
-  />
-</Snackbar>;
+        <SnackbarContent
+          sx={{
+            backgroundColor:
+              snackbarSeverity === "success"
+                ? theme.palette.success.main
+                : snackbarSeverity === "error"
+                ? theme.palette.error.main
+                : theme.palette.info.main,
+            color: theme.palette.getContrastText(
+              snackbarSeverity === "success"
+                ? theme.palette.success.main
+                : snackbarSeverity === "error"
+                ? theme.palette.error.main
+                : theme.palette.info.main
+            ),
+          }}
+          message={snackbarMessage}
+          action={
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon />
+            </IconButton>
+          }
+        />
+      </Snackbar>
     </TableLayout>
   );
 };
 
 export default ProductScreen;
+
