@@ -113,21 +113,38 @@ const ProductScreen = () => {
     []
   );
 
+  // Common function to build the URL
+  const buildFetchURL = (
+    pageIndex,
+    pageSize,
+    sorting,
+    columnFilters,
+    globalFilter
+  ) => {
+    const fetchURL = new URL("/api/products", API_URL);
+
+    // Append query parameters to the URL
+    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+    fetchURL.searchParams.set("size", `${pageSize}`);
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+
+    return fetchURL;
+  };
   // Fetch data function
   const fetchData = async () => {
     try {
-      const fetchURL = new URL("/api/products", API_URL);
-      fetchURL.searchParams.set(
-        "start",
-        `${pagination.pageIndex * pagination.pageSize}`
+      const fetchURL = buildFetchURL(
+        pagination.pageIndex,
+        pagination.pageSize,
+        sorting,
+        columnFilters,
+        globalFilter
       );
-      fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-      fetchURL.searchParams.set(
-        "columnFilters",
-        JSON.stringify(columnFilters ?? [])
-      );
-      fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-      fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
 
       const response = await fetch(fetchURL.href);
 
@@ -141,34 +158,6 @@ const ProductScreen = () => {
       console.error("Error fetching data:", error);
       throw error; // This will show up in React Query as an error state
     }
-  };
-
-  // Fetch data for the next page for prefetching
-  const fetchDataForPage = async (
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-    globalFilter
-  ) => {
-    const fetchURL = new URL("/api/products", API_URL);
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-
-    const response = await fetch(fetchURL.href);
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText} (${response.status})`);
-    }
-
-    const json = await response.json();
-    return json;
   };
 
   // Use React Query to fetch the initial page of data
@@ -186,8 +175,24 @@ const ProductScreen = () => {
     refetchOnMount: true,
   });
 
-  // Prefetch the next page of data when the page index changes
-  const handlePrefetch = (nextPageIndex) => {
+  // Common function for prefetching data
+  const prefetchPageData = async (
+    queryClient,
+    nextPageIndex,
+    pagination,
+    sorting,
+    columnFilters,
+    globalFilter
+  ) => {
+    const fetchURL = buildFetchURL(
+      nextPageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+
+    // Prefetch the next page of data
     queryClient.prefetchQuery(
       [
         "products",
@@ -197,17 +202,27 @@ const ProductScreen = () => {
         pagination.pageSize,
         sorting,
       ],
-      () =>
-        fetchDataForPage(
-          nextPageIndex,
-          pagination.pageSize,
-          sorting,
-          columnFilters,
-          globalFilter
-        )
+      async () => {
+        const response = await fetch(fetchURL.href);
+        const json = await response.json();
+        return json;
+      }
     );
   };
 
+  // handlePrefetch now simply calls prefetchPageData
+  const handlePrefetch = (nextPageIndex) => {
+    prefetchPageData(
+      queryClient,
+      nextPageIndex,
+      pagination,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+  };
+
+  // Refactored useEffect
   useEffect(() => {
     const nextPageIndex = pagination.pageIndex + 1;
     console.log(
@@ -217,33 +232,14 @@ const ProductScreen = () => {
       nextPageIndex
     );
 
-    queryClient.prefetchQuery(
-      [
-        "products",
-        {
-          pageIndex: nextPageIndex,
-          pageSize: pagination.pageSize,
-          sorting,
-          columnFilters,
-          globalFilter,
-        },
-      ],
-      async () => {
-        const nextPageData = await fetchDataForPage(
-          nextPageIndex,
-          pagination.pageSize,
-          sorting,
-          columnFilters,
-          globalFilter
-        );
-        console.log(
-          "Prefetched data for page",
-          nextPageIndex,
-          ":",
-          nextPageData
-        );
-        return nextPageData;
-      }
+    // Use the shared prefetching function
+    prefetchPageData(
+      queryClient,
+      nextPageIndex,
+      pagination,
+      sorting,
+      columnFilters,
+      globalFilter
     );
   }, [
     pagination.pageIndex,

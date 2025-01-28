@@ -3,10 +3,7 @@ import { MaterialReactTable } from "material-react-table";
 import { IconButton, Tooltip, MenuItem } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
-import {
-  MRT_Table, // Using MRT_Table for customization
-  useMaterialReactTable,
-} from 'material-react-table';
+
 
 const Table = ({
   data,

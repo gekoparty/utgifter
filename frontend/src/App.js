@@ -12,7 +12,6 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import the QueryClient and QueryClientProvider
 import "dayjs/locale/nb";
-import TableLayout from "./components/commons/TableLayout/TableLayout";
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Box } from "@mui/material";
 
