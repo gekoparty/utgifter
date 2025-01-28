@@ -23,7 +23,10 @@ const TableRowItem = ({ item, onDelete, onEdit, columns }) => {
                   flexGrow: flexGrow || 1,
                   minWidth: minSize || size || 150, // Set a default min size
                   maxWidth: maxSize || size || 200, // Set a default max size
-                  textAlign: "center", // Align header text (optional)
+                  textAlign: "center",
+                  backgroundColor: "#333", // Dark grey for the header
+                  color: "#fff", // White text color for contrast
+                  fontWeight: "bold", // Bold font for the header // Align header text (optional)
                 }}
               >
                 {header} {/* This is where you show the column header */}
@@ -61,6 +64,8 @@ const TableRowItem = ({ item, onDelete, onEdit, columns }) => {
                   overflow: "hidden",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
+                  backgroundColor: "#444", // Greyish background for data cells
+                  color: "#fff", // White text for better readability
                 }}
               >
                 <IconButton
@@ -97,6 +102,8 @@ const TableRowItem = ({ item, onDelete, onEdit, columns }) => {
                   overflow: "hidden",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
+                  backgroundColor: "#444", // Greyish background for data cells
+                  color: "#fff", // White text for better readability
                 }}
               >
                 {Cell({ row: item })} {/* Custom cell content */}
@@ -116,6 +123,8 @@ const TableRowItem = ({ item, onDelete, onEdit, columns }) => {
                 overflow: "hidden",
                 whiteSpace: "nowrap",
                 textOverflow: "ellipsis",
+                backgroundColor: "#444", // Greyish background for data cells
+                color: "#fff", // White text for better readability
               }}
             >
               {item[accessorKey]} {/* Default value for column */}

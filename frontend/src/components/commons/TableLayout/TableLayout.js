@@ -10,7 +10,9 @@ const TableLayout = ({ children }) => {
         marginLeft: `${drawerWidth}px`,
         display: "flex",
         justifyContent: "center",
-        border: "2px solid red", // Add border to see the outer box
+        backgroundColor: "#2C2C2C", // Dark background color
+        padding: 2, // Optional padding to provide some space around the content
+        borderRadius: 2, // Optional rounded corners
       }}
       data-testid="table-layout"
     >
@@ -18,7 +20,9 @@ const TableLayout = ({ children }) => {
           sx={{
             display: "flex",
             flexDirection: "column",
-            flexGrow: 1, // Ensure it takes the full available space
+            flexGrow: 1, 
+            backgroundColor: "#333", // Slightly lighter dark color for inner box
+          borderRadius: 1, // Optional rounded corners for inner box// Ensure it takes the full available space
             width: "100%",
           }}
         

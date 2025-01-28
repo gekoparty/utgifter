@@ -3,6 +3,10 @@ import { MaterialReactTable } from "material-react-table";
 import { IconButton, Tooltip, MenuItem } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
+import {
+  MRT_Table, // Using MRT_Table for customization
+  useMaterialReactTable,
+} from 'material-react-table';
 
 const Table = ({
   data,
@@ -56,8 +60,8 @@ const Table = ({
             theme.palette.mode === "dark"
               ? theme.palette.common.white
               : theme.palette.common.black,
-              minWidth: 80, // Apply minWidth here within sx
-              maxWidth: 300, 
+          minWidth: 80, // Apply minWidth here within sx
+          maxWidth: 300, 
         }),
       }}
       muiTableBodyCellProps={{
@@ -72,7 +76,6 @@ const Table = ({
               : theme.palette.grey[800],
           minWidth: 80, // Apply minWidth here within sx
           maxWidth: 300, // Apply maxWidth here within sx
-          
         }),
       }}
       localization={MRT_Localization_NO}
@@ -135,6 +138,22 @@ const Table = ({
           width: "100%", // Ensure the table itself fills its container
         },
       }}
+     // Styling for the top toolbar (greyish background)
+     muiTopToolbarProps={{
+      sx: {
+        backgroundColor: "#e0e0e0", // Slightly darker grey
+        color: "#333", // Dark text color
+        boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)", // Light shadow for emphasis
+      },
+    }}
+    // Styling for the bottom toolbar (darker grey with shadow)
+    muiBottomToolbarProps={{
+      sx: {
+        backgroundColor: "#e0e0e0", // Slightly darker grey
+        color: "#333", // Dark text color
+        boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.1)", // Light shadow for emphasis
+      },
+    }}
     />
   );
 };

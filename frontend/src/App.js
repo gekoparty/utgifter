@@ -12,11 +12,14 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import the QueryClient and QueryClientProvider
 import "dayjs/locale/nb";
+import TableLayout from "./components/commons/TableLayout/TableLayout";
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { Box } from "@mui/material";
 
 function App({ children }) {
   const [title, setTitle] = useState(null);
   const location = useLocation();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false); // Manage drawer state
 
   useEffect(() => {
     const parsedTitle = location.pathname.replace(/\W/g, " ");
@@ -32,7 +35,20 @@ function App({ children }) {
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
     <QueryClientProvider client={queryClient}> {/* Wrap with QueryClientProvider */}
       <PermanentDrawerLeft title={title} />
+      <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                backgroundColor: "#2C2C2C", // Dark background color for the layout
+                padding: 2, // Optional padding to provide some space around the content
+                borderRadius: 2, // Optional rounded corners
+                marginLeft: isDrawerOpen ? "240px" : "0", // Adjust the margin when the drawer is open
+                width: "100%", // Ensure it takes the full available width
+                height: "100vh", // Ensure it takes the full height
+              }}
+            >
       <Outlet />
+            </Box>
       <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </LocalizationProvider>

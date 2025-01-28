@@ -17,7 +17,8 @@ import AddProductDialog from "../components/Products/ProductDialogs/AddProductDi
 import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog";
 import EditProductDialog from "../components/Products/ProductDialogs/EditProductDialog";
 
-const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 5 };
+// Constants for initial states and API URL
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 const API_URL =
@@ -25,8 +26,9 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
+// Main ProductScreen component
 const ProductScreen = () => {
-  // State variables
+  // State variables for table and dialogs
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -38,16 +40,14 @@ const ProductScreen = () => {
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Theme for styling
+  // Memoized values and theme for styling
   const theme = useTheme();
-
-  // Memoized values
   const memoizedSelectedProduct = useMemo(
     () => selectedProduct,
     [selectedProduct]
   );
 
-  // React Query client and hooks
+  // React Query client and query key for caching
   const queryClient = useQueryClient();
   const queryKey = [
     "products",
@@ -58,7 +58,7 @@ const ProductScreen = () => {
     sorting,
   ];
 
-  // Snackbar state and handlers
+  // Snackbar state and handlers for feedback messages
   const {
     snackbarOpen,
     snackbarMessage,
@@ -113,6 +113,7 @@ const ProductScreen = () => {
     []
   );
 
+  // Fetch data function
   const fetchData = async () => {
     try {
       const fetchURL = new URL("/api/products", API_URL);
@@ -127,36 +128,138 @@ const ProductScreen = () => {
       );
       fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
       fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-  
+
       const response = await fetch(fetchURL.href);
-  
+
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText} (${response.status})`);
       }
-  
+
       const json = await response.json();
       return json;
     } catch (error) {
       console.error("Error fetching data:", error);
-      throw error; // This will show up in your React Query as an error state
+      throw error; // This will show up in React Query as an error state
     }
   };
 
-  const { data: productsData, isError, isFetching, isLoading, refetch } =
-    useQuery({
-      queryKey,
-      queryFn: fetchData,
-      keepPreviousData: true,
-      retry: 1, 
-      refetchOnMount: true,
-    });
+  // Fetch data for the next page for prefetching
+  const fetchDataForPage = async (
+    pageIndex,
+    pageSize,
+    sorting,
+    columnFilters,
+    globalFilter
+  ) => {
+    const fetchURL = new URL("/api/products", API_URL);
+    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+    fetchURL.searchParams.set("size", `${pageSize}`);
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
 
-  // Ensure default sorting
+    const response = await fetch(fetchURL.href);
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText} (${response.status})`);
+    }
+
+    const json = await response.json();
+    return json;
+  };
+
+  // Use React Query to fetch the initial page of data
+  const {
+    data: productsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true,
+    retry: 1,
+    refetchOnMount: true,
+  });
+
+  // Prefetch the next page of data when the page index changes
+  const handlePrefetch = (nextPageIndex) => {
+    queryClient.prefetchQuery(
+      [
+        "products",
+        columnFilters,
+        globalFilter,
+        nextPageIndex,
+        pagination.pageSize,
+        sorting,
+      ],
+      () =>
+        fetchDataForPage(
+          nextPageIndex,
+          pagination.pageSize,
+          sorting,
+          columnFilters,
+          globalFilter
+        )
+    );
+  };
+
+  useEffect(() => {
+    const nextPageIndex = pagination.pageIndex + 1;
+    console.log(
+      "Current page:",
+      pagination.pageIndex,
+      "Prefetching data for page:",
+      nextPageIndex
+    );
+
+    queryClient.prefetchQuery(
+      [
+        "products",
+        {
+          pageIndex: nextPageIndex,
+          pageSize: pagination.pageSize,
+          sorting,
+          columnFilters,
+          globalFilter,
+        },
+      ],
+      async () => {
+        const nextPageData = await fetchDataForPage(
+          nextPageIndex,
+          pagination.pageSize,
+          sorting,
+          columnFilters,
+          globalFilter
+        );
+        console.log(
+          "Prefetched data for page",
+          nextPageIndex,
+          ":",
+          nextPageData
+        );
+        return nextPageData;
+      }
+    );
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    queryClient,
+  ]);
+
+  // Ensure default sorting when sorting state is empty
   useEffect(() => {
     if (sorting.length === 0) setSorting(INITIAL_SORTING);
   }, [sorting]);
 
-  // Handlers for product actions
+  // Handlers for product actions (Add, Edit, Delete)
   const addProductHandler = (newProduct) => {
     showSuccessSnackbar(`Produkt ${newProduct.name} er lagt til`);
     queryClient.invalidateQueries("products");
@@ -175,8 +278,10 @@ const ProductScreen = () => {
     refetch();
   };
 
+  // Render the main table layout and dialogs
   return (
     <TableLayout>
+      {/* Add Product Button */}
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
           variant="contained"
@@ -187,18 +292,8 @@ const ProductScreen = () => {
         </Button>
       </Box>
 
-      <Box
-        sx={{
-          width: "100%",
-          maxWidth: "100vw",
-          display: "flex",
-          justifyContent: "center",
-          boxShadow: 2,
-          flex: 1,
-          padding: "0",
-          margin: "0",
-        }}
-      >
+      {/* Product Table */}
+      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         {productsData && (
           <ReactTable
             layoutMode="grid"
@@ -226,10 +321,12 @@ const ProductScreen = () => {
               setSelectedProduct(product);
               setDeleteModalOpen(true);
             }}
+            handleNextPageHover={() => handlePrefetch(pagination.pageIndex + 1)}
           />
         )}
       </Box>
 
+      {/* Modals */}
       <DeleteProductDialog
         open={deleteModalOpen}
         dialogTitle="Bekreft Sletting"
@@ -237,7 +334,9 @@ const ProductScreen = () => {
         selectedProduct={selectedProduct}
         onDeleteSuccess={deleteSuccessHandler}
         onDeleteFailure={() =>
-          showErrorSnackbar(`Kunne ikke slette produktet ${selectedProduct.name}`)
+          showErrorSnackbar(
+            `Kunne ikke slette produktet ${selectedProduct.name}`
+          )
         }
       />
       {memoizedSelectedProduct._id && (
@@ -257,6 +356,7 @@ const ProductScreen = () => {
         onAdd={addProductHandler}
       />
 
+      {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -296,4 +396,3 @@ const ProductScreen = () => {
 };
 
 export default ProductScreen;
-
