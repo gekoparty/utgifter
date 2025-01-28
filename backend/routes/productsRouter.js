@@ -65,23 +65,28 @@ productsRouter.get("/", async (req, res) => {
     // Execute the query
     const products = await query.exec();
 
-    // Fetch brand names for each product
-    const brandNamesArray = await Promise.all(
-      products.map(async (product) => {
-        if (!product.brands || !product.brands.length) return ["N/A"];
-        return Promise.all(
-          product.brands.map(async (brandId) => {
-            const brand = await Brand.findById(brandId);
-            return brand ? brand.name : "N/A";
-          })
-        );
-      })
-    );
+    // Step 1: Collect all unique brand IDs from the products
+    const allBrandIds = products
+      .flatMap((product) => product.brands)
+      .filter(Boolean); // Ensure no null or undefined IDs
 
-    // Attach brand names to the products
-    const enrichedProducts = products.map((product, idx) => ({
+    const uniqueBrandIds = [...new Set(allBrandIds)]; // Remove duplicates
+
+    // Step 2: Batch fetch all the brands in one query
+    const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
+
+    // Step 3: Map brand IDs to their names for easier lookup
+    const brandIdToNameMap = brandDocs.reduce((acc, brand) => {
+      acc[brand._id.toString()] = brand.name;
+      return acc;
+    }, {});
+
+    // Step 4: Attach brand names to the products
+    const enrichedProducts = products.map((product) => ({
       ...product.toObject(),
-      brand: brandNamesArray[idx].join(", "),
+      brand: product.brands
+        .map((brandId) => brandIdToNameMap[brandId.toString()] || "N/A")
+        .join(", "),
     }));
 
     // Respond with paginated products and metadata
