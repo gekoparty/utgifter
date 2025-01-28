@@ -172,12 +172,14 @@ const ExpenseScreen = () => {
         meta: { testId: "shop-name-column" },
       },
       {
-        
         accessorKey: "purchaseDate",
-        header: "Kjøpt dato",
-        enableColumnPinning: true,
-        meta: { testId: "purchase-date-column" },
-      },
+        header: "Purchase Date",
+        filterVariant: "date",
+        Cell: ({ cell }) => {
+          const dateValue = cell.getValue(); // Ensure this is a valid date string
+          return dateValue ? new Date(dateValue).toLocaleDateString() : "Invalid Date";
+        },
+      }
     ],
     [priceStatsByType, priceRangeFilter]
   );
