@@ -64,3 +64,49 @@ export const fetchLocations = async () => {
     const data = await response.json();
     return data;
   };
+
+  // utils/apiUtils.js
+export const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter, API_URL) => {
+  const fetchURL = new URL("/api/products", API_URL);
+  fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+  fetchURL.searchParams.set("size", `${pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(columnFilters ?? []));
+  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  return fetchURL;
+};
+
+export const prefetchPageData = async (
+  queryClient,
+  nextPageIndex,
+  pagination,
+  sorting,
+  columnFilters,
+  globalFilter,
+  API_URL
+) => {
+  const fetchURL = buildFetchURL(
+    nextPageIndex,
+    pagination.pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    API_URL
+  );
+  queryClient.prefetchQuery(
+    [
+      "products",
+      columnFilters,
+      globalFilter,
+      nextPageIndex,
+      pagination.pageSize,
+      sorting,
+    ],
+    async () => {
+      const response = await fetch(fetchURL.href);
+      const json = await response.json();
+      return json;
+    }
+  );
+};
+

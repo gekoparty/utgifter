@@ -1,5 +1,5 @@
 // Import statements
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -13,9 +13,15 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import AddProductDialog from "../components/Products/ProductDialogs/AddProductDialog";
-import DeleteProductDialog from "../components/Products/ProductDialogs/DeleteProductDialog";
-import EditProductDialog from "../components/Products/ProductDialogs/EditProductDialog";
+const AddProductDialog = lazy(() =>
+  import("../components/Products/ProductDialogs/AddProductDialog")
+);
+const DeleteProductDialog = lazy(() =>
+  import("../components/Products/ProductDialogs/DeleteProductDialog")
+);
+const EditProductDialog = lazy(() =>
+  import("../components/Products/ProductDialogs/EditProductDialog")
+);
 
 // Constants for initial states and API URL
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
@@ -28,7 +34,6 @@ const API_URL =
 
 // Main ProductScreen component
 const ProductScreen = () => {
-  // State variables for table and dialogs
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -210,20 +215,15 @@ const ProductScreen = () => {
     );
   };
 
-  // handlePrefetch now simply calls prefetchPageData
-  const handlePrefetch = (nextPageIndex) => {
-    prefetchPageData(
-      queryClient,
-      nextPageIndex,
-      pagination,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
+   // handlePrefetch now simply calls prefetchPageData
+   const handlePrefetch = (nextPageIndex) => {
+    prefetchPageData(queryClient, nextPageIndex, pagination, sorting, columnFilters, globalFilter);
   };
 
-  // Refactored useEffect
+    // **Refactored useEffect - AUTOMATIC PREFETCHING**
+  // This useEffect automatically triggers when pagination, sorting, or filters change
   useEffect(() => {
+    // Calculate next page index based on current page
     const nextPageIndex = pagination.pageIndex + 1;
     console.log(
       "Current page:",
@@ -232,7 +232,7 @@ const ProductScreen = () => {
       nextPageIndex
     );
 
-    // Use the shared prefetching function
+    // Automatically prefetch next page data
     prefetchPageData(
       queryClient,
       nextPageIndex,
@@ -242,13 +242,14 @@ const ProductScreen = () => {
       globalFilter
     );
   }, [
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-    columnFilters,
-    globalFilter,
-    queryClient,
+    pagination.pageIndex,  // Trigger prefetching when the page index changes
+    pagination.pageSize,   // Trigger prefetching when the page size changes
+    sorting,                // Trigger prefetching when sorting changes
+    columnFilters,         // Trigger prefetching when column filters change
+    globalFilter,          // Trigger prefetching when global filter changes
+    queryClient,           // React Query client reference for prefetching
   ]);
+
 
   // Ensure default sorting when sorting state is empty
   useEffect(() => {
@@ -274,10 +275,11 @@ const ProductScreen = () => {
     refetch();
   };
 
+  
+
   // Render the main table layout and dialogs
   return (
     <TableLayout>
-      {/* Add Product Button */}
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
           variant="contained"
@@ -293,7 +295,7 @@ const ProductScreen = () => {
         {productsData && (
           <ReactTable
             layoutMode="grid"
-            data={productsData.products}
+            data={productsData?.products}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
             setGlobalFilter={setGlobalFilter}
@@ -317,41 +319,49 @@ const ProductScreen = () => {
               setSelectedProduct(product);
               setDeleteModalOpen(true);
             }}
-            handleNextPageHover={() => handlePrefetch(pagination.pageIndex + 1)}
+            
           />
         )}
       </Box>
 
       {/* Modals */}
-      <DeleteProductDialog
-        open={deleteModalOpen}
-        dialogTitle="Bekreft Sletting"
-        onClose={() => setDeleteModalOpen(false)}
-        selectedProduct={selectedProduct}
-        onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={() =>
-          showErrorSnackbar(
-            `Kunne ikke slette produktet ${selectedProduct.name}`
-          )
-        }
-      />
-      {memoizedSelectedProduct._id && (
-        <EditProductDialog
-          open={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
+      <Suspense fallback={<div>Laster...</div>}>
+        <DeleteProductDialog
+          open={deleteModalOpen}
+          dialogTitle="Bekreft Sletting"
+          onClose={() => setDeleteModalOpen(false)}
           selectedProduct={selectedProduct}
-          onUpdateSuccess={editSuccessHandler}
-          onUpdateFailure={() =>
-            showErrorSnackbar("Kunne ikke oppdatere produktet")
+          onDeleteSuccess={deleteSuccessHandler}
+          onDeleteFailure={() =>
+            showErrorSnackbar(
+              `Kunne ikke slette produktet ${selectedProduct.name}`
+            )
           }
         />
-      )}
-      <AddProductDialog
-        open={addProductDialogOpen}
-        onClose={() => setAddProductDialogOpen(false)}
-        onAdd={addProductHandler}
-      />
+      </Suspense>
 
+      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
+        {memoizedSelectedProduct._id && editModalOpen && (
+          <EditProductDialog
+            open={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            selectedProduct={selectedProduct}
+            onUpdateSuccess={editSuccessHandler}
+            onUpdateFailure={() =>
+              showErrorSnackbar("Kunne ikke oppdatere produktet")
+            }
+          />
+        )}
+      </Suspense>
+      <Suspense fallback={<div>Laster Dialog...</div>}>
+        {addProductDialogOpen && (
+          <AddProductDialog
+            open={addProductDialogOpen}
+            onClose={() => setAddProductDialogOpen(false)}
+            onAdd={addProductHandler}
+          />
+        )}
+      </Suspense>
       {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
