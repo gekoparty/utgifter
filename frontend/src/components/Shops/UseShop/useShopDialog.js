@@ -7,26 +7,36 @@ import { StoreContext } from "../../../Store/Store";
 import { addShopValidationSchema } from "../../../validation/validationSchema";
 
 const useShopDialog = (initialShop = null) => {
-  // Memoize the initialShopState
-  const initialShopState = useMemo(() => ({
-    name: "",
-    location: "",
-    category: "",
-  }), []);
+  // Memoize the initial shop state to prevent unnecessary recalculations.
+  const initialShopState = useMemo(
+    () => ({
+      name: "",
+      location: "",
+      category: "",
+    }),
+    []
+  );
 
-  const [shop, setShop] = useState(initialShop ? initialShop : { ...initialShopState });
+  // Initialize the shop state using the initial shop passed in (if any)
+  const [shop, setShop] = useState(
+    initialShop ? initialShop : { ...initialShopState }
+  );
 
+    // Custom HTTP hook for shops.
   const { sendRequest, loading } = useCustomHttp("/api/shops");
-  const { dispatch, state } = useContext(StoreContext);
-  const { loading: locationLoading, locations } = useLocationDialog();
 
-  const resetServerError = useCallback(() => {
+  // Global store context.
+  const { dispatch, state } = useContext(StoreContext);
+
+   // Reset server error for shops.
+   const resetServerError = useCallback(() => {
     dispatch({
       type: "RESET_ERROR",
       resource: "shops",
     });
   }, [dispatch]);
 
+  // Reset validation errors for shops.
   const resetValidationErrors = useCallback(() => {
     dispatch({
       type: "RESET_VALIDATION_ERRORS",
@@ -34,47 +44,49 @@ const useShopDialog = (initialShop = null) => {
     });
   }, [dispatch]);
 
+
+  // Reset the form and clear all errors (mirroring useProductDialog)
   const resetFormAndErrors = useCallback(() => {
-    const newShop = initialShop || initialShopState;
-    setShop(newShop);
+    setShop(initialShop ? initialShop : { ...initialShopState });
     resetServerError();
     resetValidationErrors();
   }, [initialShop, initialShopState, resetServerError, resetValidationErrors]);
 
-  useEffect(() => {
-    if (initialShop) {
-      setShop(initialShop);
-    } else {
-      resetFormAndErrors();
-    }
-  }, [initialShop, resetFormAndErrors, dispatch]);
 
-  useEffect(() => {
-    return () => {
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "categories",
-      });
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "locations",
-      });
-    };
-  }, [dispatch]);
+ // Initialize or reset the form when initialShop changes.
+ useEffect(() => {
+  if (initialShop) {
+    setShop((prevShop) => ({
+      ...prevShop,
+      ...initialShop,
+    }));
+  } else {
+    resetFormAndErrors();
+  }
+  // Cleanup: Clear resources for shops (and related options if needed)
+  return () => {
+    dispatch({ type: "CLEAR_RESOURCE", resource: "categories" });
+    dispatch({ type: "CLEAR_RESOURCE", resource: "locations" });
+  };
+}, [initialShop, resetFormAndErrors, dispatch]);
 
+  // Save the shop (create or update) using similar formatting and validation logic.
   const handleSaveShop = async (onClose) => {
+    // Ensure required fields are not empty.
     if (!shop.name.trim() || !shop.location.trim() || !shop.category.trim()) {
       return;
     }
-  
+
     let formattedShop = { ...shop };
     let validationErrors = {};
-  
+
     try {
+      // Format fields for consistency.
       formattedShop.name = formatComponentFields(shop.name, "shop", "name");
       formattedShop.location = formatComponentFields(shop.location, "shop", "location");
       formattedShop.category = formatComponentFields(shop.category, "shop", "category");
-  
+
+      // Validate the shop using the schema.
       await addShopValidationSchema.validate(formattedShop, {
         abortEarly: false,
       });
@@ -84,7 +96,6 @@ const useShopDialog = (initialShop = null) => {
           validationErrors[err.path] = { show: true, message: err.message };
         });
       }
-      console.log("Field-specific errors:", validationErrors);
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "shops",
@@ -96,62 +107,56 @@ const useShopDialog = (initialShop = null) => {
       });
       return;
     }
-  
+
     try {
-      let url = "/api/shops";
-      let method = "POST";
-  
-      if (initialShop) {
-        url = `/api/shops/${initialShop._id}`;
-        method = "PUT";
-      }
-  
-      const { data, error: addDataError } = await sendRequest(url, method, formattedShop);
-  
+      // Determine the correct URL and method.
+      const url = initialShop
+        ? `/api/shops/${initialShop._id}`
+        : "/api/shops";
+      const method = initialShop ? "PUT" : "POST";
+
+      const { data, error: addDataError } = await sendRequest(
+        url,
+        method,
+        formattedShop
+      );
+
       if (addDataError) {
         dispatch({
           type: "SET_ERROR",
-          error: addDataError,
+          error: data?.error || addDataError,
           resource: "shops",
           showError: true,
         });
       } else {
-        // Use the returned data
-        console.log("Response from the server:", data);
-        setShop(initialShopState); // Reset form after saving
         dispatch({ type: "RESET_ERROR", resource: "shops" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "shops" });
-        
-        // Pass the saved data to the onClose callback, if needed
-        onClose(data);
+        // Reset form after saving.
+        setShop({ ...initialShopState });
+        onClose();
         return true;
       }
     } catch (fetchError) {
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
-        resource: "/api/shops",
+        resource: "shops",
         showError: true,
       });
     }
   };
 
-  const handleDeleteShop = async (
-    selectedShop,
-    onDeleteSuccess,
-    onDeleteFailure
-  ) => {
+  // Delete a shop.
+  const handleDeleteShop = async (selectedShop, onDeleteSuccess, onDeleteFailure) => {
     try {
       const response = await sendRequest(
         `/api/shops/${selectedShop?._id}`,
         "DELETE"
       );
       if (response.error) {
-        console.log("error deleting shop", response.error);
         onDeleteFailure(selectedShop);
         return false;
       } else {
-        console.log("Delete success", selectedShop);
         onDeleteSuccess(selectedShop);
         dispatch({
           type: "DELETE_ITEM",
@@ -161,15 +166,16 @@ const useShopDialog = (initialShop = null) => {
         return true;
       }
     } catch (error) {
-      console.log("Error deleting Shop:", error);
       onDeleteFailure(selectedShop);
-      return false; // Indicate deletion failure
+      return false;
     }
   };
 
+  // Get error and validation info from the global store.
   const displayError = state.error?.shops;
   const validationError = state.validationErrors?.shops;
 
+  // Check if the form is valid.
   const isFormValid = () => {
     return (
       !validationError?.name &&
@@ -193,8 +199,6 @@ const useShopDialog = (initialShop = null) => {
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
-    locationLoading,
-    locations,
   };
 };
 

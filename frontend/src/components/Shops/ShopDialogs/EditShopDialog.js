@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +15,7 @@ const EditShopDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
+  const memoizedSelectedShop = useMemo(() => selectedShop, [selectedShop]);
   const {
     shop,
     setShop,
@@ -26,8 +27,7 @@ const EditShopDialog = ({
     validationError,
     isFormValid,
     resetFormAndErrors,
-  } = useShopDialog(selectedShop);
-
+  } = useShopDialog(memoizedSelectedShop);
 
   const {
     data: locationOptions,
@@ -40,6 +40,16 @@ const EditShopDialog = ({
     isLoading: categoryLoading,
     isError: categoryError,
   } = useQuery(["categories"], fetchCategories);
+
+  // *** New Effect: Synchronize shop state on dialog open ***
+  // This effect reinitializes the shop state each time the dialog is opened.
+  useEffect(() => {
+    if (open) {
+      // When the dialog opens, set the shop state to the selectedShop.
+      // This ensures that any previous modifications are cleared.
+      setShop({ ...selectedShop });
+    }
+  }, [selectedShop, open, setShop]);
 
   if (locationLoading) {
     // Return a loading indicator while brands are being fetched
@@ -106,14 +116,16 @@ const EditShopDialog = ({
           <Grid item>
             {/* Use CreatableSelect for the brand */}
             <CreatableSelect
-            sx={{ marginTop: 2 }}
+              sx={{ marginTop: 2 }}
               className="custom-select"
               options={locationOptions}
               size="small"
               label="Lokasjon"
               value={
                 shop?.location
-                  ? locationOptions.find((location) => location.name === shop.location)
+                  ? locationOptions.find(
+                      (location) => location.name === shop.location
+                    )
                   : null
               }
               error={Boolean(validationError?.location)}
@@ -144,8 +156,8 @@ const EditShopDialog = ({
               isClearable
               formatCreateLabel={(inputValue) => `Ny Lokasjon: ${inputValue}`}
             />
-            </Grid>
-            <Grid item>
+          </Grid>
+          <Grid item>
             {/* Use CreatableSelect for the brand */}
             <CreatableSelect
               className="custom-select"
@@ -154,7 +166,9 @@ const EditShopDialog = ({
               label="Kategori"
               value={
                 shop?.category
-                  ? categoryOptions.find((category) => category.name === shop.category)
+                  ? categoryOptions.find(
+                      (category) => category.name === shop.category
+                    )
                   : null
               }
               error={Boolean(validationError?.category)}

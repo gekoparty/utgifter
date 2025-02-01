@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -14,14 +14,20 @@ import useSnackBar from "../hooks/useSnackBar";
 import { useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
-import AddShopDialog from "../components/Shops/ShopDialogs/AddShopDialog";
-import DeleteShopDialog from "../components/Shops/ShopDialogs/DeleteShopDialog";
-import EditShopDialog from "../components/Shops/ShopDialogs/EditShopDialog";
+const AddShopDialog = lazy(() =>
+  import("../components/Shops/ShopDialogs/AddShopDialog")
+);
+const DeleteShopDialog = lazy(() =>
+  import("../components/Shops/ShopDialogs/DeleteShopDialog")
+);
+const EditShopDialog = lazy(() =>
+  import("../components/Shops/ShopDialogs/EditShopDialog")
+);
 
 // Constants
 const INITIAL_PAGINATION = {
   pageIndex: 0,
-  pageSize: 5,
+  pageSize: 10,
 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_SHOP = {
@@ -42,17 +48,10 @@ const ShopScreen = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const theme = useTheme();
 
-  const tableColumns = useMemo(
-    () => [
-      { accessorKey: "name", header: "Butikk" }, // Use "Name" as the header for all resources
-      { accessorKey: "location", header: "Lokasjon" }, // Example for location
-      { accessorKey: "category", header: "Kategori" }, // Example for category
-      // Other columns as needed
-    ],
-    []
-  );
+  // Memoized values and theme for styling
+  const theme = useTheme();
+  const memoizedSelectedShop = useMemo(() => selectedShop, [selectedShop]);
 
   // React Query
   const queryClient = useQueryClient();
@@ -65,34 +64,84 @@ const ShopScreen = () => {
     sorting,
   ];
 
-  // Define your query function
-  const fetchData = async () => {
+  // Snackbar state and handlers for feedback messages
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSuccessSnackbar,
+    showErrorSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
+
+  // Table columns configuration
+  const tableColumns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Butikk",
+        size: 300,
+        grow: 2,
+        minSize: 150,
+        maxSize: 400,
+      },
+      {
+        accessorKey: "location",
+        header: "Lokasjon",
+        size: 300,
+        grow: 1,
+        minSize: 150,
+        maxSize: 300,
+      },
+      {
+        accessorKey: "category",
+        header: "Kategori",
+        size: 300,
+        grow: 1,
+        minSize: 100,
+        maxSize: 250,
+      },
+    ],
+    []
+  );
+
+  // --- COMMON FUNCTIONS FOR FETCHING & PREFETCHING ---
+
+  // Build the fetch URL using current table state.
+
+  const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter) => {
     const fetchURL = new URL("/api/shops", API_URL);
-
-    fetchURL.searchParams.set(
-      "start",
-      `${pagination.pageIndex * pagination.pageSize}`
-    );
-    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-
-    // Modify the filter values based on selectedLocationId and selectedCategoryId
-    const modifiedFilters = columnFilters.map((filter) => {
-      if (filter.id === "location") {
-        return { id: "location", value: "" };
-      } else if (filter.id === "category") {
-        return { id: "category", value: "" };
-      }
-      return filter;
-    });
-
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(modifiedFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+    fetchURL.searchParams.set("size", `${pageSize}`);
     fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  
 
+// Modify the filters (if needed)
+const modifiedFilters = columnFilters.map((filter) => {
+  if (filter.id === "location" || filter.id === "category") {
+    return { id: filter.id, value: "" };
+  }
+  return filter;
+});
+fetchURL.searchParams.set("columnFilters", JSON.stringify(modifiedFilters ?? []));
+fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+
+return fetchURL;
+};
+
+   // Fetch the shop data and then, for each shop, fetch associated location and category data.
+   const fetchData = async () => {
+    const fetchURL = buildFetchURL(
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
     const response = await fetch(fetchURL.href);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText} (${response.status})`);
+    }
     const json = await response.json();
     const { meta } = json;
 
@@ -101,38 +150,87 @@ const ShopScreen = () => {
       json.shops.map(async (shop) => {
         const locationResponse = await fetch(`/api/locations/${shop.location}`);
         const locationData = await locationResponse.json();
-
-        const categoryResponse = await fetch(
-          `/api/categories/${shop.category}`
-        );
+        const categoryResponse = await fetch(`/api/categories/${shop.category}`);
         const categoryData = await categoryResponse.json();
 
         return {
           ...shop,
-          location: locationData, // Keep the location and category as objects
+          location: locationData, // keep as object
           category: categoryData,
         };
       })
     );
 
-    // Transform the data for rendering in the table
-    const transformedData = shopsWithAssociatedData.map((shop) => ({
+     // Transform the data for the table
+     const transformedData = shopsWithAssociatedData.map((shop) => ({
       _id: shop._id,
       name: shop.name,
       location: shop.location ? shop.location.name : "N/A",
       category: shop.category ? shop.category.name : "N/A",
-      // ... other columns if needed
     }));
 
-    // Return the transformed data as part of the query result
     return { shops: transformedData, meta };
   };
 
-  if (sorting.length === 0) {
-    setSorting([{ id: "name", desc: false }]);
-  }
 
-  const {
+  // Prefetch function for preloading the next page
+  const prefetchPageData = async (nextPageIndex) => {
+    const fetchURL = buildFetchURL(
+      nextPageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+    await queryClient.prefetchQuery(
+      [
+        "shops",
+        columnFilters,
+        globalFilter,
+        nextPageIndex,
+        pagination.pageSize,
+        sorting,
+      ],
+      async () => {
+        const response = await fetch(fetchURL.href);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText} (${response.status})`);
+        }
+        const json = await response.json();
+        const { meta } = json;
+
+        // As before, fetch associated data
+        const shopsWithAssociatedData = await Promise.all(
+          json.shops.map(async (shop) => {
+            const locationResponse = await fetch(`/api/locations/${shop.location}`);
+            const locationData = await locationResponse.json();
+            const categoryResponse = await fetch(`/api/categories/${shop.category}`);
+            const categoryData = await categoryResponse.json();
+            return {
+              ...shop,
+              location: locationData,
+              category: categoryData,
+            };
+          })
+        );
+        const transformedData = shopsWithAssociatedData.map((shop) => ({
+          _id: shop._id,
+          name: shop.name,
+          location: shop.location ? shop.location.name : "N/A",
+          category: shop.category ? shop.category.name : "N/A",
+        }));
+        return { shops: transformedData, meta };
+      }
+    );
+  };
+
+  // Trigger a prefetch for the next page
+  const handlePrefetch = (nextPageIndex) => {
+    prefetchPageData(nextPageIndex);
+  };
+
+   // --- REACT QUERY HOOK ---
+   const {
     data: shopsData,
     isError,
     isFetching,
@@ -145,15 +243,32 @@ const ShopScreen = () => {
     refetchOnMount: true,
   });
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
 
+  // Ensure default sorting when sorting state is empty
+  useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+   // Prefetch next page whenever the pagination or filters/sorting change
+   useEffect(() => {
+    const nextPageIndex = pagination.pageIndex + 1;
+    console.log(
+      "Current page:",
+      pagination.pageIndex,
+      "Prefetching data for page:",
+      nextPageIndex
+    );
+    prefetchPageData(nextPageIndex);
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    queryClient,
+  ]);
+
+  // Handlers for product actions (Add, Edit, Delete)
   const addShopHandler = (newShop) => {
     showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`);
     queryClient.invalidateQueries("shops");
@@ -193,6 +308,7 @@ const ShopScreen = () => {
         </Button>
       </Box>
 
+      {/* Product Table */}
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
         {shopsData && (
           <ReactTable
@@ -228,30 +344,47 @@ const ShopScreen = () => {
         )}
       </Box>
 
-      <DeleteShopDialog
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        dialogTitle="Confirm Deletion"
-        cancelButton={
-          <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
-        }
-        selectedShop={selectedShop}
-        onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={deleteFailureHandler}
-      />
+      {/* Modals */}
+      <Suspense fallback={<div>Laster Dialog...</div>}>
+        <AddShopDialog
+          onClose={() => setAddShopDialogOpen(false)}
+          //locations={locationsData}
+          //categories={categoriesData}
+          open={addShopDialogOpen}
+          onAdd={addShopHandler}
+        ></AddShopDialog>
+      </Suspense>
+      <Suspense fallback={<div>Laster...</div>}>
+        <DeleteShopDialog
+          open={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          dialogTitle="Confirm Deletion"
+          cancelButton={
+            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+          }
+          selectedShop={selectedShop}
+          onDeleteSuccess={deleteSuccessHandler}
+          onDeleteFailure={deleteFailureHandler}
+        />
+      </Suspense>
 
-      <EditShopDialog
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        cancelButton={
-          <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-        }
-        dialogTitle={"Edit Shop"}
-        selectedShop={selectedShop}
-        onUpdateSuccess={editSuccessHandler}
-        onUpdateFailure={editFailureHandler}
-      />
+      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
+        {memoizedSelectedShop._id && editModalOpen && (
+          <EditShopDialog
+            open={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            cancelButton={
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            }
+            dialogTitle={"Edit Shop"}
+            selectedShop={selectedShop}
+            onUpdateSuccess={editSuccessHandler}
+            onUpdateFailure={editFailureHandler}
+          />
+        )}
+      </Suspense>
 
+      {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -280,13 +413,6 @@ const ShopScreen = () => {
           }
         />
       </Snackbar>
-      <AddShopDialog
-        onClose={() => setAddShopDialogOpen(false)}
-        //locations={locationsData}
-        //categories={categoriesData}
-        open={addShopDialogOpen}
-        onAdd={addShopHandler}
-      ></AddShopDialog>
     </TableLayout>
   );
 };

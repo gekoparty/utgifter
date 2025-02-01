@@ -47,9 +47,7 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-  //const locationOptions = locations || []; // Use locations or an empty array if it's null
-  //const categoryOptions = categories || []; // Use categories or an empty array if it's null
-
+  
   return (
     <BasicDialog
       open={open}

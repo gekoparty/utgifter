@@ -160,6 +160,7 @@ const ReactTable = ({
   setSelectedBrand,
   handleEdit,
   handleDelete,
+  slotProps,
   ...props
 }) => (
   <Table
