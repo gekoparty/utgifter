@@ -8,157 +8,106 @@ const shopsRouter = express.Router();
 
 shopsRouter.get("/", async (req, res) => {
   try {
+    // Log incoming query parameters for debugging
+    console.log("Shops GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
-    
 
-    
     let query = Shop.find();
 
-    
+    // Column Filters
     if (columnFilters) {
-      
       const filters = JSON.parse(columnFilters);
-
-      filters.forEach((filter) => {
-        const { id, value } = filter;
+      filters.forEach(({ id, value }) => {
         if (id && value) {
           if (id === "name") {
-            const fieldFilter = {};
-            fieldFilter[id] = new RegExp(`^${value}`, "i");
-            query = query.where(fieldFilter);
+            query = query.where("name").regex(new RegExp(value, "i"));
           } else if (id === "location" || id === "category") {
-            // Handle filtering for reference fields
-            const referenceField = `${id}`;
-            const referenceFilter = {};
-            referenceFilter[referenceField] = value; // Only pass the _id of the location or category
-            query = query.where(referenceField, referenceFilter[referenceField]);
+            // Log the value received for debugging
+            console.log(`Filtering on ${id} with value:`, value);
+            query = query.where(id).equals(value);
           }
         }
       });
-     
     }
-    
 
-
+    // Global Filter
     if (globalFilter) {
-
       const globalFilterRegex = new RegExp(globalFilter, "i");
-    
-      try {
-        const matchedShops = await Shop.aggregate([
-          {
-            $match: {
-              $or: [
-                {
-                  name: { $regex: globalFilterRegex },
-                },
-                {
-                  "location.name": { $regex: globalFilterRegex },
-                },
-                {
-                  "category.name": { $regex: globalFilterRegex },
-                },
-              ],
-            },
-          },
-          {
-            $lookup: {
-              from: "locations", // Replace with your actual collection name for locations
-              localField: "location",
-              foreignField: "_id",
-              as: "locationData",
-            },
-          },
-          {
-            $lookup: {
-              from: "categories", // Replace with your actual collection name for categories
-              localField: "category",
-              foreignField: "_id",
-              as: "categoryData",
-            },
-          },
-          {
-            $project: {
-              _id: 1,
-              name: 1,
-              location: {
-                $cond: [
-                  {
-                    $gt: [{ $size: "$locationData" }, 0],
-                  },
-                  { $arrayElemAt: ["$locationData.name", 0] },
-                  "$location.name",
-                ],
-              },
-              category: {
-                $cond: [
-                  {
-                    $gt: [{ $size: "$categoryData" }, 0],
-                  },
-                  { $arrayElemAt: ["$categoryData.name", 0] },
-                  "$category.name",
-                ],
-              },
-            },
-          },
-        ]);
-    
-        // Log the results for debugging
-        
-    
-      } catch (error) {
-        console.error("Error in query:", error);
-        res.status(500).json({ error: "Internal Server Error" }); // Handle errors
-      }
-     
+      query = query.or([{ name: globalFilterRegex }]);
     }
 
-    // Apply sorting
-
+    // Sorting
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
-        const { id, desc } = sortConfig;
-
-        // Build the sorting object
-        const sortObject = {};
-        sortObject[id] = desc ? -1 : 1;
-
+        const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
+          acc[id] = desc ? -1 : 1;
+          return acc;
+        }, {});
+        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
-      
     }
 
-    // Apply pagination
-    if (start && size) {
-      const startIndex = parseInt(start);
-      const pageSize = parseInt(size);
-
-      // Query total row count before pagination
-      const totalRowCount = await Shop.countDocuments(query);
-
-      // Apply pagination
+    // Pagination
+    let totalRowCount = 0;
+    if (start !== undefined && size !== undefined) {
+      const startIndex = parseInt(start, 10);
+      const pageSize = parseInt(size, 10);
+      totalRowCount = await Shop.countDocuments(query.getFilter());
+      console.log("Total matching shops:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
-
-      const shops = await query.exec();
-
-      // Send response with both paginated data and total row count
-      res.json({ shops, meta: { totalRowCount } });
-     
-    } else {
-      // If not using pagination, just send the brands data
-      const shops = await query.exec();
-      res.json(shops);
     }
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
-  }
- 
-  
-});
 
+    // Execute the query
+    const shops = await query.exec();
+    console.log("Fetched shops:", shops);
+
+    // Enrich shops with location and category names
+    const allLocationIds = shops.map(shop => shop.location).filter(Boolean);
+    const allCategoryIds = shops.map(shop => shop.category).filter(Boolean);
+    const uniqueLocationIds = [...new Set(allLocationIds.map(id => id.toString()))];
+    const uniqueCategoryIds = [...new Set(allCategoryIds.map(id => id.toString()))];
+
+    const locationDocs = await Location.find({ _id: { $in: uniqueLocationIds } }).lean();
+    const categoryDocs = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
+
+    const locationIdToNameMap = locationDocs.reduce((acc, loc) => {
+      acc[loc._id.toString()] = loc.name;
+      return acc;
+    }, {});
+    const categoryIdToNameMap = categoryDocs.reduce((acc, cat) => {
+      acc[cat._id.toString()] = cat.name;
+      return acc;
+    }, {});
+
+    const enrichedShops = shops.map(shop => {
+      const shopObj = shop.toObject();
+      // Check if shopObj.location exists before calling toString()
+      shopObj.locationName =
+        shopObj.location && locationIdToNameMap[shopObj.location.toString()]
+          ? locationIdToNameMap[shopObj.location.toString()]
+          : "N/A";
+      
+      // Similarly for category
+      shopObj.categoryName =
+        shopObj.category && categoryIdToNameMap[shopObj.category.toString()]
+          ? categoryIdToNameMap[shopObj.category.toString()]
+          : "N/A";
+      
+      return shopObj;
+    });
+
+    // Log the final enriched shops for debugging
+    console.log("Enriched shops:", enrichedShops);
+
+    res.json({ shops: enrichedShops, meta: { totalRowCount } });
+  } catch (err) {
+    // Log the full error for debugging
+    console.error("Error in /api/shops:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 shopsRouter.post("/", async (req, res) => {
 
   try {
