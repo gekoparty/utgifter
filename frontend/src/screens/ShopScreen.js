@@ -219,6 +219,7 @@ return fetchURL;
           location: shop.location ? shop.location.name : "N/A",
           category: shop.category ? shop.category.name : "N/A",
         }));
+        console.log(`Prefetched data for page ${nextPageIndex}:`, transformedData);
         return { shops: transformedData, meta };
       }
     );

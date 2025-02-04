@@ -169,6 +169,7 @@ expensesRouter.get("/", async (req, res) => {
       registeredDate: formatDate(expense.registeredDate)
     }));
 
+    console.log("Formatted Expenses Sent to Frontend:", formattedExpenses);
     // Send response with both paginated data and total row count
     res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
 
@@ -211,7 +212,7 @@ expensesRouter.get("/:id", async (req, res) => {
 })
 
 expensesRouter.post("/", async (req, res) => {
-  
+  console.log("Expense data received:", req.body);
 
   try {
     const {
