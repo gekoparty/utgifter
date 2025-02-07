@@ -1,170 +1,141 @@
 import express from "express";
-import Location from "../models/locationScema.js";
 import slugify from "slugify";
+import Location from "../models/locationScema.js";
 
 const locationsRouter = express.Router();
 
-
 locationsRouter.get("/", async (req, res) => {
- 
   try {
+    console.log("Locations GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
-
-  
 
     let query = Location.find();
 
-    // Apply columnFilters
+    // Column Filters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      filters.forEach((filter) => {
-        const { id, value } = filter;
+      filters.forEach(({ id, value }) => {
         if (id && value) {
-          const fieldFilter = {};
-          fieldFilter[id] = new RegExp(`^${value}`, "i");
-          query = query.where(fieldFilter);
+          if (id === "name") {
+            query = query.where("name").regex(new RegExp(value, "i"));
+          }
         }
       });
     }
 
-    // Apply globalFilter
+    // Global Filter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      query = query.find({
-        $or: [
-          { name: globalFilterRegex }, // Assuming 'name' is a field in your data
-          // Add other fields here that you want to include in the global filter
-        ],
-      });
+      query = query.or([{ name: globalFilterRegex }]);
     }
 
-    // Apply sorting
-
+    // Sorting
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
-        const { id, desc } = sortConfig;
-
-        // Build the sorting object
-        const sortObject = {};
-        sortObject[id] = desc ? -1 : 1;
-
+        const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
+          acc[id] = desc ? -1 : 1;
+          return acc;
+        }, {});
+        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
 
-    // Apply pagination
-    if (start && size) {
-      const startIndex = parseInt(start);
-      const pageSize = parseInt(size);
-
-      // Query total row count before pagination
-      const totalRowCount = await Location.countDocuments(query);
-
-      // Apply pagination
+    // Pagination
+    let totalRowCount = 0;
+    if (start !== undefined && size !== undefined) {
+      const startIndex = parseInt(start, 10);
+      const pageSize = parseInt(size, 10);
+      totalRowCount = await Location.countDocuments(query.getFilter());
+      console.log("Total matching locations:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
-
-      const locations = await query.exec();
-
-      // Send response with both paginated data and total row count
-      res.json({ locations, meta: { totalRowCount } });
-    } else {
-      // If not using pagination, just send the brands data
-      const locations = await query.exec();
-      res.json(locations);
     }
+
+    // Execute the query
+    const locations = await query.exec();
+    console.log("Fetched locations:", locations);
+
+    res.json({ locations, meta: { totalRowCount } });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
+    console.error("Error in /api/locations:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+locationsRouter.post("/", async (req, res) => {
+  try {
+    const { name } = req.body;
+    const slug = slugify(name, { lower: true });
+
+    const existingLocation = await Location.findOne({ slug });
+    if (existingLocation) {
+      return res.status(400).json({ message: "A location with this name already exists." });
+    }
+
+    const location = new Location({ name, slug });
+    const savedLocation = await location.save();
+    res.status(201).json(savedLocation);
+  } catch (error) {
+    console.error("Error saving location:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+locationsRouter.put("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  try {
+    const slug = slugify(name, { lower: true });
+
+    // Check for duplicate locations
+    const existingLocation = await Location.findOne({ slug, _id: { $ne: id } });
+    if (existingLocation) {
+      return res.status(400).json({ message: "A location with this name already exists." });
+    }
+
+    const updatedLocation = await Location.findByIdAndUpdate(
+      id,
+      { name, slug },
+      { new: true }
+    );
+
+    if (!updatedLocation) {
+      return res.status(404).json({ message: "Location not found" });
+    }
+
+    res.json(updatedLocation);
+  } catch (error) {
+    console.error("Error updating location:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
 locationsRouter.get("/:id", async (req, res) => {
   try {
     const location = await Location.findById(req.params.id);
+    if (!location) {
+      return res.status(404).json({ message: "Location not found" });
+    }
     res.json(location);
   } catch (error) {
     console.error("Error fetching location:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
-  
-  locationsRouter.delete("/:id", async (req, res) => {
-    const { id } = req.params;
-    
-    try {
-      const location = await Location.findByIdAndDelete(req.params.id);
-      if (!location) {
-        return res.status(404).send({ error: "Location not found" });
-      }
-      res.send(location);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send({ error: "Internal server error" });
-    }
-  });
 
-  locationsRouter.post("/", async (req, res) => {
-   
-    try {
-      const { name } = req.body;
-      const slug = slugify(name, { lower: true });
-  
-      const existingLocation = await Location.findOne({ slug });
-      if (existingLocation) {
-        return res.status(400).json({ message: "duplicate" });
-      }
-  
-      const location = new Location({
-        name,
-        slug, // Save the slug to the database
-      });
-  
-      await location.save();
-      res.status(201).json(location);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Internal Server Error" });
+locationsRouter.delete("/:id", async (req, res) => {
+  try {
+    const location = await Location.findByIdAndDelete(req.params.id);
+    if (!location) {
+      return res.status(404).json({ message: "Location not found" });
     }
-  });
-  
-  locationsRouter.put("/:id", async (req, res) => {
-    const { id } = req.params;
-    const { name, slug} = req.body;
-  
-    try {
-      // Check if the slug already exists for a different brand
-      const existingLocationWithSlug = await Location.findOne({
-        slug: slugify(name, {lower: true}),
-        _id: { $ne: id }, // Exclude the current brand from the check
-      });
-  
-      if (existingLocationWithSlug) {
-        return res.status(400).json({ message: "duplicate" });
-      }
-  
-      const location = await Location.findByIdAndUpdate(
-        id,
-        {
-          $set: {
-            name,
-            slug: slugify(name, {lower: true})
-          },
-        },
-        { new: true }
-      );
-  
-      if (!location) {
-        return res.status(404).send({ error: "Location not found" });
-      }
-  
-      res.send(location);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send({ error: "Internal server error" });
-    }
-  });
-
+    res.json(location);
+  } catch (error) {
+    console.error("Error deleting location:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 export default locationsRouter;

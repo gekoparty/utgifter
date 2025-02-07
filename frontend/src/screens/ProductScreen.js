@@ -140,6 +140,7 @@ const ProductScreen = () => {
 
     return fetchURL;
   };
+
   // Fetch data function
   const fetchData = async () => {
     try {
@@ -215,12 +216,19 @@ const ProductScreen = () => {
     );
   };
 
-   // handlePrefetch now simply calls prefetchPageData
-   const handlePrefetch = (nextPageIndex) => {
-    prefetchPageData(queryClient, nextPageIndex, pagination, sorting, columnFilters, globalFilter);
+  // handlePrefetch now simply calls prefetchPageData
+  const handlePrefetch = (nextPageIndex) => {
+    prefetchPageData(
+      queryClient,
+      nextPageIndex,
+      pagination,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
   };
 
-    // **Refactored useEffect - AUTOMATIC PREFETCHING**
+  // **Refactored useEffect - AUTOMATIC PREFETCHING**
   // This useEffect automatically triggers when pagination, sorting, or filters change
   useEffect(() => {
     // Calculate next page index based on current page
@@ -242,14 +250,13 @@ const ProductScreen = () => {
       globalFilter
     );
   }, [
-    pagination.pageIndex,  // Trigger prefetching when the page index changes
-    pagination.pageSize,   // Trigger prefetching when the page size changes
-    sorting,                // Trigger prefetching when sorting changes
-    columnFilters,         // Trigger prefetching when column filters change
-    globalFilter,          // Trigger prefetching when global filter changes
-    queryClient,           // React Query client reference for prefetching
+    pagination.pageIndex, // Trigger prefetching when the page index changes
+    pagination.pageSize, // Trigger prefetching when the page size changes
+    sorting, // Trigger prefetching when sorting changes
+    columnFilters, // Trigger prefetching when column filters change
+    globalFilter, // Trigger prefetching when global filter changes
+    queryClient, // React Query client reference for prefetching
   ]);
-
 
   // Ensure default sorting when sorting state is empty
   useEffect(() => {
@@ -275,8 +282,6 @@ const ProductScreen = () => {
     refetch();
   };
 
-  
-
   // Render the main table layout and dialogs
   return (
     <TableLayout>
@@ -291,10 +296,11 @@ const ProductScreen = () => {
       </Box>
 
       {/* Product Table */}
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      <Box sx={{ 
+        minWidth: 600, width: "100%", display: "flex", justifyContent: "center" }}>
         {productsData && (
           <ReactTable
-            layoutMode="grid"
+
             data={productsData?.products}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
@@ -319,7 +325,6 @@ const ProductScreen = () => {
               setSelectedProduct(product);
               setDeleteModalOpen(true);
             }}
-            
           />
         )}
       </Box>
@@ -362,6 +367,7 @@ const ProductScreen = () => {
           />
         )}
       </Suspense>
+
       {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}

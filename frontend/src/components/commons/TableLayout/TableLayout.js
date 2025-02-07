@@ -6,26 +6,23 @@ const TableLayout = ({ children }) => {
   return (
     <Box
       sx={{
-       
         marginLeft: `${drawerWidth}px`,
-        display: "flex",
-        justifyContent: "center",
-        backgroundColor: "#2C2C2C", // Dark background color
-        padding: 2, // Optional padding to provide some space around the content
-        borderRadius: 2, // Optional rounded corners
+        display: "grid",      // Use Grid
+        gridTemplateColumns: "1fr", // One column that takes all space
+        backgroundColor: "#2C2C2C",
+        padding: 2,
+        borderRadius: 2,
       }}
       data-testid="table-layout"
     >
       <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            flexGrow: 1, 
-            backgroundColor: "#333", // Slightly lighter dark color for inner box
-          borderRadius: 1, // Optional rounded corners for inner box// Ensure it takes the full available space
-            width: "100%",
-          }}
-        
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          backgroundColor: "#333",
+          borderRadius: 1,
+          width: "100%", // Could be removed, grid takes care of sizing
+        }}
         data-testid="table-layout-container"
       >
         {children}
