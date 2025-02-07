@@ -1,7 +1,8 @@
+import React from "react";
 import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
-import useLocationDialog from "../UseLocation/useLocationDialog";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
+import useLocationDialog from "../UseLocation/useLocationDialog";
 
 const DeleteLocationDialog = ({
   open,
@@ -25,7 +26,7 @@ const DeleteLocationDialog = ({
       open={open}
       onClose={onClose}
       dialogTitle={dialogTitle}
-      onConfirm={handleDeleteLocation}
+      onConfirm={handleDelete} // <-- This now mirrors DeleteShopDialog
       cancelButton={
         <Button onClick={onClose} disabled={loading}>
           Avbryt
@@ -39,11 +40,11 @@ const DeleteLocationDialog = ({
     >
       {selectedLocation && (
         <Typography component="p" marginTop={2}>
-          Er du sikker på at du vil slette dette merket, utgifter tilhørende{" "}
+          Er du sikker på at du vil slette denne lokasjonen? Utgifter tilhørende{" "}
           <Typography component="span" fontWeight="bold">
             "{selectedLocation.name}"
           </Typography>{" "}
-          vil også påvirkes
+          vil også påvirkes.
         </Typography>
       )}
     </BasicDialog>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, TextField, CircularProgress, Box } from "@mui/material";
+import { Button, TextField, CircularProgress, Grid, Box } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
@@ -7,8 +7,8 @@ import useLocationDialog from "../UseLocation/useLocationDialog";
 
 const AddLocationDialog = ({ open, onClose, onAdd }) => {
   const {
-    locationName,
-    setLocationName,
+    location,
+    setLocation,
     loading,
     handleSaveLocation,
     resetValidationErrors,
@@ -20,13 +20,13 @@ const AddLocationDialog = ({ open, onClose, onAdd }) => {
   } = useLocationDialog();
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event.preventDefault(); // Prevent default form submission
 
-    // Call the handleSaveLocation function from the hook to save the new location
+    // Call the handleSaveLocation function to save the new location
     if (isFormValid()) {
       const success = await handleSaveLocation(onClose);
       if (success) {
-        onAdd({ name: locationName }); // Trigger the onAdd function to show the success snackbar with the location name
+        onAdd({ name: location.name }); // Trigger onAdd for success notification
       }
     }
   };
@@ -38,44 +38,43 @@ const AddLocationDialog = ({ open, onClose, onAdd }) => {
         resetFormAndErrors();
         onClose(); // Close the dialog after resetting the form and errors
       }}
-      dialogTitle="Nytt sted"
+      dialogTitle="Nytt Sted"
     >
-      <form id="addLocationForm" onSubmit={handleSubmit}>
-        <TextField
-          size="small"
-          sx={{ marginTop: 2 }}
-          label="Sted"
-          value={locationName}
-          error={Boolean(validationError)}
-          onChange={(e) => {
-            setLocationName(e.target.value);
-            resetValidationErrors();
-            resetServerError(); // Clear validation errors when input changes
-          }}
-        />
-        {displayError || validationError ? (
-          <ErrorHandling
-            resource="locations"
-            field="locationName"
-            loading={loading}
-          />
-        ) : null}
+      <form onSubmit={handleSubmit}>
+        <Grid container direction="column" spacing={2}>
+          <Grid item>
+            <TextField
+              size="small"
+              sx={{ marginTop: 2 }}
+              label="Sted"
+              value={location?.name || ""} // Ensuring safe handling
+              error={Boolean(validationError?.name)}
+              onChange={(e) => {
+                setLocation({ ...location, name: e.target.value });
+                resetValidationErrors();
+                resetServerError(); // Clear validation errors when input changes
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling resource="locations" field="name" loading={loading} />
+            ) : null}
+          </Grid>
+        </Grid>
 
-        <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
-          
-          <Button
-            onClick={() => {
-              resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-              onClose(); // Close the dialog
-            }}
-            sx={{ marginLeft: 2 }}
-          >
-            Cancel
-          </Button>
+        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
           <Button type="submit" disabled={loading || !isFormValid()}>
             {loading ? <CircularProgress size={24} /> : "Lagre"}
           </Button>
-        </Box>
+          <Button
+            onClick={() => {
+              resetFormAndErrors(); // Reset form and errors on cancel
+              onClose();
+            }}
+            sx={{ ml: 2 }}
+          >
+            Avbryt
+          </Button>
+        </Grid>
       </form>
     </BasicDialog>
   );
@@ -88,3 +87,4 @@ AddLocationDialog.propTypes = {
 };
 
 export default AddLocationDialog;
+

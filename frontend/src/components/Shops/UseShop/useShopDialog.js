@@ -1,7 +1,6 @@
 import { useCallback,useMemo, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
-import useLocationDialog from "../../Locations/UseLocation/useLocationDialog";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../Store/Store";
 import { addShopValidationSchema } from "../../../validation/validationSchema";

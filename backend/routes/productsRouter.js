@@ -8,7 +8,6 @@ const productsRouter = express.Router();
 
 productsRouter.get("/", async (req, res) => {
   try {
-    // Extract query parameters
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     // Initialize query object
@@ -20,9 +19,9 @@ productsRouter.get("/", async (req, res) => {
       filters.forEach(({ id, value }) => {
         if (id && value) {
           if (id === "name") {
-            query = query.where("name").regex(new RegExp(value, "i")); // Case-insensitive match
+            query = query.where("name").regex(new RegExp(value, "i"));
           } else if (id === "brand") {
-            query = query.where("brands").in(value); // Matches brand IDs
+            query = query.where("brands").in(value);
           } else if (id === "type") {
             query = query.where("type").regex(new RegExp(value, "i"));
           }
@@ -32,73 +31,58 @@ productsRouter.get("/", async (req, res) => {
 
     // Apply global filter
     if (globalFilter) {
-      const globalFilterRegex = new RegExp(globalFilter, "i"); // Case-insensitive global search
-      query = query.or([
-        { name: globalFilterRegex },
-        { type: globalFilterRegex },
-        { measures: globalFilterRegex },
-      ]);
+      const regex = new RegExp(globalFilter, "i");
+      query = query.or([{ name: regex }, { type: regex }, { measures: regex }]);
     }
 
     // Apply sorting
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
-          acc[id] = desc ? -1 : 1; // MongoDB requires 1 for ascending, -1 for descending
-          return acc;
-        }, {});
+        const sortObject = parsedSorting.reduce(
+          (acc, { id, desc }) => ({ ...acc, [id]: desc ? -1 : 1 }),
+          {}
+        );
         query = query.sort(sortObject);
       }
     }
 
     // Pagination
     let totalRowCount = 0;
-    if (start && size) {
-      const startIndex = parseInt(start, 10);
-      const pageSize = parseInt(size, 10);
+    let startIndex = Number(start) || 0;
+    let pageSize = Number(size) || 10;
 
-      totalRowCount = await Product.countDocuments(query); // Total count before pagination
+    if (startIndex >= 0 && pageSize > 0) {
+      totalRowCount = await Product.countDocuments(query);
       query = query.skip(startIndex).limit(pageSize);
     }
 
     // Execute the query
-    const products = await query.exec();
+    const products = await query.select("name brands type measures").lean();
 
-    // Step 1: Collect all unique brand IDs from the products
-    const allBrandIds = products
-      .flatMap((product) => product.brands)
-      .filter(Boolean); // Ensure no null or undefined IDs
+    // Collect unique brand IDs
+    const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands))].filter(Boolean);
 
-    const uniqueBrandIds = [...new Set(allBrandIds)]; // Remove duplicates
-
-    // Step 2: Batch fetch all the brands in one query
+    // Fetch all brands in a single query
     const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
+    const brandIdToNameMap = brandDocs.reduce(
+      (acc, { _id, name }) => ({ ...acc, [_id.toString()]: name }),
+      {}
+    );
 
-    // Step 3: Map brand IDs to their names for easier lookup
-    const brandIdToNameMap = brandDocs.reduce((acc, brand) => {
-      acc[brand._id.toString()] = brand.name;
-      return acc;
-    }, {});
-
-    // Step 4: Attach brand names to the products
+    // Attach brand names to the products
     const enrichedProducts = products.map((product) => ({
-      ...product.toObject(),
-      brand: product.brands
-        .map((brandId) => brandIdToNameMap[brandId.toString()] || "N/A")
-        .join(", "),
+      ...product,
+      brand: product.brands.map((id) => brandIdToNameMap[id.toString()] || "N/A").join(", "),
     }));
 
-    // Respond with paginated products and metadata
-    res.json({
-      products: enrichedProducts,
-      meta: { totalRowCount },
-    });
+    res.json({ products: enrichedProducts, meta: { totalRowCount } });
   } catch (err) {
-    console.error("Error in /api/products:", err.message);
+    console.error("Error in /api/products:", err.message, err.stack);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 productsRouter.post("/", async (req, res) => {
  

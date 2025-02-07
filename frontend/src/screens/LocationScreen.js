@@ -1,23 +1,32 @@
-import React, { useState, useMemo } from "react";
-import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
+import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  SnackbarContent,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import AddLocationDialog from "../components/Locations/LocationDialogs/AddLocationDialog";
-import DeleteLocationDialog from "../components/Locations/LocationDialogs/DeleteLocationDialog"
-import EditLocationDialog from '../components/Locations/LocationDialogs/EditLocationDialog';
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@mui/material/styles";
 import useSnackBar from "../hooks/useSnackBar";
 
+// Lazy-loaded dialogs for location actions
+const AddLocationDialog = lazy(() =>
+  import("../components/Locations/LocationDialogs/AddLocationDialog")
+);
+const EditLocationDialog = lazy(() =>
+  import("../components/Locations/LocationDialogs/EditLocationDialog")
+);
+const DeleteLocationDialog = lazy(() =>
+  import("../components/Locations/LocationDialogs/DeleteLocationDialog")
+);
 
-
-// Constants
-const INITIAL_PAGINATION = {
-  pageIndex: 0,
-  pageSize: 5,
-};
+// Constants for initial states and API URL
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_LOCATION = {
   _id: "",
@@ -28,27 +37,27 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
-
-
 const LocationScreen = () => {
-
+  // Table state variables
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedLocation, setSelectedLocation] = useState(INITIAL_SELECTED_LOCATION);
+  const [selectedLocation, setSelectedLocation] = useState(
+    INITIAL_SELECTED_LOCATION
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addLocationDialogOpen, setAddLocationDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  // Theme and memoization for selected location
   const theme = useTheme();
-
-  const tableColumns = useMemo(
-    () => [{ accessorKey: "name", header: "Steder" }],
-    []
+  const memoizedSelectedLocation = useMemo(
+    () => selectedLocation,
+    [selectedLocation]
   );
 
-  // React Query
+  // React Query client and query key
   const queryClient = useQueryClient();
   const queryKey = [
     "locations",
@@ -59,46 +68,7 @@ const LocationScreen = () => {
     sorting,
   ];
 
-  // Define your query function
-  const fetchData = async () => {
-    const fetchURL = new URL("/api/locations", API_URL);
-
-    fetchURL.searchParams.set(
-      "start",
-      `${pagination.pageIndex * pagination.pageSize}`
-    );
-    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-
-    const response = await fetch(fetchURL.href);
-    const json = await response.json();
-
-    // Set the initial sorting to ascending for the first render
-    if (sorting.length === 0) {
-      setSorting([{ id: "name", desc: false }]);
-    }
-    return json;
-  };
-
-  const {
-    data: locationsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
-
-
+  // Snackbar for user feedback
   const {
     snackbarOpen,
     snackbarMessage,
@@ -108,8 +78,132 @@ const LocationScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  // Table columns configuration
+  const tableColumns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Steder....",
+        size: 600,
+        grow: 2,
+        minWidth: 400,
+        maxSize: 600,
+      },
+    ],
+    []
+  );
 
+  // Function to build the API URL with current table state
+  const buildFetchURL = (
+    pageIndex,
+    pageSize,
+    sorting,
+    columnFilters,
+    globalFilter
+  ) => {
+    const fetchURL = new URL("/api/locations", API_URL);
+    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+    fetchURL.searchParams.set("size", `${pageSize}`);
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    return fetchURL;
+  };
 
+  // Fetch locations data from the API
+  const fetchData = async () => {
+    const fetchURL = buildFetchURL(
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+    const response = await fetch(fetchURL.href);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText} (${response.status})`);
+    }
+    const json = await response.json();
+    return json;
+  };
+
+  // Prefetch data for the next page
+  const prefetchPageData = async (nextPageIndex) => {
+    const fetchURL = buildFetchURL(
+      nextPageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+    await queryClient.prefetchQuery(
+      [
+        "locations",
+        columnFilters,
+        globalFilter,
+        nextPageIndex,
+        pagination.pageSize,
+        sorting,
+      ],
+      async () => {
+        const response = await fetch(fetchURL.href);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText} (${response.status})`);
+        }
+        const json = await response.json();
+        console.log(`Prefetched data for page ${nextPageIndex}:`, json);
+        return json;
+      }
+    );
+  };
+
+  // Optionally, trigger prefetching manually
+  const handlePrefetch = (nextPageIndex) => {
+    prefetchPageData(nextPageIndex);
+  };
+
+  // Use React Query to fetch location data
+  const {
+    data: locationsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true,
+    refetchOnMount: true,
+  });
+
+  // Ensure default sorting if none is provided
+  useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+  // Automatically prefetch the next page when table state changes
+  useEffect(() => {
+    const nextPageIndex = pagination.pageIndex + 1;
+    console.log(
+      "Current page:",
+      pagination.pageIndex,
+      "Prefetching data for page:",
+      nextPageIndex
+    );
+    prefetchPageData(nextPageIndex);
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    queryClient,
+  ]);
+
+  // Handlers for location actions
   const addLocationHandler = (newLocation) => {
     showSuccessSnackbar(`Sted "${newLocation.name}" added successfully`);
     queryClient.invalidateQueries("locations");
@@ -136,10 +230,17 @@ const LocationScreen = () => {
     showErrorSnackbar("Failed to update sted");
   };
 
-
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+      {/* Header with action button */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          mb: 2,
+          minWidth: 600,
+        }}
+      >
         <Button
           variant="contained"
           color="primary"
@@ -149,65 +250,88 @@ const LocationScreen = () => {
         </Button>
       </Box>
 
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center", boxShadow: 2  }}>
+      {/* Table for displaying locations */}
+      <Box
+        sx={{
+          width: "100%",
+          flexGrow: 1,
+          minWidth: 600,
+        }}
+      >
         {locationsData && (
-            <ReactTable
-              data={locationsData?.locations}
-              columns={tableColumns}
-              setColumnFilters={setColumnFilters}
-              setGlobalFilter={setGlobalFilter}
-              totalRowCount={locationsData.meta.totalRowCount} 
-              meta={locationsData?.meta}
-              setSorting={setSorting}
-              setPagination={setPagination}
-              refetch={refetch}
-              isError={isError}
-              isFetching={isFetching}
-              isLoading={isLoading}
-              columnFilters={columnFilters}
-              globalFilter={globalFilter}
-              pagination={pagination}
-              sorting={sorting}
-              rowCount={locationsData?.meta?.totalRowCount ?? 0}
-              setSelectedLocation={setSelectedLocation}
-              handleEdit={(location) => {
-                setSelectedLocation(location);
-                setEditModalOpen(true);
-              }}
-              handleDelete={(location) => {
-                setSelectedLocation(location);
-                setDeleteModalOpen(true);
-              }}
-              editModalOpen={editModalOpen}
-              setDeleteModalOpen={setDeleteModalOpen}
-            />
-          )}
+          <ReactTable
+            data={locationsData?.locations}
+            columns={tableColumns}
+            setColumnFilters={setColumnFilters}
+            setGlobalFilter={setGlobalFilter}
+            setSorting={setSorting}
+            setPagination={setPagination}
+            refetch={refetch}
+            isError={isError}
+            isFetching={isFetching}
+            isLoading={isLoading}
+            columnFilters={columnFilters}
+            globalFilter={globalFilter}
+            pagination={pagination}
+            sorting={sorting}
+            meta={locationsData?.meta}
+            setSelectedShop={setSelectedLocation}
+            totalRowCount={locationsData?.meta?.totalRowCount}
+            rowCount={locationsData?.meta?.totalRowCount ?? 0}
+            handleEdit={(location) => {
+              setSelectedLocation(location);
+              setEditModalOpen(true);
+            }}
+            handleDelete={(location) => {
+              setSelectedLocation(location);
+              setDeleteModalOpen(true);
+            }}
+            editModalOpen={editModalOpen}
+            setDeleteModalOpen={setDeleteModalOpen}
+          />
+        )}
       </Box>
 
-      <EditLocationDialog
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        cancelButton={
-          <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-        }
-        dialogTitle={"Rediger sted"}
-        selectedLocation={selectedLocation}
-        onUpdateSuccess={editSuccessHandler}
-        onUpdateFailure={editFailureHandler}
-      />
+      {/* Modals */}
+      <Suspense fallback={<div>Laster Dialog...</div>}>
+        <AddLocationDialog
+          open={addLocationDialogOpen}
+          onClose={() => setAddLocationDialogOpen(false)}
+          onAdd={addLocationHandler}
+        />
+      </Suspense>
 
-      <DeleteLocationDialog
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        dialogTitle="Bekreft sletting"
-        cancelButton={
-          <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
-        }
-        selectedLocation={selectedLocation}
-        onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={deleteFailureHandler}
-      />
+      <Suspense fallback={<div>Laster...</div>}>
+        <DeleteLocationDialog
+          open={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          dialogTitle="Confirm Deletion"
+          cancelButton={
+            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+          }
+          selectedLocation={selectedLocation}
+          onDeleteSuccess={deleteSuccessHandler}
+          onDeleteFailure={deleteFailureHandler}
+        />
+      </Suspense>
 
+      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
+        {memoizedSelectedLocation._id && editModalOpen && (
+          <EditLocationDialog
+            open={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            cancelButton={
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            }
+            dialogTitle="Edit Location"
+            selectedLocation={selectedLocation}
+            onUpdateSuccess={editSuccessHandler}
+            onUpdateFailure={editFailureHandler}
+          />
+        )}
+      </Suspense>
+
+      {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -221,23 +345,21 @@ const LocationScreen = () => {
                 ? theme.palette.success.main
                 : snackbarSeverity === "error"
                 ? theme.palette.error.main
-                : theme.palette.info.main, // Default to info if no severity
-            color: theme.palette.success.contrastText, // Use theme-based text contrast color
+                : theme.palette.info.main,
+            color: theme.palette.success.contrastText,
           }}
           message={snackbarMessage}
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon />
             </IconButton>
           }
         />
       </Snackbar>
-
-      <AddLocationDialog
-        onClose={() => setAddLocationDialogOpen(false)}
-        onAdd={addLocationHandler}
-        open={addLocationDialogOpen}
-      />
     </TableLayout>
   );
 };
