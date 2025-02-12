@@ -372,21 +372,27 @@ const renderDetailPanel = useCallback(
 
    // Expense action handlers
    const addExpenseHandler = (savedData) => {
-    // Handle bulk insert response
-    const expenses = Array.isArray(savedData) ? savedData : [savedData];
+    // If the response has a "data" property, extract the first expense.
+    const expenseData =
+      savedData.data && Array.isArray(savedData.data)
+        ? savedData.data[0]
+        : savedData;
     
-    if (expenses.length === 0 || !expenses[0]?.productName) {
+    // Get the product name from the expense data.
+    const productName =
+      typeof expenseData.productName === "object"
+        ? expenseData.productName.name
+        : expenseData.productName;
+    
+    if (!expenseData || !productName) {
       showErrorSnackbar("Kunne ikke legge til utgift. Ugyldig respons fra server.");
       return;
     }
-  
-    showSuccessSnackbar(`${expenses.length} utgift(er) lagret!`);
     
-    // Force immediate refresh instead of waiting for cache
-    queryClient.invalidateQueries({ 
-      queryKey: ["expenses"],
-      refetchType: "active" 
-    });
+    showSuccessSnackbar(`Utgift for "${productName}" lagret!`);
+    
+    // Force a refetch of expenses to update the table.
+    refetch();
   };
 
   const deleteFailureHandler = (failedExpense) => {
@@ -405,9 +411,20 @@ const renderDetailPanel = useCallback(
   };
 
   const editSuccessHandler = (updatedExpense) => {
-    const productName = updatedExpense.productName?.name || "Ukjent produkt";
+    // Check if updatedExpense contains a "data" array; if so, extract the first expense.
+    const expenseData =
+      updatedExpense.data && Array.isArray(updatedExpense.data)
+        ? updatedExpense.data[0]
+        : updatedExpense;
+    
+    // Extract productName properly
+    const productName =
+      typeof expenseData.productName === "object"
+        ? expenseData.productName.name
+        : expenseData.productName || "Ukjent produkt";
+    
     showSuccessSnackbar(`Utgift for "${productName}" oppdatert!`);
-    queryClient.invalidateQueries({ queryKey: ["expenses"], exact: false });
+    refetch(); // Trigger immediate refetch to update the table
   };
 
   // Handle slider changes by updating the price range filter state

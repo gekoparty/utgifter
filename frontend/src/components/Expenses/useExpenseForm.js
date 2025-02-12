@@ -265,8 +265,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
         setExpense({ ...initialExpenseState });
         resetFormAndErrors();
-        onClose(data?.data || data);  // Handle both array and single object responses
-        return data;
+        return data;  // Simply return the data
       }
     } catch (fetchError) {
       dispatch({
