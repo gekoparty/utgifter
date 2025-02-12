@@ -238,22 +238,44 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }));
   };
 
-  // Consolidated form submission similar to AddShopDialog:
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
       if (isFormValid()) {
         const savedExpense = await handleSaveExpense();
+        console.log("Saved expense response:", savedExpense); // For debugging
+        
         if (savedExpense) {
-          // Pass the raw saved data to parent
-          onAdd(savedExpense);
-          onClose();
+          // Extract the expense data from the returned object.
+          // We assume the API returns { message, data: [ expense ] }.
+          const expenseData =
+            savedExpense.data && Array.isArray(savedExpense.data)
+              ? savedExpense.data[0]
+              : savedExpense;
+          
+          // Extract the product name (if productName is an object, use its name property).
+          const productName =
+            typeof expenseData.productName === "object"
+              ? expenseData.productName.name
+              : expenseData.productName;
+          
+          if (!expenseData || !productName) {
+            // If productName is missing, show an error.
+            console.error("Invalid response from server:", savedExpense);
+            // Optionally, you can call showErrorSnackbar here.
+          } else {
+            // Notify the parent with the saved expense data.
+            onAdd(expenseData);
+            // Close the dialog.
+            onClose();
+          }
         }
       }
     } catch (error) {
       console.error("Save failed:", error);
     }
   };
+
 
   // Determine overall loading state
   const isLoading =

@@ -212,14 +212,22 @@ const EditExpenseDialog = ({
     e.preventDefault();
     if (isFormValid()) {
       try {
-        await handleSaveExpense();
-        onUpdateSuccess(expense);
-        onClose();
+        const updatedExpense = await handleSaveExpense();
+        if (updatedExpense) {
+          // If the API response wraps the expense in a "data" array, extract the first item.
+          const expenseData =
+            updatedExpense.data && Array.isArray(updatedExpense.data)
+              ? updatedExpense.data[0]
+              : updatedExpense;
+          onUpdateSuccess(expenseData);
+          onClose();
+        }
       } catch (err) {
         onUpdateFailure();
       }
     }
   };
+  
 
   return (
     <BasicDialog
