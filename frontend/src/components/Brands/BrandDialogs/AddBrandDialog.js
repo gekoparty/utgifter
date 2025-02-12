@@ -1,14 +1,14 @@
 import React from "react";
-import { Button, TextField, CircularProgress } from "@mui/material";
+import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useBrandDialog from "../UseBrand/UseBrandDialog";
 
-const AddBrandDialog = ({ open,onClose, onAdd }) => {
+const AddBrandDialog = ({ open, onClose, onAdd }) => {
   const {
-    brandName,
-    setBrandName,
+    brand,
+    setBrand,
     loading,
     handleSaveBrand,
     resetValidationErrors,
@@ -16,57 +16,71 @@ const AddBrandDialog = ({ open,onClose, onAdd }) => {
     displayError,
     validationError,
     isFormValid,
-    resetFormAndErrors, 
+    resetFormAndErrors,
   } = useBrandDialog();
 
-
-  const handleAddBrand = async () => {
-    // Call the handleSaveBrand function from the hook to save the new brand
-    const success = await handleSaveBrand(onClose);
-    if (success) {
-      onAdd({ name: brandName }); // Trigger the onAdd function to show the success snackbar with the brand name
+  // Consolidate submission in a handleSubmit function
+  const handleSubmit = async (event) => {
+    event.preventDefault(); // Prevent the default form submission behavior
+    if (isFormValid()) {
+      const success = await handleSaveBrand(onClose);
+      if (success) {
+        onAdd({ name: brand }); // Pass the new brand name for feedback purposes
+      }
     }
   };
-
-
 
   return (
     <BasicDialog
       open={open}
       onClose={() => {
         resetFormAndErrors();
-        onClose(); // Close the dialog after resetting the form and errors
+        onClose();
       }}
       dialogTitle="Nytt Merke"
-      confirmButton={
-        <Button onClick={handleAddBrand} disabled={loading || !isFormValid()}>
-          {loading ? <CircularProgress size={24} /> : "Lagre"}
-        </Button>
-      }
-      cancelButton={
-        <Button onClick={() => {
-          resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-          onClose(); // Close the dialog
-        }}>
-          Cancel
-        </Button>
-      }
     >
-      <TextField
-      size="small"
-        sx={{ marginTop: 2 }}
-        label="Merke"
-        value={brandName}
-        error={Boolean(validationError)}
-        onChange={(e) => {
-          setBrandName(e.target.value);
-          resetValidationErrors();
-          resetServerError(); // Clear validation errors when input changes
-        }}
-      />
-      {displayError || validationError ? (
-        <ErrorHandling resource="brands" field="brandName" loading={loading} />
-      ) : null}
+      <form onSubmit={handleSubmit}>
+        <Grid container direction="column" spacing={2}>
+          <Grid item>
+            <TextField
+              size="small"
+              sx={{ marginTop: 2 }}
+              label="Merke"
+              value={brand.name}
+              error={Boolean(validationError)}
+              onChange={(e) => {
+                setBrand(e.target.value);
+                resetValidationErrors();
+                resetServerError();
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling
+                resource="brands"
+                field="brandName"
+                loading={loading}
+              />
+            ) : null}
+          </Grid>
+          <Grid item container justifyContent="flex-end" spacing={2}>
+            <Grid item>
+              <Button
+                onClick={() => {
+                  resetFormAndErrors();
+                  onClose();
+                }}
+              >
+                Cancel
+              </Button>
+            </Grid>
+            <Grid item>
+              <Button type="submit" disabled={loading || !isFormValid()}>
+                {loading ? <CircularProgress size={24} /> : "Lagre"}
+              </Button>
+            </Grid>
+          </Grid>
+        </Grid>
+      </form>
     </BasicDialog>
   );
 };

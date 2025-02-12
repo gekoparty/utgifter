@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, TextField, CircularProgress } from "@mui/material";
+import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
@@ -11,7 +11,6 @@ const EditBrandDialog = ({
   selectedBrand,
   onUpdateSuccess,
   onUpdateFailure,
-  
 }) => {
   const {
     brandName,
@@ -26,12 +25,16 @@ const EditBrandDialog = ({
     resetFormAndErrors,
   } = useBrandDialog(selectedBrand);
 
-  const handleUpdateBrand = async () => {
-    const success = await handleSaveBrand(onClose);
-    if (success) {
-      onUpdateSuccess(selectedBrand); // Trigger the onUpdateSuccess function to show the success snackbar with the brand data
-    } else {
-      onUpdateFailure(); // Trigger the onUpdateFailure function to show the error snackbar
+  // Consolidate form submission in a handleSubmit function.
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isFormValid()) {
+      const success = await handleSaveBrand(onClose);
+      if (success) {
+        onUpdateSuccess(selectedBrand);
+      } else {
+        onUpdateFailure();
+      }
     }
   };
 
@@ -40,43 +43,56 @@ const EditBrandDialog = ({
       open={open}
       onClose={() => {
         resetFormAndErrors();
-        onClose(); // Close the dialog after resetting the form and errors
+        onClose();
       }}
       dialogTitle="Rediger Merke"
-      confirmButton={
-        <Button
-          onClick={handleUpdateBrand}
-          disabled={loading || !isFormValid()}
-        >
-          {loading ? <CircularProgress size={24} /> : "Save"}
-        </Button>
-      }
-      cancelButton={
-        <Button
-          onClick={() => {
-            resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-            onClose(); // Close the dialog
-          }}
-        >
-          Cancel
-        </Button>
-      }
     >
-      <TextField
-        sx={{ marginTop: 2 }}
-        size="small"
-        label="Brand Name"
-        value={brandName}
-        error={Boolean(validationError)}
-        onChange={(e) => {
-          setBrandName(e.target.value);
-          resetValidationErrors();
-          resetServerError(); // Clear validation errors when input changes
-        }}
-      />
-      {displayError || validationError ? (
-        <ErrorHandling resource="brands" field="brandName" loading={loading} />
-      ) : null}
+      <form onSubmit={handleSubmit}>
+        <Grid container direction="column" spacing={2}>
+          {/* Input Field for Brand Name */}
+          <Grid item>
+            <TextField
+              size="small"
+              fullWidth
+              sx={{ marginTop: 2 }}
+              label="Merkenavn"
+              value={brandName}
+              error={Boolean(validationError)}
+              onChange={(e) => {
+                setBrandName(e.target.value);
+                resetValidationErrors();
+                resetServerError();
+              }}
+            />
+            {displayError || validationError ? (
+              <ErrorHandling
+                resource="brands"
+                field="brandName"
+                loading={loading}
+              />
+            ) : null}
+          </Grid>
+
+          {/* Action Buttons */}
+          <Grid item container justifyContent="flex-end" spacing={2} sx={{ mt: 2 }}>
+            <Grid item>
+              <Button
+                onClick={() => {
+                  resetFormAndErrors();
+                  onClose();
+                }}
+              >
+                Cancel
+              </Button>
+            </Grid>
+            <Grid item>
+              <Button type="submit" disabled={loading || !isFormValid()}>
+                {loading ? <CircularProgress size={24} /> : "Save"}
+              </Button>
+            </Grid>
+          </Grid>
+        </Grid>
+      </form>
     </BasicDialog>
   );
 };
@@ -90,3 +106,4 @@ EditBrandDialog.propTypes = {
 };
 
 export default EditBrandDialog;
+

@@ -1,8 +1,8 @@
-import { Typography, Button } from "@mui/material";
+import React from "react";
+import { Button, Typography } from "@mui/material";
 import PropTypes from "prop-types";
-import useBrandDialog from "../UseBrand/UseBrandDialog";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
-
+import useBrandDialog from "../UseBrand/UseBrandDialog";
 
 const DeleteBrandDialog = ({
   open,
@@ -12,10 +12,16 @@ const DeleteBrandDialog = ({
   onDeleteSuccess,
   onDeleteFailure,
 }) => {
+  // Use the brand hook to get the deletion handler and loading state.
   const { handleDeleteBrand, loading } = useBrandDialog();
 
+  // When the Delete button is clicked, call handleDeleteBrand.
   const handleDelete = async () => {
-    const success = await handleDeleteBrand(selectedBrand, onDeleteSuccess, onDeleteFailure);
+    const success = await handleDeleteBrand(
+      selectedBrand,
+      onDeleteSuccess,
+      onDeleteFailure
+    );
     if (success) {
       onClose();
     }
@@ -26,6 +32,7 @@ const DeleteBrandDialog = ({
       open={open}
       onClose={onClose}
       dialogTitle={dialogTitle}
+      // Optionally pass onConfirm if BasicDialog uses it internally.
       onConfirm={handleDeleteBrand}
       cancelButton={
         <Button onClick={onClose} disabled={loading}>
@@ -44,7 +51,7 @@ const DeleteBrandDialog = ({
           <Typography component="span" fontWeight="bold">
             "{selectedBrand.name}"
           </Typography>{" "}
-          vil også påvirkes
+          vil også påvirkes.
         </Typography>
       )}
     </BasicDialog>

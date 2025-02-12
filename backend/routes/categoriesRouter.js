@@ -6,73 +6,73 @@ const categoriesRouter = express.Router();
 
 categoriesRouter.get("/", async (req, res) => {
   try {
+    console.log("Categories GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     let query = Category.find();
 
-    // Apply columnFilters
+    // Column Filters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      filters.forEach((filter) => {
-        const { id, value } = filter;
+      filters.forEach(({ id, value }) => {
         if (id && value) {
-          const fieldFilter = {};
-          fieldFilter[id] = new RegExp(`^${value}`, "i");
-          query = query.where(fieldFilter);
+          if (id === "name") {
+            query = query.where("name").regex(new RegExp(value, "i"));
+          }
         }
       });
     }
 
-    // Apply globalFilter
+    // Global Filter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      query = query.find({
-        $or: [
-          { name: globalFilterRegex }, // Assuming 'name' is a field in your data
-          // Add other fields here that you want to include in the global filter
-        ],
-      });
+      query = query.or([{ name: globalFilterRegex }]);
     }
 
-    // Apply sorting
-
+    // Sorting
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
-        const { id, desc } = sortConfig;
-
-        // Build the sorting object
-        const sortObject = {};
-        sortObject[id] = desc ? -1 : 1;
-
+        const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
+          acc[id] = desc ? -1 : 1;
+          return acc;
+        }, {});
+        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
 
-    // Apply pagination
-    if (start && size) {
-      const startIndex = parseInt(start);
-      const pageSize = parseInt(size);
-
-      // Query total row count before pagination
-      const totalRowCount = await Category.countDocuments(query);
-
-      // Apply pagination
+    // Pagination
+    let totalRowCount = 0;
+    if (start !== undefined && size !== undefined) {
+      const startIndex = parseInt(start, 10);
+      const pageSize = parseInt(size, 10);
+      totalRowCount = await Category.countDocuments(query.getFilter());
+      console.log("Total matching categories:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
-
-      const categories = await query.exec();
-
-      // Send response with both paginated data and total row count
-      res.json({ categories, meta: { totalRowCount } });
-    } else {
-      // If not using pagination, just send the brands data
-      const categories = await query.exec();
-      res.json(categories);
     }
+
+    // Execute the query
+    const categories = await query.exec();
+    console.log("Fetched categories:", categories);
+
+    res.json({ categories, meta: { totalRowCount } });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
+    console.error("Error in /api/categories:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+categoriesRouter.get("/:id", async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+    res.json(category);
+  } catch (error) {
+    console.error("Error fetching category:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 

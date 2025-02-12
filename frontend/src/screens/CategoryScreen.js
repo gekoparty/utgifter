@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -6,21 +6,28 @@ import {
   Snackbar,
   SnackbarContent,
 } from "@mui/material";
-import TableLayout from "../components/commons/TableLayout/TableLayout";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
+import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import EditCategoryDialog from "../components/Categories/CategoryDialogs/EditCategoryDialog";
-import AddCategoryDialog from "../components/Categories/CategoryDialogs/AddCategoryDialog";
-import DeleteCategoryDialog from "../components/Categories/CategoryDialogs/DeleteCategoryDialog";
+import { useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTheme } from "@mui/material/styles";
+
+const AddCategoryDialog = lazy(() =>
+  import("../components/Categories/CategoryDialogs/AddCategoryDialog")
+);
+const DeleteCategoryDialog = lazy(() =>
+  import("../components/Categories/CategoryDialogs/DeleteCategoryDialog")
+);
+const EditCategoryDialog = lazy(() =>
+  import("../components/Categories/CategoryDialogs/EditCategoryDialog")
+);
 
 // Constants
 const INITIAL_PAGINATION = {
   pageIndex: 0,
-  pageSize: 5,
+  pageSize: 10,
 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_CATEGORY = {
@@ -32,92 +39,31 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
-    const generateQueryKey = (
-      columnFilters,
-      globalFilter,
-      pageIndex,
-      pageSize,
-      sorting
-    ) => [
-      "categories",
-      columnFilters,
-      globalFilter,
-      pageIndex,
-      pageSize,
-      sorting,
-    ];  
-
 const CategoryScreen = () => {
-  
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  
   const [selectedCategory, setSelectedCategory] = useState(INITIAL_SELECTED_CATEGORY);
-  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const theme = useTheme();
-  
-
-  const tableColumns = useMemo(
-    () => [{ accessorKey: "name", header: "Katerogi" }],
-    []
-  );
-
+  const memoizedSelectedCategory = useMemo(() => selectedCategory, [selectedCategory]);
 
   // React Query
   const queryClient = useQueryClient();
-  // React Query
-  const queryKey = generateQueryKey(
+  const queryKey = [
+    "categories",
     columnFilters,
     globalFilter,
     pagination.pageIndex,
     pagination.pageSize,
-    sorting
-  );
+    sorting,
+  ];
 
-  // Define your query function
-  const fetchData = async () => {
-    const fetchURL = new URL("/api/categories", API_URL);
-
-    fetchURL.searchParams.set(
-      "start",
-      `${pagination.pageIndex * pagination.pageSize}`
-    );
-    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-
-    const response = await fetch(fetchURL.href);
-    const json = await response.json();
-    console.log("Response from server:", json); // Log the response here
-    // Set the initial sorting to ascending for the first render
-    if (sorting.length === 0) {
-      setSorting([{ id: "name", desc: false }]);
-    }
-    return json;
-  };
-
-  const {
-    data: categoriesData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
-
+  // Snackbar
   const {
     snackbarOpen,
     snackbarMessage,
@@ -126,54 +72,160 @@ const CategoryScreen = () => {
     showErrorSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
-  
 
-  const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update kategori");
+  // Table columns
+  const tableColumns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Kategori",
+        size: 150,
+        grow: 2,
+        minSize: 150,
+        maxSize: 400,
+      },
+    ],
+    []
+  );
+
+  // Fetch URL builder
+  const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter) => {
+    const fetchURL = new URL("/api/categories", API_URL);
+    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+    fetchURL.searchParams.set("size", `${pageSize}`);
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    fetchURL.searchParams.set("columnFilters", JSON.stringify(columnFilters ?? []));
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    return fetchURL;
   };
 
-  const editSuccessHandler = (updatedCategory) => {
-    showSuccessSnackbar(`Sted "${updatedCategory.name}" updated successfully`);
+  // Data fetching
+  const fetchData = async () => {
+    const fetchURL = buildFetchURL(
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+    const response = await fetch(fetchURL.href);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText} (${response.status})`);
+    }
+    const json = await response.json();
+    return json;
+  };
+
+  // Prefetching
+  const prefetchPageData = async (nextPageIndex) => {
+    const fetchURL = buildFetchURL(
+      nextPageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter
+    );
+    await queryClient.prefetchQuery(
+      [
+        "categories",
+        columnFilters,
+        globalFilter,
+        nextPageIndex,
+        pagination.pageSize,
+        sorting,
+      ],
+      async () => {
+        const response = await fetch(fetchURL.href);
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText} (${response.status})`);
+        }
+        return await response.json();
+      }
+    );
+  };
+
+  const handlePrefetch = (nextPageIndex) => {
+    prefetchPageData(nextPageIndex);
+  };
+
+  // React Query hook
+  const {
+    data: categoriesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: fetchData,
+    keepPreviousData: true,
+    refetchOnMount: true,
+  });
+
+  // Effects
+  useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+  useEffect(() => {
+    const nextPageIndex = pagination.pageIndex + 1;
+    prefetchPageData(nextPageIndex);
+  }, [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]);
+
+  // Handlers
+  const addCategoryHandler = (newCategory) => {
+    showSuccessSnackbar(`Kategori "${newCategory.name}" er lagt til`);
     queryClient.invalidateQueries("categories");
     refetch();
   };
 
   const deleteSuccessHandler = (deletedCategory) => {
-    showSuccessSnackbar(`Sted "${deletedCategory.name}" deleted successfully`);
+    showSuccessSnackbar(`Kategori "${deletedCategory.name}" slettet`);
     queryClient.invalidateQueries("categories");
     refetch();
   };
 
   const deleteFailureHandler = (failedCategory) => {
-    showErrorSnackbar(`Failed to delete sted "${failedCategory.name}"`);
-    
+    showErrorSnackbar(`Kunne ikke slette kategori "${failedCategory.name}"`);
   };
 
-  const addCategoryHandler = (newCategory) => {
-    showSuccessSnackbar(`Sted "${newCategory.name}" added successfully`);
+  const editSuccessHandler = (updatedCategory) => {
+    showSuccessSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
     queryClient.invalidateQueries("categories");
     refetch();
   };
 
-  
-
-  
+  const editFailureHandler = () => {
+    showErrorSnackbar("Kunne ikke oppdatere kategori");
+  };
 
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddCategoryDialogOpen(true)}
-        >
-          Ny Kategori
-        </Button>
-      </Box>
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center", boxShadow: 2  }}>
-        {isLoading && <p>Loading...</p>}
-        {isError && <p>An error occurred while fetching data.</p>}
-        {!isLoading && !isError && (
+      <Box sx={{ 
+        display: "flex",
+        flexDirection: "column",
+        flexGrow: 1,
+        width: "100%",
+        minHeight: "100%",
+      }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddCategoryDialogOpen(true)}
+          >
+            Ny Kategori
+          </Button>
+        </Box>
+
+        <Box sx={{ 
+          flexGrow: 1,
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          minWidth: 600,
+        }}>
+          {categoriesData && (
             <ReactTable
               data={categoriesData?.categories}
               columns={tableColumns}
@@ -190,8 +242,9 @@ const CategoryScreen = () => {
               pagination={pagination}
               sorting={sorting}
               meta={categoriesData?.meta}
+              totalRowCount={categoriesData?.meta?.totalRowCount}
               rowCount={categoriesData?.meta?.totalRowCount ?? 0}
-              setSelectedLocation={setSelectedCategory}
+              setSelectedRow={setSelectedCategory}
               handleEdit={(category) => {
                 setSelectedCategory(category);
                 setEditModalOpen(true);
@@ -202,33 +255,52 @@ const CategoryScreen = () => {
               }}
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
+              sx={{ flexGrow: 1, width: "100%" }}
             />
           )}
+        </Box>
       </Box>
-      <EditCategoryDialog
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        cancelButton={
-          <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-        }
-        dialogTitle={"Edit Category"}
-        selectedCategory={selectedCategory}
-        onUpdateSuccess={editSuccessHandler}
-        onUpdateFailure={editFailureHandler}
-      />
 
-      <DeleteCategoryDialog
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        dialogTitle="Confirm Deletion"
-        cancelButton={
-          <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
-        }
-        selectedCategory={selectedCategory}
-        onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={deleteFailureHandler}
-      />
+      {/* Dialogs */}
+      <Suspense fallback={<div>Laster...</div>}>
+        <AddCategoryDialog
+          open={addCategoryDialogOpen}
+          onClose={() => setAddCategoryDialogOpen(false)}
+          onAdd={addCategoryHandler}
+        />
+      </Suspense>
 
+      <Suspense fallback={<div>Laster...</div>}>
+        <DeleteCategoryDialog
+          open={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          dialogTitle="Bekreft sletting"
+          cancelButton={
+            <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
+          }
+          selectedCategory={memoizedSelectedCategory}
+          onDeleteSuccess={deleteSuccessHandler}
+          onDeleteFailure={deleteFailureHandler}
+        />
+      </Suspense>
+
+      <Suspense fallback={<div>Laster...</div>}>
+        {memoizedSelectedCategory._id && editModalOpen && (
+          <EditCategoryDialog
+            open={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            dialogTitle="Rediger Kategori"
+      cancelButton={
+        <Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>
+      }
+            selectedCategory={memoizedSelectedCategory}
+            onUpdateSuccess={editSuccessHandler}
+            onUpdateFailure={editFailureHandler}
+          />
+        )}
+      </Suspense>
+
+      {/* Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -240,10 +312,8 @@ const CategoryScreen = () => {
             backgroundColor:
               snackbarSeverity === "success"
                 ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main, // Default to info if no severity
-            color: theme.palette.success.contrastText, // Use theme-based text contrast color
+                : theme.palette.error.main,
+            color: theme.palette.success.contrastText,
           }}
           message={snackbarMessage}
           action={
@@ -257,12 +327,6 @@ const CategoryScreen = () => {
           }
         />
       </Snackbar>
-
-      <AddCategoryDialog
-        onClose={() => setAddCategoryDialogOpen(false)}
-        onAdd={addCategoryHandler}
-        open={addCategoryDialogOpen}
-      />
     </TableLayout>
   );
 };

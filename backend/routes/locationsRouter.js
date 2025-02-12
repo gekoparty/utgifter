@@ -37,7 +37,6 @@ locationsRouter.get("/", async (req, res) => {
           acc[id] = desc ? -1 : 1;
           return acc;
         }, {});
-        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
@@ -48,13 +47,11 @@ locationsRouter.get("/", async (req, res) => {
       const startIndex = parseInt(start, 10);
       const pageSize = parseInt(size, 10);
       totalRowCount = await Location.countDocuments(query.getFilter());
-      console.log("Total matching locations:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
     }
 
     // Execute the query
     const locations = await query.exec();
-    console.log("Fetched locations:", locations);
 
     res.json({ locations, meta: { totalRowCount } });
   } catch (err) {
@@ -64,6 +61,7 @@ locationsRouter.get("/", async (req, res) => {
 });
 
 locationsRouter.post("/", async (req, res) => {
+  console.log("Expense data received:", req.body);
   try {
     const { name } = req.body;
     const slug = slugify(name, { lower: true });

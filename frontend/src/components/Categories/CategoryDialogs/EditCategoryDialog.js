@@ -1,20 +1,22 @@
-import React from "react";
-import { Button, TextField, CircularProgress, Box } from "@mui/material";
+import React, { useEffect, useMemo } from "react";
+import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
-import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
-import UseCategoryDialog from "../UseCategory/UseCategoryDialog";
+import BasicDialog from "../../commons/BasicDialog/BasicDialog";
+import useCategoryDialog from "../UseCategory/UseCategoryDialog"
 
-const EditCategoryDialog = ({
-  open,
-  onClose,
-  selectedCategory,
-  onUpdateSuccess,
-  onUpdateFailure,
+const EditCategoryDialog = ({ 
+  open, 
+  onClose, 
+  selectedCategory, 
+  onUpdateSuccess, 
+  onUpdateFailure 
 }) => {
+  const memoizedSelectedCategory = useMemo(() => selectedCategory, [selectedCategory]);
+
   const {
-    categoryName,
-    setCategoryName,
+    category,
+    setCategory,
     loading,
     handleSaveCategory,
     resetValidationErrors,
@@ -23,12 +25,17 @@ const EditCategoryDialog = ({
     validationError,
     isFormValid,
     resetFormAndErrors,
-  } = UseCategoryDialog(selectedCategory);
+  } = useCategoryDialog(memoizedSelectedCategory);
+
+  // Synchronize state with selected category when dialog opens
+  useEffect(() => {
+    if (open) {
+      setCategory({ ...selectedCategory });
+    }
+  }, [selectedCategory, open, setCategory]);
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent the default form submission behavior
-
-    // Call the handleSaveLocation function from the hook to save the updated location
+    event.preventDefault();
     if (isFormValid()) {
       const success = await handleSaveCategory(onClose);
       if (success) {
@@ -46,45 +53,56 @@ const EditCategoryDialog = ({
         resetFormAndErrors();
         onClose();
       }}
-      dialogTitle="Edit Category"
+      dialogTitle="Rediger Kategori"
+      sx={{
+        '& .MuiDialog-paper': {
+          borderTop: '4px solid',
+          borderColor: 'primary.main',
+        }
+      }}
     >
       <form onSubmit={handleSubmit}>
-          <TextField
-            sx={{ marginTop: 2 }}
-            size="small"
-            label="Category Name"
-            value={categoryName}
-            error={Boolean(validationError)}
-            onChange={(e) => {
-              setCategoryName(e.target.value);
-              resetValidationErrors();
-              resetServerError(); // Clear validation errors when input changes
-            }}
-          />
-          {displayError || validationError ? (
-            <ErrorHandling
-              resource="categories"
-              field="categoryName"
-              loading={loading}
-            />
-          ) : null}
-          <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
-            <Button
-              type="submit"
-              onClick={handleSubmit}
-              disabled={loading || !isFormValid()}
-            >
-              {loading ? <CircularProgress size={24} /> : "Save"}
-            </Button>
-            <Button
-              onClick={() => {
-                resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-                onClose(); // Close the dialog
+        <Grid container direction="column" spacing={2}>
+          <Grid item>
+            <TextField
+              fullWidth
+              size="small"
+              label="Kategorinavn"
+              value={category?.name || ""}
+              error={Boolean(validationError?.name)}
+              onChange={(e) => {
+                setCategory({ ...category, name: e.target.value });
+                resetValidationErrors();
+                resetServerError();
               }}
-            >
-              Cancel
-            </Button>
-          </Box>
+            />
+            {(displayError || validationError) && (
+              <ErrorHandling
+                resource="categories"
+                field="name"
+                loading={loading}
+              />
+            )}
+          </Grid>
+        </Grid>
+        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+          <Button
+            type="submit"
+            disabled={loading || !isFormValid()}
+            sx={{ minWidth: 100 }}
+          >
+            {loading ? <CircularProgress size={24} /> : "Lagre"}
+          </Button>
+          <Button
+            onClick={() => {
+              resetFormAndErrors();
+              onClose();
+            }}
+            sx={{ ml: 2, minWidth: 100 }}
+          >
+            Avbryt
+          </Button>
+        </Grid>
       </form>
     </BasicDialog>
   );

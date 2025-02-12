@@ -12,42 +12,40 @@ const DeleteExpenseDialog = ({
   onDeleteSuccess,
   onDeleteFailure,
 }) => {
+  // Get deletion handler and loading state from the expense hook.
   const { handleDeleteExpense, loading } = useExpenseForm();
 
+  // Define a delete handler that calls the deletion function from the hook.
   const handleDelete = async () => {
-    console.log("Delete button clicked");
-    console.log("Selected Expense:", selectedExpense);
-    try {
-      const success = await handleDeleteExpense(
-        selectedExpense,
-        onDeleteSuccess,
-        onDeleteFailure
-      );
-      console.log("Deletion success:", success);
-      if (success) {
-        onClose();
-      }
-    } catch (error) {
-      console.error("Error during deletion:", error);
-      onDeleteFailure(selectedExpense);
+    const success = await handleDeleteExpense(
+      selectedExpense,
+      onDeleteSuccess,
+      onDeleteFailure
+    );
+    if (success) {
+      onClose();
     }
   };
 
   return (
-    <BasicDialog
+    <BasicDialog 
       open={open}
       onClose={onClose}
       dialogTitle={dialogTitle}
-      onConfirm={handleDelete}
-      cancelButton={<Button onClick={onClose} disabled={loading}>Avbryt</Button>}
-      confirmButton={<Button onClick={handleDelete} disabled={loading}>Slett</Button>}
+      // (Optional) onConfirm prop can be passed if BasicDialog uses it internally.
+      onConfirm={handleDeleteExpense}
+      cancelButton={
+        <Button onClick={onClose} disabled={loading}>Avbryt</Button>
+      }
+      confirmButton={
+        <Button onClick={handleDelete} disabled={loading}>Slett</Button>
+      }
     >
       {selectedExpense && (
         <Typography component="p" marginTop={2}>
           Er du sikker på at du vil slette denne utgiften? Utgifter tilhørende{" "}
           <Typography component="span" fontWeight="bold">
-            "{selectedExpense.productName?.name || selectedExpense.productName}" 
-            {/* Access the correct property or handle fallback */}
+            "{selectedExpense.productName?.name || selectedExpense.productName}"
           </Typography>{" "}
           vil også påvirkes.
         </Typography>
@@ -66,5 +64,6 @@ DeleteExpenseDialog.propTypes = {
 };
 
 export default DeleteExpenseDialog;
+
 
   

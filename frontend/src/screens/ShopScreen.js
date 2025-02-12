@@ -80,7 +80,7 @@ const ShopScreen = () => {
       {
         accessorKey: "name",
         header: "Butikk",
-        size: 300,
+        size: 150,
         grow: 2,
         minSize: 150,
         maxSize: 400,
@@ -88,7 +88,7 @@ const ShopScreen = () => {
       {
         accessorKey: "location",
         header: "Lokasjon",
-        size: 300,
+        size: 150,
         grow: 1,
         minSize: 150,
         maxSize: 300,
@@ -96,7 +96,7 @@ const ShopScreen = () => {
       {
         accessorKey: "category",
         header: "Kategori",
-        size: 300,
+        size: 100,
         grow: 1,
         minSize: 100,
         maxSize: 250,
@@ -299,7 +299,16 @@ return fetchURL;
 
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+      <Box
+  sx={{
+    display: "flex",
+    flexDirection: "column",
+    flexGrow: 1, // Allow this whole section to expand
+    width: "100%",
+    minHeight: "100%", // Ensure it stretches fully inside TableLayout
+  }}
+>
+<Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
           variant="contained"
           color="primary"
@@ -309,8 +318,15 @@ return fetchURL;
         </Button>
       </Box>
 
-      {/* Product Table */}
-      <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      {/* Product Table */}<Box
+    sx={{
+      flexGrow: 1, // Ensures the table fills all remaining space
+      display: "flex",
+      flexDirection: "column",
+      width: "100%",
+      minWidth: 600,
+    }}
+  >
         {shopsData && (
           <ReactTable
             data={shopsData?.shops}
@@ -341,8 +357,10 @@ return fetchURL;
             }}
             editModalOpen={editModalOpen}
             setDeleteModalOpen={setDeleteModalOpen}
+            sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
           />
         )}
+      </Box>
       </Box>
 
       {/* Modals */}

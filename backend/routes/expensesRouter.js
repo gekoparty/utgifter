@@ -64,120 +64,105 @@ function parseDateInput(value) {
 
 expensesRouter.get("/", async (req, res) => {
   try {
+    console.log("Expenses GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size, minPrice, maxPrice } = req.query;
-    
+
     let query = Expense.find();
 
-    // Populate fields
-   // Only populate fields if needed for filtering or sorting
-   if (columnFilters || globalFilter) {
-    query = query.populate('productName', 'name measures')  // Include measures here
-                 .populate('brandName', 'name')
-                 .populate('shopName', 'name')
-                 .populate('locationName', 'name');
-  }
-
-    // Apply price range filtering
+    // Price range filtering
     if (minPrice !== undefined && maxPrice !== undefined) {
-      query = query.where('price').gte(minPrice).lte(maxPrice);
+      query = query.where("price").gte(minPrice).lte(maxPrice);
     }
 
-
-    // Execute the initial query to get all records for filtering
-    let expenses = await query.exec();
-
+    // Column Filters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-    
-      expenses = expenses.filter(expense => {
-        return filters.every(filter => {
-          const { id, value } = filter;
-          if (id && value) {
-            if (id === 'purchaseDate' || id === 'registeredDate') {
-              // Parse the input value into a date
-              const inputDate = parseDateInput(value);
-              if (inputDate) {
-                // Check if the expense date is within the same month
-                const expenseDate = new Date(expense[id]);
-                return expenseDate.getFullYear() === inputDate.getFullYear() && 
-                       expenseDate.getMonth() === inputDate.getMonth();
-              }
-              return false; // If parsing fails, exclude this expense
-            } else if (['productName', 'brandName', 'shopName', 'locationName'].includes(id)) {
-              return new RegExp(`^${value}`, "i").test(expense[id]?.name);
-            } else {
-              return new RegExp(`^${value}`, "i").test(expense[id]);
+      filters.forEach(({ id, value }) => {
+        if (id && value) {
+          if (id === "purchaseDate" || id === "registeredDate") {
+            // Parse date and filter by year/month
+            const inputDate = parseDateInput(value);
+            if (inputDate) {
+              query = query.where(id)
+                .gte(new Date(inputDate.getFullYear(), inputDate.getMonth(), 1))
+                .lt(new Date(inputDate.getFullYear(), inputDate.getMonth() + 1, 1));
             }
+          } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
+            query = query.populate({
+              path: id,
+              match: { name: new RegExp(value, "i") },
+            });
+          } else {
+            query = query.where(id).regex(new RegExp(value, "i"));
           }
-          return true;
-        });
+        }
       });
     }
 
-    // Apply globalFilter
+    // Global Filter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-   
-
-      expenses = expenses.filter(expense => {
-        return ['productName', 'brandName', 'shopName', 'locationName'].some(field => {
-          return globalFilterRegex.test(expense[field]?.name);
-        });
-      });
+      query = query.or([
+        { productName: { $regex: globalFilterRegex, $options: "i" } },
+        { brandName: { $regex: globalFilterRegex, $options: "i" } },
+        { shopName: { $regex: globalFilterRegex, $options: "i" } },
+        { locationName: { $regex: globalFilterRegex, $options: "i" } },
+      ]);
     }
 
-    // Get total row count after filtering
-    const totalRowCount = expenses.length;
-
-    // Apply sorting
+    // Sorting
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
-        const { id, desc } = sortConfig;
-
-        expenses = expenses.sort((a, b) => {
-          let fieldA = id === 'purchaseDate' || id === 'registeredDate' ? new Date(a[id]) : (a[id]?.name || a[id]);
-          let fieldB = id === 'purchaseDate' || id === 'registeredDate' ? new Date(b[id]) : (b[id]?.name || b[id]);
-
-          if (desc) {
-            return fieldA > fieldB ? -1 : fieldA < fieldB ? 1 : 0;
-          } else {
-            return fieldA < fieldB ? -1 : fieldA > fieldB ? 1 : 0;
-          }
-        });
+        const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
+          acc[id] = desc ? -1 : 1;
+          return acc;
+        }, {});
+        console.log("Applying sort:", sortObject);
+        query = query.sort(sortObject);
       }
     }
 
-    // Apply pagination
-    if (start && size) {
-      const startIndex = parseInt(start);
-      const pageSize = parseInt(size);
-
-      expenses = expenses.slice(startIndex, startIndex + pageSize);
+    // Pagination
+    let totalRowCount = 0;
+    if (start !== undefined && size !== undefined) {
+      const startIndex = parseInt(start, 10);
+      const pageSize = parseInt(size, 10);
+      totalRowCount = await Expense.countDocuments(query.getFilter());
+      console.log("Total matching expenses:", totalRowCount);
+      query = query.skip(startIndex).limit(pageSize);
     }
 
-    // Format the expenses
+    // Execute the query
+    const expenses = await query
+      .populate("productName", "name measures measurementUnit")
+      .populate("brandName", "name")
+      .populate("shopName", "name")
+      .populate("locationName", "name")
+      .exec();
+
+
+    // Format and enrich response
     const formattedExpenses = expenses.map(expense => ({
       ...expense.toObject(),
-      productName: expense.productName?.name || '',
-      brandName: expense.brandName?.name || '',
-      shopName: expense.shopName?.name || '',
-      measures: expense.productName?.measures || '',  // Include the measures field
-      locationName: expense.locationName?.name || '',
+      productName: expense.productName?.name || "",
+      brandName: expense.brandName?.name || "",
+      shopName: expense.shopName?.name || "",
+      measures: expense.productName?.measures || "",
+      locationName: expense.locationName?.name || "",
       purchaseDate: formatDate(expense.purchaseDate),
-      registeredDate: formatDate(expense.registeredDate)
+      registeredDate: formatDate(expense.registeredDate),
     }));
 
-    console.log("Formatted Expenses Sent to Frontend:", formattedExpenses);
-    // Send response with both paginated data and total row count
-    res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
+    
 
+    res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
+    console.error("Error in /api/expenses:", err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 expensesRouter.get("/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -280,12 +265,23 @@ expensesRouter.post("/", async (req, res) => {
     }
 
     // Save all expense documents
-    const savedExpenses = await Expense.insertMany(expensesToSave);
+    // Save all expense documents
+  const savedExpenses = await Expense.insertMany(expensesToSave);
 
-    res.status(201).json(savedExpenses);
+  // Populate product name for better frontend handling
+  const populatedExpenses = await Expense.populate(savedExpenses, {
+    path: "productName",
+    select: "name"
+  });
+
+  res.status(201).json({
+    message: "Utgift lagret!",
+    data: populatedExpenses
+  });
+    
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: "Serverfeil. Vennligst prøv igjen."  });
   }
 });
 
