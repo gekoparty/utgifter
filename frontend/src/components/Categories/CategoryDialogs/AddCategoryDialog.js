@@ -1,14 +1,15 @@
 import React from "react";
-import { Button, TextField, CircularProgress, Box } from "@mui/material";
+import { Button, TextField, CircularProgress, Grid, Box } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
-import UseCategoryDialog from "../UseCategory/UseCategoryDialog";
+import useCategoryDialog from "../UseCategory/UseCategoryDialog"
+
 
 const AddCategoryDialog = ({ open, onClose, onAdd }) => {
   const {
-    categoryName,
-    setCategoryName,
+    category,
+    setCategory,
     loading,
     handleSaveCategory,
     resetValidationErrors,
@@ -17,16 +18,14 @@ const AddCategoryDialog = ({ open, onClose, onAdd }) => {
     validationError,
     isFormValid,
     resetFormAndErrors,
-  } = UseCategoryDialog();
+  } = useCategoryDialog();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
-    // Call the handleSaveCategory function from the hook to save the new location
     if (isFormValid()) {
       const success = await handleSaveCategory(onClose);
       if (success) {
-        onAdd({ name: categoryName }); // Trigger the onAdd function to show the success snackbar with the location name
+        onAdd({ name: category.name });
       }
     }
   };
@@ -36,46 +35,61 @@ const AddCategoryDialog = ({ open, onClose, onAdd }) => {
       open={open}
       onClose={() => {
         resetFormAndErrors();
-        onClose(); // Close the dialog after resetting the form and errors
+        onClose();
       }}
       dialogTitle="Ny Kategori"
     >
-      <form id="addCategoryForm" onSubmit={handleSubmit}>
-        <TextField
-          size="small"
-          sx={{ marginTop: 2 }}
-          label="Sted"
-          value={categoryName}
-          error={Boolean(validationError)}
-          onChange={(e) => {
-            setCategoryName(e.target.value);
-            resetValidationErrors();
-            resetServerError(); // Clear validation errors when input changes
-          }}
-        />
-        {displayError || validationError ? (
-          <ErrorHandling
-            resource="categories"
-            field="categoryName"
-            loading={loading}
-          />
-        ) : null}
-
-        <Box sx={{ display: "flex", justifyContent: "flex-end", marginTop: 2 }}>
-          
+      <form onSubmit={handleSubmit}>
+        <Grid container direction="column" spacing={2}>
+          <Grid item>
+            <TextField
+              fullWidth
+              sx={{ marginTop: 2 }}
+              size="small"
+              label="Kategori"
+              value={category?.name || ""}
+              error={Boolean(validationError?.name)}
+              onChange={(e) => {
+                setCategory({ ...category, name: e.target.value });
+                resetValidationErrors();
+                resetServerError();
+              }}
+            />
+            {(displayError || validationError) && (
+              <ErrorHandling
+                resource="categories"
+                field="name"
+                loading={loading}
+              />
+            )}
+          </Grid>
+        </Grid>
+        
+        {/* Updated Button Section - Matching AddShopDialog */}
+        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+          <Button
+            type="submit" 
+            disabled={loading || !isFormValid()}
+            
+          >
+            {loading ? (
+              <CircularProgress size={24} sx={{ color: 'inherit' }} />
+            ) : "Lagre"}
+          </Button>
           <Button
             onClick={() => {
-              resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-              onClose(); // Close the dialog
+              resetFormAndErrors();
+              onClose();
             }}
-            sx={{ marginLeft: 2 }}
+            sx={{ 
+              ml: 2,
+              minWidth: 100,
+              color: theme => theme.palette.text.secondary
+            }}
           >
-            Cancel
+            Avbryt
           </Button>
-          <Button type="submit" disabled={loading || !isFormValid()}>
-            {loading ? <CircularProgress size={24} /> : "Lagre"}
-          </Button>
-        </Box>
+        </Grid>
       </form>
     </BasicDialog>
   );

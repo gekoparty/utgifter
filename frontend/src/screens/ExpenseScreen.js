@@ -1,4 +1,11 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  lazy,
+  Suspense,
+  useCallback,
+} from "react";
 import {
   Box,
   Button,
@@ -12,13 +19,20 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import debounce from "lodash/debounce";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQuery } from "@tanstack/react-query";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@mui/material/styles";
-import AddExpenseDialog from "../components/Expenses/ExpenseDialogs/AddExpenseDialog";
-import DeleteExpenseDialog from "../components/Expenses/ExpenseDialogs/DeleteExpenseDialog";
-import EditExpenseDialog from "../components/Expenses/ExpenseDialogs/EditExpenseDialog";
-import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
+import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel"
+
+// Lazy-loaded Expense Dialogs
+const AddExpenseDialog = lazy(() =>
+  import("../components/Expenses/ExpenseDialogs/AddExpenseDialog")
+);
+const DeleteExpenseDialog = lazy(() =>
+  import("../components/Expenses/ExpenseDialogs/DeleteExpenseDialog")
+);
+const EditExpenseDialog = lazy(() =>
+  import("../components/Expenses/ExpenseDialogs/EditExpenseDialog")
+);
 
 // Constants
 const INITIAL_PAGINATION = {
@@ -51,11 +65,13 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
+
 // Debounced Price Range Filter Component
 const PriceRangeFilter = ({ value, onChange }) => {
   const handleSliderChange = (event, newValue) => {
     onChange(newValue);
   };
+
 
   return (
     <Box sx={{ width: 300, mb: 2 }} data-testid="price-range-filter">
@@ -73,6 +89,7 @@ const PriceRangeFilter = ({ value, onChange }) => {
 };
 
 const ExpenseScreen = () => {
+  // Table state
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -80,14 +97,58 @@ const ExpenseScreen = () => {
   const [selectedExpense, setSelectedExpense] = useState(
     INITIAL_SELECTED_EXPENSE
   );
+
+  // Dialog modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+
+  // Price range filter with debouncing so rapid slider changes won’t trigger many fetches
   const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
-  const [priceStatsByType, setPriceStatsByType] = useState({});
+  const [debouncedPriceRangeFilter, setDebouncedPriceRangeFilter] = useState([
+    0, 1000,
+  ]);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedPriceRangeFilter(priceRangeFilter);
+    }, 1000);
+    return () => clearTimeout(handler);
+  }, [priceRangeFilter]);
 
   const theme = useTheme();
+  const memoizedSelectedExpense = useMemo(
+    () => selectedExpense,
+    [selectedExpense]
+  );
 
+  const queryClient = useQueryClient();
+
+   // Helper: Build the fetch URL using the current table state
+   const buildFetchURL = (
+    pageIndex,
+    pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    priceRange
+  ) => {
+    const fetchURL = new URL("/api/expenses", API_URL);
+    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+    fetchURL.searchParams.set("size", `${pageSize}`);
+    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(columnFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    fetchURL.searchParams.set("minPrice", `${priceRange[0]}`);
+    if (priceRange[1] < 1000) {
+      fetchURL.searchParams.set("maxPrice", `${priceRange[1]}`);
+    }
+    return fetchURL;
+  };
+
+  // Calculate price statistics for color coding in the table cells
   const calculatePriceStatsByType = (data) => {
     const stats = {};
     const groupedByType = data.reduce((acc, item) => {
@@ -107,11 +168,123 @@ const ExpenseScreen = () => {
     return stats;
   };
 
-  const renderDetailPanel = useCallback(
-    ({ row }) => <DetailPanel row={row} data-testid="detail-panel" />,
-    []
+  // Fetch expenses data and update price stats
+  const fetchExpenses = async () => {
+    const fetchURL = buildFetchURL(
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+      debouncedPriceRangeFilter
+    );
+    const response = await fetch(fetchURL.href);
+    if (!response.ok) {
+      throw new Error(`Error: ${response.statusText} (${response.status})`);
+    }
+    const json = await response.json();
+    const stats = calculatePriceStatsByType(json.expenses);
+    setPriceStatsByType(stats);
+    return { expenses: json.expenses, meta: json.meta };
+  };
+
+   // Prefetch function for preloading the next page’s data
+   const prefetchPageData = async (nextPageIndex) => {
+    const fetchURL = buildFetchURL(
+      nextPageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+      debouncedPriceRangeFilter
+    );
+    await queryClient.prefetchQuery(
+      [
+        "expenses",
+        columnFilters,
+        globalFilter,
+        nextPageIndex,
+        pagination.pageSize,
+        sorting,
+        debouncedPriceRangeFilter,
+      ],
+      async () => {
+        const response = await fetch(fetchURL.href);
+        if (!response.ok) {
+          throw new Error(
+            `Error: ${response.statusText} (${response.status})`
+          );
+        }
+        const json = await response.json();
+        return { expenses: json.expenses, meta: json.meta };
+      }
+    );
+  };
+
+  // Include debounced price range in the query key so that changing it re-fetches data
+  const queryKey = useMemo(
+    () => [
+      "expenses",
+      columnFilters,
+      globalFilter,
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      debouncedPriceRangeFilter,
+    ],
+    [
+      columnFilters,
+      globalFilter,
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      debouncedPriceRangeFilter,
+    ]
   );
 
+  // React Query hook for expenses
+  const {
+    data: expensesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: queryKey,
+    queryFn: fetchExpenses,
+    keepPreviousData: true,
+    refetchOnMount: true,
+  });
+
+   // Ensure default sorting if sorting state becomes empty
+   useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+  // Prefetch next page whenever pagination, sorting, or filters change
+  useEffect(() => {
+    const nextPageIndex = pagination.pageIndex + 1;
+    prefetchPageData(nextPageIndex);
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    debouncedPriceRangeFilter,
+    queryClient,
+  ]);
+
+// Local state for price statistics
+const [priceStatsByType, setPriceStatsByType] = useState({});
+
+// Render the detail panel for each row (if needed)
+const renderDetailPanel = useCallback(
+  ({ row }) => <DetailPanel row={row} data-testid="detail-panel" />,
+  []
+);
+
+  // Table columns configuration
   const tableColumns = useMemo(
     () => [
       {
@@ -127,21 +300,22 @@ const ExpenseScreen = () => {
         Cell: ({ cell, row }) => {
           const price = cell.getValue();
           const type = row.original.type;
-          const stats = priceStatsByType[type] || { min: 0, max: 0, median: 0 };
-  
-          let backgroundColor = theme.palette.warning.main; // Default to warning
-          let textColor = theme.palette.warning.contrastText; // Default contrast text
-  
+          const stats =
+            priceStatsByType[type] || { min: 0, max: 0, median: 0 };
+
+          let backgroundColor = theme.palette.warning.main;
+          let textColor = theme.palette.warning.contrastText;
+
           if (stats.median > 0) {
             if (price <= stats.min + (stats.median - stats.min) / 2) {
-              backgroundColor = theme.palette.success.main; // Use success color
-              textColor = theme.palette.success.contrastText; // Success text contrast
+              backgroundColor = theme.palette.success.main;
+              textColor = theme.palette.success.contrastText;
             } else if (price >= stats.max - (stats.max - stats.median) / 2) {
-              backgroundColor = theme.palette.error.main; // Use error color
-              textColor = theme.palette.error.contrastText; // Error text contrast
+              backgroundColor = theme.palette.error.main;
+              textColor = theme.palette.error.contrastText;
             }
           }
-  
+
           return (
             <Box
               component="span"
@@ -176,64 +350,17 @@ const ExpenseScreen = () => {
         header: "Purchase Date",
         filterVariant: "date",
         Cell: ({ cell }) => {
-          const dateValue = cell.getValue(); // Ensure this is a valid date string
-          return dateValue ? new Date(dateValue).toLocaleDateString() : "Invalid Date";
+          const dateValue = cell.getValue();
+          return dateValue
+            ? new Date(dateValue).toLocaleDateString()
+            : "Invalid Date";
         },
-      }
+      },
     ],
-    [priceStatsByType, priceRangeFilter]
+    [priceStatsByType, theme]
   );
 
-  const queryClient = useQueryClient();
-  const queryKey = [
-    "expenses",
-    columnFilters,
-    globalFilter,
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-  ];
-
-  const fetchExpenses = async () => {
-    const fetchURL = new URL("/api/expenses", API_URL);
-    fetchURL.searchParams.set(
-      "start",
-      `${pagination.pageIndex * pagination.pageSize}`
-    );
-    fetchURL.searchParams.set("size", `${pagination.pageSize}`);
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set("minPrice", `${priceRangeFilter[0]}`);
-    if (priceRangeFilter[1] < 1000) {
-      fetchURL.searchParams.set("maxPrice", `${priceRangeFilter[1]}`);
-    }
-
-    const response = await fetch(fetchURL.href);
-    const json = await response.json();
-
-    const stats = calculatePriceStatsByType(json.expenses);
-    setPriceStatsByType(stats);
-
-    return { expenses: json.expenses, meta: json.meta };
-  };
-
-  const {
-    data: expensesData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: fetchExpenses,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
-
+  // Snackbar state and handlers for feedback messages
   const {
     snackbarOpen,
     snackbarMessage,
@@ -243,14 +370,23 @@ const ExpenseScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  const addExpenseHandler = (newExpense) => {
-    if (!newExpense || !newExpense.productName) {
-      showErrorSnackbar("Failed to add expense due to missing product name.");
+   // Expense action handlers
+   const addExpenseHandler = (savedData) => {
+    // Handle bulk insert response
+    const expenses = Array.isArray(savedData) ? savedData : [savedData];
+    
+    if (expenses.length === 0 || !expenses[0]?.productName) {
+      showErrorSnackbar("Kunne ikke legge til utgift. Ugyldig respons fra server.");
       return;
     }
-    showSuccessSnackbar(`Expense ${newExpense.productName} added successfully`);
-    queryClient.invalidateQueries("expenses");
-    refetch();
+  
+    showSuccessSnackbar(`${expenses.length} utgift(er) lagret!`);
+    
+    // Force immediate refresh instead of waiting for cache
+    queryClient.invalidateQueries({ 
+      queryKey: ["expenses"],
+      refetchType: "active" 
+    });
   };
 
   const deleteFailureHandler = (failedExpense) => {
@@ -258,34 +394,25 @@ const ExpenseScreen = () => {
   };
 
   const deleteSuccessHandler = (deletedExpense) => {
-    const productName =
-      deletedExpense.productName?.name || deletedExpense.productName;
-    showSuccessSnackbar(`Expense "${productName}" deleted successfully`);
-    queryClient.invalidateQueries("expenses");
-    refetch();
+    const productName = deletedExpense.productName?.name || "Ukjent produkt";
+    showSuccessSnackbar(`Utgift for "${productName}" slettet!`);
+    queryClient.invalidateQueries({ queryKey: ["expenses"], exact: false });
   };
+  
 
   const editFailureHandler = () => {
     showErrorSnackbar("Failed to update expense");
   };
 
   const editSuccessHandler = (updatedExpense) => {
-    showSuccessSnackbar(
-      `Expense ${updatedExpense.productName} updated successfully`
-    );
-    queryClient.invalidateQueries("expenses");
-    refetch();
+    const productName = updatedExpense.productName?.name || "Ukjent produkt";
+    showSuccessSnackbar(`Utgift for "${productName}" oppdatert!`);
+    queryClient.invalidateQueries({ queryKey: ["expenses"], exact: false });
   };
 
-  const debouncedRefetch =
-    (debounce(() => {
-      refetch();
-    }, 1000),
-    []);
-
+  // Handle slider changes by updating the price range filter state
   const handlePriceRangeChange = (newRange) => {
     setPriceRangeFilter(newRange);
-    debouncedRefetch();
   };
 
   return (
@@ -302,90 +429,110 @@ const ExpenseScreen = () => {
         >
           New Expense
         </Button>
-        <PriceRangeFilter
-          value={priceRangeFilter}
-          onChange={handlePriceRangeChange}
-          data-testid="price-range-filter"
-        />
+        <PriceRangeFilter value={priceRangeFilter} onChange={handlePriceRangeChange} />
       </Box>
 
       <Box
-        sx={{ width: "100%", display: "flex", justifyContent: "center", boxShadow: 2  }}
+        sx={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          boxShadow: 2,
+        }}
         data-testid="table-wrapper"
       >
-          {expensesData && (
-            <ReactTable
-              muiTableContainerProps={{
-                sx: {
-                  width: "100%", // Ensure table spans full width
-                  overflowX: "auto", // Prevent horizontal overflow
-                },
-                "data-testid": "mui-table-container",
-              }}
-              muiTopToolbarProps={{
-                sx: {
-                  width: "100%", // Ensure the toolbar spans the full width
-                },
-                "data-testid": "mui-top-toolbar",
-              }}
-              data={expensesData?.expenses}
-              columns={tableColumns}
-              setColumnFilters={setColumnFilters}
-              setGlobalFilter={setGlobalFilter}
-              setSorting={setSorting}
-              setPagination={setPagination}
-              refetch={refetch}
-              isError={isError}
-              isFetching={isFetching}
-              isLoading={isLoading}
-              columnFilters={columnFilters}
-              globalFilter={globalFilter}
-              pagination={pagination}
-              sorting={sorting}
-              meta={expensesData?.meta}
-              setSelectedExpense={setSelectedExpense}
-              totalRowCount={expensesData?.meta?.totalRowCount}
-              rowCount={expensesData?.meta?.totalRowCount ?? 0}
-              handleEdit={(expense) => {
-                setSelectedExpense(expense);
-                setEditModalOpen(true);
-              }}
-              handleDelete={(expense) => {
-                setSelectedExpense(expense);
-                setDeleteModalOpen(true);
-              }}
-              editModalOpen={editModalOpen}
-              setDeleteModalOpen={setDeleteModalOpen}
-              initialState={{
-                columnPinning: {
-                  left: ["mrt-row-actions", "productName", "brandName"],
-                  right: ["finalPrice"],
-                },
-              }}
-              renderDetailPanel={renderDetailPanel}
-              data-testid="react-table"
-            />
-          )}
+        {expensesData && (
+          <ReactTable
+            muiTableContainerProps={{
+              sx: {
+                width: "100%",
+                overflowX: "auto",
+              },
+              "data-testid": "mui-table-container",
+            }}
+            muiTopToolbarProps={{
+              sx: {
+                width: "100%",
+              },
+              "data-testid": "mui-top-toolbar",
+            }}
+            
+            data={expensesData?.expenses}
+            columns={tableColumns}
+            setColumnFilters={setColumnFilters}
+            setGlobalFilter={setGlobalFilter}
+            setSorting={setSorting}
+            setPagination={setPagination}
+            refetch={refetch}
+            isError={isError}
+            isFetching={isFetching}
+            isLoading={isLoading}
+            columnFilters={columnFilters}
+            globalFilter={globalFilter}
+            pagination={pagination}
+            sorting={sorting}
+            meta={expensesData?.meta}
+            setSelectedExpense={setSelectedExpense}
+            totalRowCount={expensesData?.meta?.totalRowCount}
+            rowCount={expensesData?.meta?.totalRowCount ?? 0}
+            handleEdit={(expense) => {
+              setSelectedExpense(expense);
+              setEditModalOpen(true);
+            }}
+            handleDelete={(expense) => {
+              setSelectedExpense(expense);
+              setDeleteModalOpen(true);
+            }}
+            editModalOpen={editModalOpen}
+            setDeleteModalOpen={setDeleteModalOpen}
+            initialState={{
+              columnPinning: {
+                left: ["mrt-row-actions", "productName", "brandName"],
+                right: ["finalPrice"],
+              },
+            }}
+            renderDetailPanel={renderDetailPanel}
+            data-testid="react-table"
+          />
+        )}
       </Box>
 
-      <DeleteExpenseDialog
-        open={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        dialogTitle="Confirm Deletion"
-        selectedExpense={selectedExpense}
-        onDeleteSuccess={deleteSuccessHandler}
-        onDeleteFailure={deleteFailureHandler}
-        data-testid="delete-expense-dialog"
-      />
+      {/* Lazy-loaded dialogs wrapped in Suspense */}
+      <Suspense fallback={<div>Loading Dialog...</div>}>
+        {memoizedSelectedExpense._id && editModalOpen && (
+          <EditExpenseDialog
+            open={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            selectedExpense={selectedExpense}
+            onUpdateSuccess={editSuccessHandler}
+            onUpdateFailure={editFailureHandler}
+            data-testid="edit-expense-dialog"
+          />
+        )}
+      </Suspense>
 
-      <EditExpenseDialog
-        open={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        selectedExpense={selectedExpense}
-        onUpdateSuccess={editSuccessHandler}
-        onUpdateFailure={editFailureHandler}
-        data-testid="edit-expense-dialog"
-      />
+      <Suspense fallback={<div>Loading Dialog...</div>}>
+        <DeleteExpenseDialog
+          open={deleteModalOpen}
+          onClose={() => setDeleteModalOpen(false)}
+          dialogTitle="Confirm Deletion"
+          selectedExpense={selectedExpense}
+          onDeleteSuccess={deleteSuccessHandler}
+          onDeleteFailure={deleteFailureHandler}
+          data-testid="delete-expense-dialog"
+        />
+      </Suspense>
+
+      <Suspense fallback={<div>Loading Dialog...</div>}>
+        {addExpenseDialogOpen && (
+          <AddExpenseDialog
+            open={addExpenseDialogOpen}
+            onClose={() => setAddExpenseDialogOpen(false)}
+            onAdd={addExpenseHandler}
+            data-testid="add-expense-dialog"
+          />
+        )}
+      </Suspense>
 
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -395,15 +542,15 @@ const ExpenseScreen = () => {
         data-testid="snackbar"
       >
         <SnackbarContent
-         sx={{
-          backgroundColor:
-            snackbarSeverity === "success"
-              ? theme.palette.success.main
-              : snackbarSeverity === "error"
-              ? theme.palette.error.main
-              : theme.palette.info.main, // Default to info if no severity
-          color: theme.palette.success.contrastText, // Use theme-based text contrast color
-        }}
+          sx={{
+            backgroundColor:
+              snackbarSeverity === "success"
+                ? theme.palette.success.main
+                : snackbarSeverity === "error"
+                ? theme.palette.error.main
+                : theme.palette.info.main,
+            color: theme.palette.success.contrastText,
+          }}
           message={snackbarMessage}
           action={
             <IconButton
@@ -417,15 +564,8 @@ const ExpenseScreen = () => {
           }
         />
       </Snackbar>
-      {addExpenseDialogOpen && (
-        <AddExpenseDialog
-          onClose={() => setAddExpenseDialogOpen(false)}
-          open={addExpenseDialogOpen}
-          onAdd={addExpenseHandler}
-          data-testid="add-expense-dialog"
-        />
-      )}
     </TableLayout>
   );
 };
+
 export default ExpenseScreen;

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import {
   Box,
   Button,
@@ -6,15 +7,16 @@ import {
   InputAdornment,
   Checkbox,
   FormControlLabel,
+  CircularProgress,
 } from "@mui/material";
-import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import useExpenseForm from "../useExpenseForm";
-import ExpenseField from "../../commons/ExpenseField/ExpenseField";
 import dayjs from "dayjs";
-import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
-import useFetchData from "../../../hooks/useFetchData"; // Adjust path as needed
+import BasicDialog from "../../commons/BasicDialog/BasicDialog";
+import ExpenseField from "../../commons/ExpenseField/ExpenseField";
 import WindowedSelect from "react-windowed-select";
+import useExpenseForm from "../useExpenseForm";
+import useFetchData from "../../../hooks/useFetchData";
+import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 
 const defaultExpense = {
   productName: "",
@@ -33,22 +35,31 @@ const defaultExpense = {
   purchaseDate: null,
   type: "",
   measurementUnit: "",
-  pricePerUnit: 0, // New field for price per kg or L
+  pricePerUnit: 0,
 };
 
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
+  // Use the expense form hook. (Note: If you need to pass an initial expense, you can adjust here.)
   const {
-    expense = defaultExpense,
+    expense,
     handleSaveExpense,
     isFormValid,
     setExpense,
     resetFormAndErrors,
+    loading,
   } = useExpenseForm();
 
-  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
-  const [availableMeasures, setAvailableMeasures] = useState([]);
+  // Destructure field-change handlers (including discount changes)
+  const {
+    handleFieldChange,
+    handleDiscountAmountChange,
+    handleDiscountValueChange,
+  } = useHandleFieldChange(expense, setExpense);
 
-  // Ensure that products is an array by extracting the products array from the response
+  // Local state for volume display (for manual input)
+  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+
+  // Fetch products, brands, and shops options
   const {
     data: products,
     isLoading: isLoadingProducts,
@@ -60,7 +71,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     { enabled: open }
   );
 
-  // Similarly, if brands are wrapped in an object, adjust the transform accordingly.
   const {
     data: brands,
     isLoading: isLoadingBrands,
@@ -72,7 +82,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     { enabled: open }
   );
 
-  // For shops, you already have a transform that maps each shop to include locationName.
   const {
     data: shops,
     isLoading: isLoadingShops,
@@ -81,9 +90,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     "shops",
     "/api/shops",
     async (shopsData) => {
-      // Expecting shopsData to be either an array or an object containing shops
-      // Adjust if needed; here, we'll assume it's directly an array.
-      const shopsArray = Array.isArray(shopsData) ? shopsData : shopsData?.shops || [];
+      const shopsArray = Array.isArray(shopsData)
+        ? shopsData
+        : shopsData?.shops || [];
       return Promise.all(
         shopsArray.map(async (shop) => {
           const locationResponse = await fetch(`/api/locations/${shop.location}`);
@@ -95,491 +104,441 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     { enabled: open }
   );
 
-  // Trigger data fetching when the dialog opens
+  // Refetch data when the dialog opens
   useEffect(() => {
     if (open) {
-      if (!products || (Array.isArray(products) && products.length === 0)) {
-        refetchProducts();
-      }
-      if (!brands || (Array.isArray(brands) && brands.length === 0)) {
-        refetchBrands();
-      }
-      if (!shops || (Array.isArray(shops) && shops.length === 0)) {
-        refetchShops();
-      }
+      refetchProducts();
+      refetchBrands();
+      refetchShops();
     }
-  }, [open, products, brands, shops, refetchProducts, refetchBrands, refetchShops]);
+  }, [open, refetchProducts, refetchBrands, refetchShops]);
 
-  const isLoading = !open || isLoadingProducts || isLoadingBrands || isLoadingShops;
+  // Ensure that options are arrays
+  const safeProducts = Array.isArray(products) ? products : [];
+  const safeBrands = Array.isArray(brands) ? brands : [];
+  const safeShops = Array.isArray(shops) ? shops : [];
 
+  // Update the local volume display when expense.volume changes
   useEffect(() => {
-    console.log("Products fetched:", products);
-  }, [products]);
+    setVolumeDisplay(expense.volume || "");
+  }, [expense.volume]);
 
-  const handleDateChange = (date) => {
-    if (!dayjs(date).isValid()) return;
-
-    if (expense.purchased) {
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        purchaseDate: date,
-      }));
-    } else {
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        registeredDate: date,
-      }));
-    }
-  };
-
-  const { handleFieldChange, handleDiscountAmountChange, handleDiscountValueChange } =
-    useHandleFieldChange(expense, setExpense);
-
-  const handlePurchaseChange = (event) => {
-    const isPurchased = event.target.checked;
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      purchased: isPurchased,
-      registeredDate: isPurchased ? null : prevExpense.registeredDate,
-      purchaseDate: isPurchased ? prevExpense.purchaseDate : null,
-    }));
-  };
-
-  const handleRegisterChange = (event) => {
-    const isRegistered = event.target.checked;
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      purchased: !isRegistered,
-      registeredDate: isRegistered ? prevExpense.registeredDate : null,
-      purchaseDate: isRegistered ? null : prevExpense.purchaseDate,
-    }));
-  };
-
-  const handleQuantityChange = (event) => {
-    const value = event.target.value;
-    handleFieldChange("quantity", value);
-  };
-
-  const handleShopSelect = (shop) => {
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      shopName: shop ? shop.value : "",
-      locationName: shop ? shop.locationName : "",
-    }));
-  };
-
-  const handleBrandSelect = (selectedOption) => {
-    setExpense((prevExpense) => ({
-      ...prevExpense,
-      brandName: selectedOption ? selectedOption.name : "",
-    }));
-  };
-
+  // Handlers for selections:
   const handleProductSelect = (selectedOption) => {
     if (selectedOption) {
-      console.log("Selected Product:", selectedOption);
+      const unit = selectedOption.measurementUnit || 'unit'; // Fallback if necessary
       if (selectedOption.measures && selectedOption.measures.length > 0) {
         const firstMeasure = selectedOption.measures[0];
-        setAvailableMeasures(selectedOption.measures);
-        setExpense((prevExpense) => ({
-          ...prevExpense,
+        setExpense((prev) => ({
+          ...prev,
           productName: selectedOption.name,
           type: selectedOption.type,
-          measurementUnit: selectedOption.measurementUnit,
+          measurementUnit: unit,
           volume: firstMeasure,
         }));
         setVolumeDisplay(firstMeasure.toString());
       } else {
-        console.log("No measures available for this product.");
-        setAvailableMeasures([]);
-        setExpense((prevExpense) => ({
-          ...prevExpense,
+        setExpense((prev) => ({
+          ...prev,
           productName: selectedOption.name,
           type: selectedOption.type,
-          measurementUnit: selectedOption.measurementUnit,
+          measurementUnit: unit,
           volume: 0,
         }));
         setVolumeDisplay("");
       }
     } else {
-      setExpense((prevExpense) => ({
-        ...prevExpense,
+      setExpense((prev) => ({
+        ...prev,
         productName: "",
         type: "",
         measurementUnit: "",
         volume: 0,
       }));
-      setAvailableMeasures([]);
       setVolumeDisplay("");
     }
   };
 
-  useEffect(() => {
-    setVolumeDisplay(expense.volume || "");
-  }, [expense.volume]);
+  const handleBrandSelect = (selectedOption) => {
+    setExpense((prev) => ({
+      ...prev,
+      brandName: selectedOption ? selectedOption.name : "",
+    }));
+  };
 
+  const handleShopSelect = (selectedOption) => {
+    setExpense((prev) => ({
+      ...prev,
+      shopName: selectedOption ? selectedOption.value : "",
+      locationName: selectedOption ? selectedOption.locationName : "",
+    }));
+  };
+
+  const handleDateChange = (date) => {
+    if (!dayjs(date).isValid()) return;
+    if (expense.purchased) {
+      setExpense((prev) => ({ ...prev, purchaseDate: date }));
+    } else {
+      setExpense((prev) => ({ ...prev, registeredDate: date }));
+    }
+  };
+
+  // Handle volume changes from select or manual input
   const handleVolumeChange = (selectedOption) => {
     if (selectedOption) {
       setVolumeDisplay(selectedOption.label);
-      handleFieldChange("volume", parseFloat(selectedOption.label));
+      setExpense((prev) => ({ ...prev, volume: parseFloat(selectedOption.label) }));
     } else {
       setVolumeDisplay("");
-      handleFieldChange("volume", 0);
+      setExpense((prev) => ({ ...prev, volume: 0 }));
     }
   };
 
   const handleManualVolumeInput = (event) => {
     const value = event.target.value;
     setVolumeDisplay(value);
-    const numericValue = parseFloat(value);
-    handleFieldChange("volume", numericValue);
+    setExpense((prev) => ({ ...prev, volume: parseFloat(value) }));
   };
 
+  // Handler for discount checkbox
   const handleDiscountChange = (event) => {
     const { checked } = event.target;
-    handleFieldChange("hasDiscount", checked);
-    if (!checked) {
-      handleFieldChange("discountValue", 0);
-      handleFieldChange("discountAmount", 0);
+    setExpense((prev) => ({
+      ...prev,
+      hasDiscount: checked,
+      // Optionally reset discount values if unchecked
+      discountValue: checked ? prev.discountValue : 0,
+      discountAmount: checked ? prev.discountAmount : 0,
+    }));
+  };
+
+  // Handlers for quantity, purchase/registration checkboxes:
+  const handleQuantityChange = (event) => {
+    const value = event.target.value;
+    setExpense((prev) => ({ ...prev, quantity: value }));
+  };
+
+  const handlePurchaseChange = (event) => {
+    const isPurchased = event.target.checked;
+    setExpense((prev) => ({
+      ...prev,
+      purchased: isPurchased,
+      registeredDate: isPurchased ? null : prev.registeredDate,
+      purchaseDate: isPurchased ? prev.purchaseDate : null,
+    }));
+  };
+
+  const handleRegisterChange = (event) => {
+    const isRegistered = event.target.checked;
+    setExpense((prev) => ({
+      ...prev,
+      purchased: !isRegistered,
+      registeredDate: isRegistered ? prev.registeredDate : null,
+      purchaseDate: isRegistered ? null : prev.purchaseDate,
+    }));
+  };
+
+  // Consolidated form submission similar to AddShopDialog:
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    try {
+      if (isFormValid()) {
+        const savedExpense = await handleSaveExpense();
+        if (savedExpense) {
+          // Pass the raw saved data to parent
+          onAdd(savedExpense);
+          onClose();
+        }
+      }
+    } catch (error) {
+      console.error("Save failed:", error);
     }
   };
 
-  const handleSaveButtonClick = () => {
-    console.log("Save button clicked");
-    handleSaveExpense((savedExpense) => {
-      console.log("handleSaveExpense callback invoked with:", savedExpense);
-      const productName = savedExpense.productName || "Unknown Product";
-      onAdd({ ...savedExpense, productName });
-      onClose();
-    });
-  };
-
-  // Safeguard: Ensure products, brands, shops are arrays before mapping
-  const safeProducts = Array.isArray(products) ? products : [];
-  const safeBrands = Array.isArray(brands) ? brands : [];
-  const safeShops = Array.isArray(shops) ? shops : [];
+  // Determine overall loading state
+  const isLoading =
+    !open || isLoadingProducts || isLoadingBrands || isLoadingShops || loading;
 
   return (
-    <BasicDialog open={open} onClose={onClose} dialogTitle="Add New Expense">
-      <Box sx={{ p: 2, position: "relative" }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <WindowedSelect
-              isClearable
-              options={safeProducts.map((product) => ({
-                label: product.name,
-                value: product.name,
-                name: product.name,
-                type: product.type,
-                measurementUnit: product.measurementUnit,
-                measures: product.measures,
-              }))}
-              value={
-                expense.productName
-                  ? { label: expense.productName, value: expense.productName }
-                  : null
-              }
-              onChange={handleProductSelect}
-              placeholder="Velg Produkt"
-              menuPortalTarget={document.body}
-              styles={{
-                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-              }}
-              windowedMenuHeight={300}
-              itemSize={35}
-              onMenuScrollToBottom={() => {
-                console.log("Scrolled to bottom - fetch more products");
-              }}
-              loadingMessage={() => "Loading products..."}
-              noOptionsMessage={() => "No products found"}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <WindowedSelect
-              isClearable
-              options={safeBrands.map((brand) => ({
-                label: brand.name,
-                value: brand.name,
-                name: brand.name,
-              }))}
-              value={
-                expense.brandName
-                  ? { label: expense.brandName, value: expense.brandName }
-                  : null
-              }
-              onChange={handleBrandSelect}
-              placeholder="Velg Merke"
-              menuPortalTarget={document.body}
-              styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-              windowedMenuHeight={300}
-              itemSize={35}
-              onMenuScrollToBottom={() => {
-                console.log("Scrolled to bottom - fetch more data");
-              }}
-              filterOption={(option, inputValue) =>
-                option.label.toLowerCase().includes(inputValue.toLowerCase())
-              }
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <WindowedSelect
-              isClearable
-              options={safeShops.map((shop) => ({
-                label: `${shop.name}, ${shop.locationName}`,
-                value: shop.name,
-                name: shop.name,
-                locationName: shop.locationName,
-              }))}
-              value={
-                expense.shopName
-                  ? { label: expense.shopName, value: expense.shopName }
-                  : null
-              }
-              onChange={handleShopSelect}
-              placeholder="Velg Butikk"
-              menuPortalTarget={document.body}
-              styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              label="Location"
-              value={expense.locationName}
-              InputProps={{
-                readOnly: true,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              label="Price"
-              type="number"
-              value={expense.price}
-              onChange={(e) =>
-                setExpense({ ...expense, price: parseFloat(e.target.value) })
-              }
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">Kr</InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            {availableMeasures.length > 0 ? (
-              <Box sx={{ position: "relative" }}>
+    <BasicDialog
+      open={open}
+      onClose={() => {
+        resetFormAndErrors();
+        onClose();
+      }}
+      dialogTitle="Add New Expense"
+    >
+      <form onSubmit={handleSubmit}>
+        <Box sx={{ p: 2 }}>
+          <Grid container spacing={2}>
+            {/* Product Selection */}
+            <Grid item xs={12} md={6}>
+              <WindowedSelect
+                isClearable
+                options={safeProducts.map((product) => ({
+                  label: product.name,
+                  value: product.name,
+                  name: product.name,
+                  type: product.type,
+                  measurementUnit: product.measurementUnit,
+                  measures: product.measures,
+                }))}
+                value={
+                  expense.productName
+                    ? { label: expense.productName, value: expense.productName }
+                    : null
+                }
+                onChange={handleProductSelect}
+                placeholder="Select Product"
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+              />
+            </Grid>
+
+            {/* Brand Selection */}
+            <Grid item xs={12} md={6}>
+              <WindowedSelect
+                isClearable
+                options={safeBrands.map((brand) => ({
+                  label: brand.name,
+                  value: brand.name,
+                  name: brand.name,
+                }))}
+                value={
+                  expense.brandName
+                    ? { label: expense.brandName, value: expense.brandName }
+                    : null
+                }
+                onChange={handleBrandSelect}
+                placeholder="Select Brand"
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+              />
+            </Grid>
+
+            {/* Shop Selection */}
+            <Grid item xs={12} md={6}>
+              <WindowedSelect
+                isClearable
+                options={safeShops.map((shop) => ({
+                  label: `${shop.name}, ${shop.locationName}`,
+                  value: shop.name,
+                  name: shop.name,
+                  locationName: shop.locationName,
+                }))}
+                value={
+                  expense.shopName
+                    ? { label: expense.shopName, value: expense.shopName }
+                    : null
+                }
+                onChange={handleShopSelect}
+                placeholder="Select Shop"
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+              />
+            </Grid>
+
+            {/* Read-only Location */}
+            <Grid item xs={12} md={6}>
+              <ExpenseField
+                label="Location"
+                value={expense.locationName}
+                InputProps={{ readOnly: true }}
+              />
+            </Grid>
+
+            {/* Price */}
+            <Grid item xs={12} md={6}>
+              <ExpenseField
+                label="Price"
+                type="number"
+                value={expense.price}
+                onChange={(e) =>
+                  setExpense((prev) => ({
+                    ...prev,
+                    price: parseFloat(e.target.value),
+                  }))
+                }
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">Kr</InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+
+            {/* Volume (Selection or Manual) */}
+            <Grid item xs={12} md={6}>
+              {expense.measurementUnit && safeProducts.length > 0 ? (
                 <WindowedSelect
                   isClearable
-                  options={availableMeasures.map((measure) => ({
-                    label: measure.toString(),
-                    value: measure,
-                  }))}
+                  options={
+                    // Assuming the measures come from the selected product.
+                    (safeProducts[0]?.measures || []).map((measure) => ({
+                      label: measure.toString(),
+                      value: measure,
+                    })) || []
+                  }
                   value={
                     volumeDisplay
                       ? { label: volumeDisplay, value: volumeDisplay }
                       : null
                   }
                   onChange={handleVolumeChange}
-                  placeholder="Velg Volum"
+                  placeholder="Select Volume"
                   menuPortalTarget={document.body}
-                  styles={{
-                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                    control: (base) => ({
-                      ...base,
-                      paddingRight: expense.measurementUnit ? "40px" : base.paddingRight,
-                    }),
-                  }}
+                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
                 />
-                {expense.measurementUnit && (
-                  <InputAdornment
-                    position="end"
-                    sx={{
-                      position: "absolute",
-                      right: 10,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      pointerEvents: "none",
-                      color: "rgba(0, 0, 0, 0.54)",
-                    }}
-                  >
-                    {expense.measurementUnit}
-                  </InputAdornment>
-                )}
-              </Box>
-            ) : (
-              <ExpenseField
-                label="Volum (Manuell)"
-                type="number"
-                value={volumeDisplay}
-                onChange={handleManualVolumeInput}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      {expense.measurementUnit}
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            )}
-          </Grid>
-          <Grid item xs={12}>
-            <ExpenseField
-              label={`Price per ${
-                expense.measurementUnit === "kg"
-                  ? "kg"
-                  : expense.measurementUnit === "L"
-                  ? "L"
-                  : expense.measurementUnit === "stk"
-                  ? "piece"
-                  : " "
-              }`}
-              value={expense.pricePerUnit}
-              InputProps={{
-                readOnly: true,
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              label="Quantity"
-              type="number"
-              value={expense.quantity}
-              onChange={handleQuantityChange}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={expense.hasDiscount}
-                  onChange={handleDiscountChange}
-                  color="primary"
-                />
-              }
-              label="Discount?"
-            />
-          </Grid>
-          {expense.hasDiscount && (
-            <>
-              <Grid item xs={12} md={6}>
+              ) : (
                 <ExpenseField
-                  label="Discount (%)"
+                  label="Volume (Manual)"
                   type="number"
-                  value={expense.discountValue}
-                  onChange={handleDiscountValueChange}
+                  value={volumeDisplay}
+                  onChange={handleManualVolumeInput}
                   InputProps={{
                     startAdornment: (
-                      <InputAdornment position="start">%</InputAdornment>
+                      <InputAdornment position="start">
+                        {expense.measurementUnit}
+                      </InputAdornment>
                     ),
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <ExpenseField
-                  label="Discount (Kr)"
-                  type="number"
-                  value={expense.discountAmount || ""}
-                  onChange={(e) => {
-                    handleDiscountAmountChange(e);
-                  }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">Kr</InputAdornment>
-                    ),
-                  }}
-                />
-              </Grid>
-            </>
-          )}
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              label="Price with/without Discount"
-              type="number"
-              value={expense.finalPrice}
-              InputProps={{
-                readOnly: true,
-                startAdornment: (
-                  <InputAdornment position="start">Kr</InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ExpenseField
-              label="Type"
-              value={expense.type || ""}
-              InputProps={{
-                readOnly: true,
-              }}
-              InputLabelProps={{
-                shrink: true,
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={expense.purchased}
-                  onChange={handlePurchaseChange}
-                  color="primary"
-                />
-              }
-              label="Purchased"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={!expense.purchased}
-                  onChange={handleRegisterChange}
-                  color="primary"
-                />
-              }
-              label="Registered"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <DatePicker
-              label="Date"
-              value={dayjs(
-                expense.purchased
-                  ? expense.purchaseDate
-                  : expense.registeredDate
               )}
-              onChange={handleDateChange}
-              slotProps={{ textField: { fullWidth: true } }}
-            />
-          </Grid>
-        </Grid>
-      </Box>
+            </Grid>
 
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-        <Button
-          onClick={() => {
-            resetFormAndErrors();
-            onClose();
-          }}
-          sx={{ mr: 1 }}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSaveButtonClick}
-          disabled={!isFormValid || isLoading}
-        >
-          Save
-        </Button>
-      </Box>
+            {/* Price Per Unit (Read-only) */}
+            <Grid item xs={12}>
+              <ExpenseField
+                label={`Price per ${expense.measurementUnit || ""}`}
+                value={expense.pricePerUnit}
+                InputProps={{ readOnly: true }}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            {/* Quantity */}
+            <Grid item xs={12} md={6}>
+              <ExpenseField
+                label="Quantity"
+                type="number"
+                value={expense.quantity}
+                onChange={handleQuantityChange}
+              />
+            </Grid>
+
+            {/* Discount Checkbox */}
+            <Grid item xs={12} md={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={expense.hasDiscount}
+                    onChange={handleDiscountChange}
+                    color="primary"
+                  />
+                }
+                label="Discount?"
+              />
+            </Grid>
+
+            {/* Conditional Discount Fields */}
+            {expense.hasDiscount && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <ExpenseField
+                    label="Discount (%)"
+                    type="number"
+                    value={expense.discountValue}
+                    onChange={handleDiscountValueChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">%</InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <ExpenseField
+                    label="Discount (Kr)"
+                    type="number"
+                    value={expense.discountAmount || ""}
+                    onChange={handleDiscountAmountChange}
+                    InputLabelProps={{ shrink: true }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">Kr</InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Purchased / Registered Checkboxes */}
+            <Grid item xs={12} md={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={expense.purchased}
+                    onChange={handlePurchaseChange}
+                    color="primary"
+                  />
+                }
+                label="Purchased"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!expense.purchased}
+                    onChange={handleRegisterChange}
+                    color="primary"
+                  />
+                }
+                label="Registered"
+              />
+            </Grid>
+
+            {/* Date Picker */}
+            <Grid item xs={12} md={6}>
+              <DatePicker
+                label="Date"
+                value={dayjs(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
+                onChange={handleDateChange}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </Grid>
+          </Grid>
+        </Box>
+
+        {/* Action Buttons */}
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+          <Button
+            onClick={() => {
+              resetFormAndErrors();
+              onClose();
+            }}
+            sx={{ mr: 1 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={!isFormValid() || isLoading}
+          >
+            {isLoading ? <CircularProgress size={24} /> : "Save"}
+          </Button>
+        </Box>
+      </form>
     </BasicDialog>
   );
 };
 
+AddExpenseDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
+};
+
 export default AddExpenseDialog;
+

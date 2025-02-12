@@ -1,7 +1,8 @@
+import React from "react";
 import { Typography, Button } from "@mui/material";
 import PropTypes from "prop-types";
-import UseCategoryDialog from "../UseCategory/UseCategoryDialog";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
+import useCategoryDialog from "../UseCategory/UseCategoryDialog"
 
 const DeleteCategoryDialog = ({
   open,
@@ -11,10 +12,14 @@ const DeleteCategoryDialog = ({
   onDeleteSuccess,
   onDeleteFailure,
 }) => {
-  const { handleDeleteCategory, loading } = UseCategoryDialog();
+  const { handleDeleteCategory, loading } = useCategoryDialog();
 
   const handleDelete = async () => {
-    const success = await handleDeleteCategory(selectedCategory, onDeleteSuccess, onDeleteFailure);
+    const success = await handleDeleteCategory(
+      selectedCategory,
+      onDeleteSuccess,
+      onDeleteFailure
+    );
     if (success) {
       onClose();
     }
@@ -25,7 +30,7 @@ const DeleteCategoryDialog = ({
       open={open}
       onClose={onClose}
       dialogTitle={dialogTitle}
-      onConfirm={handleDeleteCategory}
+      onConfirm={handleDelete}
       cancelButton={
         <Button onClick={onClose} disabled={loading}>
           Avbryt
@@ -33,17 +38,23 @@ const DeleteCategoryDialog = ({
       }
       confirmButton={
         <Button onClick={handleDelete} disabled={loading}>
-          Slett
+          {loading ? "Sletter..." : "Slett"}
         </Button>
       }
+      sx={{
+        '& .MuiDialog-paper': {
+          borderTop: '4px solid',
+          borderColor: 'error.main',
+        }
+      }}
     >
       {selectedCategory && (
         <Typography component="p" marginTop={2}>
-          Er du sikker på at du vil slette dette merket, utgifter tilhørende{" "}
+          Er du sikker på at du vil slette denne kategorien? Utgifter tilhørende{" "}
           <Typography component="span" fontWeight="bold">
             "{selectedCategory.name}"
           </Typography>{" "}
-          vil også påvirkes
+          vil også påvirkes.
         </Typography>
       )}
     </BasicDialog>

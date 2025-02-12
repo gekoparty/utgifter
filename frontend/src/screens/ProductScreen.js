@@ -79,7 +79,7 @@ const ProductScreen = () => {
       {
         accessorKey: "name",
         header: "Produkter",
-        size: 200,
+        size: 150,
         grow: 2,
         minSize: 150,
         maxSize: 400,
@@ -87,7 +87,7 @@ const ProductScreen = () => {
       {
         accessorKey: "brand",
         header: "Merker",
-        size: 200,
+        size: 150,
         grow: 1,
         minSize: 150,
         maxSize: 300,
@@ -103,9 +103,9 @@ const ProductScreen = () => {
       {
         accessorKey: "measures",
         header: "Mål",
-        size: 200,
+        size: 100,
         grow: 1,
-        minSize: 150,
+        minSize: 50,
         maxSize: 300,
         cell: ({ cell }) => {
           const measures = cell.getValue();
@@ -285,48 +285,65 @@ const ProductScreen = () => {
   // Render the main table layout and dialogs
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddProductDialogOpen(true)}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1, // Allow this whole section to expand
+          width: "100%",
+          minHeight: "100%", // Ensure it stretches fully inside TableLayout
+        }}
+      >
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddProductDialogOpen(true)}
+          >
+            Nytt Produkt
+          </Button>
+        </Box>
+
+        {/* Product Table */}
+        <Box
+          sx={{
+            flexGrow: 1, // Ensures the table fills all remaining space
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            minWidth: 600,
+          }}
         >
-          Nytt Produkt
-        </Button>
-      </Box>
-
-      {/* Product Table */}
-      <Box sx={{ 
-        minWidth: 600, width: "100%", display: "flex", justifyContent: "center" }}>
-        {productsData && (
-          <ReactTable
-
-            data={productsData?.products}
-            columns={tableColumns}
-            setColumnFilters={setColumnFilters}
-            setGlobalFilter={setGlobalFilter}
-            setSorting={setSorting}
-            setPagination={setPagination}
-            refetch={refetch}
-            isError={isError}
-            isFetching={isFetching}
-            isLoading={isLoading}
-            columnFilters={columnFilters}
-            globalFilter={globalFilter}
-            pagination={pagination}
-            sorting={sorting}
-            meta={productsData.meta}
-            setSelectedProduct={setSelectedProduct}
-            handleEdit={(product) => {
-              setSelectedProduct(product);
-              setEditModalOpen(true);
-            }}
-            handleDelete={(product) => {
-              setSelectedProduct(product);
-              setDeleteModalOpen(true);
-            }}
-          />
-        )}
+          {productsData && (
+            <ReactTable
+              data={productsData?.products}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={setGlobalFilter}
+              setSorting={setSorting}
+              setPagination={setPagination}
+              refetch={refetch}
+              isError={isError}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              meta={productsData.meta}
+              setSelectedProduct={setSelectedProduct}
+              handleEdit={(product) => {
+                setSelectedProduct(product);
+                setEditModalOpen(true);
+              }}
+              handleDelete={(product) => {
+                setSelectedProduct(product);
+                setDeleteModalOpen(true);
+              }}
+              sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
+            />
+          )}
+        </Box>
       </Box>
 
       {/* Modals */}

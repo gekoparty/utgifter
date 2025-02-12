@@ -236,60 +236,66 @@ const LocationScreen = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
-          mb: 2,
-          minWidth: 600,
-        }}
-      >
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddLocationDialogOpen(true)}
-        >
-          Nytt Sted
-        </Button>
-      </Box>
-
-      {/* Table for displaying locations */}
-      <Box
-        sx={{
+          flexDirection: "column",
+          flexGrow: 1, // Allow this whole section to expand
           width: "100%",
-          flexGrow: 1,
-          minWidth: 600,
+          minHeight: "100%", // Ensure it stretches fully inside TableLayout
         }}
       >
-        {locationsData && (
-          <ReactTable
-            data={locationsData?.locations}
-            columns={tableColumns}
-            setColumnFilters={setColumnFilters}
-            setGlobalFilter={setGlobalFilter}
-            setSorting={setSorting}
-            setPagination={setPagination}
-            refetch={refetch}
-            isError={isError}
-            isFetching={isFetching}
-            isLoading={isLoading}
-            columnFilters={columnFilters}
-            globalFilter={globalFilter}
-            pagination={pagination}
-            sorting={sorting}
-            meta={locationsData?.meta}
-            setSelectedShop={setSelectedLocation}
-            totalRowCount={locationsData?.meta?.totalRowCount}
-            rowCount={locationsData?.meta?.totalRowCount ?? 0}
-            handleEdit={(location) => {
-              setSelectedLocation(location);
-              setEditModalOpen(true);
-            }}
-            handleDelete={(location) => {
-              setSelectedLocation(location);
-              setDeleteModalOpen(true);
-            }}
-            editModalOpen={editModalOpen}
-            setDeleteModalOpen={setDeleteModalOpen}
-          />
-        )}
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddLocationDialogOpen(true)}
+          >
+            Nytt Sted
+          </Button>
+        </Box>
+
+        {/* Table for displaying locations */}
+        <Box
+          sx={{
+            flexGrow: 1, // Ensures the table fills all remaining space
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            minWidth: 600,
+          }}
+        >
+          {locationsData && (
+            <ReactTable
+              data={locationsData?.locations}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={setGlobalFilter}
+              setSorting={setSorting}
+              setPagination={setPagination}
+              refetch={refetch}
+              isError={isError}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              meta={locationsData?.meta}
+              setSelectedShop={setSelectedLocation}
+              totalRowCount={locationsData?.meta?.totalRowCount}
+              rowCount={locationsData?.meta?.totalRowCount ?? 0}
+              handleEdit={(location) => {
+                setSelectedLocation(location);
+                setEditModalOpen(true);
+              }}
+              handleDelete={(location) => {
+                setSelectedLocation(location);
+                setDeleteModalOpen(true);
+              }}
+              editModalOpen={editModalOpen}
+              setDeleteModalOpen={setDeleteModalOpen}
+              sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
+            />
+          )}
+        </Box>
       </Box>
 
       {/* Modals */}

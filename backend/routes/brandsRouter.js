@@ -6,79 +6,72 @@ import slugify from "slugify";
 const brandsRouter = express.Router();
 
 brandsRouter.get("/", async (req, res) => {
-  
   try {
+    // Log incoming query parameters for debugging.
+    console.log("Brands GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    
-
+    // Start building the Mongoose query.
     let query = Brand.find();
 
-    // Apply columnFilters
+    // Apply columnFilters (assumes filtering on the 'name' field).
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      filters.forEach((filter) => {
-        const { id, value } = filter;
+      filters.forEach(({ id, value }) => {
         if (id && value) {
-          const fieldFilter = {};
-          fieldFilter[id] = new RegExp(`^${value}`, "i");
-          query = query.where(fieldFilter);
+          if (id === "name") {
+            // Use a case-insensitive regular expression.
+            query = query.where("name").regex(new RegExp(value, "i"));
+          }
+          // Extend here for additional fields if necessary.
         }
       });
     }
 
-    // Apply globalFilter
+    // Apply globalFilter.
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      query = query.find({
-        $or: [
-          { name: globalFilterRegex }, // Assuming 'name' is a field in your data
-          // Add other fields here that you want to include in the global filter
-        ],
-      });
+      // Search on the 'name' field. Add other fields as needed.
+      query = query.or([{ name: globalFilterRegex }]);
     }
 
-    // Apply sorting
-
+    // Apply sorting.
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        const sortConfig = parsedSorting[0]; // Assuming you only have one sorting option
-        const { id, desc } = sortConfig;
-
-        // Build the sorting object
-        const sortObject = {};
-        sortObject[id] = desc ? -1 : 1;
-
+        // Build the sorting object (e.g., { name: 1 } or { name: -1 }).
+        const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
+          acc[id] = desc ? -1 : 1;
+          return acc;
+        }, {});
+        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
 
-    // Apply pagination
-    if (start && size) {
-      const startIndex = parseInt(start);
-      const pageSize = parseInt(size);
-
-      // Query total row count before pagination
-      const totalRowCount = await Brand.countDocuments(query);
-
-      // Apply pagination
+    // Apply pagination.
+    let totalRowCount = 0;
+    if (start !== undefined && size !== undefined) {
+      const startIndex = parseInt(start, 10);
+      const pageSize = parseInt(size, 10);
+      // Count total matching documents based on the current filter.
+      totalRowCount = await Brand.countDocuments(query.getFilter());
+      console.log("Total matching brands:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
-
-      const brands = await query.exec();
-
-      // Send response with both paginated data and total row count
-      res.json({ brands, meta: { totalRowCount } });
-    } else {
-      // If not using pagination, just send the brands data
-      const brands = await query.exec();
-      res.json(brands);
     }
+
+    // Execute the query.
+    const brands = await query.exec();
+    console.log("Fetched brands:", brands);
+
+    // Return the data with meta information.
+    res.json({ brands, meta: { totalRowCount } });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
+    console.error("Error in /api/brands:", err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 brandsRouter.get("/:id", async (req, res) => {
   const { id } = req.params;

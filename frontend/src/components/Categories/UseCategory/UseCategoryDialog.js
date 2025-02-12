@@ -1,187 +1,181 @@
-import { useState, useEffect, useContext, useCallback } from "react";
+import { useCallback, useMemo, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../commons/Utils/FormatUtil";
 import { addCategoryValidationSchema } from "../../../validation/validationSchema";
 import { StoreContext } from "../../../Store/Store";
 
-
-
-const UseCategoryDialog = (initialCategory = null) => {
-  const [categoryName, setCategoryName] = useState(initialCategory?.name || "");
-  const { sendRequest, loading } = useCustomHttp(
-    "/api/categories"
+const useCategoryDialog = (initialCategory = null) => {
+  // Memoize initial state
+  const initialCategoryState = useMemo(
+    () => ({
+      name: "",
+    }),
+    []
   );
+
+  // Initialize state
+  const [category, setCategory] = useState(
+    initialCategory ? initialCategory : { ...initialCategoryState }
+  );
+
+  // Custom HTTP hook
+  const { sendRequest, loading } = useCustomHttp("/api/categories");
+
+  // Store context
   const { dispatch, state } = useContext(StoreContext);
 
-  const resetValidationErrors = useCallback(() => {
-    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "categories" });
-  }, [dispatch]);
-
+  // Error handling
   const resetServerError = useCallback(() => {
-    dispatch({ type: "RESET_ERROR", resource: "categories" });
+    dispatch({
+      type: "RESET_ERROR",
+      resource: "categories",
+    });
   }, [dispatch]);
 
-  const resetFormAndErrors = useCallback(() => {
-    setCategoryName(initialCategory?.name || "");
-    dispatch({ type: "RESET_ERROR", resource: "categories" });
-    resetValidationErrors();
-  }, [dispatch, initialCategory, resetValidationErrors]);
+  const resetValidationErrors = useCallback(() => {
+    dispatch({
+      type: "RESET_VALIDATION_ERRORS",
+      resource: "categories",
+    });
+  }, [dispatch]);
 
+  // Form reset
+  const resetFormAndErrors = useCallback(() => {
+    setCategory(initialCategory ? initialCategory : { ...initialCategoryState });
+    resetServerError();
+    resetValidationErrors();
+  }, [initialCategory, initialCategoryState, resetServerError, resetValidationErrors]);
+
+  // Effect for initial setup and cleanup
   useEffect(() => {
     if (initialCategory) {
-      setCategoryName(initialCategory.name);
+      setCategory((prevCategory) => ({
+        ...prevCategory,
+        ...initialCategory,
+      }));
     } else {
       resetFormAndErrors();
     }
-  }, [initialCategory, resetFormAndErrors]);
 
-  useEffect(() => {
     return () => {
-      // Cleanup function: Clear category related data from the store when the component is unmounted
-      dispatch({
-        type: "CLEAR_RESOURCE",
-        resource: "categories",
-      });
+      dispatch({ type: "CLEAR_RESOURCE", resource: "categories" });
     };
-  }, [dispatch]);
+  }, [initialCategory, resetFormAndErrors, dispatch]);
 
+  // Save handler
   const handleSaveCategory = async (onClose) => {
-    if (typeof categoryName !== "string" || categoryName.trim().length === 0) {
-      return; // Prevent submitting invalid or empty brand name
-    }
+    if (!category.name.trim()) return;
+
+    let formattedCategory = { ...category };
+    let validationErrors = {};
 
     try {
-
-      console.log("Category name before validation:", categoryName);
-      await addCategoryValidationSchema.validate({ categoryName });
-      //resetValidationErrors();
+      // Format and validate
+      formattedCategory.name = formatComponentFields(category.name, "category", "name");
+      await addCategoryValidationSchema.validate(formattedCategory, {
+        abortEarly: false,
+      });
     } catch (validationError) {
-      console.log("Validation failed!", validationError);
+      if (validationError.inner) {
+        validationError.inner.forEach((err) => {
+          validationErrors[err.path] = { show: true, message: err.message };
+        });
+      }
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "categories",
         validationErrors: {
-          categoryName: { show: true, message: "Navnet må være minst 2 tegn" },
+          ...state.validationErrors?.categories,
+          ...validationErrors,
         },
         showError: true,
       });
-      return; // Exit the function if validation fails
+      return;
     }
 
-    
-    const formattedCategoryName = {
-      name: formatComponentFields(categoryName, "category", "name")
-    } 
-   
-
     try {
-      let url = "/api/categories";
-      let method = "POST";
+      // API call
+      const url = initialCategory
+        ? `/api/categories/${initialCategory._id}`
+        : "/api/categories";
+      const method = initialCategory ? "PUT" : "POST";
 
-      if (initialCategory) {
-        url = `/api/categories/${initialCategory._id}`;
-        method = "PUT";
-      }
+      const { data, error: apiError } = await sendRequest(url, method, formattedCategory);
 
-      const { data, error: addDataError } = await sendRequest(
-        url,
-        method,
-        formattedCategoryName
-      );
-
-      if (addDataError) {
-        console.log("value of addDataError", addDataError);
+      if (apiError) {
         dispatch({
           type: "SET_ERROR",
-          error: addDataError,
+          error: data?.error || apiError,
           resource: "categories",
           showError: true,
         });
       } else {
-        const payload = data;
-        if (initialCategory) {
-          dispatch({ type: "UPDATE_ITEM", resource: "categories", payload });
-        } else {
-          dispatch({ type: "ADD_ITEM", resource: "categories", payload });
-        }
-        setCategoryName("");
         dispatch({ type: "RESET_ERROR", resource: "categories" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "categories" });
-
+        setCategory({ ...initialCategoryState });
         onClose();
-        return true; // Note: Don't close the dialog here, do it in the respective components
+        return true;
       }
     } catch (fetchError) {
-      console.log("value of fetchError", fetchError);
       dispatch({
         type: "SET_ERROR",
         error: fetchError,
-        resource: "/api/categories",
+        resource: "categories",
         showError: true,
       });
     }
   };
 
-  const handleDeleteCategory = async (
-    selectedCategory,
-    onDeleteSuccess,
-    onDeleteFailure
-  ) => {
+  // Delete handler
+  const handleDeleteCategory = async (selectedCategory, onDeleteSuccess, onDeleteFailure) => {
     try {
       const response = await sendRequest(
         `/api/categories/${selectedCategory?._id}`,
         "DELETE"
       );
       if (response.error) {
-        console.log("Error deleting category:", response.error);
         onDeleteFailure(selectedCategory);
-        return false; // Indicate deletion failure
-      } else {
-        console.log("Category deleted successfully");
-        onDeleteSuccess(selectedCategory);
-        dispatch({
-          type: "DELETE_ITEM",
-          resource: "categories",
-          payload: selectedCategory._id,
-        });
-        return true;
+        return false;
       }
+      onDeleteSuccess(selectedCategory);
+      dispatch({
+        type: "DELETE_ITEM",
+        resource: "categories",
+        payload: selectedCategory._id,
+      });
+      return true;
     } catch (error) {
-      console.log("Error deleting category:", error);
       onDeleteFailure(selectedCategory);
-      return false; // Indicate deletion failure
+      return false;
     }
   };
 
+  // Validation state
   const displayError = state.error?.categories;
-  const validationError = state.validationErrors?.categories?.categoryName;
+  const validationError = state.validationErrors?.categories;
 
   const isFormValid = () => {
-    return (
-      typeof categoryName === "string" &&
-      categoryName.trim().length > 0 &&
-      !validationError
-    );
-  }; 
+    return category?.name?.trim().length > 0 && !validationError?.name;
+  };
 
   return {
-    categoryName,
-    setCategoryName,
+    isFormValid,
     loading,
     handleSaveCategory,
-    resetValidationErrors,
-    resetServerError,
+    handleDeleteCategory,
     displayError,
     validationError,
-    isFormValid,
-    handleDeleteCategory,
+    category,
+    setCategory,
+    resetServerError,
+    resetValidationErrors,
     resetFormAndErrors,
   };
 };
 
-UseCategoryDialog.propTypes = {
-  initialCategory: PropTypes.object, // initialBrand is optional and should be an object
+useCategoryDialog.propTypes = {
+  initialCategory: PropTypes.object,
 };
 
-export default UseCategoryDialog;
+export default useCategoryDialog;
