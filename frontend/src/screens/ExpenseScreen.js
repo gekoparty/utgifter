@@ -400,11 +400,14 @@ const renderDetailPanel = useCallback(
   };
 
   const deleteSuccessHandler = (deletedExpense) => {
-    const productName = deletedExpense.productName?.name || "Ukjent produkt";
+    const productName =
+      typeof deletedExpense.productName === "object"
+        ? deletedExpense.productName.name
+        : deletedExpense.productName || "Ukjent produkt";
     showSuccessSnackbar(`Utgift for "${productName}" slettet!`);
-    queryClient.invalidateQueries({ queryKey: ["expenses"], exact: false });
+    // Trigger immediate refetch so that the table updates:
+    refetch();
   };
-  
 
   const editFailureHandler = () => {
     showErrorSnackbar("Failed to update expense");
@@ -444,7 +447,7 @@ const renderDetailPanel = useCallback(
           onClick={() => setAddExpenseDialogOpen(true)}
           data-testid="add-expense-button"
         >
-          New Expense
+          Ny Utgift
         </Button>
         <PriceRangeFilter value={priceRangeFilter} onChange={handlePriceRangeChange} />
       </Box>

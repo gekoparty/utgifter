@@ -58,6 +58,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   // Local state for volume display (for manual input)
   const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+  // Local state for discount (Kr) display:
+
 
   // Fetch products, brands, and shops options
   const {
@@ -122,6 +124,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   useEffect(() => {
     setVolumeDisplay(expense.volume || "");
   }, [expense.volume]);
+
+ 
 
   // Handlers for selections:
   const handleProductSelect = (selectedOption) => {
@@ -275,6 +279,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       console.error("Save failed:", error);
     }
   };
+
+  
 
 
   // Determine overall loading state
@@ -484,6 +490,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                     type="number"
                     value={expense.discountAmount || ""}
                     onChange={handleDiscountAmountChange}
+                    // When the field loses focus, update the parent state:
                     InputLabelProps={{ shrink: true }}
                     InputProps={{
                       startAdornment: (
