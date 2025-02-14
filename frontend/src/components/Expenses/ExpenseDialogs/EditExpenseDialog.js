@@ -17,6 +17,7 @@ import Select from "react-select";
 import useExpenseForm from "../useExpenseForm";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";
+import useInfiniteProducts from "../../../hooks/useInfiniteProducts";
 
 const EditExpenseDialog = ({
   open,
@@ -44,6 +45,9 @@ const EditExpenseDialog = ({
 
   // Local state for displaying volume (e.g. if manual input is needed)
   const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+   // New state to manage typeahead search and the selected product object
+   const [productSearch, setProductSearch] = useState("");
+   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Ensure that the local volume display is updated when expense.volume changes
   useEffect(() => {
@@ -57,14 +61,28 @@ const EditExpenseDialog = ({
     }
   }, [open, selectedExpense, setExpense]);
 
-  // Fetch product options; assume the API returns an object with a "products" array.
-  const { data: productOptions, isLoading: isLoadingProducts, isError: productError } =
-    useFetchData(
-      "products",
-      "/api/products",
-      (data) => (Array.isArray(data.products) ? data.products : []),
-      { enabled: open }
-    );
+  const {
+    data: infiniteData,
+    isLoading: isLoadingProducts,
+    error: productError, // <-- add this line
+    fetchNextPage,
+    hasNextPage,
+    refetch: refetchProducts,
+  } = useInfiniteProducts(productSearch);
+
+
+  // Flatten the pages from the infinite query into options
+  const productOptions = infiniteData
+    ? infiniteData.pages.flatMap((page) =>
+        page.products.map((product) => ({
+          label: product.name,
+          value: product.name,
+          type: product.type,
+          measurementUnit: product.measurementUnit,
+          measures: product.measures,
+        }))
+      )
+    : [];
 
   // Fetch brand options.
   const { data: brandOptions, isLoading: isLoadingBrands, isError: brandError } =
@@ -112,22 +130,35 @@ const EditExpenseDialog = ({
 
   // --- Handlers for Select Components ---
 
-  // Handle product selection from the dropdown.
   const handleProductSelect = (selectedOption) => {
+    // Save the full product object for later use (e.g. for measures)
+    setSelectedProduct(selectedOption);
+  
     if (selectedOption) {
+      // Update expense with product details.
       setExpense((prev) => ({
         ...prev,
-        productName: selectedOption.label,
+        productName: selectedOption.label, // or selectedOption.value
         type: selectedOption.type,
         measurementUnit: selectedOption.measurementUnit,
       }));
+      // If there are measures available, you might choose to auto-select the first one.
+      if (selectedOption.measures && selectedOption.measures.length > 0) {
+        const firstMeasure = selectedOption.measures[0];
+        setExpense((prev) => ({ ...prev, volume: firstMeasure }));
+        setVolumeDisplay(firstMeasure.toString());
+      }
     } else {
+      // Clear product-related fields if no product is selected.
       setExpense((prev) => ({
         ...prev,
         productName: "",
         type: "",
         measurementUnit: "",
+        volume: 0,
       }));
+      setVolumeDisplay("");
+      setSelectedProduct(null);
     }
   };
 
@@ -241,27 +272,29 @@ const EditExpenseDialog = ({
       <form onSubmit={handleSubmit}>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
-            {/* Product Selection */}
-            <Grid item xs={12} md={6}>
-              <Select
-                isClearable
-                options={productOptions.map((product) => ({
-                  label: product.name,
-                  value: product.name,
-                  type: product.type,
-                  measurementUnit: product.measurementUnit,
-                }))}
-                value={
-                  expense.productName
-                    ? { label: expense.productName, value: expense.productName }
-                    : null
-                }
-                onChange={handleProductSelect}
-                placeholder="Select Product"
-                menuPortalTarget={document.body}
-                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-              />
+                        {/* Product Selection */}
+                        <Grid item xs={12} md={6}>
+                        <Select
+  isClearable
+  options={productOptions}
+  value={
+    expense.productName
+      ? { label: expense.productName, value: expense.productName }
+      : null
+  }
+  onChange={handleProductSelect}
+  onInputChange={(inputValue) => {
+    setProductSearch(inputValue);
+  }}
+  onMenuScrollToBottom={() => {
+    if (hasNextPage) fetchNextPage();
+  }}
+  placeholder="Select Product"
+  menuPortalTarget={document.body}
+  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+/>
             </Grid>
+
 
             {/* Brand Selection */}
             <Grid item xs={12} md={6}>
@@ -332,46 +365,51 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-            {/* Volume / Quantity Field */}
-            <Grid item xs={12} md={6}>
-              <ExpenseField
-                label="Volume/Quantity"
-                type="number"
-                value={volumeDisplay}
-                onChange={handleVolumeChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      {expense.measurementUnit}
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-
-            {/* Price per Unit (Read-only) */}
-            <Grid item xs={12}>
-              <ExpenseField
-                label={`Price per ${expense.measurementUnit || ""}`}
-                value={expense.pricePerUnit || ""}
-                InputProps={{ readOnly: true }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-
-            {/* Quantity Field */}
-            <Grid item xs={12} md={6}>
-              <ExpenseField
-                label="Quantity"
-                type="number"
-                value={expense.quantity || ""}
-                onChange={(e) =>
-                  setExpense((prev) => ({
-                    ...prev,
-                    quantity: e.target.value,
-                  }))
-                }
-              />
+                {/* Volume / Quantity Field */}
+                <Grid item xs={12} md={6}>
+              {expense.measurementUnit && selectedProduct && selectedProduct.measures?.length > 0 ? (
+                <Select
+                  isClearable
+                  options={selectedProduct.measures.map((measure) => ({
+                    label: measure.toString(),
+                    value: measure,
+                  }))}
+                  value={
+                    volumeDisplay
+                      ? { label: volumeDisplay, value: volumeDisplay }
+                      : null
+                  }
+                  onChange={(option) => {
+                    const val = option ? option.label : "";
+                    setVolumeDisplay(val);
+                    setExpense((prev) => ({
+                      ...prev,
+                      volume: option ? parseFloat(option.label) : 0,
+                    }));
+                  }}
+                  placeholder="Select Volume"
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                />
+              ) : (
+                <ExpenseField
+                  label="Volume/Quantity"
+                  type="number"
+                  value={volumeDisplay}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setVolumeDisplay(value);
+                    setExpense((prev) => ({ ...prev, volume: parseFloat(value) }));
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        {expense.measurementUnit}
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              )}
             </Grid>
 
             {/* Discount Checkbox */}

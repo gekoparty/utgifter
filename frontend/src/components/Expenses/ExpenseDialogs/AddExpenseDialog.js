@@ -16,27 +16,10 @@ import ExpenseField from "../../commons/ExpenseField/ExpenseField";
 import WindowedSelect from "react-windowed-select";
 import useExpenseForm from "../useExpenseForm";
 import useFetchData from "../../../hooks/useFetchData";
+import useInfiniteProducts from "../../../hooks/useInfiniteProducts";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 
-const defaultExpense = {
-  productName: "",
-  brandName: "",
-  shopName: "",
-  locationName: "",
-  price: 0,
-  volume: 0,
-  discountValue: 0,
-  discountAmount: 0,
-  finalPrice: 0,
-  quantity: 1,
-  hasDiscount: false,
-  purchased: true,
-  registeredDate: null,
-  purchaseDate: null,
-  type: "",
-  measurementUnit: "",
-  pricePerUnit: 0,
-};
+
 
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   // Use the expense form hook. (Note: If you need to pass an initial expense, you can adjust here.)
@@ -51,7 +34,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   // Destructure field-change handlers (including discount changes)
   const {
-    handleFieldChange,
     handleDiscountAmountChange,
     handleDiscountValueChange,
   } = useHandleFieldChange(expense, setExpense);
@@ -59,19 +41,19 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   // Local state for volume display (for manual input)
   const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
   // Local state for discount (Kr) display:
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
 
   // Fetch products, brands, and shops options
+  // Use infinite query for products
   const {
-    data: products,
+    data: infiniteData,
     isLoading: isLoadingProducts,
+    fetchNextPage,
+    hasNextPage,
     refetch: refetchProducts,
-  } = useFetchData(
-    "products",
-    "/api/products",
-    (data) => (Array.isArray(data.products) ? data.products : []),
-    { enabled: open }
-  );
+  } = useInfiniteProducts(productSearch);
 
   const {
     data: brands,
@@ -116,7 +98,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   }, [open, refetchProducts, refetchBrands, refetchShops]);
 
   // Ensure that options are arrays
-  const safeProducts = Array.isArray(products) ? products : [];
   const safeBrands = Array.isArray(brands) ? brands : [];
   const safeShops = Array.isArray(shops) ? shops : [];
 
@@ -126,11 +107,26 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   }, [expense.volume]);
 
  
+  // Flatten the pages of products into a single array of options
+  const productOptions = infiniteData
+    ? infiniteData.pages.flatMap((page) =>
+        page.products.map((product) => ({
+          label: product.name,
+          value: product.name,
+          name: product.name,
+          type: product.type,
+          measurementUnit: product.measurementUnit,
+          measures: product.measures,
+        }))
+      )
+    : [];
 
   // Handlers for selections:
   const handleProductSelect = (selectedOption) => {
+    setSelectedProduct(selectedOption); // Save the selected product
+  
     if (selectedOption) {
-      const unit = selectedOption.measurementUnit || 'unit'; // Fallback if necessary
+      const unit = selectedOption.measurementUnit || "unit";
       if (selectedOption.measures && selectedOption.measures.length > 0) {
         const firstMeasure = selectedOption.measures[0];
         setExpense((prev) => ({
@@ -161,6 +157,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       }));
       setVolumeDisplay("");
     }
+  };
+
+  const handleProductInputChange = (inputValue) => {
+    setProductSearch(inputValue);
+    // Optionally, you can debounce this to reduce API calls
   };
 
   const handleBrandSelect = (selectedOption) => {
@@ -303,20 +304,18 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
-                options={safeProducts.map((product) => ({
-                  label: product.name,
-                  value: product.name,
-                  name: product.name,
-                  type: product.type,
-                  measurementUnit: product.measurementUnit,
-                  measures: product.measures,
-                }))}
+                options={productOptions}
                 value={
                   expense.productName
                     ? { label: expense.productName, value: expense.productName }
                     : null
                 }
                 onChange={handleProductSelect}
+                onInputChange={handleProductInputChange}
+                // When the dropdown is scrolled to bottom, fetch next page if available
+                onMenuScrollToBottom={() => {
+                  if (hasNextPage) fetchNextPage();
+                }}
                 placeholder="Select Product"
                 menuPortalTarget={document.body}
                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
@@ -397,27 +396,24 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
             {/* Volume (Selection or Manual) */}
             <Grid item xs={12} md={6}>
-              {expense.measurementUnit && safeProducts.length > 0 ? (
-                <WindowedSelect
-                  isClearable
-                  options={
-                    // Assuming the measures come from the selected product.
-                    (safeProducts[0]?.measures || []).map((measure) => ({
-                      label: measure.toString(),
-                      value: measure,
-                    })) || []
-                  }
-                  value={
-                    volumeDisplay
-                      ? { label: volumeDisplay, value: volumeDisplay }
-                      : null
-                  }
-                  onChange={handleVolumeChange}
-                  placeholder="Select Volume"
-                  menuPortalTarget={document.body}
-                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-                />
-              ) : (
+            {expense.measurementUnit && selectedProduct && selectedProduct.measures?.length > 0 ? (
+    <WindowedSelect
+      isClearable
+      options={selectedProduct.measures.map((measure) => ({
+        label: measure.toString(),
+        value: measure,
+      }))}
+      value={
+        volumeDisplay
+          ? { label: volumeDisplay, value: volumeDisplay }
+          : null
+      }
+      onChange={handleVolumeChange}
+      placeholder="Select Volume"
+      menuPortalTarget={document.body}
+      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+    />
+  ) : (
                 <ExpenseField
                   label="Volume (Manual)"
                   type="number"
