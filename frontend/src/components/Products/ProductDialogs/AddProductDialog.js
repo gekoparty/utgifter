@@ -64,10 +64,16 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
 
   // Fetch brand options using React Query
   const {
-    data: brandOptions,
+    data: brandData = { brands: [] },
     isLoading: brandLoading,
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
+
+  const brandOptions = brandData.brands;
+
+  useEffect(() => {
+    console.log("brandOptions:", brandOptions);
+  }, [brandOptions]);
 
   // Handle form submission
   const handleSubmit = async (event) => {
