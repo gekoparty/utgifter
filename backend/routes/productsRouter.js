@@ -32,7 +32,7 @@ productsRouter.get("/", async (req, res) => {
     // Apply global filter
     if (globalFilter) {
       const regex = new RegExp(globalFilter, "i");
-      query = query.or([{ name: regex }, { type: regex }, { measures: regex }]);
+      query = query.or([{ name: regex }, { type: regex }]);
     }
 
     // Apply sorting

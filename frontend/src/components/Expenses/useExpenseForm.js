@@ -127,42 +127,25 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
           typeof initialExpense.productName === "object"
             ? initialExpense.productName.name
             : initialExpense.productName,
-        brandName:
-          typeof initialExpense.brandName === "object"
-            ? initialExpense.brandName.name
-            : initialExpense.brandName,
-        shopName:
-          typeof initialExpense.shopName === "object"
-            ? initialExpense.shopName.name
-            : initialExpense.shopName,
-        locationName:
-          typeof initialExpense.locationName === "object"
-            ? initialExpense.locationName.name
-            : initialExpense.locationName,
+        // ...other fields
       };
-
-      // If product options exist, update measures from the selected product
       if (productsOptions && productsOptions.length > 0) {
-        const selectedProduct = productsOptions.find(
-          (product) => product.name === normalizedExpense.productName
+        const selectedProd = productsOptions.find(
+          (prod) => prod.name === normalizedExpense.productName
         );
-        const productMeasures = selectedProduct?.measures || [];
-        setExpense((prevExpense) => ({
-          ...prevExpense,
+        const productMeasures = selectedProd?.measures || [];
+        setExpense((prev) => ({
+          ...prev,
           ...normalizedExpense,
           measures: productMeasures,
         }));
-      } else {
-        console.warn("productsOptions is undefined or empty");
+      } else if (productsOptions !== undefined) {
+        console.warn("productsOptions is empty");
       }
     } else {
       resetFormAndErrors();
     }
-
-    return () => {
-      dispatch({ type: "CLEAR_RESOURCE", resource: "expenses" });
-    };
-  }, [initialExpense, resetFormAndErrors, dispatch, productsOptions]);
+  }, [initialExpense, productsOptions, resetFormAndErrors]);
 
   // Validate a single field and update the validation errors state
   const validateField = useCallback((field, value) => {
