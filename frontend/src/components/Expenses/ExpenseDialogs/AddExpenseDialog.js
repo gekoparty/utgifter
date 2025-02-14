@@ -19,8 +19,6 @@ import useFetchData from "../../../hooks/useFetchData";
 import useInfiniteProducts from "../../../hooks/useInfiniteProducts";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 
-
-
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   // Use the expense form hook. (Note: If you need to pass an initial expense, you can adjust here.)
   const {
@@ -33,17 +31,14 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   } = useExpenseForm();
 
   // Destructure field-change handlers (including discount changes)
-  const {
-    handleDiscountAmountChange,
-    handleDiscountValueChange,
-  } = useHandleFieldChange(expense, setExpense);
+  const { handleDiscountAmountChange, handleDiscountValueChange } =
+    useHandleFieldChange(expense, setExpense);
 
   // Local state for volume display (for manual input)
   const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
   // Local state for discount (Kr) display:
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
-
 
   // Fetch products, brands, and shops options
   // Use infinite query for products
@@ -79,7 +74,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         : shopsData?.shops || [];
       return Promise.all(
         shopsArray.map(async (shop) => {
-          const locationResponse = await fetch(`/api/locations/${shop.location}`);
+          const locationResponse = await fetch(
+            `/api/locations/${shop.location}`
+          );
           const location = await locationResponse.json();
           return { ...shop, locationName: location.name };
         })
@@ -106,7 +103,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     setVolumeDisplay(expense.volume || "");
   }, [expense.volume]);
 
- 
   // Flatten the pages of products into a single array of options
   const productOptions = infiniteData
     ? infiniteData.pages.flatMap((page) =>
@@ -124,7 +120,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   // Handlers for selections:
   const handleProductSelect = (selectedOption) => {
     setSelectedProduct(selectedOption); // Save the selected product
-  
+
     if (selectedOption) {
       const unit = selectedOption.measurementUnit || "unit";
       if (selectedOption.measures && selectedOption.measures.length > 0) {
@@ -192,7 +188,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const handleVolumeChange = (selectedOption) => {
     if (selectedOption) {
       setVolumeDisplay(selectedOption.label);
-      setExpense((prev) => ({ ...prev, volume: parseFloat(selectedOption.label) }));
+      setExpense((prev) => ({
+        ...prev,
+        volume: parseFloat(selectedOption.label),
+      }));
     } else {
       setVolumeDisplay("");
       setExpense((prev) => ({ ...prev, volume: 0 }));
@@ -249,7 +248,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       if (isFormValid()) {
         const savedExpense = await handleSaveExpense();
         console.log("Saved expense response:", savedExpense); // For debugging
-        
+
         if (savedExpense) {
           // Extract the expense data from the returned object.
           // We assume the API returns { message, data: [ expense ] }.
@@ -257,13 +256,13 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             savedExpense.data && Array.isArray(savedExpense.data)
               ? savedExpense.data[0]
               : savedExpense;
-          
+
           // Extract the product name (if productName is an object, use its name property).
           const productName =
             typeof expenseData.productName === "object"
               ? expenseData.productName.name
               : expenseData.productName;
-          
+
           if (!expenseData || !productName) {
             // If productName is missing, show an error.
             console.error("Invalid response from server:", savedExpense);
@@ -280,9 +279,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       console.error("Save failed:", error);
     }
   };
-
-  
-
 
   // Determine overall loading state
   const isLoading =
@@ -396,24 +392,26 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
             {/* Volume (Selection or Manual) */}
             <Grid item xs={12} md={6}>
-            {expense.measurementUnit && selectedProduct && selectedProduct.measures?.length > 0 ? (
-    <WindowedSelect
-      isClearable
-      options={selectedProduct.measures.map((measure) => ({
-        label: measure.toString(),
-        value: measure,
-      }))}
-      value={
-        volumeDisplay
-          ? { label: volumeDisplay, value: volumeDisplay }
-          : null
-      }
-      onChange={handleVolumeChange}
-      placeholder="Select Volume"
-      menuPortalTarget={document.body}
-      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-    />
-  ) : (
+              {expense.measurementUnit &&
+              selectedProduct &&
+              selectedProduct.measures?.length > 0 ? (
+                <WindowedSelect
+                  isClearable
+                  options={selectedProduct.measures.map((measure) => ({
+                    label: measure.toString(),
+                    value: measure,
+                  }))}
+                  value={
+                    volumeDisplay
+                      ? { label: volumeDisplay, value: volumeDisplay }
+                      : null
+                  }
+                  onChange={handleVolumeChange}
+                  placeholder="Select Volume"
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                />
+              ) : (
                 <ExpenseField
                   label="Volume (Manual)"
                   type="number"
@@ -526,7 +524,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             <Grid item xs={12} md={6}>
               <DatePicker
                 label="Date"
-                value={dayjs(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
+                value={dayjs(
+                  expense.purchased
+                    ? expense.purchaseDate
+                    : expense.registeredDate
+                )}
                 onChange={handleDateChange}
                 slotProps={{ textField: { fullWidth: true } }}
               />
@@ -566,4 +568,3 @@ AddExpenseDialog.propTypes = {
 };
 
 export default AddExpenseDialog;
-

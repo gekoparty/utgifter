@@ -45,9 +45,9 @@ const EditExpenseDialog = ({
 
   // Local state for displaying volume (e.g. if manual input is needed)
   const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
-   // New state to manage typeahead search and the selected product object
-   const [productSearch, setProductSearch] = useState("");
-   const [selectedProduct, setSelectedProduct] = useState(null);
+  // New state to manage typeahead search and the selected product object
+  const [productSearch, setProductSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Ensure that the local volume display is updated when expense.volume changes
   useEffect(() => {
@@ -69,7 +69,6 @@ const EditExpenseDialog = ({
     hasNextPage,
   } = useInfiniteProducts(productSearch);
 
-
   // Flatten the pages from the infinite query into options
   const productOptions = infiniteData
     ? infiniteData.pages.flatMap((page) =>
@@ -84,34 +83,43 @@ const EditExpenseDialog = ({
     : [];
 
   // Fetch brand options.
-  const { data: brandOptions, isLoading: isLoadingBrands, isError: brandError } =
-    useFetchData(
-      "brands",
-      "/api/brands",
-      (data) => (Array.isArray(data.brands) ? data.brands : []),
-      { enabled: open }
-    );
+  const {
+    data: brandOptions,
+    isLoading: isLoadingBrands,
+    isError: brandError,
+  } = useFetchData(
+    "brands",
+    "/api/brands",
+    (data) => (Array.isArray(data.brands) ? data.brands : []),
+    { enabled: open }
+  );
 
   // Fetch shop options and transform each shop to include its location name.
-  const { data: shopOptions, isLoading: isLoadingShops, isError: shopError } =
-    useFetchData(
-      "shops",
-      "/api/shops",
-      async (data) => {
-        const shopsArray = Array.isArray(data) ? data : data?.shops || [];
-        return Promise.all(
-          shopsArray.map(async (shop) => {
-            const locationResponse = await fetch(`/api/locations/${shop.location}`);
-            const location = await locationResponse.json();
-            return { ...shop, locationName: location.name };
-          })
-        );
-      },
-      { enabled: open }
-    );
+  const {
+    data: shopOptions,
+    isLoading: isLoadingShops,
+    isError: shopError,
+  } = useFetchData(
+    "shops",
+    "/api/shops",
+    async (data) => {
+      const shopsArray = Array.isArray(data) ? data : data?.shops || [];
+      return Promise.all(
+        shopsArray.map(async (shop) => {
+          const locationResponse = await fetch(
+            `/api/locations/${shop.location}`
+          );
+          const location = await locationResponse.json();
+          return { ...shop, locationName: location.name };
+        })
+      );
+    },
+    { enabled: open }
+  );
 
   // Overall loading state.
-  const isLoading = isLoadingProducts || isLoadingBrands || isLoadingShops || loading;
+  const isLoading =
+    isLoadingProducts || isLoadingBrands || isLoadingShops || loading;
 
   // Handle error states.
   if (isLoading) {
@@ -132,7 +140,7 @@ const EditExpenseDialog = ({
   const handleProductSelect = (selectedOption) => {
     // Save the full product object for later use (e.g. for measures)
     setSelectedProduct(selectedOption);
-  
+
     if (selectedOption) {
       // Update expense with product details.
       setExpense((prev) => ({
@@ -172,7 +180,9 @@ const EditExpenseDialog = ({
   // Handle shop selection; split the label to get shop name and location.
   const handleShopSelect = (selectedOption) => {
     if (selectedOption) {
-      const [shopName, locationName] = selectedOption.label.split(",").map((s) => s.trim());
+      const [shopName, locationName] = selectedOption.label
+        .split(",")
+        .map((s) => s.trim());
       setExpense((prev) => ({
         ...prev,
         shopName,
@@ -186,8 +196,6 @@ const EditExpenseDialog = ({
       }));
     }
   };
-
- 
 
   // Handle discount checkbox changes.
   const handleDiscountChange = (e) => {
@@ -251,7 +259,6 @@ const EditExpenseDialog = ({
       }
     }
   };
-  
 
   return (
     <BasicDialog
@@ -265,29 +272,28 @@ const EditExpenseDialog = ({
       <form onSubmit={handleSubmit}>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
-                        {/* Product Selection */}
-                        <Grid item xs={12} md={6}>
-                        <Select
-  isClearable
-  options={productOptions}
-  value={
-    expense.productName
-      ? { label: expense.productName, value: expense.productName }
-      : null
-  }
-  onChange={handleProductSelect}
-  onInputChange={(inputValue) => {
-    setProductSearch(inputValue);
-  }}
-  onMenuScrollToBottom={() => {
-    if (hasNextPage) fetchNextPage();
-  }}
-  placeholder="Select Product"
-  menuPortalTarget={document.body}
-  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
-/>
+            {/* Product Selection */}
+            <Grid item xs={12} md={6}>
+              <Select
+                isClearable
+                options={productOptions}
+                value={
+                  expense.productName
+                    ? { label: expense.productName, value: expense.productName }
+                    : null
+                }
+                onChange={handleProductSelect}
+                onInputChange={(inputValue) => {
+                  setProductSearch(inputValue);
+                }}
+                onMenuScrollToBottom={() => {
+                  if (hasNextPage) fetchNextPage();
+                }}
+                placeholder="Select Product"
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+              />
             </Grid>
-
 
             {/* Brand Selection */}
             <Grid item xs={12} md={6}>
@@ -358,9 +364,11 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-                {/* Volume / Quantity Field */}
-                <Grid item xs={12} md={6}>
-              {expense.measurementUnit && selectedProduct && selectedProduct.measures?.length > 0 ? (
+            {/* Volume / Quantity Field */}
+            <Grid item xs={12} md={6}>
+              {expense.measurementUnit &&
+              selectedProduct &&
+              selectedProduct.measures?.length > 0 ? (
                 <Select
                   isClearable
                   options={selectedProduct.measures.map((measure) => ({
@@ -392,7 +400,10 @@ const EditExpenseDialog = ({
                   onChange={(e) => {
                     const value = e.target.value;
                     setVolumeDisplay(value);
-                    setExpense((prev) => ({ ...prev, volume: parseFloat(value) }));
+                    setExpense((prev) => ({
+                      ...prev,
+                      volume: parseFloat(value),
+                    }));
                   }}
                   InputProps={{
                     startAdornment: (
@@ -404,7 +415,15 @@ const EditExpenseDialog = ({
                 />
               )}
             </Grid>
-
+            {/* Price Per Unit (Read-only) */}
+            <Grid item xs={12}>
+              <ExpenseField
+                label={`Price per ${expense.measurementUnit || ""}`}
+                value={expense.pricePerUnit}
+                InputProps={{ readOnly: true }}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
             {/* Discount Checkbox */}
             <Grid item xs={12} md={6}>
               <FormControlLabel
@@ -505,7 +524,11 @@ const EditExpenseDialog = ({
             <Grid item xs={12} md={6}>
               <DatePicker
                 label="Date"
-                value={dayjs(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
+                value={dayjs(
+                  expense.purchased
+                    ? expense.purchaseDate
+                    : expense.registeredDate
+                )}
                 onChange={handleDateChange}
                 slotProps={{ textField: { fullWidth: true } }}
               />
@@ -542,4 +565,3 @@ EditExpenseDialog.propTypes = {
 };
 
 export default EditExpenseDialog;
-
