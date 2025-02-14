@@ -58,7 +58,7 @@ productsRouter.get("/", async (req, res) => {
     }
 
     // Execute the query
-    const products = await query.select("name brands type measures").lean();
+    const products = await query.select("name brands type measures measurementUnit").lean();
 
     // Collect unique brand IDs
     const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands))].filter(Boolean);

@@ -67,7 +67,6 @@ const EditExpenseDialog = ({
     error: productError, // <-- add this line
     fetchNextPage,
     hasNextPage,
-    refetch: refetchProducts,
   } = useInfiniteProducts(productSearch);
 
 
@@ -188,13 +187,7 @@ const EditExpenseDialog = ({
     }
   };
 
-  // Handle volume input changes.
-  const handleVolumeChange = (e) => {
-    const value = e.target.value;
-    setVolumeDisplay(value);
-    const numericValue = parseFloat(value);
-    handleFieldChange("volume", numericValue);
-  };
+ 
 
   // Handle discount checkbox changes.
   const handleDiscountChange = (e) => {

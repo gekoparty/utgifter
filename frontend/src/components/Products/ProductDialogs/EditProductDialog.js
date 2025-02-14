@@ -42,10 +42,12 @@ const EditProductDialog = ({
 
   // Query to fetch brand options
   const {
-    data: brandOptions,
+    data: brandData,
     isLoading: brandLoading,
     isError: brandError,
   } = useQuery(["brands"], fetchBrands);
+
+  const brandOptionsArray = brandData?.brands || [];
 
   // Local state for selected brands and measures
   const [selectedBrands, setSelectedBrands] = useState([]);
@@ -146,12 +148,10 @@ const EditProductDialog = ({
           <Grid item>
             <CreatableSelect
               className="custom-select"
-              options={
-                brandOptions?.map((brand) => ({
-                  label: brand.name,
-                  value: brand.name,
-                })) || []
-              }
+              options={brandOptionsArray.map((brand) => ({
+                label: brand.name,
+                value: brand.name,
+              }))}
               value={selectedBrands}
               isMulti
               onChange={(selectedOptions) => {
