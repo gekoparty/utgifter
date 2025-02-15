@@ -5,33 +5,31 @@ import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationScema.js";
-import { format, parse, isValid, getMonth, getYear, parseISO } from "date-fns";// Import the date-fns library
+import { format, parse, isValid, getMonth, getYear, parseISO } from "date-fns"; // Import the date-fns library
 
 const expensesRouter = express.Router();
 
-
-const getDefaultValue = (value) => value || 'n/a';
+const getDefaultValue = (value) => value || "n/a";
 
 function formatDate(date) {
   // Check if date is null or undefined
   if (!date) {
-    return ''; // Return an empty string if date is null or undefined
+    return ""; // Return an empty string if date is null or undefined
   }
 
   // Ensure the date is a valid Date object
   const parsedDate = new Date(date);
   if (isNaN(parsedDate.getTime())) {
-    return ''; // Return an empty string if the date is invalid
+    return ""; // Return an empty string if the date is invalid
   }
 
   // Format the date
-  return format(parsedDate, 'dd MMMM yyyy'); // Outputs: 12 January 2024
+  return format(parsedDate, "dd MMMM yyyy"); // Outputs: 12 January 2024
 }
-
 
 function parseDateInput(value) {
   const now = new Date();
-  
+
   // Attempt to parse full date (dd MMMM yyyy)
   const fullDate = parse(value, "dd MMMM yyyy", new Date());
   if (isValid(fullDate)) {
@@ -59,13 +57,18 @@ function parseDateInput(value) {
   return null; // Return null if no valid date was found
 }
 
-
-
-
 expensesRouter.get("/", async (req, res) => {
   try {
     console.log("Expenses GET params:", req.query);
-    const { columnFilters, globalFilter, sorting, start, size, minPrice, maxPrice } = req.query;
+    const {
+      columnFilters,
+      globalFilter,
+      sorting,
+      start,
+      size,
+      minPrice,
+      maxPrice,
+    } = req.query;
 
     let query = Expense.find();
 
@@ -74,31 +77,34 @@ expensesRouter.get("/", async (req, res) => {
       query = query.where("price").gte(minPrice).lte(maxPrice);
     }
 
-    // Column Filters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      filters.forEach(({ id, value }) => {
+      for (const { id, value } of filters) {
         if (id && value) {
           if (id === "purchaseDate" || id === "registeredDate") {
-            // Parse date and filter by year/month
-            const inputDate = parseDateInput(value);
-            if (inputDate) {
-              query = query.where(id)
-                .gte(new Date(inputDate.getFullYear(), inputDate.getMonth(), 1))
-                .lt(new Date(inputDate.getFullYear(), inputDate.getMonth() + 1, 1));
-            }
+            // (date filter code here)
           } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
-            query = query.populate({
-              path: id,
-              match: { name: new RegExp(value, "i") },
-            });
+            if (id === "productName") {
+              const matchingProductIds = await Product.find({ name: new RegExp(value, "i") }).distinct('_id');
+              query = query.where("productName").in(matchingProductIds);
+            } else if (id === "brandName") {
+              const matchingBrandIds = await Brand.find({ name: new RegExp(value, "i") }).distinct('_id');
+              query = query.where("brandName").in(matchingBrandIds);
+            } else if (id === "shopName") {
+              const matchingShopIds = await Shop.find({ name: new RegExp(value, "i") }).distinct('_id');
+              query = query.where("shopName").in(matchingShopIds);
+            } else if (id === "locationName") {
+              const matchingLocationIds = await Location.find({ name: new RegExp(value, "i") }).distinct('_id');
+              query = query.where("locationName").in(matchingLocationIds);
+            }
           } else {
             query = query.where(id).regex(new RegExp(value, "i"));
           }
         }
-      });
+      }
     }
 
+    
     // Global Filter
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
@@ -123,16 +129,22 @@ expensesRouter.get("/", async (req, res) => {
       }
     }
 
-    // Pagination
-    let totalRowCount = 0;
-    if (start !== undefined && size !== undefined) {
-      const startIndex = parseInt(start, 10);
-      const pageSize = parseInt(size, 10);
-      totalRowCount = await Expense.countDocuments(query.getFilter());
-      console.log("Total matching expenses:", totalRowCount);
-      query = query.skip(startIndex).limit(pageSize);
-    }
+   // Pagination
+let totalRowCount = 0;
+if (start !== undefined && size !== undefined) {
+  const startIndex = parseInt(start, 10);
+  const pageSize = parseInt(size, 10);
+  totalRowCount = await Expense.countDocuments(query.getFilter());
+  console.log("Total matching expenses:", totalRowCount);
 
+  // If the start index is greater than or equal to totalRowCount, reset it to 0
+  const validStartIndex = startIndex >= totalRowCount ? 0 : startIndex;
+  if (validStartIndex !== startIndex) {
+    console.warn(`Requested start index ${startIndex} is out of range (total ${totalRowCount}). Resetting to ${validStartIndex}.`);
+  }
+
+  query = query.skip(validStartIndex).limit(pageSize);
+}
     // Execute the query
     const expenses = await query
       .populate("productName", "name measures measurementUnit")
@@ -141,9 +153,8 @@ expensesRouter.get("/", async (req, res) => {
       .populate("locationName", "name")
       .exec();
 
-
     // Format and enrich response
-    const formattedExpenses = expenses.map(expense => ({
+    const formattedExpenses = expenses.map((expense) => ({
       ...expense.toObject(),
       productName: expense.productName?.name || "",
       brandName: expense.brandName?.name || "",
@@ -153,8 +164,6 @@ expensesRouter.get("/", async (req, res) => {
       purchaseDate: formatDate(expense.purchaseDate),
       registeredDate: formatDate(expense.registeredDate),
     }));
-
-    
 
     res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
   } catch (err) {
@@ -169,10 +178,10 @@ expensesRouter.get("/:id", async (req, res) => {
   try {
     // Fetch the specific expense and populate the referenced fields
     const expense = await Expense.findById(id)
-    .populate('productName', 'name measures')  // Include measures here
-      .populate('brandName', 'name')
-      .populate('shopName', 'name')
-      .populate('locationName', 'name');
+      .populate("productName", "name measures") // Include measures here
+      .populate("brandName", "name")
+      .populate("shopName", "name")
+      .populate("locationName", "name");
 
     if (!expense) {
       return res.status(404).send({ error: "Expense not found" });
@@ -184,7 +193,7 @@ expensesRouter.get("/:id", async (req, res) => {
       productName: expense.productName?.name || expense.productName,
       brandName: expense.brandName?.name || expense.brandName,
       shopName: expense.shopName?.name || expense.shopName,
-      measures: expense.productName?.measures || '',  // Include the measures field
+      measures: expense.productName?.measures || "", // Include the measures field
       locationName: expense.locationName?.name || expense.locationName,
       purchaseDate: formatDate(expense.purchaseDate),
     };
@@ -194,7 +203,7 @@ expensesRouter.get("/:id", async (req, res) => {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
   }
-})
+});
 
 expensesRouter.post("/", async (req, res) => {
   console.log("Expense data received:", req.body);
@@ -224,10 +233,14 @@ expensesRouter.post("/", async (req, res) => {
     const product = await Product.findOne({ name: productName });
     const brand = await Brand.findOne({ name: brandName });
     const shop = await Shop.findOne({ name: shopName });
-    const location = locationName ? await Location.findOne({ name: locationName }) : null;
+    const location = locationName
+      ? await Location.findOne({ name: locationName })
+      : null;
 
     if (!product || !brand || !shop) {
-      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+      return res
+        .status(400)
+        .json({ message: "Invalid product, brand, or shop." });
     }
 
     // Ensure quantity is a positive integer
@@ -266,28 +279,27 @@ expensesRouter.post("/", async (req, res) => {
 
     // Save all expense documents
     // Save all expense documents
-  const savedExpenses = await Expense.insertMany(expensesToSave);
+    const savedExpenses = await Expense.insertMany(expensesToSave);
 
-  // Populate product name for better frontend handling
-  const populatedExpenses = await Expense.populate(savedExpenses, {
-    path: "productName",
-    select: "name"
-  });
+    // Populate product name for better frontend handling
+    const populatedExpenses = await Expense.populate(savedExpenses, {
+      path: "productName",
+      select: "name",
+    });
 
-  res.status(201).json({
-    message: "Utgift lagret!",
-    data: populatedExpenses
-  });
-    
+    res.status(201).json({
+      message: "Utgift lagret!",
+      data: populatedExpenses,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Serverfeil. Vennligst prøv igjen."  });
+    res.status(500).json({ message: "Serverfeil. Vennligst prøv igjen." });
   }
 });
 
 expensesRouter.put("/:id", async (req, res) => {
   console.log("Received PUT request data:", req.body);
-  
+
   const { id } = req.params;
   const {
     productName,
@@ -345,12 +357,14 @@ expensesRouter.put("/:id", async (req, res) => {
     if (!shop) {
       const shopSlug = slugify(shopName, { lower: true });
       if (!location) {
-        return res.status(400).json({ message: "Location is required to create a shop." });
+        return res
+          .status(400)
+          .json({ message: "Location is required to create a shop." });
       }
       shop = new Shop({
         name: shopName,
         slugifiedName: shopSlug,
-        location: location._id,  // Assign the location to the shop
+        location: location._id, // Assign the location to the shop
       });
       await shop.save();
     }
@@ -379,10 +393,10 @@ expensesRouter.put("/:id", async (req, res) => {
       },
       { new: true } // Return the updated document
     )
-    .populate('productName', 'name')
-    .populate('brandName', 'name')
-    .populate('shopName', 'name')
-    .populate('locationName', 'name');
+      .populate("productName", "name")
+      .populate("brandName", "name")
+      .populate("shopName", "name")
+      .populate("locationName", "name");
 
     if (!updatedExpense) {
       return res.status(404).json({ message: "Expense not found." });
@@ -394,7 +408,9 @@ expensesRouter.put("/:id", async (req, res) => {
       productName: updatedExpense.productName.name,
       brandName: updatedExpense.brandName.name,
       shopName: updatedExpense.shopName.name,
-      locationName: updatedExpense.locationName ? updatedExpense.locationName.name : null,
+      locationName: updatedExpense.locationName
+        ? updatedExpense.locationName.name
+        : null,
       measurementUnit: updatedExpense.measurementUnit,
       type: updatedExpense.type,
       price: updatedExpense.price,
@@ -417,10 +433,9 @@ expensesRouter.put("/:id", async (req, res) => {
   }
 });
 
-
 expensesRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const expense = await Expense.findByIdAndDelete(req.params.id);
     if (!expense) {
