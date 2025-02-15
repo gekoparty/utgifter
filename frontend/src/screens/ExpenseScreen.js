@@ -178,11 +178,13 @@ const ExpenseScreen = () => {
       globalFilter,
       debouncedPriceRangeFilter
     );
+    console.log("Fetching from:", fetchURL.href);
     const response = await fetch(fetchURL.href);
     if (!response.ok) {
       throw new Error(`Error: ${response.statusText} (${response.status})`);
     }
     const json = await response.json();
+    console.log("Fetched JSON:", json);
     const stats = calculatePriceStatsByType(json.expenses);
     setPriceStatsByType(stats);
     return { expenses: json.expenses, meta: json.meta };
@@ -263,8 +265,12 @@ const ExpenseScreen = () => {
 
   // Prefetch next page whenever pagination, sorting, or filters change
   useEffect(() => {
-    const nextPageIndex = pagination.pageIndex + 1;
-    prefetchPageData(nextPageIndex);
+    const totalPages = Math.ceil(
+      (expensesData?.meta?.totalRowCount || 0) / pagination.pageSize
+    );
+    if (pagination.pageIndex + 1 < totalPages) {
+      prefetchPageData(pagination.pageIndex + 1);
+    }
   }, [
     pagination.pageIndex,
     pagination.pageSize,
@@ -275,6 +281,12 @@ const ExpenseScreen = () => {
     queryClient,
   ]);
 
+  useEffect(() => {
+    console.log("Fetched expensesData:", expensesData);
+    if (expensesData) {
+      console.log("Expenses to display:", expensesData.expenses);
+    }
+  }, [expensesData]);
 // Local state for price statistics
 const [priceStatsByType, setPriceStatsByType] = useState({});
 
@@ -348,6 +360,7 @@ const renderDetailPanel = useCallback(
       {
         accessorKey: "purchaseDate",
         header: "Purchase Date",
+        manualFiltering: true,
         filterVariant: "date",
         Cell: ({ cell }) => {
           const dateValue = cell.getValue();
@@ -435,7 +448,9 @@ const renderDetailPanel = useCallback(
     setPriceRangeFilter(newRange);
   };
 
+ 
   return (
+    
     <TableLayout>
       <Box
         sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
@@ -461,6 +476,7 @@ const renderDetailPanel = useCallback(
         }}
         data-testid="table-wrapper"
       >
+      
         {expensesData && (
           <ReactTable
             muiTableContainerProps={{
@@ -494,7 +510,7 @@ const renderDetailPanel = useCallback(
             meta={expensesData?.meta}
             setSelectedExpense={setSelectedExpense}
             totalRowCount={expensesData?.meta?.totalRowCount}
-            rowCount={expensesData?.meta?.totalRowCount ?? 0}
+            rowCount={expensesData?.meta?.totalRowCount || 0}
             handleEdit={(expense) => {
               setSelectedExpense(expense);
               setEditModalOpen(true);

@@ -5,6 +5,7 @@ import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationScema.js";
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { format, parse, isValid, getMonth, getYear, parseISO } from "date-fns"; // Import the date-fns library
 
 const expensesRouter = express.Router();
@@ -77,32 +78,59 @@ expensesRouter.get("/", async (req, res) => {
       query = query.where("price").gte(minPrice).lte(maxPrice);
     }
 
-    if (columnFilters) {
-      const filters = JSON.parse(columnFilters);
-      for (const { id, value } of filters) {
-        if (id && value) {
-          if (id === "purchaseDate" || id === "registeredDate") {
-            // (date filter code here)
-          } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
-            if (id === "productName") {
-              const matchingProductIds = await Product.find({ name: new RegExp(value, "i") }).distinct('_id');
-              query = query.where("productName").in(matchingProductIds);
-            } else if (id === "brandName") {
-              const matchingBrandIds = await Brand.find({ name: new RegExp(value, "i") }).distinct('_id');
-              query = query.where("brandName").in(matchingBrandIds);
-            } else if (id === "shopName") {
-              const matchingShopIds = await Shop.find({ name: new RegExp(value, "i") }).distinct('_id');
-              query = query.where("shopName").in(matchingShopIds);
-            } else if (id === "locationName") {
-              const matchingLocationIds = await Location.find({ name: new RegExp(value, "i") }).distinct('_id');
-              query = query.where("locationName").in(matchingLocationIds);
-            }
-          } else {
-            query = query.where(id).regex(new RegExp(value, "i"));
-          }
+    
+if (columnFilters) {
+  const filters = JSON.parse(columnFilters);
+  for (const { id, value } of filters) {
+    if (id && value) {
+      if (id === "purchaseDate" || id === "registeredDate") {
+        // Set your local timezone (adjust if necessary)
+        const timeZone = 'Europe/Oslo';
+        
+        // Parse the incoming date value (which is likely in UTC)
+        const inputDate = new Date(value);
+        if (!isNaN(inputDate.getTime())) {
+          // Convert the UTC date to the equivalent zoned time in your target timezone
+          const zonedDate = toZonedTime(inputDate, timeZone);
+          const year = zonedDate.getFullYear();
+          const month = zonedDate.getMonth();
+          const day = zonedDate.getDate();
+          
+          // Build boundaries for the local day
+          const startOfDayLocal = new Date(year, month, day, 0, 0, 0, 0);
+          const endOfDayLocal = new Date(year, month, day, 23, 59, 59, 999);
+          
+          // Convert these local boundaries back to UTC
+          const startOfDayUTC = fromZonedTime(startOfDayLocal, timeZone);
+          const endOfDayUTC = fromZonedTime(endOfDayLocal, timeZone);
+          
+          console.log(`Filtering for ${id}:`);
+          console.log(`  Start of day (UTC): ${startOfDayUTC.toISOString()}`);
+          console.log(`  End of day (UTC):   ${endOfDayUTC.toISOString()}`);
+          
+          query = query.where(id).gte(startOfDayUTC).lte(endOfDayUTC);
         }
+      } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
+        // For referenced fields, query the corresponding collection to filter by IDs
+        if (id === "productName") {
+          const matchingProductIds = await Product.find({ name: new RegExp(value, "i") }).distinct('_id');
+          query = query.where("productName").in(matchingProductIds);
+        } else if (id === "brandName") {
+          const matchingBrandIds = await Brand.find({ name: new RegExp(value, "i") }).distinct('_id');
+          query = query.where("brandName").in(matchingBrandIds);
+        } else if (id === "shopName") {
+          const matchingShopIds = await Shop.find({ name: new RegExp(value, "i") }).distinct('_id');
+          query = query.where("shopName").in(matchingShopIds);
+        } else if (id === "locationName") {
+          const matchingLocationIds = await Location.find({ name: new RegExp(value, "i") }).distinct('_id');
+          query = query.where("locationName").in(matchingLocationIds);
+        }
+      } else {
+        query = query.where(id).regex(new RegExp(value, "i"));
       }
     }
+  }
+}
 
     
     // Global Filter
@@ -130,21 +158,22 @@ expensesRouter.get("/", async (req, res) => {
     }
 
    // Pagination
-let totalRowCount = 0;
-if (start !== undefined && size !== undefined) {
-  const startIndex = parseInt(start, 10);
-  const pageSize = parseInt(size, 10);
-  totalRowCount = await Expense.countDocuments(query.getFilter());
-  console.log("Total matching expenses:", totalRowCount);
-
-  // If the start index is greater than or equal to totalRowCount, reset it to 0
-  const validStartIndex = startIndex >= totalRowCount ? 0 : startIndex;
-  if (validStartIndex !== startIndex) {
-    console.warn(`Requested start index ${startIndex} is out of range (total ${totalRowCount}). Resetting to ${validStartIndex}.`);
-  }
-
-  query = query.skip(validStartIndex).limit(pageSize);
-}
+   let totalRowCount = 0;
+   let validStartIndex = 0;
+   if (start !== undefined && size !== undefined) {
+     const startIndex = parseInt(start, 10);
+     const pageSize = parseInt(size, 10);
+     totalRowCount = await Expense.countDocuments(query.getFilter());
+     console.log("Total matching expenses:", totalRowCount);
+   
+     // If the start index is out of range, reset to 0
+     validStartIndex = startIndex >= totalRowCount ? 0 : startIndex;
+     if (validStartIndex !== startIndex) {
+       console.warn(`Requested start index ${startIndex} is out of range (total ${totalRowCount}). Resetting to ${validStartIndex}.`);
+     }
+   
+     query = query.skip(validStartIndex).limit(pageSize);
+   }
     // Execute the query
     const expenses = await query
       .populate("productName", "name measures measurementUnit")
@@ -152,6 +181,13 @@ if (start !== undefined && size !== undefined) {
       .populate("shopName", "name")
       .populate("locationName", "name")
       .exec();
+
+      // Debug: log the first expense document to inspect its fields
+if (expenses.length > 0) {
+  console.log("Investigating first expense product:", expenses[0]);
+} else {
+  console.log("No expenses found for the current query.");
+}
 
     // Format and enrich response
     const formattedExpenses = expenses.map((expense) => ({
@@ -165,7 +201,7 @@ if (start !== undefined && size !== undefined) {
       registeredDate: formatDate(expense.registeredDate),
     }));
 
-    res.json({ expenses: formattedExpenses, meta: { totalRowCount } });
+    res.json({ expenses: formattedExpenses, meta: { totalRowCount, startIndex: validStartIndex } });
   } catch (err) {
     console.error("Error in /api/expenses:", err);
     res.status(500).json({ error: err.message });

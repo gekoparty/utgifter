@@ -42,11 +42,12 @@ const Table = ({
       }}
       manualPagination
       manualSorting
-      enablePagination
+      //enablePagination
       enableColumnResizing
       enableRowActions
       enableStickyHeader
       enableStickyFooter
+      manualFiltering
       muiTableHeadCellProps={{
         sx: (theme) => ({
           backgroundColor:
