@@ -40,7 +40,7 @@ const Table = ({
         density: "compact",
         ...initialState,
       }}
-      manualPagination
+      //smanualPagination
       manualSorting
       //enablePagination
       enableColumnResizing

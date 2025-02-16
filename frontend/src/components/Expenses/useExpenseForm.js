@@ -182,7 +182,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
 
   // Save the expense (create or update) after formatting and validating the fields
   const handleSaveExpense = async (onClose) => {
-    console.log("Expense data before validation:", expense);
     if (!expense || !expense.productName || !expense.brandName) {
       console.error("Missing required fields in expense:", expense);
       return;
@@ -202,7 +201,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
         purchaseDate: expense.purchased ? expense.purchaseDate : null,
         registeredDate: !expense.purchased ? expense.registeredDate : null,
       };
-      console.log("Formatted expense before Yup validation:", formattedExpense);
       // Validate using the schema (abortEarly false to collect all errors)
       await addExpenseValidationSchema.validate(formattedExpense, { abortEarly: false });
     } catch (validationError) {
@@ -210,7 +208,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
     console.error("Validation error details:", validationError.inner);
       if (validationError.inner) {
         validationError.inner.forEach((err) => {
-          console.log(`Field ${err.path} failed with: ${err.message}`);
           errors[err.path] = { show: true, message: err.message };
         });
         dispatch({
@@ -223,7 +220,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
           showError: true,
         });
       }
-      console.log("Final validation errors state:", errors);
       return;
     }
 

@@ -113,14 +113,40 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           type: product.type,
           measurementUnit: product.measurementUnit,
           measures: product.measures,
+          brands: product.brands, // make sure your API returns this
         }))
       )
     : [];
 
+    const brandOptions =
+    selectedProduct && selectedProduct.brands && safeBrands.length > 0
+      ? safeBrands
+          .filter((brand) =>
+            // Assuming product.brands is an array of IDs matching brand._id
+            selectedProduct.brands.includes(brand._id)
+          )
+          .map((brand) => ({
+            label: brand.name,
+            value: brand.name,
+            name: brand.name,
+          }))
+      : safeBrands.map((brand) => ({
+          label: brand.name,
+          value: brand.name,
+          name: brand.name,
+        }));
+  
+  console.log("Computed brand options:", brandOptions);
   // Handlers for selections:
   const handleProductSelect = (selectedOption) => {
     setSelectedProduct(selectedOption); // Save the selected product
-
+    
+    // Reset the brand selection whenever a new product is chosen:
+    setExpense((prev) => ({
+      ...prev,
+      brandName: "",
+    }));
+  
     if (selectedOption) {
       const unit = selectedOption.measurementUnit || "unit";
       if (selectedOption.measures && selectedOption.measures.length > 0) {
@@ -131,6 +157,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           type: selectedOption.type,
           measurementUnit: unit,
           volume: firstMeasure,
+          // brandName already reset above
         }));
         setVolumeDisplay(firstMeasure.toString());
       } else {
@@ -140,6 +167,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           type: selectedOption.type,
           measurementUnit: unit,
           volume: 0,
+          // brandName already reset above
         }));
         setVolumeDisplay("");
       }
@@ -150,6 +178,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         type: "",
         measurementUnit: "",
         volume: 0,
+        brandName: "", // clear as well if product is cleared
       }));
       setVolumeDisplay("");
     }
@@ -247,8 +276,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     try {
       if (isFormValid()) {
         const savedExpense = await handleSaveExpense();
-        console.log("Saved expense response:", savedExpense); // For debugging
-
         if (savedExpense) {
           // Extract the expense data from the returned object.
           // We assume the API returns { message, data: [ expense ] }.
@@ -279,6 +306,30 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       console.error("Save failed:", error);
     }
   };
+
+  const computeFinalPrice = () => {
+    const price = parseFloat(expense.price) || 0;
+    if (!expense.hasDiscount) return price;
+    if (expense.discountValue > 0) {
+      return price * (1 - expense.discountValue / 100);
+    }
+    if (expense.discountAmount > 0) {
+      return price - expense.discountAmount;
+    }
+    return price;
+  };
+
+  useEffect(() => {
+    setExpense((prev) => ({
+      ...prev,
+      finalPrice: parseFloat(computeFinalPrice().toFixed(2)),
+    }));
+  }, [
+    expense.price,
+    expense.discountValue,
+    expense.discountAmount,
+    expense.hasDiscount,
+  ]);
 
   // Determine overall loading state
   const isLoading =
@@ -322,19 +373,18 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
-                options={safeBrands.map((brand) => ({
-                  label: brand.name,
-                  value: brand.name,
-                  name: brand.name,
-                }))}
+                options={brandOptions}
                 value={
                   expense.brandName
                     ? { label: expense.brandName, value: expense.brandName }
                     : null
                 }
                 onChange={handleBrandSelect}
-                placeholder="Select Brand"
+                placeholder={
+                  selectedProduct ? "Select Brand" : "Select a product first"
+                }
                 menuPortalTarget={document.body}
+                isDisabled={!selectedProduct} // disable if no product selected
                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
               />
             </Grid>
@@ -495,6 +545,14 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 </Grid>
               </>
             )}
+            <Grid item xs={12}>
+              <ExpenseField
+                label="Final Price"
+                value={computeFinalPrice().toFixed(2)}
+                InputProps={{ readOnly: true }}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
 
             {/* Purchased / Registered Checkboxes */}
             <Grid item xs={12} md={6}>

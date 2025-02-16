@@ -29,11 +29,9 @@ const formatComponentFields = (name, componentName, fieldName) => {
     return capitalizedWords.join('');
   };
 
-  console.log(`Formatting: ${fieldName} of ${componentName} with input: ${name}`);
 
   if (fields.includes(fieldName)) {
     const formattedName = capitalizeWord(name); // Format the specific field based on fieldName
-    console.log(`Formatted ${fieldName} of ${componentName}: ${formattedName}`);
     return formattedName;
   } else {
     return name; // Return unchanged if fieldName doesn't match expected fields
