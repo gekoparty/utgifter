@@ -178,13 +178,11 @@ const ExpenseScreen = () => {
       globalFilter,
       debouncedPriceRangeFilter
     );
-    console.log("Fetching from:", fetchURL.href);
     const response = await fetch(fetchURL.href);
     if (!response.ok) {
       throw new Error(`Error: ${response.statusText} (${response.status})`);
     }
     const json = await response.json();
-    console.log("Fetched JSON:", json);
     const stats = calculatePriceStatsByType(json.expenses);
     setPriceStatsByType(stats);
     return { expenses: json.expenses, meta: json.meta };
@@ -281,12 +279,6 @@ const ExpenseScreen = () => {
     queryClient,
   ]);
 
-  useEffect(() => {
-    console.log("Fetched expensesData:", expensesData);
-    if (expensesData) {
-      console.log("Expenses to display:", expensesData.expenses);
-    }
-  }, [expensesData]);
 // Local state for price statistics
 const [priceStatsByType, setPriceStatsByType] = useState({});
 
