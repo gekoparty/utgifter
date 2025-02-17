@@ -13,17 +13,16 @@ const fetchProducts = async ({ pageParam = 0, queryKey }) => {
   return response.json();
 };
 
+// In your useInfiniteProducts hook, adjust cacheTime and staleTime:
 const useInfiniteProducts = (globalFilter) => {
   return useInfiniteQuery(
     ['products', globalFilter],
-    (params) => fetchProducts({ ...params, queryKey: ['products', globalFilter] }),
+    fetchProducts,
     {
-      getNextPageParam: (lastPage, pages) => {
-        const total = lastPage.meta?.totalRowCount || 0;
-        const nextPage = pages.length * 10;
-        return nextPage < total ? nextPage : undefined;
-      },
-      // Optionally debounce or delay the query if needed
+      getNextPageParam: (lastPage, pages) => { /* ... */ },
+      staleTime: 5 * 60 * 1000,  // Data is fresh for 5 minutes
+      cacheTime: 10 * 60 * 1000, // Cache data for 10 minutes
+      keepPreviousData: true
     }
   );
 };
