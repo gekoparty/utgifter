@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { debounce } from "lodash";
+import { useQueryClient } from "@tanstack/react-query";
 import PropTypes from "prop-types";
 import {
   Box,
@@ -29,13 +31,23 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
     loading,
   } = useExpenseForm();
+  const queryClient = useQueryClient();
 
   // Destructure field-change handlers (including discount changes)
   const { handleDiscountAmountChange, handleDiscountValueChange } =
     useHandleFieldChange(expense, setExpense);
 
+  const handleClose = () => {
+    // Reset queries related to products, brands, and shops
+    queryClient.resetQueries(["products"]);
+    queryClient.resetQueries(["brands"]);
+    queryClient.resetQueries(["shops"]);
+    resetFormAndErrors(); // Add this
+    onClose();
+  };
+
   // Local state for volume display (for manual input)
-  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
+  //const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
   // Local state for discount (Kr) display:
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -47,25 +59,16 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     isLoading: isLoadingProducts,
     fetchNextPage,
     hasNextPage,
-    refetch: refetchProducts,
   } = useInfiniteProducts(productSearch);
 
-  const {
-    data: brands,
-    isLoading: isLoadingBrands,
-    refetch: refetchBrands,
-  } = useFetchData(
+  const { data: brands, isLoading: isLoadingBrands } = useFetchData(
     "brands",
     "/api/brands",
     (data) => (Array.isArray(data.brands) ? data.brands : []),
     { enabled: open }
   );
 
-  const {
-    data: shops,
-    isLoading: isLoadingShops,
-    refetch: refetchShops,
-  } = useFetchData(
+  const { data: shops, isLoading: isLoadingShops } = useFetchData(
     "shops",
     "/api/shops",
     async (shopsData) => {
@@ -85,109 +88,116 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     { enabled: open }
   );
 
-  // Refetch data when the dialog opens
+  // Create a debounced version of setProductSearch
+  const debouncedSetProductSearch = useMemo(
+    () =>
+      debounce((inputValue) => {
+        setProductSearch(inputValue);
+      }, 300),
+    [] // setProductSearch is stable
+  );
+
+  // Cleanup debounce on unmount
   useEffect(() => {
-    if (open) {
-      refetchProducts();
-      refetchBrands();
-      refetchShops();
-    }
-  }, [open, refetchProducts, refetchBrands, refetchShops]);
+    return () => {
+      debouncedSetProductSearch.cancel();
+    };
+  }, [debouncedSetProductSearch]);
 
   // Ensure that options are arrays
-  const safeBrands = Array.isArray(brands) ? brands : [];
+  const safeBrands = useMemo(
+    () => (Array.isArray(brands) ? brands : []),
+    [brands]
+  );
   const safeShops = Array.isArray(shops) ? shops : [];
 
-  // Update the local volume display when expense.volume changes
-  useEffect(() => {
-    setVolumeDisplay(expense.volume || "");
-  }, [expense.volume]);
+  const productOptions = useMemo(() => {
+    // Keep previous results while loading new ones
+    const allPages = infiniteData?.pages || [];
+    return allPages.flatMap((page) =>
+      page.products.map((product) => ({
+        label: product.name,
+        value: product.name,
+        name: product.name,
+        type: product.type,
+        measurementUnit: product.measurementUnit,
+        measures: product.measures,
+        brands: product.brands,
+      }))
+    );
+  }, [infiniteData]);
 
-  // Flatten the pages of products into a single array of options
-  const productOptions = infiniteData
-    ? infiniteData.pages.flatMap((page) =>
-        page.products.map((product) => ({
-          label: product.name,
-          value: product.name,
-          name: product.name,
-          type: product.type,
-          measurementUnit: product.measurementUnit,
-          measures: product.measures,
-          brands: product.brands, // make sure your API returns this
-        }))
-      )
-    : [];
-
-    const brandOptions =
-    selectedProduct && selectedProduct.brands && safeBrands.length > 0
-      ? safeBrands
-          .filter((brand) =>
-            // Assuming product.brands is an array of IDs matching brand._id
-            selectedProduct.brands.includes(brand._id)
-          )
-          .map((brand) => ({
-            label: brand.name,
-            value: brand.name,
-            name: brand.name,
-          }))
-      : safeBrands.map((brand) => ({
+  const brandOptions = useMemo(() => {
+    if (selectedProduct && selectedProduct.brands && safeBrands.length > 0) {
+      return safeBrands
+        .filter((brand) =>
+          // Compare product's brand IDs with the full brand objects from safeBrands
+          selectedProduct.brands.includes(brand._id)
+        )
+        .map((brand) => ({
           label: brand.name,
           value: brand.name,
           name: brand.name,
         }));
-  
-  console.log("Computed brand options:", brandOptions);
-  // Handlers for selections:
-  const handleProductSelect = (selectedOption) => {
-    setSelectedProduct(selectedOption); // Save the selected product
-    
-    // Reset the brand selection whenever a new product is chosen:
-    setExpense((prev) => ({
-      ...prev,
-      brandName: "",
+    }
+    return safeBrands.map((brand) => ({
+      label: brand.name,
+      value: brand.name,
+      name: brand.name,
     }));
-  
-    if (selectedOption) {
-      const unit = selectedOption.measurementUnit || "unit";
-      if (selectedOption.measures && selectedOption.measures.length > 0) {
-        const firstMeasure = selectedOption.measures[0];
-        setExpense((prev) => ({
-          ...prev,
-          productName: selectedOption.name,
-          type: selectedOption.type,
-          measurementUnit: unit,
-          volume: firstMeasure,
-          // brandName already reset above
-        }));
-        setVolumeDisplay(firstMeasure.toString());
+  }, [selectedProduct, safeBrands]);
+
+  // Handlers for selections:
+  const handleProductSelect = useCallback(
+    (selectedOption) => {
+      setSelectedProduct(selectedOption);
+      // Reset brand selection on new product:
+      setExpense((prev) => ({ ...prev, brandName: "" }));
+
+      if (selectedOption) {
+        const unit = selectedOption.measurementUnit || "unit";
+        if (selectedOption.measures && selectedOption.measures.length > 0) {
+          const firstMeasure = selectedOption.measures[0];
+          setExpense((prev) => ({
+            ...prev,
+            productName: selectedOption.name,
+            type: selectedOption.type,
+            measurementUnit: unit,
+            volume: firstMeasure,
+          }));
+        } else {
+          setExpense((prev) => ({
+            ...prev,
+            productName: selectedOption.name,
+            type: selectedOption.type,
+            measurementUnit: unit,
+            volume: 0,
+          }));
+        }
       } else {
         setExpense((prev) => ({
           ...prev,
-          productName: selectedOption.name,
-          type: selectedOption.type,
-          measurementUnit: unit,
+          productName: "",
+          type: "",
+          measurementUnit: "",
           volume: 0,
-          // brandName already reset above
+          brandName: "",
         }));
-        setVolumeDisplay("");
       }
-    } else {
-      setExpense((prev) => ({
-        ...prev,
-        productName: "",
-        type: "",
-        measurementUnit: "",
-        volume: 0,
-        brandName: "", // clear as well if product is cleared
-      }));
-      setVolumeDisplay("");
-    }
-  };
+    },
+    [setExpense]
+  );
 
-  const handleProductInputChange = (inputValue) => {
-    setProductSearch(inputValue);
-    // Optionally, you can debounce this to reduce API calls
-  };
+  // Update handler for product input change using the debounced function
+  const handleProductInputChange = useCallback(
+    (inputValue) => {
+      // Prevent empty searches after initial load
+      if (inputValue.trim() === "" && productSearch === "") return;
+
+      debouncedSetProductSearch(inputValue);
+    },
+    [debouncedSetProductSearch, productSearch]
+  );
 
   const handleBrandSelect = (selectedOption) => {
     setExpense((prev) => ({
@@ -205,32 +215,28 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   };
 
   const handleDateChange = (date) => {
-    if (!dayjs(date).isValid()) return;
-    if (expense.purchased) {
-      setExpense((prev) => ({ ...prev, purchaseDate: date }));
-    } else {
-      setExpense((prev) => ({ ...prev, registeredDate: date }));
-    }
+    const key = expense.purchased ? "purchaseDate" : "registeredDate";
+    setExpense((prev) => ({ ...prev, [key]: date }));
   };
 
   // Handle volume changes from select or manual input
   const handleVolumeChange = (selectedOption) => {
     if (selectedOption) {
-      setVolumeDisplay(selectedOption.label);
       setExpense((prev) => ({
         ...prev,
-        volume: parseFloat(selectedOption.label),
+        volume: selectedOption ? parseFloat(selectedOption.label) : 0,
       }));
     } else {
-      setVolumeDisplay("");
       setExpense((prev) => ({ ...prev, volume: 0 }));
     }
   };
 
   const handleManualVolumeInput = (event) => {
     const value = event.target.value;
-    setVolumeDisplay(value);
-    setExpense((prev) => ({ ...prev, volume: parseFloat(value) }));
+    setExpense((prev) => ({
+      ...prev,
+      volume: parseFloat(value) || 0,
+    }));
   };
 
   // Handler for discount checkbox
@@ -277,28 +283,24 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       if (isFormValid()) {
         const savedExpense = await handleSaveExpense();
         if (savedExpense) {
-          // Extract the expense data from the returned object.
-          // We assume the API returns { message, data: [ expense ] }.
           const expenseData =
             savedExpense.data && Array.isArray(savedExpense.data)
               ? savedExpense.data[0]
               : savedExpense;
-
-          // Extract the product name (if productName is an object, use its name property).
           const productName =
             typeof expenseData.productName === "object"
               ? expenseData.productName.name
               : expenseData.productName;
 
           if (!expenseData || !productName) {
-            // If productName is missing, show an error.
             console.error("Invalid response from server:", savedExpense);
-            // Optionally, you can call showErrorSnackbar here.
+            // Optionally display an error message
           } else {
-            // Notify the parent with the saved expense data.
+            // Notify the parent with the saved expense data
             onAdd(expenseData);
-            // Close the dialog.
-            onClose();
+            // Instead of calling onClose directly, call handleClose so that
+            // it resets the cache and then closes the dialog.
+            handleClose();
           }
         }
       }
@@ -333,15 +335,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
 
   // Determine overall loading state
   const isLoading =
-    !open || isLoadingProducts || isLoadingBrands || isLoadingShops || loading;
+    isLoadingProducts || isLoadingBrands || isLoadingShops || loading;
 
   return (
     <BasicDialog
       open={open}
-      onClose={() => {
-        resetFormAndErrors();
-        onClose();
-      }}
+      onClose={handleClose}
       dialogTitle="Add New Expense"
     >
       <form onSubmit={handleSubmit}>
@@ -363,6 +362,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 onMenuScrollToBottom={() => {
                   if (hasNextPage) fetchNextPage();
                 }}
+                isLoading={isLoadingProducts} // Add loading state
+                loadingMessage={() => "Searching products..."}
                 placeholder="Select Product"
                 menuPortalTarget={document.body}
                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
@@ -383,6 +384,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 placeholder={
                   selectedProduct ? "Select Brand" : "Select a product first"
                 }
+                isLoading={isLoadingBrands}
+                loadingMessage={() => "Loading brands..."}
                 menuPortalTarget={document.body}
                 isDisabled={!selectedProduct} // disable if no product selected
                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
@@ -452,8 +455,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                     value: measure,
                   }))}
                   value={
-                    volumeDisplay
-                      ? { label: volumeDisplay, value: volumeDisplay }
+                    expense.volume
+                      ? {
+                          label: expense.volume.toString(),
+                          value: expense.volume,
+                        }
                       : null
                   }
                   onChange={handleVolumeChange}
@@ -465,7 +471,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 <ExpenseField
                   label="Volume (Manual)"
                   type="number"
-                  value={volumeDisplay}
+                  value={expense.volume || ""}
                   onChange={handleManualVolumeInput}
                   InputProps={{
                     startAdornment: (
@@ -598,8 +604,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button
             onClick={() => {
-              resetFormAndErrors();
-              onClose();
+              handleClose();
             }}
             sx={{ mr: 1 }}
           >
