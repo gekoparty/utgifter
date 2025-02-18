@@ -1,23 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
 import {
   Box,
   Button,
   Grid,
   InputAdornment,
-  Checkbox,
   FormControlLabel,
   CircularProgress,
+  Radio,
+  RadioGroup,
+  Checkbox,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
-import BasicDialog from "../../commons/BasicDialog/BasicDialog";
-import ExpenseField from "../../commons/ExpenseField/ExpenseField";
-import Select from "react-select";
+import { debounce } from "lodash";
+import WindowedSelect from "react-windowed-select";
+import { useQueryClient } from "@tanstack/react-query";
 import useExpenseForm from "../useExpenseForm";
 import useHandleFieldChange from "../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../hooks/useFetchData";
 import useInfiniteProducts from "../../../hooks/useInfiniteProducts";
+import ExpenseField from "../../commons/ExpenseField/ExpenseField";
+import BasicDialog from "../../commons/BasicDialog/BasicDialog";
+
+const selectStyles = { menuPortal: (base) => ({ ...base, zIndex: 9999 }) };
 
 const EditExpenseDialog = ({
   open,
@@ -26,7 +32,6 @@ const EditExpenseDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
-  // Initialize the expense form state from the selected expense.
   const {
     expense,
     setExpense,
@@ -35,75 +40,75 @@ const EditExpenseDialog = ({
     resetFormAndErrors,
     isFormValid,
   } = useExpenseForm(selectedExpense, selectedExpense?._id, onClose);
-
-  // Destructure field-change handlers (e.g. for discount fields)
-  const {
-    handleFieldChange,
-    handleDiscountAmountChange,
-    handleDiscountValueChange,
-  } = useHandleFieldChange(expense, setExpense);
-
-  // Local state for displaying volume (e.g. if manual input is needed)
-  const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
-  // New state to manage typeahead search and the selected product object
+  const queryClient = useQueryClient();
+  const { handleFieldChange } = useHandleFieldChange(expense, setExpense);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Ensure that the local volume display is updated when expense.volume changes
+  // Initialize form when opening
   useEffect(() => {
-    setVolumeDisplay(expense.volume || "");
-  }, [expense.volume]);
-
-  // When the dialog opens, reset the form state to the selected expense.
-  useEffect(() => {
-    if (open && selectedExpense) {
-      setExpense(selectedExpense);
+    if (open) {
+      if (selectedExpense) setExpense(selectedExpense);
+      setSelectedProduct(
+        selectedExpense?.productName
+          ? {
+              label: selectedExpense.productName,
+              ...selectedExpense,
+            }
+          : null
+      );
     }
   }, [open, selectedExpense, setExpense]);
 
+  const handleDateChange = useCallback(
+    (date) => {
+      const key = expense.purchased ? "purchaseDate" : "registeredDate";
+      handleFieldChange(key, date);
+    },
+    [expense.purchased, handleFieldChange]
+  );
+
+  // Product search
   const {
     data: infiniteData,
     isLoading: isLoadingProducts,
-    error: productError, // <-- add this line
     fetchNextPage,
     hasNextPage,
   } = useInfiniteProducts(productSearch);
-
-  // Flatten the pages from the infinite query into options
-  const productOptions = infiniteData
-    ? infiniteData.pages.flatMap((page) =>
-        page.products.map((product) => ({
-          label: product.name,
-          value: product.name,
-          type: product.type,
-          measurementUnit: product.measurementUnit,
-          measures: product.measures,
+  const productOptions = useMemo(
+    () =>
+      infiniteData?.pages.flatMap((page) =>
+        page.products.map((p) => ({
+          label: p.name,
+          value: p.name,
+          ...p,
         }))
-      )
-    : [];
-
-  // Fetch brand options.
-  const {
-    data: brandOptions,
-    isLoading: isLoadingBrands,
-    isError: brandError,
-  } = useFetchData(
-    "brands",
-    "/api/brands",
-    (data) => (Array.isArray(data.brands) ? data.brands : []),
-    { enabled: open }
+      ) || [],
+    [infiniteData]
   );
 
-  // Fetch shop options and transform each shop to include its location name.
-  const {
-    data: shopOptions,
-    isLoading: isLoadingShops,
-    isError: shopError,
-  } = useFetchData(
+  // --- BRANDS ---
+  const { data: brandOptions, isLoading: isLoadingBrands } = useFetchData(
+    "brands",
+    "/api/brands",
+    (data) => data.brands || [],
+    { enabled: open }
+  );
+  const computedBrandOptions = useMemo(() => {
+    if (!selectedProduct?.brands?.length) return [];
+    return (brandOptions || [])
+      .filter((brand) => selectedProduct.brands.includes(brand._id))
+      .map((brand) => ({ label: brand.name, value: brand.name }));
+  }, [selectedProduct, brandOptions]);
+
+  // --- SHOPS ---
+  const { data: shops, isLoading: isLoadingShops } = useFetchData(
     "shops",
     "/api/shops",
-    async (data) => {
-      const shopsArray = Array.isArray(data) ? data : data?.shops || [];
+    async (shopsData) => {
+      const shopsArray = Array.isArray(shopsData)
+        ? shopsData
+        : shopsData?.shops || [];
       return Promise.all(
         shopsArray.map(async (shop) => {
           const locationResponse = await fetch(
@@ -117,221 +122,180 @@ const EditExpenseDialog = ({
     { enabled: open }
   );
 
-  // Overall loading state.
-  const isLoading =
-    isLoadingProducts || isLoadingBrands || isLoadingShops || loading;
+  const safeShops = useMemo(() => (Array.isArray(shops) ? shops : []), [shops]);
 
-  // Handle error states.
-  if (isLoading) {
-    return <CircularProgress />;
-  }
-  if (productError) {
-    return <div>Error loading products</div>;
-  }
-  if (brandError) {
-    return <div>Error loading brands</div>;
-  }
-  if (shopError) {
-    return <div>Error loading shops</div>;
-  }
+  const shopOptions = useMemo(
+    () =>
+      safeShops.map((shop) => ({
+        label: `${shop.name}${
+          shop.locationName ? `, ${shop.locationName}` : ""
+        }`,
+        value: shop.name,
+        locationName: shop.locationName || "",
+      })),
+    [safeShops]
+  );
 
-  // --- Handlers for Select Components ---
+  const selectedShopOption = useMemo(
+    () =>
+      shopOptions.find((option) => option.value === expense.shopName) || null,
+    [expense.shopName, shopOptions]
+  );
 
-  const handleProductSelect = (selectedOption) => {
-    // Save the full product object for later use (e.g. for measures)
-    setSelectedProduct(selectedOption);
+  // Debouncing
+  const debouncedSearch = useMemo(
+    () => debounce((value) => setProductSearch(value), 250),
+    []
+  );
 
-    if (selectedOption) {
-      // Update expense with product details.
-      setExpense((prev) => ({
-        ...prev,
-        productName: selectedOption.label, // or selectedOption.value
-        type: selectedOption.type,
-        measurementUnit: selectedOption.measurementUnit,
-      }));
-      // If there are measures available, you might choose to auto-select the first one.
-      if (selectedOption.measures && selectedOption.measures.length > 0) {
-        const firstMeasure = selectedOption.measures[0];
-        setExpense((prev) => ({ ...prev, volume: firstMeasure }));
-        setVolumeDisplay(firstMeasure.toString());
+  // Discount handlers
+  const handleDiscountChange = useCallback(
+    (e) => {
+      const checked = e.target.checked;
+      handleFieldChange("hasDiscount", checked);
+      if (!checked) {
+        handleFieldChange("discountValue", 0);
+        handleFieldChange("discountAmount", 0);
       }
-    } else {
-      // Clear product-related fields if no product is selected.
+    },
+    [handleFieldChange]
+  );
+
+  const handleDiscountValueChange = useCallback(
+    (e) => {
+      const value = parseFloat(e.target.value);
+      handleFieldChange("discountValue", value);
+      handleFieldChange(
+        "discountAmount",
+        (expense.price * (value / 100)).toFixed(2)
+      );
+    },
+    [expense.price, handleFieldChange]
+  );
+
+  const handleDiscountAmountChange = useCallback(
+    (e) => {
+      const amount = parseFloat(e.target.value);
+      handleFieldChange("discountAmount", amount);
+      handleFieldChange(
+        "discountValue",
+        ((amount / expense.price) * 100).toFixed(2)
+      );
+    },
+    [expense.price, handleFieldChange]
+  );
+
+  const handleClose = useCallback(() => {
+    queryClient.resetQueries(["products", "brands", "shops"]);
+    resetFormAndErrors();
+    onClose();
+  }, [queryClient, resetFormAndErrors, onClose]);
+
+  const handleProductSelect = useCallback(
+    (option) => {
+      setSelectedProduct(option);
       setExpense((prev) => ({
         ...prev,
-        productName: "",
-        type: "",
-        measurementUnit: "",
-        volume: 0,
+        productName: option?.label || "",
+        brandName: "",
+        type: option?.type || "",
+        measurementUnit: option?.measurementUnit || "",
+        volume: option?.measures?.[0] || 0,
       }));
-      setVolumeDisplay("");
-      setSelectedProduct(null);
-    }
-  };
+    },
+    [setExpense]
+  );
 
-  // Handle brand selection.
-  const handleBrandSelect = (selectedOption) => {
-    setExpense((prev) => ({
-      ...prev,
-      brandName: selectedOption ? selectedOption.label : "",
-    }));
-  };
-
-  // Handle shop selection; split the label to get shop name and location.
-  const handleShopSelect = (selectedOption) => {
-    if (selectedOption) {
-      const [shopName, locationName] = selectedOption.label
-        .split(",")
-        .map((s) => s.trim());
+  const handleTransactionType = useCallback(
+    (e) => {
+      const isPurchased = e.target.value === "purchased";
       setExpense((prev) => ({
         ...prev,
-        shopName,
-        locationName,
+        purchased: isPurchased,
+        registeredDate: isPurchased ? null : prev.registeredDate,
+        purchaseDate: isPurchased ? prev.purchaseDate : null,
       }));
-    } else {
-      setExpense((prev) => ({
-        ...prev,
-        shopName: "",
-        locationName: "",
-      }));
-    }
-  };
+    },
+    [setExpense]
+  );
 
-  // Handle discount checkbox changes.
-  const handleDiscountChange = (e) => {
-    const checked = e.target.checked;
-    handleFieldChange("hasDiscount", checked);
-    if (!checked) {
-      // Reset discount fields when unchecked.
-      handleFieldChange("discountValue", 0);
-      handleFieldChange("discountAmount", 0);
-    }
-  };
+  if (!open) return null;
 
-  // Handle purchase/registration toggles.
-  const handlePurchaseChange = (e) => {
-    const isPurchased = e.target.checked;
-    setExpense((prev) => ({
-      ...prev,
-      purchased: isPurchased,
-      registeredDate: isPurchased ? null : prev.registeredDate,
-      purchaseDate: isPurchased ? prev.purchaseDate : null,
-    }));
-  };
+  // Add loading check here
+if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
+  return (
+    <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <CircularProgress />
+        <p>Loading form data...</p>
+      </Box>
+    </BasicDialog>
+  );
+}
 
-  const handleRegisterChange = (e) => {
-    const isRegistered = e.target.checked;
-    setExpense((prev) => ({
-      ...prev,
-      purchased: !isRegistered,
-      registeredDate: isRegistered ? prev.registeredDate : null,
-      purchaseDate: isRegistered ? null : prev.purchaseDate,
-    }));
-  };
-
-  // Handle date changes.
-  const handleDateChange = (date) => {
-    if (!dayjs(date).isValid()) return;
-    if (expense.purchased) {
-      setExpense((prev) => ({ ...prev, purchaseDate: date }));
-    } else {
-      setExpense((prev) => ({ ...prev, registeredDate: date }));
-    }
-  };
-
-  // --- Form Submission ---
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (isFormValid()) {
-      try {
-        const updatedExpense = await handleSaveExpense();
-        if (updatedExpense) {
-          // If the API response wraps the expense in a "data" array, extract the first item.
-          const expenseData =
-            updatedExpense.data && Array.isArray(updatedExpense.data)
-              ? updatedExpense.data[0]
-              : updatedExpense;
-          onUpdateSuccess(expenseData);
-          onClose();
-        }
-      } catch (err) {
-        onUpdateFailure();
-      }
-    }
-  };
 
   return (
-    <BasicDialog
-      open={open}
-      onClose={() => {
-        resetFormAndErrors();
-        onClose();
-      }}
-      dialogTitle="Edit Expense"
-    >
-      <form onSubmit={handleSubmit}>
+    <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          isFormValid() &&
+            handleSaveExpense()
+              .then(onUpdateSuccess)
+              .catch(onUpdateFailure)
+              .finally(handleClose);
+        }}
+      >
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
             {/* Product Selection */}
             <Grid item xs={12} md={6}>
-              <Select
+              <WindowedSelect
                 isClearable
                 options={productOptions}
-                value={
-                  expense.productName
-                    ? { label: expense.productName, value: expense.productName }
-                    : null
-                }
+                value={selectedProduct}
                 onChange={handleProductSelect}
-                onInputChange={(inputValue) => {
-                  setProductSearch(inputValue);
-                }}
-                onMenuScrollToBottom={() => {
-                  if (hasNextPage) fetchNextPage();
-                }}
+                onInputChange={debouncedSearch}
+                onMenuScrollToBottom={() => hasNextPage && fetchNextPage()}
                 placeholder="Select Product"
                 menuPortalTarget={document.body}
-                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                styles={selectStyles}
+                isLoading={isLoadingProducts}
               />
             </Grid>
 
             {/* Brand Selection */}
             <Grid item xs={12} md={6}>
-              <Select
+              <WindowedSelect
                 isClearable
-                options={brandOptions.map((brand) => ({
-                  label: brand.name,
-                  value: brand.name,
-                }))}
-                value={
-                  expense.brandName
-                    ? { label: expense.brandName, value: expense.brandName }
-                    : null
+                options={computedBrandOptions}
+                value={{ label: expense.brandName, value: expense.brandName }}
+                onChange={(option) =>
+                  handleFieldChange("brandName", option?.value || "")
                 }
-                onChange={handleBrandSelect}
                 placeholder="Select Brand"
                 menuPortalTarget={document.body}
-                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                isDisabled={!selectedProduct}
+                styles={selectStyles}
+                isLoading={isLoadingBrands}  // Add loading state
               />
             </Grid>
 
             {/* Shop Selection */}
             <Grid item xs={12} md={6}>
-              <Select
+              <WindowedSelect
                 isClearable
-                options={shopOptions.map((shop) => ({
-                  label: `${shop.name}, ${shop.locationName}`,
-                  value: shop.name,
-                }))}
-                value={
-                  expense.shopName
-                    ? { label: expense.shopName, value: expense.shopName }
-                    : null
-                }
-                onChange={handleShopSelect}
-                placeholder="Select Shop"
+                options={shopOptions}
+                value={selectedShopOption}
+                onChange={(option) => {
+                  // Fix 2: Use the locationName from the option directly
+                  handleFieldChange("shopName", option?.value || "");
+                  handleFieldChange("locationName", option?.locationName || "");
+                }}
+                placeholder="Select Store"
                 menuPortalTarget={document.body}
-                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                styles={selectStyles}
+                isLoading={isLoadingShops}
               />
             </Grid>
 
@@ -349,12 +313,9 @@ const EditExpenseDialog = ({
               <ExpenseField
                 label="Price"
                 type="number"
-                value={expense.price || ""}
+                value={expense.price}
                 onChange={(e) =>
-                  setExpense((prev) => ({
-                    ...prev,
-                    price: parseFloat(e.target.value),
-                  }))
+                  handleFieldChange("price", parseFloat(e.target.value))
                 }
                 InputProps={{
                   startAdornment: (
@@ -368,43 +329,44 @@ const EditExpenseDialog = ({
             <Grid item xs={12} md={6}>
               {expense.measurementUnit &&
               selectedProduct &&
-              selectedProduct.measures?.length > 0 ? (
-                <Select
+              selectedProduct.measures?.length ? (
+                <WindowedSelect
                   isClearable
                   options={selectedProduct.measures.map((measure) => ({
                     label: measure.toString(),
                     value: measure,
                   }))}
                   value={
-                    volumeDisplay
-                      ? { label: volumeDisplay, value: volumeDisplay }
+                    expense.volume != null
+                      ? {
+                          label: expense.volume.toString(),
+                          value: expense.volume,
+                        }
                       : null
                   }
-                  onChange={(option) => {
-                    const val = option ? option.label : "";
-                    setVolumeDisplay(val);
+                  onChange={(option) =>
                     setExpense((prev) => ({
                       ...prev,
                       volume: option ? parseFloat(option.label) : 0,
-                    }));
-                  }}
+                    }))
+                  }
                   placeholder="Select Volume"
                   menuPortalTarget={document.body}
-                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                  styles={selectStyles}
                 />
               ) : (
                 <ExpenseField
                   label="Volume/Quantity"
                   type="number"
-                  value={volumeDisplay}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setVolumeDisplay(value);
+                  value={
+                    expense.volume != null ? expense.volume.toString() : ""
+                  }
+                  onChange={(e) =>
                     setExpense((prev) => ({
                       ...prev,
-                      volume: parseFloat(value),
-                    }));
-                  }}
+                      volume: parseFloat(e.target.value),
+                    }))
+                  }
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -415,6 +377,7 @@ const EditExpenseDialog = ({
                 />
               )}
             </Grid>
+
             {/* Price Per Unit (Read-only) */}
             <Grid item xs={12}>
               <ExpenseField
@@ -424,6 +387,7 @@ const EditExpenseDialog = ({
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
+
             {/* Discount Checkbox */}
             <Grid item xs={12} md={6}>
               <FormControlLabel
@@ -438,7 +402,7 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-            {/* Discount Fields (conditionally rendered) */}
+            {/* Discount Fields */}
             {expense.hasDiscount && (
               <>
                 <Grid item xs={12} md={6}>
@@ -497,27 +461,24 @@ const EditExpenseDialog = ({
             </Grid>
 
             {/* Purchased/Registered Checkboxes */}
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={expense.purchased || false}
-                    onChange={handlePurchaseChange}
-                    color="primary"
-                  />
-                }
-                label="Purchased"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={!expense.purchased}
-                    onChange={handleRegisterChange}
-                    color="primary"
-                  />
-                }
-                label="Registered"
-              />
+            {/* Transaction Type */}
+            <Grid item xs={12}>
+              <RadioGroup
+                row
+                value={expense.purchased ? "purchased" : "registered"}
+                onChange={handleTransactionType}
+              >
+                <FormControlLabel
+                  value="purchased"
+                  control={<Radio />}
+                  label="Purchased"
+                />
+                <FormControlLabel
+                  value="registered"
+                  control={<Radio />}
+                  label="Registered"
+                />
+              </RadioGroup>
             </Grid>
 
             {/* Date Picker */}
@@ -537,18 +498,18 @@ const EditExpenseDialog = ({
         </Box>
 
         {/* Action Buttons */}
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-          <Button
-            onClick={() => {
-              resetFormAndErrors();
-              onClose();
-            }}
-            sx={{ mr: 1 }}
-          >
+        <Box
+          sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}
+        >
+          <Button variant="contained" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={loading || !isFormValid()}>
-            {loading ? <CircularProgress size={24} /> : "Save"}
+          <Button
+            variant="contained"
+            type="submit"
+            disabled={loading || !isFormValid()}
+          >
+            {loading ? <CircularProgress size={24} /> : "Save Changes"}
           </Button>
         </Box>
       </form>
