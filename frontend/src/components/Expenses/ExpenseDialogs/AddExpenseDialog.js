@@ -46,14 +46,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     onClose();
   };
 
-  // Local state for volume display (for manual input)
-  //const [volumeDisplay, setVolumeDisplay] = useState(expense.volume || "");
-  // Local state for discount (Kr) display:
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Fetch products, brands, and shops options
-  // Use infinite query for products
   const {
     data: infiniteData,
     isLoading: isLoadingProducts,
@@ -146,6 +142,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       name: brand.name,
     }));
   }, [selectedProduct, safeBrands]);
+
 
   // Handlers for selections:
   const handleProductSelect = useCallback(
