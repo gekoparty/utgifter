@@ -17,16 +17,16 @@ const DeleteExpenseDialog = ({
 
   // Define a delete handler that calls the deletion function from the hook.
   const handleDelete = async () => {
-    const success = await handleDeleteExpense(
-      selectedExpense,
-      onDeleteSuccess,
-      onDeleteFailure
-    );
+    // Pass the expense _id, not the full object.
+    const expenseId = selectedExpense._id;
+    const success = await handleDeleteExpense(expenseId);
     if (success) {
+      onDeleteSuccess(selectedExpense);
       onClose();
+    } else {
+      onDeleteFailure(selectedExpense);
     }
   };
-
   return (
     <BasicDialog 
       open={open}

@@ -21,7 +21,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@mui/material/styles";
-import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel"
+import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 
 // Lazy-loaded Expense Dialogs
 const AddExpenseDialog = lazy(() =>
@@ -65,13 +65,28 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
+const DEBOUNCE_DELAY = 1000;
 
-// Debounced Price Range Filter Component
 const PriceRangeFilter = ({ value, onChange }) => {
+  // Create a debounced version of the onChange handler
+  const debouncedOnChange = useMemo(
+    () =>
+      debounce((newValue) => {
+        onChange(newValue);
+      }, 1000),
+    [onChange]
+  );
+
   const handleSliderChange = (event, newValue) => {
-    onChange(newValue);
+    debouncedOnChange(newValue);
   };
 
+  // Cleanup the debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedOnChange.cancel();
+    };
+  }, [debouncedOnChange]);
 
   return (
     <Box sx={{ width: 300, mb: 2 }} data-testid="price-range-filter">
@@ -108,12 +123,18 @@ const ExpenseScreen = () => {
   const [debouncedPriceRangeFilter, setDebouncedPriceRangeFilter] = useState([
     0, 1000,
   ]);
+  const debouncedSetPriceFilter = useMemo(
+    () =>
+      debounce(
+        (newValue) => setDebouncedPriceRangeFilter(newValue),
+        DEBOUNCE_DELAY
+      ),
+    [] // Empty dependency array - debounce once
+  );
+
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedPriceRangeFilter(priceRangeFilter);
-    }, 1000);
-    return () => clearTimeout(handler);
-  }, [priceRangeFilter]);
+    return () => debouncedSetPriceFilter.cancel();
+  }, [debouncedSetPriceFilter]);
 
   const theme = useTheme();
   const memoizedSelectedExpense = useMemo(
@@ -123,8 +144,8 @@ const ExpenseScreen = () => {
 
   const queryClient = useQueryClient();
 
-   // Helper: Build the fetch URL using the current table state
-   const buildFetchURL = (
+  // Helper: Build the fetch URL using the current table state
+  const buildFetchURL = (
     pageIndex,
     pageSize,
     sorting,
@@ -188,8 +209,8 @@ const ExpenseScreen = () => {
     return { expenses: json.expenses, meta: json.meta };
   };
 
-   // Prefetch function for preloading the next page’s data
-   const prefetchPageData = async (nextPageIndex) => {
+  // Prefetch function for preloading the next page’s data
+  const prefetchPageData = async (nextPageIndex) => {
     const fetchURL = buildFetchURL(
       nextPageIndex,
       pagination.pageSize,
@@ -211,9 +232,7 @@ const ExpenseScreen = () => {
       async () => {
         const response = await fetch(fetchURL.href);
         if (!response.ok) {
-          throw new Error(
-            `Error: ${response.statusText} (${response.status})`
-          );
+          throw new Error(`Error: ${response.statusText} (${response.status})`);
         }
         const json = await response.json();
         return { expenses: json.expenses, meta: json.meta };
@@ -256,8 +275,8 @@ const ExpenseScreen = () => {
     refetchOnMount: true,
   });
 
-   // Ensure default sorting if sorting state becomes empty
-   useEffect(() => {
+  // Ensure default sorting if sorting state becomes empty
+  useEffect(() => {
     if (sorting.length === 0) setSorting(INITIAL_SORTING);
   }, [sorting]);
 
@@ -279,14 +298,16 @@ const ExpenseScreen = () => {
     queryClient,
   ]);
 
-// Local state for price statistics
-const [priceStatsByType, setPriceStatsByType] = useState({});
+  // Local state for price statistics
+  const [priceStatsByType, setPriceStatsByType] = useState({});
 
-// Render the detail panel for each row (if needed)
-const renderDetailPanel = useCallback(
-  ({ row }) => <DetailPanel row={row} data-testid="detail-panel" />,
-  []
-);
+  // Render the detail panel for each row (if needed)
+  const renderDetailPanel = useCallback(
+    ({ row }) => (
+      <DetailPanel expense={row.original} data-testid="detail-panel" />
+    ),
+    []
+  );
 
   // Table columns configuration
   const tableColumns = useMemo(
@@ -304,8 +325,7 @@ const renderDetailPanel = useCallback(
         Cell: ({ cell, row }) => {
           const price = cell.getValue();
           const type = row.original.type;
-          const stats =
-            priceStatsByType[type] || { min: 0, max: 0, median: 0 };
+          const stats = priceStatsByType[type] || { min: 0, max: 0, median: 0 };
 
           let backgroundColor = theme.palette.warning.main;
           let textColor = theme.palette.warning.contrastText;
@@ -375,27 +395,29 @@ const renderDetailPanel = useCallback(
     handleSnackbarClose,
   } = useSnackBar();
 
-   // Expense action handlers
-   const addExpenseHandler = (savedData) => {
+  // Expense action handlers
+  const addExpenseHandler = (savedData) => {
     // If the response has a "data" property, extract the first expense.
     const expenseData =
       savedData.data && Array.isArray(savedData.data)
         ? savedData.data[0]
         : savedData;
-    
+
     // Get the product name from the expense data.
     const productName =
       typeof expenseData.productName === "object"
         ? expenseData.productName.name
         : expenseData.productName;
-    
+
     if (!expenseData || !productName) {
-      showErrorSnackbar("Kunne ikke legge til utgift. Ugyldig respons fra server.");
+      showErrorSnackbar(
+        "Kunne ikke legge til utgift. Ugyldig respons fra server."
+      );
       return;
     }
-    
+
     showSuccessSnackbar(`Utgift for "${productName}" lagret!`);
-    
+
     // Force a refetch of expenses to update the table.
     refetch();
   };
@@ -424,13 +446,13 @@ const renderDetailPanel = useCallback(
       updatedExpense.data && Array.isArray(updatedExpense.data)
         ? updatedExpense.data[0]
         : updatedExpense;
-    
+
     // Extract productName properly
     const productName =
       typeof expenseData.productName === "object"
         ? expenseData.productName.name
         : expenseData.productName || "Ukjent produkt";
-    
+
     showSuccessSnackbar(`Utgift for "${productName}" oppdatert!`);
     refetch(); // Trigger immediate refetch to update the table
   };
@@ -440,9 +462,7 @@ const renderDetailPanel = useCallback(
     setPriceRangeFilter(newRange);
   };
 
- 
   return (
-    
     <TableLayout>
       <Box
         sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
@@ -456,7 +476,10 @@ const renderDetailPanel = useCallback(
         >
           Ny Utgift
         </Button>
-        <PriceRangeFilter value={priceRangeFilter} onChange={handlePriceRangeChange} />
+        <PriceRangeFilter
+          value={priceRangeFilter}
+          onChange={handlePriceRangeChange}
+        />
       </Box>
 
       <Box
@@ -468,7 +491,6 @@ const renderDetailPanel = useCallback(
         }}
         data-testid="table-wrapper"
       >
-      
         {expensesData && (
           <ReactTable
             muiTableContainerProps={{
@@ -484,7 +506,6 @@ const renderDetailPanel = useCallback(
               },
               "data-testid": "mui-top-toolbar",
             }}
-            
             data={expensesData?.expenses}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}

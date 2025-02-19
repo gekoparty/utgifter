@@ -21,11 +21,12 @@ const useHandleFieldChange = (expense, setExpense) => {
             ? calculateDiscountAmount(updatedExpense.price, updatedExpense.discountValue)
             : 0;
 
-          let finalPrice = calculateFinalPrice(
-            updatedExpense.price,
-            discountAmount,
-            updatedExpense.hasDiscount
-          );
+            let finalPrice = calculateFinalPrice(
+              updatedExpense.price,
+              discountAmount,
+              updatedExpense.hasDiscount
+            );
+
 
           if (field === "discountAmount" && updatedExpense.price > 0) {
             updatedExpense.discountValue = parseFloat(
@@ -114,11 +115,22 @@ const useHandleFieldChange = (expense, setExpense) => {
   );
 
   useEffect(() => {
-    const discountAmount = calculateDiscountAmount(expense.price, expense.discountValue);
-    const finalPrice = calculateFinalPrice(expense.price, discountAmount, expense.hasDiscount);
-    const pricePerUnit = calculatePricePerUnit(finalPrice, expense.volume, expense.measurementUnit);
-
-    // Prevent unnecessary updates
+    const discountAmount = expense.hasDiscount
+      ? calculateDiscountAmount(expense.price, expense.discountValue)
+      : 0;
+  
+    const finalPrice = calculateFinalPrice(
+      expense.price,
+      discountAmount,
+      expense.hasDiscount
+    );
+  
+    const pricePerUnit = calculatePricePerUnit(
+      finalPrice,
+      expense.volume,
+      expense.measurementUnit
+    );
+  
     if (
       expense.finalPrice !== finalPrice ||
       expense.discountAmount !== discountAmount ||
@@ -131,14 +143,17 @@ const useHandleFieldChange = (expense, setExpense) => {
         pricePerUnit: pricePerUnit,
       }));
     }
-  }, [
-    expense.price,
-    expense.discountValue,
-    expense.hasDiscount,
-    expense.volume,
-    expense.measurementUnit,
-    setExpense,
-  ]);
+ }, [
+  expense.price,
+  expense.discountValue,
+  expense.hasDiscount,
+  expense.volume,
+  expense.measurementUnit,
+  expense.finalPrice,
+  expense.discountAmount,
+  expense.pricePerUnit,
+  setExpense
+]);
 
   return {
     handleFieldChange,

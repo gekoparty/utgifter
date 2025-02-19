@@ -37,7 +37,7 @@ const EditExpenseDialog = ({
     setExpense,
     loading,
     handleSaveExpense,
-    resetFormAndErrors,
+    resetForm,
     isFormValid,
   } = useExpenseForm(selectedExpense, selectedExpense?._id, onClose);
   const queryClient = useQueryClient();
@@ -187,9 +187,9 @@ const EditExpenseDialog = ({
 
   const handleClose = useCallback(() => {
     queryClient.resetQueries(["products", "brands", "shops"]);
-    resetFormAndErrors();
+    resetForm();
     onClose();
-  }, [queryClient, resetFormAndErrors, onClose]);
+  }, [queryClient, resetForm, onClose]);
 
   const handleProductSelect = useCallback(
     (option) => {
@@ -239,7 +239,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          isFormValid() &&
+          isFormValid &&
             handleSaveExpense()
               .then(onUpdateSuccess)
               .catch(onUpdateFailure)
@@ -507,7 +507,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
           <Button
             variant="contained"
             type="submit"
-            disabled={loading || !isFormValid()}
+            disabled={loading || !isFormValid}
           >
             {loading ? <CircularProgress size={24} /> : "Save Changes"}
           </Button>

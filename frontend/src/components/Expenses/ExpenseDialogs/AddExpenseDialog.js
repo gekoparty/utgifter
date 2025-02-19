@@ -28,21 +28,25 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     handleSaveExpense,
     isFormValid,
     setExpense,
-    resetFormAndErrors,
+    resetForm,
     loading,
   } = useExpenseForm();
   const queryClient = useQueryClient();
 
   // Destructure field-change handlers (including discount changes)
-  const { handleDiscountAmountChange, handleDiscountValueChange } =
-    useHandleFieldChange(expense, setExpense);
+  const {
+    handleFieldChange,
+    handleDiscountAmountChange,
+    handleDiscountValueChange,
+  } = useHandleFieldChange(expense, setExpense);
 
   const handleClose = () => {
     // Reset queries related to products, brands, and shops
     queryClient.resetQueries(["products"]);
     queryClient.resetQueries(["brands"]);
     queryClient.resetQueries(["shops"]);
-    resetFormAndErrors(); // Add this
+    queryClient.resetQueries(["locations"]);
+    resetForm(); // Add this
     onClose();
   };
 
@@ -143,46 +147,30 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     }));
   }, [selectedProduct, safeBrands]);
 
-
   // Handlers for selections:
   const handleProductSelect = useCallback(
     (selectedOption) => {
       setSelectedProduct(selectedOption);
-      // Reset brand selection on new product:
-      setExpense((prev) => ({ ...prev, brandName: "" }));
+      handleFieldChange("brandName", ""); // Reset brand
 
       if (selectedOption) {
         const unit = selectedOption.measurementUnit || "unit";
-        if (selectedOption.measures && selectedOption.measures.length > 0) {
-          const firstMeasure = selectedOption.measures[0];
-          setExpense((prev) => ({
-            ...prev,
-            productName: selectedOption.name,
-            type: selectedOption.type,
-            measurementUnit: unit,
-            volume: firstMeasure,
-          }));
-        } else {
-          setExpense((prev) => ({
-            ...prev,
-            productName: selectedOption.name,
-            type: selectedOption.type,
-            measurementUnit: unit,
-            volume: 0,
-          }));
-        }
+        const volume = selectedOption.measures?.[0] || 0;
+        handleFieldChange("productName", selectedOption.name, {
+          type: selectedOption.type,
+          measurementUnit: unit,
+          volume: volume,
+        });
       } else {
-        setExpense((prev) => ({
-          ...prev,
-          productName: "",
+        handleFieldChange("productName", "", {
           type: "",
           measurementUnit: "",
           volume: 0,
           brandName: "",
-        }));
+        });
       }
     },
-    [setExpense]
+    [handleFieldChange]
   );
 
   // Update handler for product input change using the debounced function
@@ -197,87 +185,53 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   );
 
   const handleBrandSelect = (selectedOption) => {
-    setExpense((prev) => ({
-      ...prev,
-      brandName: selectedOption ? selectedOption.name : "",
-    }));
+    handleFieldChange("brandName", selectedOption?.name || "");
   };
 
   const handleShopSelect = (selectedOption) => {
-    setExpense((prev) => ({
-      ...prev,
-      shopName: selectedOption ? selectedOption.value : "",
-      locationName: selectedOption ? selectedOption.locationName : "",
-    }));
+    handleFieldChange("shopName", selectedOption?.value || "", {
+      locationName: selectedOption?.locationName || "",
+    });
   };
 
   const handleDateChange = (date) => {
     const key = expense.purchased ? "purchaseDate" : "registeredDate";
-    setExpense((prev) => ({ ...prev, [key]: date }));
+    handleFieldChange(key, date);
   };
 
-  // Handle volume changes from select or manual input
   const handleVolumeChange = (selectedOption) => {
-    if (selectedOption) {
-      setExpense((prev) => ({
-        ...prev,
-        volume: selectedOption ? parseFloat(selectedOption.label) : 0,
-      }));
-    } else {
-      setExpense((prev) => ({ ...prev, volume: 0 }));
-    }
+    const volume = selectedOption ? parseFloat(selectedOption.value) : 0;
+    handleFieldChange("volume", volume);
   };
 
-  const handleManualVolumeInput = (event) => {
-    const value = event.target.value;
-    setExpense((prev) => ({
-      ...prev,
-      volume: parseFloat(value) || 0,
-    }));
-  };
-
-  // Handler for discount checkbox
   const handleDiscountChange = (event) => {
-    const { checked } = event.target;
-    setExpense((prev) => ({
-      ...prev,
-      hasDiscount: checked,
-      // Optionally reset discount values if unchecked
-      discountValue: checked ? prev.discountValue : 0,
-      discountAmount: checked ? prev.discountAmount : 0,
-    }));
-  };
-
-  // Handlers for quantity, purchase/registration checkboxes:
-  const handleQuantityChange = (event) => {
-    const value = event.target.value;
-    setExpense((prev) => ({ ...prev, quantity: value }));
+    const checked = event.target.checked;
+    handleFieldChange("hasDiscount", checked, {
+      discountValue: checked ? expense.discountValue : 0,
+      discountAmount: checked ? expense.discountAmount : 0,
+    });
   };
 
   const handlePurchaseChange = (event) => {
     const isPurchased = event.target.checked;
-    setExpense((prev) => ({
-      ...prev,
-      purchased: isPurchased,
-      registeredDate: isPurchased ? null : prev.registeredDate,
-      purchaseDate: isPurchased ? prev.purchaseDate : null,
-    }));
+    handleFieldChange("purchased", isPurchased, {
+      registeredDate: isPurchased ? null : expense.registeredDate,
+      purchaseDate: isPurchased ? expense.purchaseDate : null,
+    });
   };
 
   const handleRegisterChange = (event) => {
     const isRegistered = event.target.checked;
-    setExpense((prev) => ({
-      ...prev,
-      purchased: !isRegistered,
-      registeredDate: isRegistered ? prev.registeredDate : null,
-      purchaseDate: isRegistered ? null : prev.purchaseDate,
-    }));
+    handleFieldChange("purchased", !isRegistered, {
+      registeredDate: isRegistered ? expense.registeredDate : null,
+      purchaseDate: isRegistered ? null : expense.purchaseDate,
+    });
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      if (isFormValid()) {
+      if (isFormValid) {
         const savedExpense = await handleSaveExpense();
         if (savedExpense) {
           const expenseData =
@@ -305,30 +259,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       console.error("Save failed:", error);
     }
   };
-
-  const computeFinalPrice = () => {
-    const price = parseFloat(expense.price) || 0;
-    if (!expense.hasDiscount) return price;
-    if (expense.discountValue > 0) {
-      return price * (1 - expense.discountValue / 100);
-    }
-    if (expense.discountAmount > 0) {
-      return price - expense.discountAmount;
-    }
-    return price;
-  };
-
-  useEffect(() => {
-    setExpense((prev) => ({
-      ...prev,
-      finalPrice: parseFloat(computeFinalPrice().toFixed(2)),
-    }));
-  }, [
-    expense.price,
-    expense.discountValue,
-    expense.discountAmount,
-    expense.hasDiscount,
-  ]);
 
   // Determine overall loading state
   const isLoading =
@@ -469,7 +399,9 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   label="Volume (Manual)"
                   type="number"
                   value={expense.volume || ""}
-                  onChange={handleManualVolumeInput}
+                  onChange={(e) =>
+                    handleFieldChange("volume", parseFloat(e.target.value) || 0)
+                  }
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -497,7 +429,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 label="Quantity"
                 type="number"
                 value={expense.quantity}
-                onChange={handleQuantityChange}
+                onChange={(e) => handleFieldChange("quantity", e.target.value)}
               />
             </Grid>
 
@@ -551,7 +483,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             <Grid item xs={12}>
               <ExpenseField
                 label="Final Price"
-                value={computeFinalPrice().toFixed(2)}
+                value={expense.finalPrice || 0}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
@@ -611,7 +543,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             type="submit"
             variant="contained"
             color="primary"
-            disabled={!isFormValid() || isLoading}
+            disabled={!isFormValid || isLoading}
           >
             {isLoading ? <CircularProgress size={24} /> : "Save"}
           </Button>
