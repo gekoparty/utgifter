@@ -1,14 +1,44 @@
-import { useState, useEffect, useCallback, useMemo, useContext } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useContext,
+  useReducer,
+  useRef
+} from "react";
 import dayjs from "dayjs";
-import { formatComponentFields } from "../commons/Utils/FormatUtil";
 import { StoreContext } from "../../Store/Store";
 import useFetchData from "../../hooks/useFetchData";
 import { addExpenseValidationSchema } from "../../validation/validationSchema";
 import useCustomHttp from "../../hooks/useHttp";
 
-const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
+const expenseReducer = (state, action) => {
+  switch (action.type) {
+    case "SET_FIELD":
+      return { ...state, [action.field]: action.value };
+    case "RESET":
+      return action.initialState;
+    case "INIT":
+      return { ...action.payload };
+    case "SET_EXPENSE":
+      // Allow updater function or direct value
+      return typeof action.payload === "function"
+        ? action.payload(state)
+        : action.payload;
+    case "DELETE_EXPENSE":
+      return {
+        ...state,
+        expenses: state.expenses.filter((exp) => exp._id !== action.payload),
+      };
+    default:
+      return state;
+  }
+};
+
+const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // Memoize the initial expense state for consistency
-  const initialExpenseState = useMemo(
+  const defaultExpenseState = useMemo(
     () => ({
       measurementUnit: "",
       productName: "",
@@ -31,284 +61,253 @@ const useExpenseForm = (initialExpense = null, expenseId = null, onClose) => {
     []
   );
 
+  const initialFormState = initialExpense || defaultExpenseState;
   // Expense state and validation/error states
-  const [expense, setExpense] = useState(
-    initialExpense ? initialExpense : { ...initialExpenseState }
+  const [expense, dispatchExpense] = useReducer(
+    expenseReducer,
+    initialFormState
   );
   const [validationErrors, setValidationErrors] = useState({});
-  const [error, setError] = useState(null);
-
   // Custom HTTP hook for expenses
   const { sendRequest, loading } = useCustomHttp("/api/expenses");
-
   // Global store context
-  const { dispatch, state } = useContext(StoreContext);
+  const { dispatch: storeDispatch } = useContext(StoreContext);
 
-  // Fetch options for products, brands, and shops
-  const {
-    data: productsOptions,
-    isLoading: productsLoading,
-    refetch: refetchProducts,
-  } = useFetchData("products", "/api/products", null, { enabled: false });
+  // Create a setExpense function that mimics a state setter
+  const setExpense = useCallback((updateFn) => {
+    dispatchExpense({ type: "SET_EXPENSE", payload: updateFn });
+  }, []);
 
-  const {
-    data: brandOptions,
-    isLoading: brandsLoading,
-    refetch: refetchBrands,
-  } = useFetchData("brands", "/api/brands", null, { enabled: false });
+  // Memoized API endpoints
+  const endpoints = useMemo(
+    () => ({
+      products: "/api/products",
+      brands: "/api/brands",
+      shops: "/api/shops",
+      expenses: "/api/expenses",
+      locations: "/api/locations",
+    }),
+    []
+  );
 
-  const {
-    data: shopOptions,
-    isLoading: shopsLoading,
-    refetch: refetchShops,
-  } = useFetchData(
-    "shopsWithLocations",
-    "/api/shops",
-    async (data) => {
-      // Check if data is already an array; if not, assume it is an object with a "shops" key.
-      const shops = Array.isArray(data) ? data : data.shops;
-      if (!Array.isArray(shops)) {
-        // If still not an array, return an empty array to avoid errors.
-        return [];
-      }
-      return Promise.all(
+  const fetchShopsData = useCallback(async (data) => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+  
+    try {
+      const shops = Array.isArray(data) ? data : data?.shops || [];
+      return await Promise.all(
         shops.map(async (shop) => {
-          const locationResponse = await fetch(`/api/locations/${shop.location}`);
-          const location = await locationResponse.json();
+          const res = await fetch(`${endpoints.locations}/${shop.location}`, { signal });
+          if (!res.ok) throw new Error("Failed to fetch location");
+          const location = await res.json();
           return { ...shop, locationName: location.name };
         })
       );
-    }
-  );
-  
-  // If an expenseId is provided, fetch the expense details
-  useEffect(() => {
-    if (expenseId) {
-      const fetchExpenseById = async () => {
-        try {
-          const response = await fetch(`/api/expenses/${expenseId}`);
-          const data = await response.json();
-          setExpense((prevExpense) => ({
-            ...prevExpense,
-            ...data,
-          }));
-        } catch (fetchError) {
-          console.error("Error fetching expense:", fetchError);
-          setError(fetchError.message || "Error fetching expense details");
-        }
-      };
-      fetchExpenseById();
-    }
-  }, [expenseId]);
-
-  // Reset server and validation errors
-  const resetServerError = useCallback(() => {
-    dispatch({ type: "RESET_ERROR", resource: "expenses" });
-  }, [dispatch]);
-
-  const resetValidationErrors = useCallback(() => {
-    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
-    setValidationErrors({});
-  }, [dispatch]);
-
-  // Reset the form and clear all errors
-  const resetFormAndErrors = useCallback(() => {
-    setExpense(initialExpense ? initialExpense : { ...initialExpenseState });
-    resetServerError();
-    resetValidationErrors();
-  }, [initialExpense, initialExpenseState, resetServerError, resetValidationErrors]);
-
-  // Update the expense state when initialExpense changes (with field normalization)
-  useEffect(() => {
-    if (initialExpense) {
-      const normalizedExpense = {
-        ...initialExpense,
-        productName:
-          typeof initialExpense.productName === "object"
-            ? initialExpense.productName.name
-            : initialExpense.productName,
-        // ...other fields
-      };
-      if (productsOptions && productsOptions.length > 0) {
-        const selectedProd = productsOptions.find(
-          (prod) => prod.name === normalizedExpense.productName
-        );
-        const productMeasures = selectedProd?.measures || [];
-        setExpense((prev) => ({
-          ...prev,
-          ...normalizedExpense,
-          measures: productMeasures,
-        }));
-      } else if (productsOptions !== undefined) {
-        console.warn("productsOptions is empty");
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Error fetching shop locations:", error);
       }
-    } else {
-      resetFormAndErrors();
+      return [];
     }
-  }, [initialExpense, productsOptions, resetFormAndErrors]);
+  }, [endpoints.locations]);
 
-  // Validate a single field and update the validation errors state
+  
+
+  // Data fetching with enabled optimization
+  const fetchConfig = useMemo(
+    () => ({
+      enabled: Boolean(expenseId || initialExpense),
+    }),
+    [expenseId, initialExpense]
+  );
+
+  const { data: products } = useFetchData(
+    "products",
+    endpoints.products,
+    null,
+    fetchConfig
+  );
+  const { data: brands } = useFetchData(
+    "brands",
+    endpoints.brands,
+    null,
+    fetchConfig
+  );
+  const { data: shops } = useFetchData(
+    "shops",
+    endpoints.shops,
+    fetchShopsData,
+    fetchConfig
+  );
+
+  // Fetch initial expense data
+  useEffect(() => {
+    const fetchExpense = async () => {
+      if (initialExpense) return;
+      if (!expenseId) return;
+
+      try {
+        const data = await sendRequest(`${endpoints.expenses}/${expenseId}`);
+        dispatchExpense({ type: "INIT", payload: data });
+      } catch (error) {
+        storeDispatch({ type: "SET_ERROR", resource: "expenses", error });
+      }
+    };
+
+    fetchExpense();
+  }, [
+    expenseId,
+    initialExpense,
+    sendRequest,
+    storeDispatch,
+    endpoints.expenses,
+  ]);
+
+  // Form operations
+  const resetForm = useCallback(() => {
+    dispatchExpense({ type: "RESET", initialState: defaultExpenseState });
+    storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
+    setValidationErrors({});
+  }, [defaultExpenseState, storeDispatch]);
+
   const validateField = useCallback((field, value) => {
     try {
       addExpenseValidationSchema.validateSyncAt(field, { [field]: value });
       setValidationErrors((prev) => ({ ...prev, [field]: null }));
+      return true;
     } catch (err) {
       setValidationErrors((prev) => ({ ...prev, [field]: err.message }));
+      return false;
     }
   }, []);
 
-  // Handle field changes and update related state (e.g. measures for productName)
   const handleFieldChange = useCallback(
     (field, value) => {
-      setExpense((prev) => ({ ...prev, [field]: value }));
-
-      if (field === "productName" && productsOptions && productsOptions.length > 0) {
-        const selectedProduct = productsOptions.find(
-          (product) => product.name === value
-        );
-        const productMeasures = selectedProduct?.measures || [];
-        setExpense((prev) => ({
-          ...prev,
-          measurementUnit: productMeasures.length > 0 ? productMeasures[0] : "",
-          measures: productMeasures,
-        }));
-      } else if (field === "productName") {
-        console.warn("productsOptions is undefined or empty");
-      }
+      dispatchExpense({ type: "SET_FIELD", field, value });
       validateField(field, value);
+
+      if (field === "productName" && products) {
+        const product = products.find((p) => p.name === value);
+        if (product) {
+          dispatchExpense({
+            type: "SET_FIELD",
+            field: "measures",
+            value: product.measures,
+          });
+          dispatchExpense({
+            type: "SET_FIELD",
+            field: "measurementUnit",
+            value: product.measures?.[0] || "",
+          });
+        }
+      }
     },
-    [validateField, productsOptions]
+    [products, validateField]
   );
 
-  // Save the expense (create or update) after formatting and validating the fields
-  const handleSaveExpense = async (onClose) => {
-    if (!expense || !expense.productName || !expense.brandName) {
-      console.error("Missing required fields in expense:", expense);
-      return;
-    }
+  // Form submission handler
+  const isMountedRef = useRef(true);
 
-    let formattedExpense;
-    let errors = {};
-
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+  
+  const handleSaveExpense = useCallback(async () => {
     try {
-      formattedExpense = {
+      const payload = {
         ...expense,
-        productName: formatComponentFields(expense.productName, "expense", "productName"),
-        brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
-        shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
-        locationName: formatComponentFields(expense.locationName, "expense", "locationName"),
-        type: formatComponentFields(expense.type, "expense", "type"),
         purchaseDate: expense.purchased ? expense.purchaseDate : null,
         registeredDate: !expense.purchased ? expense.registeredDate : null,
       };
-      // Validate using the schema (abortEarly false to collect all errors)
-      await addExpenseValidationSchema.validate(formattedExpense, { abortEarly: false });
-    } catch (validationError) {
-      console.error("Validation errors:", validationError.errors);
-    console.error("Validation error details:", validationError.inner);
-      if (validationError.inner) {
-        validationError.inner.forEach((err) => {
-          errors[err.path] = { show: true, message: err.message };
-        });
-        dispatch({
-          type: "SET_VALIDATION_ERRORS",
-          resource: "expenses",
-          validationErrors: {
-            ...state.validationErrors?.expenses,
-            ...errors,
-          },
-          showError: true,
-        });
-      }
-      return;
-    }
+  
+      await addExpenseValidationSchema.validate(payload, { abortEarly: false });
+  
+      const method = initialExpense ? "PUT" : "POST";
+      const url = initialExpense
+        ? `${endpoints.expenses}/${initialExpense._id}`
+        : endpoints.expenses;
 
-    try {
-      let url = "/api/expenses";
-      let method = "POST";
-      if (initialExpense) {
-        url = `/api/expenses/${initialExpense._id}`;
-        method = "PUT";
-      }
-      const { data, error: apiError } = await sendRequest(url, method, formattedExpense);
-      if (apiError) {
-        dispatch({
-          type: "SET_ERROR",
-          error: apiError,
-          resource: "expenses",
-          showError: true,
-        });
-        return;
-      } else {
-        dispatch({ type: "RESET_ERROR", resource: "expenses" });
-        dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "expenses" });
-        setExpense({ ...initialExpenseState });
-        resetFormAndErrors();
-        return data;  // Simply return the data
-      }
-    } catch (fetchError) {
-      dispatch({
-        type: "SET_ERROR",
-        error: fetchError,
-        resource: "expenses",
-        showError: true,
-      });
-    }
-  };
+      const { data } = await sendRequest(url, method, payload);
+      return data;
 
-  // Delete an expense
-  const handleDeleteExpense = async (expenseToDelete, onSuccess, onFailure) => {
-    try {
-      const { error: deleteError } = await sendRequest(
-        `/api/expenses/${expenseToDelete._id}`,
-        "DELETE"
-      );
-      if (deleteError) {
-        onFailure(expenseToDelete);
-        return false;
-      } else {
-        onSuccess(expenseToDelete);
-        await refetchProducts();
+    } catch (error) {
+      if (isMountedRef.current) {
+        if (error.name === "ValidationError") {
+          const errors = error.inner.reduce(
+            (acc, err) => ({ ...acc, [err.path]: err.message }),
+            {}
+          );
+          setValidationErrors(errors);
+        } else {
+          storeDispatch({ type: "SET_ERROR", resource: "expenses", error });
+        }
+      }
+      throw error;
+    }
+  }, [expense, initialExpense, sendRequest, storeDispatch, endpoints.expenses]);
+  
+
+  // Delete expense handler
+  const handleDeleteExpense = useCallback(
+    async (expenseId) => {
+      try {
+        await sendRequest(`${endpoints.expenses}/${expenseId}`, "DELETE");
+        //storeDispatch({ type: "DELETE_EXPENSE", payload: expenseId });
         return true;
+      } catch (error) {
+        storeDispatch({ type: "SET_ERROR", resource: "expenses", error });
+        return false;
       }
-    } catch (err) {
-      onFailure(expenseToDelete);
-      return false;
-    }
-  };
+    },
+    [sendRequest, storeDispatch, endpoints.expenses]
+  );
 
-  // Check if the form is valid
-  const isFormValid = useCallback(() => {
-    const hasErrors = Object.values(validationErrors).some((err) => err);
-    const hasRequiredFields = ["productName", "brandName", "shopName"].every(
-      (field) => expense[field]?.trim().length > 0
+  // Memoized form validity check
+  const isFormValid = useMemo(() => {
+    const requiredFields = ["productName", "brandName", "shopName"];
+    return (
+      requiredFields.every((field) => expense[field]?.trim()) &&
+      expense.price > 0 &&
+      expense.volume > 0 &&
+      Object.values(validationErrors).every((error) => !error)
     );
-    const hasVolumeAndPrice = expense.volume > 0 && expense.price > 0;
-    return !hasErrors && hasRequiredFields && hasVolumeAndPrice;
   }, [expense, validationErrors]);
 
-  return {
-    isFormValid,
-    error,
-    handleSaveExpense,
-    handleDeleteExpense,
-    expense,
-    setExpense,
-    handleFieldChange,
-    resetServerError,
-    resetValidationErrors,
-    resetFormAndErrors,
-    productsOptions,
-    productsLoading,
-    brandsLoading,
-    shopsLoading,
-    brandOptions,
-    refetchProducts,
-    refetchBrands,
-    refetchShops,
-    shopOptions,
-    loading,
-  };
+  // Memoized component API
+  return useMemo(
+    () => ({
+      isFormValid,
+      expense,
+      loading,
+      products,
+      brands,
+      shops,
+      validationErrors,
+      handleDeleteExpense,
+      handleSaveExpense,
+      handleFieldChange,
+      resetForm,
+      setExpense,
+    }),
+    [
+      isFormValid,
+      expense,
+      loading,
+      products,
+      brands,
+      shops,
+      validationErrors,
+      handleSaveExpense,
+      handleDeleteExpense,
+      handleFieldChange,
+      resetForm,
+      setExpense
+    ]
+  );
 };
 
 export default useExpenseForm;

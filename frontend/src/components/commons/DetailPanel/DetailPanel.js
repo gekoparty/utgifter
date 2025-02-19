@@ -1,23 +1,28 @@
-import {CircularProgress, Alert, Card, CardContent, Grid, Typography  } from "@mui/material";
-import useExpenseForm from "../../Expenses/useExpenseForm";
+import { Card, CardContent, Grid, Typography, CircularProgress} from "@mui/material";
 import CurrencyBox from "../CurrencyBox/CurrencyBox";
-import { useQuery } from "@tanstack/react-query";
 
-// Define the DetailPanel component
-const DetailPanel = ({ row }) => {
-    const { expense, loading, error } = useExpenseForm(null, row.original._id);
+const DetailPanel = ({ expense }) => {
+  // If no expense is passed, show a loading indicator (or you can handle it as needed)
+  if (!expense) return <CircularProgress />;
 
-    if (loading) return <CircularProgress />;
-    if (error) return <Alert severity="error">{error}</Alert>;
-
-  const { shopName, volume, registeredDate, purchaseDate, finalPrice,type,brandName, locationName, price, discountAmount,discountValue,...otherDetails } = expense;
-
+  const {
+    shopName,
+    volume,
+    registeredDate,
+    purchaseDate,
+    finalPrice,
+    type,
+    brandName,
+    locationName,
+    price,
+    discountAmount,
+    discountValue,
+  } = expense;
 
   return (
-    <Card sx={{ p: 2, width: '100%' }}>
+    <Card sx={{ p: 2, width: "100%" }}>
       <CardContent>
         <Grid container spacing={2}>
-          
           {/* Column 1: Shop, Brand, Location */}
           <Grid item xs={12} md={4}>
             <Typography variant="h6" gutterBottom>
@@ -33,17 +38,23 @@ const DetailPanel = ({ row }) => {
             <Typography variant="h6" gutterBottom>
               Priser og Rabatter
             </Typography>
-            <div><b>Pris:</b> <CurrencyBox value={price} /></div>
-            {/* Only render discount details if there is a discount */}
+            <div>
+              <b>Pris:</b> <CurrencyBox value={price} />
+            </div>
             {discountAmount > 0 && (
               <>
-                <div><b>Rabatt i kr:</b> <CurrencyBox value={discountAmount} /></div>
-                <div><b>Rabatt i %:</b> {discountValue} %</div>
+                <div>
+                  <b>Rabatt i kr:</b> <CurrencyBox value={discountAmount} />
+                </div>
+                <div>
+                  <b>Rabatt i %:</b> {discountValue} %
+                </div>
               </>
             )}
-            {/* Only render finalPrice if it's different from the original price */}
             {finalPrice !== price && (
-              <div><b>Pris etter rabatt:</b> <CurrencyBox value={finalPrice} /></div>
+              <div>
+                <b>Pris etter rabatt:</b> <CurrencyBox value={finalPrice} />
+              </div>
             )}
           </Grid>
 
@@ -54,7 +65,6 @@ const DetailPanel = ({ row }) => {
             </Typography>
             {type && <div><b>Type:</b> {type}</div>}
             {volume && <div><b>Volum:</b> {volume}</div>}
-            {/* Only render dates if they are defined */}
             {purchaseDate && <div><b>Kjøpt Dato:</b> {purchaseDate}</div>}
             {registeredDate && <div><b>Registrert Dato:</b> {registeredDate}</div>}
           </Grid>
@@ -63,9 +73,5 @@ const DetailPanel = ({ row }) => {
     </Card>
   );
 };
-
-
-
-
 
 export { DetailPanel };
