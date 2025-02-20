@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import { useQuery } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useShopDialog from "../UseShop/useShopDialog";
 import { fetchCategories, fetchLocations } from "../../commons/Utils/apiUtils";
 
+// CHANGED: Transform fetched data into names (like in AddShopDialog)
 const EditShopDialog = ({
   selectedShop,
   open,
@@ -15,6 +16,7 @@ const EditShopDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
+  // Memoize the selected shop to avoid unnecessary renders.
   const memoizedSelectedShop = useMemo(() => selectedShop, [selectedShop]);
   const {
     shop,
@@ -29,52 +31,45 @@ const EditShopDialog = ({
     resetFormAndErrors,
   } = useShopDialog(memoizedSelectedShop);
 
+  // CHANGED: Fetch locations and transform them into an array of names.
   const {
-    data: locationOptions,
+    data: locations = [],
     isLoading: locationLoading,
     isError: locationError,
-  } = useQuery(["locations"], fetchLocations);
+  } = useQuery(["locations"], fetchLocations, {
+    select: (data) => data.locations.map((l) => l.name),
+  });
 
+  // CHANGED: Map the names into options
+  const locationOptions = useMemo(
+    () => locations.map((name) => ({ value: name, label: name })),
+    [locations]
+  );
+
+  // CHANGED: Fetch categories and transform them into an array of names.
   const {
-    data: categoryOptions,
+    data: categories = [],
     isLoading: categoryLoading,
     isError: categoryError,
-  } = useQuery(["categories"], fetchCategories);
+  } = useQuery(["categories"], fetchCategories, {
+    select: (data) => data.categories.map((c) => c.name),
+  });
 
-  // *** New Effect: Synchronize shop state on dialog open ***
-  // This effect reinitializes the shop state each time the dialog is opened.
+  // CHANGED: Map the names into options
+  const categoryOptions = useMemo(
+    () => categories.map((name) => ({ value: name, label: name })),
+    [categories]
+  );
+
+  // CHANGED: When the dialog opens, reset the form with the selected shop.
   useEffect(() => {
     if (open) {
-      // When the dialog opens, set the shop state to the selectedShop.
-      // This ensures that any previous modifications are cleared.
       setShop({ ...selectedShop });
     }
   }, [selectedShop, open, setShop]);
 
-  if (locationLoading) {
-    // Return a loading indicator while brands are being fetched
-    return <CircularProgress />;
-  }
-
-  if (locationError) {
-    // Handle error state when fetching brands fails
-    return <div>Error loading Locations</div>;
-  }
-
-  if (categoryLoading) {
-    // Return a loading indicator while brands are being fetched
-    return <CircularProgress />;
-  }
-
-  if (categoryError) {
-    // Handle error state when fetching brands fails
-    return <div>Error loading categories</div>;
-  }
-
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent the default form submission behavior
-
-    // Call the handleSaveShop function from the hook to save the updated shop
+    event.preventDefault();
     if (isFormValid()) {
       const success = await handleSaveShop(onClose);
       if (success) {
@@ -83,6 +78,32 @@ const EditShopDialog = ({
         onUpdateFailure();
       }
     }
+  };
+
+  // CHANGED: For location, update both value and display name.
+  const handleLocationChange = (selectedOption, action) => {
+    const value = selectedOption?.value || "";
+    const label = selectedOption ? selectedOption.label : "";
+    setShop((prev) => ({
+      ...prev,
+      location: value,
+      locationName: label,
+    }));
+    resetValidationErrors();
+    resetServerError();
+  };
+
+  // CHANGED: For category, update both value and display name.
+  const handleCategoryChange = (selectedOption, action) => {
+    const value = selectedOption?.value || "";
+    const label = selectedOption ? selectedOption.label : "";
+    setShop((prev) => ({
+      ...prev,
+      category: value,
+      categoryName: label,
+    }));
+    resetValidationErrors();
+    resetServerError();
   };
 
   return (
@@ -96,109 +117,113 @@ const EditShopDialog = ({
     >
       <form onSubmit={handleSubmit}>
         <Grid container direction="column" spacing={1}>
+          {/* Shop Name */}
           <Grid item>
             <TextField
               sx={{ marginTop: 2 }}
               size="small"
               label="Butikk"
-              value={shop?.name || ""} // Use optional chaining and provide a default value
-              error={Boolean(validationError?.name)} // Use optional chaining
+              value={shop?.name || ""}
+              error={Boolean(validationError?.name)}
               onChange={(e) => {
                 setShop({ ...shop, name: e.target.value });
                 resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
+                resetServerError();
               }}
             />
             {displayError || validationError ? (
               <ErrorHandling resource="shops" field="name" loading={loading} />
             ) : null}
           </Grid>
+
+          {/* Location Select */}
           <Grid item>
-            {/* Use CreatableSelect for the brand */}
             <CreatableSelect
-              sx={{ marginTop: 2 }}
               className="custom-select"
               options={locationOptions}
               size="small"
               label="Lokasjon"
+              // CHANGED: Compute value – if shop.location isn’t found in the options, build one from shop.locationName.
               value={
                 shop?.location
-                  ? locationOptions.find(
-                      (location) => location.name === shop.location
-                    )
+                  ? locationOptions.find((o) => o.value === shop.location) || {
+                      value: shop.location,
+                      label: shop.locationName,
+                    }
                   : null
               }
               error={Boolean(validationError?.location)}
-              onChange={(selectedOption) => {
-                setShop({ ...shop, location: selectedOption?.name || "" });
+              onChange={handleLocationChange}
+              getOptionLabel={(option) => option.label} // CHANGED: Use label instead of name
+              getOptionValue={(option) => option.value} // CHANGED: Use value instead of name
+              placeholder="Velg Lokasjon..."
+              isClearable
+              // CHANGED: When creating a new option, prefix with "temp-" so that formatting is applied on save.
+              onCreateOption={(inputValue) => {
+                const value = inputValue.trim();
+                setShop((prev) => ({
+                  ...prev,
+                  location: `temp-${value}`, // CHANGED: Prefix new option
+                  locationName: value,
+                }));
                 resetValidationErrors();
                 resetServerError();
               }}
-              getOptionLabel={(option) => option.name}
-              getOptionValue={(option) => option.name}
-              placeholder="Velg Lokasjon..."
-              isValidNewOption={(inputValue, selectValue, selectOptions) => {
-                return (
-                  inputValue.trim() !== "" &&
-                  !selectOptions.find(
-                    (option) => option.name === inputValue.trim()
-                  )
-                );
-              }}
-              getNewOptionData={(inputValue, optionLabel) => ({
-                name: inputValue.trim(),
-              })}
-              onCreateOption={(inputValue) => {
-                const newShop = { name: inputValue.trim() };
-                setShop({ ...shop, location: newShop.name || "" });
-                locationOptions.push(newShop);
-              }}
-              isClearable
-              formatCreateLabel={(inputValue) => `Ny Lokasjon: ${inputValue}`}
+              isValidNewOption={(inputValue) =>
+                !!inputValue.trim() &&
+                !locationOptions.find(
+                  (o) => o.value === inputValue.trim()
+                )
+              }
+              formatCreateLabel={(input) => `Ny Lokasjon: ${input}`}
             />
+            {locationLoading && <CircularProgress />}
+            {locationError && <div>Error loading Locations</div>}
           </Grid>
+
+          {/* Category Select */}
           <Grid item>
-            {/* Use CreatableSelect for the brand */}
             <CreatableSelect
               className="custom-select"
               options={categoryOptions}
               size="small"
               label="Kategori"
+              // CHANGED: Compute value for category similarly.
               value={
                 shop?.category
-                  ? categoryOptions.find(
-                      (category) => category.name === shop.category
-                    )
+                  ? categoryOptions.find((o) => o.value === shop.category) || {
+                      value: shop.category,
+                      label: shop.categoryName,
+                    }
                   : null
               }
               error={Boolean(validationError?.category)}
-              onChange={(selectedOption) => {
-                setShop({ ...shop, category: selectedOption?.name || "" });
+              onChange={handleCategoryChange}
+              getOptionLabel={(option) => option.label}
+              getOptionValue={(option) => option.value}
+              placeholder="Velg Kategori..."
+              isClearable
+              // CHANGED: When creating a new option, prefix with "temp-".
+              onCreateOption={(inputValue) => {
+                const value = inputValue.trim();
+                setShop((prev) => ({
+                  ...prev,
+                  category: `temp-${value}`, // CHANGED: Prefix new option
+                  categoryName: value,
+                }));
                 resetValidationErrors();
                 resetServerError();
               }}
-              getOptionLabel={(option) => option.name}
-              getOptionValue={(option) => option.name}
-              placeholder="Velg Kategori..."
-              isValidNewOption={(inputValue, selectValue, selectOptions) => {
-                return (
-                  inputValue.trim() !== "" &&
-                  !selectOptions.find(
-                    (option) => option.name === inputValue.trim()
-                  )
-                );
-              }}
-              getNewOptionData={(inputValue, optionLabel) => ({
-                name: inputValue.trim(),
-              })}
-              onCreateOption={(inputValue) => {
-                const newCategory = { name: inputValue.trim() };
-                setShop({ ...shop, category: newCategory.name || "" });
-                categoryOptions.push(newCategory);
-              }}
-              isClearable
-              formatCreateLabel={(inputValue) => `Ny Kategori: ${inputValue}`}
+              isValidNewOption={(inputValue) =>
+                !!inputValue.trim() &&
+                !categoryOptions.find(
+                  (o) => o.value === inputValue.trim()
+                )
+              }
+              formatCreateLabel={(input) => `Ny Kategori: ${input}`}
             />
+            {categoryLoading && <CircularProgress />}
+            {categoryError && <div>Error loading categories</div>}
           </Grid>
         </Grid>
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
