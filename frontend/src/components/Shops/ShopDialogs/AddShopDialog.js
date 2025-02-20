@@ -1,13 +1,27 @@
-import React from "react";
-import { Button, TextField, CircularProgress, Grid, Box } from "@mui/material";
+import React, { useMemo, useEffect } from "react";
+import {
+  Button,
+  TextField,
+  CircularProgress,
+  Grid,
+  Fade,
+  Box,
+  Typography,
+} from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import CreatableSelect from "react-select/creatable";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
 import useShopDialog from "../UseShop/useShopDialog";
-import LinearProgress from '@mui/material/LinearProgress';
+import LinearProgress from "@mui/material/LinearProgress";
 import { fetchLocations, fetchCategories } from "../../commons/Utils/apiUtils";
+import commonSelectStyles from "../../commons/Styles/SelectStyles";
+import CreatableSelect from "react-select/creatable";
+
+// Memoized components
+const MemoizedBasicDialog = React.memo(BasicDialog);
+const MemoizedErrorHandling = React.memo(ErrorHandling);
+const MemoizedCreatableSelect = React.memo(CreatableSelect);
 
 const AddShopDialog = ({ open, onClose, onAdd }) => {
   const {
@@ -23,174 +37,219 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useShopDialog();
 
+  // Fetch location names
   const {
-    data: locationOptions,
+    data: locations = [],
     isLoading: locationLoading,
     isError: locationError,
-  } = useQuery(["locations"], fetchLocations);
+  } = useQuery(["locations"], fetchLocations, {
+    select: (data) => data.locations.map((l) => l.name),
+  });
 
+  // Fetch category names
   const {
-    data: categoryOptions,
+    data: categories = [],
     isLoading: categoryLoading,
     isError: categoryError,
-  } = useQuery(["categories"], fetchCategories);
+  } = useQuery(["categories"], fetchCategories, {
+    select: (data) => data.categories.map((c) => c.name),
+  });
 
-  const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent the default form submission behavior
+  // Memoized options
+  const locationOptions = useMemo(
+    () => locations.map((name) => ({ value: name, label: name })),
+    [locations]
+  );
 
-    // Call the handleSaveShop function from the hook to save the new shop
+  const categoryOptions = useMemo(
+    () => categories.map((name) => ({ value: name, label: name })),
+    [categories]
+  );
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) resetFormAndErrors();
+  }, [open, resetFormAndErrors]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (isFormValid()) {
       const success = await handleSaveShop(onClose);
-      if (success) {
-        onAdd({ name: shop.name }); // Trigger the onAdd function to show the success snackbar with the shop name
-      }
+      if (success) onAdd({ name: shop.name });
     }
   };
 
-  
+  // CHANGED: Update change handler to update both the raw value and the display name.
+  const handleLocationChange = (selectedOption, action) => {
+    const value = selectedOption?.value || "";
+    const label = selectedOption ? selectedOption.label : "";
+    setShop((prev) => ({
+      ...prev,
+      location: value,
+      locationName: label, // CHANGED: Update locationName too
+    }));
+    resetValidationErrors();
+    resetServerError();
+  };
+
+  const handleCategoryChange = (selectedOption, action) => {
+    const value = selectedOption?.value || "";
+    const label = selectedOption ? selectedOption.label : "";
+    setShop((prev) => ({
+      ...prev,
+      category: value,
+      categoryName: label, // CHANGED: Update categoryName too
+    }));
+    resetValidationErrors();
+    resetServerError();
+  };
+
   return (
-    <BasicDialog
-      open={open}
-      onClose={() => {
-        resetFormAndErrors();
-        onClose(); // Close the dialog after resetting the form and errors
-      }}
-      dialogTitle="Ny Butikk"
-    >
-      <form onSubmit={handleSubmit}>
-        <Grid container direction="column" spacing={2}>
-          <Grid item>
-            <TextField
-              sx={{ marginTop: 2 }}
-              size="small"
-              label="Butikk"
-              value={shop?.name || ""} // Use optional chaining and provide a default value
-              error={Boolean(validationError?.name)} // Use optional chaining
-              onChange={(e) => {
-                setShop({ ...shop, name: e.target.value });
-                resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
-              }}
-            />
-            {displayError || validationError ? (
-              <ErrorHandling resource="shops" field="name" loading={loading} />
-            ) : null}
-          </Grid>
-          <Grid item>
-            <CreatableSelect
-              className="custom-select"
-              options={locationOptions}
-              size="small"
-              label="Sted"
-              value={
-                shop?.location
-                  ? locationOptions.find((loc) => loc.name === shop.location)
-                  : null
-              } // Use optional chaining to handle empty shop location
-              error={Boolean(validationError?.location)} // Use optional chaining
-              onChange={(selectedOption) => {
-                setShop({ ...shop, location: selectedOption?.name || "" });
-                resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
-              }}
-              getOptionLabel={(option) => option.name} // Set the label for each option
-              getOptionValue={(option) => option.name} // Set the value for each option
-              placeholder="Velg Sted..."
-              isValidNewOption={(inputValue, selectValue, selectOptions) => {
-                return (
-                  inputValue.trim() !== "" &&
-                  !selectOptions.find(
-                    (option) => option.name === inputValue.trim()
-                  )
-                );
-              }}
-              getNewOptionData={(inputValue, optionLabel) => ({
-                name: inputValue.trim(),
-              })}
-              onCreateOption={(inputValue) => {
-                const newLocation = { name: inputValue.trim() };
-                setShop({ ...shop, location: newLocation.name || "" });
-                locationOptions.push(newLocation);
-              }}
-              isClearable
-              formatCreateLabel={(inputValue) => `Nytt sted: ${inputValue}`}
-              
-            />
-            {locationLoading && <LinearProgress />}
-            {displayError || validationError ? (
-              <ErrorHandling
-                resource="shops"
-                field="location"
-                loading={loading}
-              />
-            ) : null}
-          </Grid>
-          <Grid item>
-            <CreatableSelect
-              options={categoryOptions}
-              size="small"
-              label="Kategori"
-              value={
-                shop?.category
-                  ? categoryOptions?.find((cat) => cat.name === shop.category)
-                  : null
-              }
-              error={Boolean(validationError?.category)} // Use optional chaining
-              onChange={(selectedOption) => {
-                setShop({ ...shop, category: selectedOption?.name || "" });
-                resetValidationErrors();
-                resetServerError(); // Clear validation errors when input changes
-              }}
-              getOptionLabel={(option) => option.name} // Set the label for each option
-              getOptionValue={(option) => option.name} // Set the value for each option
-              placeholder="Velg Kategori..."
-              isValidNewOption={(inputValue, selectValue, selectOptions) => {
-                return (
-                  inputValue.trim() !== "" &&
-                  !selectOptions.find(
-                    (option) => option.name === inputValue.trim()
-                  )
-                );
-              }}
-              getNewOptionData={(inputValue, optionLabel) => ({
-                name: inputValue.trim(),
-              })}
-              onCreateOption={(inputValue) => {
-                const newCategory = { name: inputValue.trim() };
-                setShop({ ...shop, category: newCategory.name || "" });
-                categoryOptions.push(newCategory);
-              }}
-              isClearable
-              formatCreateLabel={(inputValue) => `Ny Kategori: ${inputValue}`}
-            />
-            <Box sx={{ width: '100%' }}>
-            {categoryLoading && <LinearProgress />}
-            </Box>
-            {displayError || validationError ? (
-              <ErrorHandling
-                resource="shops"
-                field="category"
-                loading={loading}
-              />
-            ) : null}
-          </Grid>
-        </Grid>
-        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
-          <Button type="submit" disabled={loading || !isFormValid()}>
-            {loading ? <CircularProgress size={24} /> : "Lagre"}
-          </Button>
-          <Button
-            onClick={() => {
-              resetFormAndErrors(); // Reset the form and errors when the cancel button is clicked
-              onClose(); // Close the dialog
-            }}
-            sx={{ ml: 2 }}
-          >
-            Cancel
-          </Button>
-        </Grid>
-      </form>
-    </BasicDialog>
+    <Fade in={open} timeout={300}>
+      <Box>
+        <MemoizedBasicDialog
+          open={open}
+          onClose={() => {
+            resetFormAndErrors();
+            onClose();
+          }}
+          dialogTitle="Ny Butikk"
+        >
+          <form onSubmit={handleSubmit}>
+            <Grid container direction="column" spacing={2}>
+              {/* Shop Name */}
+              <Grid item>
+                <TextField
+                  sx={{ mt: 2 }}
+                  size="small"
+                  label="Butikk"
+                  value={shop?.name || ""}
+                  error={Boolean(validationError?.name)}
+                  onChange={(e) => {
+                    setShop((prev) => ({ ...prev, name: e.target.value }));
+                    resetValidationErrors();
+                    resetServerError();
+                  }}
+                />
+                {(displayError || validationError) && (
+                  <MemoizedErrorHandling
+                    resource="shops"
+                    field="name"
+                    loading={loading}
+                  />
+                )}
+              </Grid>
+
+              {/* Location Select */}
+              <Grid item>
+                <MemoizedCreatableSelect
+                  styles={commonSelectStyles}
+                  options={locationOptions}
+                  value={
+                    locationOptions.find((o) => o.value === shop.location) ||
+                    (shop.location && {
+                      value: shop.location,
+                      label: shop.locationName,
+                      name: shop.locationName,
+                    })
+                  }
+                  onChange={handleLocationChange}
+                  placeholder="Velg Sted..."
+                  isClearable
+                  // CHANGED: When creating a new option, prefix with "temp-" so it passes through your formatUtil.
+                  onCreateOption={(inputValue) => {
+                    const value = inputValue.trim();
+                    setShop((prev) => ({
+                      ...prev,
+                      location: `temp-${value}`, // CHANGED: Prefix with "temp-"
+                      locationName: value,
+                    }));
+                    resetValidationErrors();
+                    resetServerError();
+                  }}
+                  isValidNewOption={(inputValue) =>
+                    !!inputValue.trim() &&
+                    !locationOptions.find(
+                      (o) => o.value === inputValue.trim()
+                    )
+                  }
+                  formatCreateLabel={(input) => `Ny sted: ${input}`}
+                />
+                {locationLoading && <LinearProgress sx={{ mt: 1 }} />}
+                {locationError && (
+                  <MemoizedErrorHandling
+                    resource="locations"
+                    field="location"
+                    loading={locationLoading}
+                  />
+                )}
+              </Grid>
+
+              {/* Category Select */}
+              <Grid item>
+                <MemoizedCreatableSelect
+                  styles={commonSelectStyles}
+                  options={categoryOptions}
+                  value={
+                    categoryOptions.find((o) => o.value === shop.category) ||
+                    (shop.category && {
+                      value: shop.category,
+                      label: shop.categoryName,
+                      name: shop.categoryName,
+                    })
+                  }
+                  onChange={handleCategoryChange}
+                  placeholder="Velg Kategori..."
+                  isClearable
+                  // CHANGED: When creating a new option, prefix with "temp-" so it passes through your formatUtil.
+                  onCreateOption={(inputValue) => {
+                    const value = inputValue.trim();
+                    setShop((prev) => ({
+                      ...prev,
+                      category: `temp-${value}`, // CHANGED: Prefix with "temp-"
+                      categoryName: value,
+                    }));
+                    resetValidationErrors();
+                    resetServerError();
+                  }}
+                  isValidNewOption={(inputValue) =>
+                    !!inputValue.trim() &&
+                    !categoryOptions.find(
+                      (o) => o.value === inputValue.trim()
+                    )
+                  }
+                  formatCreateLabel={(input) => `Ny kategori: ${input}`}
+                />
+                {categoryLoading && <LinearProgress sx={{ mt: 1 }} />}
+                {categoryError && (
+                  <MemoizedErrorHandling
+                    resource="categories"
+                    field="category"
+                    loading={categoryLoading}
+                  />
+                )}
+              </Grid>
+
+              {/* Action Buttons */}
+              <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+                <Button type="submit" disabled={loading || !isFormValid()}>
+                  {loading ? <CircularProgress size={24} /> : "Lagre"}
+                </Button>
+                <Button
+                  onClick={() => {
+                    resetFormAndErrors();
+                    onClose();
+                  }}
+                  sx={{ ml: 2 }}
+                >
+                  Avbryt
+                </Button>
+              </Grid>
+            </Grid>
+          </form>
+        </MemoizedBasicDialog>
+      </Box>
+    </Fade>
   );
 };
 
