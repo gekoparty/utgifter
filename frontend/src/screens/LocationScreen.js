@@ -114,7 +114,7 @@ const LocationScreen = () => {
   };
 
   // Fetch locations data from the API
-  const fetchData = async () => {
+  const fetchData = async ({ signal })=> {
     const fetchURL = buildFetchURL(
       pagination.pageIndex,
       pagination.pageSize,
@@ -122,7 +122,7 @@ const LocationScreen = () => {
       columnFilters,
       globalFilter
     );
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, {signal});
     if (!response.ok) {
       throw new Error(`Error: ${response.statusText} (${response.status})`);
     }
@@ -130,8 +130,8 @@ const LocationScreen = () => {
     return json;
   };
 
-  // Prefetch data for the next page
-  const prefetchPageData = async (nextPageIndex) => {
+  // Modified prefetchPageData that accepts an external abort signal
+  const prefetchPageData = async (nextPageIndex, signal) => {
     const fetchURL = buildFetchURL(
       nextPageIndex,
       pagination.pageSize,
@@ -148,10 +148,13 @@ const LocationScreen = () => {
         pagination.pageSize,
         sorting,
       ],
-      async () => {
-        const response = await fetch(fetchURL.href);
+      async ({ signal: innerSignal }) => {
+        // Use the provided signal to enable aborting
+        const response = await fetch(fetchURL.href, { signal });
         if (!response.ok) {
-          throw new Error(`Error: ${response.statusText} (${response.status})`);
+          throw new Error(
+            `Error: ${response.statusText} (${response.status})`
+          );
         }
         const json = await response.json();
         console.log(`Prefetched data for page ${nextPageIndex}:`, json);
@@ -193,7 +196,9 @@ const LocationScreen = () => {
       "Prefetching data for page:",
       nextPageIndex
     );
-    prefetchPageData(nextPageIndex);
+    const controller = new AbortController();
+    prefetchPageData(nextPageIndex, controller.signal);
+    return () => controller.abort();
   }, [
     pagination.pageIndex,
     pagination.pageSize,
@@ -202,6 +207,13 @@ const LocationScreen = () => {
     globalFilter,
     queryClient,
   ]);
+
+  const handleDialogClose = (closeDialogFn) => {
+    closeDialogFn(false);
+    queryClient.removeQueries("locations");
+    setSelectedLocation(INITIAL_SELECTED_LOCATION);
+  };
+
 
   // Handlers for location actions
   const addLocationHandler = (newLocation) => {
@@ -302,7 +314,7 @@ const LocationScreen = () => {
       <Suspense fallback={<div>Laster Dialog...</div>}>
         <AddLocationDialog
           open={addLocationDialogOpen}
-          onClose={() => setAddLocationDialogOpen(false)}
+          onClose={() => handleDialogClose(setAddLocationDialogOpen)}
           onAdd={addLocationHandler}
         />
       </Suspense>
@@ -310,7 +322,7 @@ const LocationScreen = () => {
       <Suspense fallback={<div>Laster...</div>}>
         <DeleteLocationDialog
           open={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
+          onClose={() => handleDialogClose(setDeleteModalOpen)}
           dialogTitle="Confirm Deletion"
           cancelButton={
             <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
@@ -325,7 +337,7 @@ const LocationScreen = () => {
         {memoizedSelectedLocation._id && editModalOpen && (
           <EditLocationDialog
             open={editModalOpen}
-            onClose={() => setEditModalOpen(false)}
+            onClose={() => handleDialogClose(setEditModalOpen)}
             cancelButton={
               <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
             }

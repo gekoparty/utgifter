@@ -31,14 +31,18 @@ const EditShopDialog = ({
     resetFormAndErrors,
   } = useShopDialog(memoizedSelectedShop);
 
-  // CHANGED: Fetch locations and transform them into an array of names.
+  // CHANGED: Fetch locations with abort signal support.
   const {
     data: locations = [],
     isLoading: locationLoading,
     isError: locationError,
-  } = useQuery(["locations"], fetchLocations, {
-    select: (data) => data.locations.map((l) => l.name),
-  });
+  } = useQuery(
+    ["locations"],
+    ({ signal }) => fetchLocations({ signal }),
+    {
+      select: (data) => data.locations.map((l) => l.name),
+    }
+  );
 
   // CHANGED: Map the names into options
   const locationOptions = useMemo(
@@ -46,15 +50,18 @@ const EditShopDialog = ({
     [locations]
   );
 
-  // CHANGED: Fetch categories and transform them into an array of names.
-  const {
+   // CHANGED: Fetch categories with abort signal support.
+   const {
     data: categories = [],
     isLoading: categoryLoading,
     isError: categoryError,
-  } = useQuery(["categories"], fetchCategories, {
-    select: (data) => data.categories.map((c) => c.name),
-  });
-
+  } = useQuery(
+    ["categories"],
+    ({ signal }) => fetchCategories({ signal }),
+    {
+      select: (data) => data.categories.map((c) => c.name),
+    }
+  );
   // CHANGED: Map the names into options
   const categoryOptions = useMemo(
     () => categories.map((name) => ({ value: name, label: name })),

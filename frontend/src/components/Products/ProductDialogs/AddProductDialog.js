@@ -67,13 +67,9 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     data: brandData = { brands: [] },
     isLoading: brandLoading,
     isError: brandError,
-  } = useQuery(["brands"], fetchBrands);
+  } = useQuery(["brands"], ({ signal }) => fetchBrands({ signal }))
 
   const brandOptions = brandData.brands;
-
-  useEffect(() => {
-    console.log("brandOptions:", brandOptions);
-  }, [brandOptions]);
 
   // Handle form submission
   const handleSubmit = async (event) => {

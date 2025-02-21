@@ -45,7 +45,7 @@ const EditProductDialog = ({
     data: brandData,
     isLoading: brandLoading,
     isError: brandError,
-  } = useQuery(["brands"], fetchBrands);
+  } = useQuery(["brands"], ({ signal }) => fetchBrands({ signal }))
 
   const brandOptionsArray = brandData?.brands || [];
 
