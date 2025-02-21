@@ -5,21 +5,21 @@ const API_URL =
     : "http://localhost:3000";
 
 
-export const fetchLocations = async () => {
+export const fetchLocations = async ({ signal }) => {
     const fetchURL = new URL("/api/locations", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, { signal });
     const data = await response.json();
     return data;
   };
   
-  export const fetchShops = async () => {
+  export const fetchShops = async ({ signal }) => {
     try {
       const fetchShopsURL = new URL("/api/shops", API_URL);
-      const shopsResponse = await fetch(fetchShopsURL.href);
+      const shopsResponse = await fetch(fetchShopsURL.href, { signal });
       const shopsData = await shopsResponse.json();
   
       const fetchLocationsURL = new URL("/api/locations", API_URL);
-      const locationsResponse = await fetch(fetchLocationsURL.href);
+      const locationsResponse = await fetch(fetchLocationsURL.href, { signal });
       const locationsData = await locationsResponse.json();
   
       const shopsWithData = shopsData.map(shop => {
@@ -36,31 +36,31 @@ export const fetchLocations = async () => {
     }
 };
 
-  export const fetchProducts = async () => {
+export const fetchProducts = async ({ signal }) => {
     const fetchURL = new URL("/api/products", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, { signal });
     const data = await response.json();
     return data;
   };
 
 
-  export const fetchCategories = async () => {
+  export const fetchCategories = async ({ signal }) => {
     const fetchURL = new URL("/api/categories", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, { signal });
     const data = await response.json();
     return data;
   };
 
-  export const fetchBrands = async () => {
+  export const fetchBrands = async ({ signal }) => {
     const fetchURL = new URL("/api/brands", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, { signal });
     const data = await response.json();
     return data;
   };
 
-  export const fetchExpenses = async () => {
+  export const fetchExpenses = async ({ signal }) => {
     const fetchURL = new URL("/api/expenses", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, { signal });
     const data = await response.json();
     return data;
   };
@@ -102,8 +102,8 @@ export const prefetchPageData = async (
       pagination.pageSize,
       sorting,
     ],
-    async () => {
-      const response = await fetch(fetchURL.href);
+    async ({ signal }) => {
+      const response = await fetch(fetchURL.href, { signal });
       const json = await response.json();
       return json;
     }
