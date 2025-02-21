@@ -41,11 +41,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   } = useHandleFieldChange(expense, setExpense);
 
   const handleClose = () => {
-    // Reset queries related to products, brands, and shops
-    queryClient.resetQueries(["products"]);
-    queryClient.resetQueries(["brands"]);
-    queryClient.resetQueries(["shops"]);
-    queryClient.resetQueries(["locations"]);
     resetForm(); // Add this
     onClose();
   };
