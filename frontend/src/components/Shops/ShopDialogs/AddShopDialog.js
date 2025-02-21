@@ -6,7 +6,6 @@ import {
   Grid,
   Fade,
   Box,
-  Typography,
 } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
@@ -37,23 +36,33 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useShopDialog();
 
-  // Fetch location names
+  // Fetch location names with abort signal support.
   const {
     data: locations = [],
     isLoading: locationLoading,
     isError: locationError,
-  } = useQuery(["locations"], fetchLocations, {
-    select: (data) => data.locations.map((l) => l.name),
-  });
+  } = useQuery(
+    ["locations"],
+    ({ signal }) => fetchLocations({ signal }),
+    {
+      select: (data) => data.locations.map((l) => l.name),
+    }
+  );
 
-  // Fetch category names
-  const {
-    data: categories = [],
-    isLoading: categoryLoading,
-    isError: categoryError,
-  } = useQuery(["categories"], fetchCategories, {
-    select: (data) => data.categories.map((c) => c.name),
-  });
+
+    // Fetch category names with abort signal support.
+    const {
+      data: categories = [],
+      isLoading: categoryLoading,
+      isError: categoryError,
+    } = useQuery(
+      ["categories"],
+      ({ signal }) => fetchCategories({ signal }),
+      {
+        select: (data) => data.categories.map((c) => c.name),
+      }
+    );
+
 
   // Memoized options
   const locationOptions = useMemo(

@@ -105,14 +105,15 @@ const EditExpenseDialog = ({
   const { data: shops, isLoading: isLoadingShops } = useFetchData(
     "shops",
     "/api/shops",
-    async (shopsData) => {
+    async ({ signal }, shopsData) => {
       const shopsArray = Array.isArray(shopsData)
         ? shopsData
         : shopsData?.shops || [];
       return Promise.all(
         shopsArray.map(async (shop) => {
           const locationResponse = await fetch(
-            `/api/locations/${shop.location}`
+            `/api/locations/${shop.location}`,
+            { signal }
           );
           const location = await locationResponse.json();
           return { ...shop, locationName: location.name };

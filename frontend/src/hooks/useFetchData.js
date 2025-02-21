@@ -1,15 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 
-const useFetchData = (queryKey, url, transformData = (data) => data, options = {}) => {
+const useFetchData = (
+  queryKey,
+  url,
+  transformData = (data) => data,
+  options = {}
+) => {
   const queryResult = useQuery(
     [queryKey],
-    async () => {
-      const response = await fetch(url);
+    async ({ signal }) => {
+      const response = await fetch(url, { signal });
       if (!response.ok) {
         throw new Error(`Failed to fetch data from ${url}`);
       }
       const data = await response.json();
-      return transformData ? transformData(data) : data;
+      return transformData(data);
     },
     {
       enabled: options.enabled !== false, // Disable auto-fetching if `enabled` is false

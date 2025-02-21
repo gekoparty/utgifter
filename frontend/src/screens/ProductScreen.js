@@ -142,7 +142,7 @@ const ProductScreen = () => {
   };
 
   // Fetch data function
-  const fetchData = async () => {
+  const fetchData = async ({ signal }) => {
     try {
       const fetchURL = buildFetchURL(
         pagination.pageIndex,
@@ -152,7 +152,7 @@ const ProductScreen = () => {
         globalFilter
       );
 
-      const response = await fetch(fetchURL.href);
+      const response = await fetch(fetchURL.href, {signal});
 
       if (!response.ok) {
         throw new Error(`Error: ${response.statusText} (${response.status})`);
@@ -188,7 +188,8 @@ const ProductScreen = () => {
     pagination,
     sorting,
     columnFilters,
-    globalFilter
+    globalFilter,
+    signal
   ) => {
     const fetchURL = buildFetchURL(
       nextPageIndex,
@@ -209,7 +210,7 @@ const ProductScreen = () => {
         sorting,
       ],
       async () => {
-        const response = await fetch(fetchURL.href);
+        const response = await fetch(fetchURL.href, {signal});
         const json = await response.json();
         return json;
       }
@@ -218,20 +219,23 @@ const ProductScreen = () => {
 
   // handlePrefetch now simply calls prefetchPageData
   const handlePrefetch = (nextPageIndex) => {
+    const controller = new AbortController();
     prefetchPageData(
       queryClient,
       nextPageIndex,
       pagination,
       sorting,
       columnFilters,
-      globalFilter
+      globalFilter,
+      controller.signal
     );
+    // Optionally, you can store and later abort this controller if needed.
   };
 
-  // **Refactored useEffect - AUTOMATIC PREFETCHING**
-  // This useEffect automatically triggers when pagination, sorting, or filters change
+  
+
+  // AUTOMATIC PREFETCHING with cleanup using an AbortController
   useEffect(() => {
-    // Calculate next page index based on current page
     const nextPageIndex = pagination.pageIndex + 1;
     console.log(
       "Current page:",
@@ -240,22 +244,26 @@ const ProductScreen = () => {
       nextPageIndex
     );
 
-    // Automatically prefetch next page data
+    const controller = new AbortController();
     prefetchPageData(
       queryClient,
       nextPageIndex,
       pagination,
       sorting,
       columnFilters,
-      globalFilter
+      globalFilter,
+      controller.signal
     );
+
+    // Cleanup function aborts the prefetch if dependencies change or component unmounts
+    return () => controller.abort();
   }, [
-    pagination.pageIndex, // Trigger prefetching when the page index changes
-    pagination.pageSize, // Trigger prefetching when the page size changes
-    sorting, // Trigger prefetching when sorting changes
-    columnFilters, // Trigger prefetching when column filters change
-    globalFilter, // Trigger prefetching when global filter changes
-    queryClient, // React Query client reference for prefetching
+    pagination.pageIndex,
+    pagination.pageSize,
+    sorting,
+    columnFilters,
+    globalFilter,
+    queryClient,
   ]);
 
   // Ensure default sorting when sorting state is empty
@@ -280,6 +288,15 @@ const ProductScreen = () => {
     showSuccessSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
     queryClient.invalidateQueries("products");
     refetch();
+  };
+
+  // Cleanup function to reset selected product and remove queries when dialogs close
+  const handleDialogClose = (closeDialogFn) => {
+    closeDialogFn(false);
+    setSelectedProduct(INITIAL_SELECTED_PRODUCT);
+    // Remove all queries related to products from the cache
+    queryClient.removeQueries("products");
+    queryClient.removeQueries("brands");
   };
 
   // Render the main table layout and dialogs
@@ -351,7 +368,7 @@ const ProductScreen = () => {
         <DeleteProductDialog
           open={deleteModalOpen}
           dialogTitle="Bekreft Sletting"
-          onClose={() => setDeleteModalOpen(false)}
+          onClose={() => handleDialogClose(setDeleteModalOpen)}
           selectedProduct={selectedProduct}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={() =>
@@ -366,7 +383,7 @@ const ProductScreen = () => {
         {memoizedSelectedProduct._id && editModalOpen && (
           <EditProductDialog
             open={editModalOpen}
-            onClose={() => setEditModalOpen(false)}
+            onClose={() => handleDialogClose(setEditModalOpen)}
             selectedProduct={selectedProduct}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={() =>
@@ -379,7 +396,7 @@ const ProductScreen = () => {
         {addProductDialogOpen && (
           <AddProductDialog
             open={addProductDialogOpen}
-            onClose={() => setAddProductDialogOpen(false)}
+            onClose={() => handleDialogClose(setAddProductDialogOpen)}
             onAdd={addProductHandler}
           />
         )}

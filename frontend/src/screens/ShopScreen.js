@@ -109,28 +109,36 @@ const ShopScreen = () => {
 
   // Build the fetch URL using current table state.
 
-  const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter) => {
+  const buildFetchURL = (
+    pageIndex,
+    pageSize,
+    sorting,
+    columnFilters,
+    globalFilter
+  ) => {
     const fetchURL = new URL("/api/shops", API_URL);
     fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
     fetchURL.searchParams.set("size", `${pageSize}`);
     fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-  
 
-// Modify the filters (if needed)
-const modifiedFilters = columnFilters.map((filter) => {
-  if (filter.id === "location" || filter.id === "category") {
-    return { id: filter.id, value: "" };
-  }
-  return filter;
-});
-fetchURL.searchParams.set("columnFilters", JSON.stringify(modifiedFilters ?? []));
-fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+    // Modify the filters (if needed)
+    const modifiedFilters = columnFilters.map((filter) => {
+      if (filter.id === "location" || filter.id === "category") {
+        return { id: filter.id, value: "" };
+      }
+      return filter;
+    });
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(modifiedFilters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
 
-return fetchURL;
-};
+    return fetchURL;
+  };
 
-   // Fetch the shop data and then, for each shop, fetch associated location and category data.
-   const fetchData = async () => {
+  // Fetch the shop data and then, for each shop, fetch associated location and category data.
+  const fetchData = async ({ signal }) => {
     const fetchURL = buildFetchURL(
       pagination.pageIndex,
       pagination.pageSize,
@@ -138,7 +146,7 @@ return fetchURL;
       columnFilters,
       globalFilter
     );
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, { signal });
     if (!response.ok) {
       throw new Error(`Error: ${response.statusText} (${response.status})`);
     }
@@ -148,9 +156,9 @@ return fetchURL;
     // Fetch the associated location and category data for each shop
     const shopsWithAssociatedData = await Promise.all(
       json.shops.map(async (shop) => {
-        const locationResponse = await fetch(`/api/locations/${shop.location}`);
+        const locationResponse = await fetch(`/api/locations/${shop.location}`, { signal });
         const locationData = await locationResponse.json();
-        const categoryResponse = await fetch(`/api/categories/${shop.category}`);
+        const categoryResponse = await fetch(`/api/categories/${shop.category}`, { signal }); // Pass signal
         const categoryData = await categoryResponse.json();
 
         return {
@@ -161,8 +169,8 @@ return fetchURL;
       })
     );
 
-     // Transform the data for the table
-     const transformedData = shopsWithAssociatedData.map((shop) => ({
+    // Transform the data for the table
+    const transformedData = shopsWithAssociatedData.map((shop) => ({
       _id: shop._id,
       name: shop.name,
       location: shop.location ? shop.location.name : "N/A",
@@ -171,7 +179,6 @@ return fetchURL;
 
     return { shops: transformedData, meta };
   };
-
 
   // Prefetch function for preloading the next page
   const prefetchPageData = async (nextPageIndex) => {
@@ -202,9 +209,13 @@ return fetchURL;
         // As before, fetch associated data
         const shopsWithAssociatedData = await Promise.all(
           json.shops.map(async (shop) => {
-            const locationResponse = await fetch(`/api/locations/${shop.location}`);
+            const locationResponse = await fetch(
+              `/api/locations/${shop.location}`
+            );
             const locationData = await locationResponse.json();
-            const categoryResponse = await fetch(`/api/categories/${shop.category}`);
+            const categoryResponse = await fetch(
+              `/api/categories/${shop.category}`
+            );
             const categoryData = await categoryResponse.json();
             return {
               ...shop,
@@ -219,7 +230,10 @@ return fetchURL;
           location: shop.location ? shop.location.name : "N/A",
           category: shop.category ? shop.category.name : "N/A",
         }));
-        console.log(`Prefetched data for page ${nextPageIndex}:`, transformedData);
+        console.log(
+          `Prefetched data for page ${nextPageIndex}:`,
+          transformedData
+        );
         return { shops: transformedData, meta };
       }
     );
@@ -230,8 +244,8 @@ return fetchURL;
     prefetchPageData(nextPageIndex);
   };
 
-   // --- REACT QUERY HOOK ---
-   const {
+  // --- REACT QUERY HOOK ---
+  const {
     data: shopsData,
     isError,
     isFetching,
@@ -239,19 +253,18 @@ return fetchURL;
     refetch,
   } = useQuery({
     queryKey: queryKey,
-    queryFn: fetchData,
+    queryFn: ({ signal }) => fetchData({ signal }),
     keepPreviousData: true,
     refetchOnMount: true,
   });
-
 
   // Ensure default sorting when sorting state is empty
   useEffect(() => {
     if (sorting.length === 0) setSorting(INITIAL_SORTING);
   }, [sorting]);
 
-   // Prefetch next page whenever the pagination or filters/sorting change
-   useEffect(() => {
+  // Prefetch next page whenever the pagination or filters/sorting change
+  useEffect(() => {
     const nextPageIndex = pagination.pageIndex + 1;
     console.log(
       "Current page:",
@@ -282,7 +295,6 @@ return fetchURL;
 
   const deleteSuccessHandler = (deletedShop) => {
     showSuccessSnackbar(`Shop ${deletedShop} deleted successfully`);
-
     queryClient.invalidateQueries("shops");
     refetch();
   };
@@ -297,70 +309,80 @@ return fetchURL;
     refetch();
   };
 
+
+   // --- CLEANUP: Clear caches when all dialogs are closed ---
+   useEffect(() => {
+    if (!addShopDialogOpen && !editModalOpen && !deleteModalOpen) {
+      queryClient.removeQueries(["locations"]);
+      queryClient.removeQueries(["categories"]);
+    }
+  }, [addShopDialogOpen, editModalOpen, deleteModalOpen, queryClient]);
+
   return (
     <TableLayout>
       <Box
-  sx={{
-    display: "flex",
-    flexDirection: "column",
-    flexGrow: 1, // Allow this whole section to expand
-    width: "100%",
-    minHeight: "100%", // Ensure it stretches fully inside TableLayout
-  }}
->
-<Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddShopDialogOpen(true)}
-        >
-          Ny Butikk
-        </Button>
-      </Box>
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1, // Allow this whole section to expand
+          width: "100%",
+          minHeight: "100%", // Ensure it stretches fully inside TableLayout
+        }}
+      >
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddShopDialogOpen(true)}
+          >
+            Ny Butikk
+          </Button>
+        </Box>
 
-      {/* Product Table */}<Box
-    sx={{
-      flexGrow: 1, // Ensures the table fills all remaining space
-      display: "flex",
-      flexDirection: "column",
-      width: "100%",
-      minWidth: 600,
-    }}
-  >
-        {shopsData && (
-          <ReactTable
-            data={shopsData?.shops}
-            columns={tableColumns}
-            setColumnFilters={setColumnFilters}
-            setGlobalFilter={setGlobalFilter}
-            setSorting={setSorting}
-            setPagination={setPagination}
-            refetch={refetch}
-            isError={isError}
-            isFetching={isFetching}
-            isLoading={isLoading}
-            columnFilters={columnFilters}
-            globalFilter={globalFilter}
-            pagination={pagination}
-            sorting={sorting}
-            meta={shopsData?.meta}
-            setSelectedShop={setSelectedShop}
-            totalRowCount={shopsData?.meta?.totalRowCount}
-            rowCount={shopsData?.meta?.totalRowCount ?? 0}
-            handleEdit={(shop) => {
-              setSelectedShop(shop);
-              setEditModalOpen(true);
-            }}
-            handleDelete={(shop) => {
-              setSelectedShop(shop);
-              setDeleteModalOpen(true);
-            }}
-            editModalOpen={editModalOpen}
-            setDeleteModalOpen={setDeleteModalOpen}
-            sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
-          />
-        )}
-      </Box>
+        {/* Product Table */}
+        <Box
+          sx={{
+            flexGrow: 1, // Ensures the table fills all remaining space
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            minWidth: 600,
+          }}
+        >
+          {shopsData && (
+            <ReactTable
+              data={shopsData?.shops}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={setGlobalFilter}
+              setSorting={setSorting}
+              setPagination={setPagination}
+              refetch={refetch}
+              isError={isError}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              meta={shopsData?.meta}
+              setSelectedShop={setSelectedShop}
+              totalRowCount={shopsData?.meta?.totalRowCount}
+              rowCount={shopsData?.meta?.totalRowCount ?? 0}
+              handleEdit={(shop) => {
+                setSelectedShop(shop);
+                setEditModalOpen(true);
+              }}
+              handleDelete={(shop) => {
+                setSelectedShop(shop);
+                setDeleteModalOpen(true);
+              }}
+              editModalOpen={editModalOpen}
+              setDeleteModalOpen={setDeleteModalOpen}
+              sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
+            />
+          )}
+        </Box>
       </Box>
 
       {/* Modals */}

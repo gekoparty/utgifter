@@ -190,7 +190,7 @@ const ExpenseScreen = () => {
   };
 
   // Fetch expenses data and update price stats
-  const fetchExpenses = async () => {
+  const fetchExpenses = async ({signal}) => {
     const fetchURL = buildFetchURL(
       pagination.pageIndex,
       pagination.pageSize,
@@ -199,7 +199,7 @@ const ExpenseScreen = () => {
       globalFilter,
       debouncedPriceRangeFilter
     );
-    const response = await fetch(fetchURL.href);
+    const response = await fetch(fetchURL.href, {signal});
     if (!response.ok) {
       throw new Error(`Error: ${response.statusText} (${response.status})`);
     }
@@ -210,7 +210,7 @@ const ExpenseScreen = () => {
   };
 
   // Prefetch function for preloading the next page’s data
-  const prefetchPageData = async (nextPageIndex) => {
+  const prefetchPageData = async (nextPageIndex, signal) => {
     const fetchURL = buildFetchURL(
       nextPageIndex,
       pagination.pageSize,
@@ -229,8 +229,8 @@ const ExpenseScreen = () => {
         sorting,
         debouncedPriceRangeFilter,
       ],
-      async () => {
-        const response = await fetch(fetchURL.href);
+      async ({ signal: innerSignal }) => {
+        const response = await fetch(fetchURL.href, {signal});
         if (!response.ok) {
           throw new Error(`Error: ${response.statusText} (${response.status})`);
         }
@@ -275,18 +275,20 @@ const ExpenseScreen = () => {
     refetchOnMount: true,
   });
 
-  // Ensure default sorting if sorting state becomes empty
+  // Ensure default sorting if none is provided
   useEffect(() => {
     if (sorting.length === 0) setSorting(INITIAL_SORTING);
   }, [sorting]);
 
-  // Prefetch next page whenever pagination, sorting, or filters change
+  // Automatically prefetch the next page when table state changes using an AbortController
   useEffect(() => {
     const totalPages = Math.ceil(
       (expensesData?.meta?.totalRowCount || 0) / pagination.pageSize
     );
     if (pagination.pageIndex + 1 < totalPages) {
-      prefetchPageData(pagination.pageIndex + 1);
+      const controller = new AbortController();
+      prefetchPageData(pagination.pageIndex + 1, controller.signal);
+      return () => controller.abort();
     }
   }, [
     pagination.pageIndex,
@@ -296,6 +298,7 @@ const ExpenseScreen = () => {
     globalFilter,
     debouncedPriceRangeFilter,
     queryClient,
+    expensesData?.meta?.totalRowCount,
   ]);
 
   // Local state for price statistics
@@ -462,6 +465,17 @@ const ExpenseScreen = () => {
     setPriceRangeFilter(newRange);
   };
 
+  // Common dialog close handler that aborts in-flight queries and removes them from cache
+  const handleDialogClose = (setDialogOpen) => {
+    setDialogOpen(false);
+    // Abort any in-flight queries by removing them from the cache
+    queryClient.removeQueries("expenses");
+    queryClient.removeQueries("brands");
+    queryClient.removeQueries("locations");
+    queryClient.removeQueries("shops")
+    setSelectedExpense(INITIAL_SELECTED_EXPENSE);
+  };
+
   return (
     <TableLayout>
       <Box
@@ -551,7 +565,7 @@ const ExpenseScreen = () => {
         {memoizedSelectedExpense._id && editModalOpen && (
           <EditExpenseDialog
             open={editModalOpen}
-            onClose={() => setEditModalOpen(false)}
+            onClose={() => handleDialogClose(setEditModalOpen)}
             selectedExpense={selectedExpense}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={editFailureHandler}
@@ -563,7 +577,7 @@ const ExpenseScreen = () => {
       <Suspense fallback={<div>Loading Dialog...</div>}>
         <DeleteExpenseDialog
           open={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
+          onClose={() => handleDialogClose(setDeleteModalOpen)}
           dialogTitle="Confirm Deletion"
           selectedExpense={selectedExpense}
           onDeleteSuccess={deleteSuccessHandler}
@@ -576,7 +590,7 @@ const ExpenseScreen = () => {
         {addExpenseDialogOpen && (
           <AddExpenseDialog
             open={addExpenseDialogOpen}
-            onClose={() => setAddExpenseDialogOpen(false)}
+            onClose={() => handleDialogClose(setAddExpenseDialogOpen)}
             onAdd={addExpenseHandler}
             data-testid="add-expense-dialog"
           />
