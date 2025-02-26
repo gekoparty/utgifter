@@ -1,7 +1,7 @@
 // Example custom hook: usePaginatedData.js
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useEffect } from "react";
-import debounce from "lodash/debounce";
+
 
 // Default URL builder (handles priceRange only if provided)
 const buildFetchURL = (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter, priceRange }) => {
