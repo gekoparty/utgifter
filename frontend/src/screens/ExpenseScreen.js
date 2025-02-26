@@ -289,7 +289,7 @@ const ExpenseScreen = () => {
     }
 
     showSuccessSnackbar(`Utgift for "${productName}" lagret!`);
-    refetch()
+    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
   };
 
   const deleteFailureHandler = (failedExpense) => {
@@ -302,7 +302,7 @@ const ExpenseScreen = () => {
         ? deletedExpense.productName.name
         : deletedExpense.productName || "Ukjent produkt";
     showSuccessSnackbar(`Utgift for "${productName}" slettet!`);
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
   };
 
   const editFailureHandler = () => {
@@ -321,7 +321,7 @@ const ExpenseScreen = () => {
         : expenseData.productName || "Ukjent produkt";
 
     showSuccessSnackbar(`Utgift for "${productName}" oppdatert!`);
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
   };
 
   // --------------------------------------------------------------
