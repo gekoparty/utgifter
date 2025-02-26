@@ -1,19 +1,14 @@
 import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  SnackbarContent,
-} from "@mui/material";
+import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useTheme } from "@mui/material/styles";
-import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePaginatedData } from "./common/usePaginatedData";
 
+// Lazy-loaded dialogs for category actions
 const AddCategoryDialog = lazy(() =>
   import("../components/Categories/CategoryDialogs/AddCategoryDialog")
 );
@@ -24,22 +19,31 @@ const EditCategoryDialog = lazy(() =>
   import("../components/Categories/CategoryDialogs/EditCategoryDialog")
 );
 
-// Constants
-const INITIAL_PAGINATION = {
-  pageIndex: 0,
-  pageSize: 10,
-};
+// Constants for initial states and API URL
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const INITIAL_SELECTED_CATEGORY = {
-  _id: "",
-  name: "",
-};
+const INITIAL_SELECTED_CATEGORY = { _id: "", name: "" };
 const API_URL =
   process.env.NODE_ENV === "production"
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
+// Custom URL builder for categories
+const categoryUrlBuilder = (
+  endpoint,
+  { pageIndex, pageSize, sorting, filters, globalFilter }
+) => {
+  const fetchURL = new URL(endpoint, API_URL);
+  fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+  fetchURL.searchParams.set("size", `${pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
+  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  return fetchURL;
+};
+
 const CategoryScreen = () => {
+  // State declarations
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -49,21 +53,9 @@ const CategoryScreen = () => {
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  // Theme, query client, and snackbar setup
   const theme = useTheme();
-  const memoizedSelectedCategory = useMemo(() => selectedCategory, [selectedCategory]);
-
-  // React Query
   const queryClient = useQueryClient();
-  const queryKey = [
-    "categories",
-    columnFilters,
-    globalFilter,
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-  ];
-
-  // Snackbar
   const {
     snackbarOpen,
     snackbarMessage,
@@ -73,7 +65,31 @@ const CategoryScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Table columns
+  // Memoize selected category to prevent unnecessary renders
+  const memoizedSelectedCategory = useMemo(() => selectedCategory, [selectedCategory]);
+
+  // Build fetch parameters for the usePaginatedData hook
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      filters: columnFilters,
+      globalFilter,
+    }),
+    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+  );
+
+  // Use the usePaginatedData hook to fetch category data
+  const {
+    data: categoriesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData("/api/categories", fetchParams, categoryUrlBuilder);
+
+  // Table columns configuration
   const tableColumns = useMemo(
     () => [
       {
@@ -88,91 +104,12 @@ const CategoryScreen = () => {
     []
   );
 
-  // Fetch URL builder
-  const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter) => {
-    const fetchURL = new URL("/api/categories", API_URL);
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set("columnFilters", JSON.stringify(columnFilters ?? []));
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    return fetchURL;
-  };
-
-  // Data fetching
-  const fetchData = async () => {
-    const fetchURL = buildFetchURL(
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-    const response = await fetch(fetchURL.href);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText} (${response.status})`);
-    }
-    const json = await response.json();
-    return json;
-  };
-
-  // Prefetching
-  const prefetchPageData = async (nextPageIndex) => {
-    const fetchURL = buildFetchURL(
-      nextPageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-    await queryClient.prefetchQuery(
-      [
-        "categories",
-        columnFilters,
-        globalFilter,
-        nextPageIndex,
-        pagination.pageSize,
-        sorting,
-      ],
-      async () => {
-        const response = await fetch(fetchURL.href);
-        if (!response.ok) {
-          throw new Error(`Error: ${response.statusText} (${response.status})`);
-        }
-        return await response.json();
-      }
-    );
-  };
-
-  const handlePrefetch = (nextPageIndex) => {
-    prefetchPageData(nextPageIndex);
-  };
-
-  // React Query hook
-  const {
-    data: categoriesData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
-
-  // Effects
+  // Ensure default sorting is applied
   useEffect(() => {
     if (sorting.length === 0) setSorting(INITIAL_SORTING);
   }, [sorting]);
 
-  useEffect(() => {
-    const nextPageIndex = pagination.pageIndex + 1;
-    prefetchPageData(nextPageIndex);
-  }, [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]);
-
-  // Handlers
+  // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
     showSuccessSnackbar(`Kategori "${newCategory.name}" er lagt til`);
     queryClient.invalidateQueries("categories");
@@ -199,32 +136,39 @@ const CategoryScreen = () => {
     showErrorSnackbar("Kunne ikke oppdatere kategori");
   };
 
+  // Cleanup when dialogs close: reset selected category and clear cache
+  const handleDialogClose = (closeDialogFn) => {
+    closeDialogFn(false);
+    queryClient.removeQueries("categories");
+    setSelectedCategory(INITIAL_SELECTED_CATEGORY);
+  };
+
   return (
     <TableLayout>
-      <Box sx={{ 
-        display: "flex",
-        flexDirection: "column",
-        flexGrow: 1,
-        width: "100%",
-        minHeight: "100%",
-      }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          width: "100%",
+          minHeight: "100%",
+        }}
+      >
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setAddCategoryDialogOpen(true)}
-          >
+          <Button variant="contained" color="primary" onClick={() => setAddCategoryDialogOpen(true)}>
             Ny Kategori
           </Button>
         </Box>
 
-        <Box sx={{ 
-          flexGrow: 1,
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          minWidth: 600,
-        }}>
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            minWidth: 600,
+          }}
+        >
           {categoriesData && (
             <ReactTable
               data={categoriesData?.categories}
@@ -261,11 +205,10 @@ const CategoryScreen = () => {
         </Box>
       </Box>
 
-      {/* Dialogs */}
       <Suspense fallback={<div>Laster...</div>}>
         <AddCategoryDialog
           open={addCategoryDialogOpen}
-          onClose={() => setAddCategoryDialogOpen(false)}
+          onClose={() => handleDialogClose(setAddCategoryDialogOpen)}
           onAdd={addCategoryHandler}
         />
       </Suspense>
@@ -273,11 +216,9 @@ const CategoryScreen = () => {
       <Suspense fallback={<div>Laster...</div>}>
         <DeleteCategoryDialog
           open={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
+          onClose={() => handleDialogClose(setDeleteModalOpen)}
           dialogTitle="Bekreft sletting"
-          cancelButton={
-            <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
-          }
+          cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>}
           selectedCategory={memoizedSelectedCategory}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
@@ -288,11 +229,9 @@ const CategoryScreen = () => {
         {memoizedSelectedCategory._id && editModalOpen && (
           <EditCategoryDialog
             open={editModalOpen}
-            onClose={() => setEditModalOpen(false)}
+            onClose={() => handleDialogClose(setEditModalOpen)}
             dialogTitle="Rediger Kategori"
-      cancelButton={
-        <Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>
-      }
+            cancelButton={<Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>}
             selectedCategory={memoizedSelectedCategory}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={editFailureHandler}
@@ -300,7 +239,6 @@ const CategoryScreen = () => {
         )}
       </Suspense>
 
-      {/* Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -310,18 +248,12 @@ const CategoryScreen = () => {
         <SnackbarContent
           sx={{
             backgroundColor:
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : theme.palette.error.main,
+              snackbarSeverity === "success" ? theme.palette.success.main : theme.palette.error.main,
             color: theme.palette.success.contrastText,
           }}
           message={snackbarMessage}
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon />
             </IconButton>
           }

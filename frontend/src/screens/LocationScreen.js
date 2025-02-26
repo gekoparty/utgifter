@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -9,10 +9,10 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import { useQuery } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@mui/material/styles";
 import useSnackBar from "../hooks/useSnackBar";
+import { usePaginatedData } from "./common/usePaginatedData";
 
 // Lazy-loaded dialogs for location actions
 const AddLocationDialog = lazy(() =>
@@ -28,14 +28,25 @@ const DeleteLocationDialog = lazy(() =>
 // Constants for initial states and API URL
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const INITIAL_SELECTED_LOCATION = {
-  _id: "",
-  name: "",
-};
+const INITIAL_SELECTED_LOCATION = { _id: "", name: "" };
 const API_URL =
   process.env.NODE_ENV === "production"
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
+
+// Custom URL builder for locations
+const locationUrlBuilder = (
+  endpoint,
+  { pageIndex, pageSize, sorting, filters, globalFilter }
+) => {
+  const fetchURL = new URL(endpoint, API_URL);
+  fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+  fetchURL.searchParams.set("size", `${pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
+  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  return fetchURL;
+};
 
 const LocationScreen = () => {
   // Table state variables
@@ -50,25 +61,9 @@ const LocationScreen = () => {
   const [addLocationDialogOpen, setAddLocationDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Theme and memoization for selected location
+  // Theme, query client, and snackbar setup
   const theme = useTheme();
-  const memoizedSelectedLocation = useMemo(
-    () => selectedLocation,
-    [selectedLocation]
-  );
-
-  // React Query client and query key
   const queryClient = useQueryClient();
-  const queryKey = [
-    "locations",
-    columnFilters,
-    globalFilter,
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-  ];
-
-  // Snackbar for user feedback
   const {
     snackbarOpen,
     snackbarMessage,
@@ -77,6 +72,38 @@ const LocationScreen = () => {
     showErrorSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
+
+  const memoizedSelectedLocation = useMemo(
+    () => selectedLocation,
+    [selectedLocation]
+  );
+
+  // Build parameters for usePaginatedData hook
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      filters: columnFilters,
+      globalFilter,
+    }),
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+    ]
+  );
+
+  // Use the usePaginatedData hook to fetch locations data
+  const {
+    data: locationsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData("/api/locations", fetchParams, locationUrlBuilder);
 
   // Table columns configuration
   const tableColumns = useMemo(
@@ -93,127 +120,19 @@ const LocationScreen = () => {
     []
   );
 
-  // Function to build the API URL with current table state
-  const buildFetchURL = (
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-    globalFilter
-  ) => {
-    const fetchURL = new URL("/api/locations", API_URL);
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    return fetchURL;
-  };
-
-  // Fetch locations data from the API
-  const fetchData = async ({ signal })=> {
-    const fetchURL = buildFetchURL(
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-    const response = await fetch(fetchURL.href, {signal});
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText} (${response.status})`);
-    }
-    const json = await response.json();
-    return json;
-  };
-
-  // Modified prefetchPageData that accepts an external abort signal
-  const prefetchPageData = async (nextPageIndex, signal) => {
-    const fetchURL = buildFetchURL(
-      nextPageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-    await queryClient.prefetchQuery(
-      [
-        "locations",
-        columnFilters,
-        globalFilter,
-        nextPageIndex,
-        pagination.pageSize,
-        sorting,
-      ],
-      async ({ signal: innerSignal }) => {
-        // Use the provided signal to enable aborting
-        const response = await fetch(fetchURL.href, { signal });
-        if (!response.ok) {
-          throw new Error(
-            `Error: ${response.statusText} (${response.status})`
-          );
-        }
-        const json = await response.json();
-        console.log(`Prefetched data for page ${nextPageIndex}:`, json);
-        return json;
-      }
-    );
-  };
-
-  // Optionally, trigger prefetching manually
-  const handlePrefetch = (nextPageIndex) => {
-    prefetchPageData(nextPageIndex);
-  };
-
-  // Use React Query to fetch location data
-  const {
-    data: locationsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
-
   // Ensure default sorting if none is provided
   useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+    if (sorting.length === 0) {
+      setSorting(INITIAL_SORTING);
+    }
   }, [sorting]);
 
-  // Automatically prefetch the next page when table state changes
-  useEffect(() => {
-    const nextPageIndex = pagination.pageIndex + 1;
-    console.log(
-      "Current page:",
-      pagination.pageIndex,
-      "Prefetching data for page:",
-      nextPageIndex
-    );
-    const controller = new AbortController();
-    prefetchPageData(nextPageIndex, controller.signal);
-    return () => controller.abort();
-  }, [
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-    columnFilters,
-    globalFilter,
-    queryClient,
-  ]);
-
+  // Cleanup function for closing dialogs and clearing cached queries
   const handleDialogClose = (closeDialogFn) => {
     closeDialogFn(false);
     queryClient.removeQueries("locations");
     setSelectedLocation(INITIAL_SELECTED_LOCATION);
   };
-
 
   // Handlers for location actions
   const addLocationHandler = (newLocation) => {
@@ -244,14 +163,13 @@ const LocationScreen = () => {
 
   return (
     <TableLayout>
-      {/* Header with action button */}
       <Box
         sx={{
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1, // Allow this whole section to expand
+          flexGrow: 1,
           width: "100%",
-          minHeight: "100%", // Ensure it stretches fully inside TableLayout
+          minHeight: "100%",
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
@@ -264,10 +182,9 @@ const LocationScreen = () => {
           </Button>
         </Box>
 
-        {/* Table for displaying locations */}
         <Box
           sx={{
-            flexGrow: 1, // Ensures the table fills all remaining space
+            flexGrow: 1,
             display: "flex",
             flexDirection: "column",
             width: "100%",
@@ -291,7 +208,7 @@ const LocationScreen = () => {
               pagination={pagination}
               sorting={sorting}
               meta={locationsData?.meta}
-              setSelectedShop={setSelectedLocation}
+              setSelectedShop={setSelectedLocation} // (Rename prop if needed)
               totalRowCount={locationsData?.meta?.totalRowCount}
               rowCount={locationsData?.meta?.totalRowCount ?? 0}
               handleEdit={(location) => {
@@ -304,13 +221,12 @@ const LocationScreen = () => {
               }}
               editModalOpen={editModalOpen}
               setDeleteModalOpen={setDeleteModalOpen}
-              sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
+              sx={{ flexGrow: 1, width: "100%" }}
             />
           )}
         </Box>
       </Box>
 
-      {/* Modals */}
       <Suspense fallback={<div>Laster Dialog...</div>}>
         <AddLocationDialog
           open={addLocationDialogOpen}
@@ -349,7 +265,6 @@ const LocationScreen = () => {
         )}
       </Suspense>
 
-      {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}

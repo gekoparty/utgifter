@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, TextField, CircularProgress, Grid, Box } from "@mui/material";
+import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../commons/ErrorHandling/ErrorHandling";
@@ -19,6 +19,7 @@ const AddLocationDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useLocationDialog();
 
+  // Consolidate submission in a handleSubmit function
   const handleSubmit = async (event) => {
     event.preventDefault(); // Prevent default form submission
 
