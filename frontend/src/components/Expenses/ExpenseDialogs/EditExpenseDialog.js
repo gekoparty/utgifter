@@ -32,6 +32,9 @@ const EditExpenseDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
+  /* =====================================================
+     Expense Form Hooks & State Initialization
+  ====================================================== */
   const {
     expense,
     setExpense,
@@ -40,26 +43,27 @@ const EditExpenseDialog = ({
     resetForm,
     isFormValid,
   } = useExpenseForm(selectedExpense, selectedExpense?._id, onClose);
+
   const queryClient = useQueryClient();
   const { handleFieldChange } = useHandleFieldChange(expense, setExpense);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Initialize form when opening
+  // Initialize form state when dialog opens
   useEffect(() => {
     if (open) {
       if (selectedExpense) setExpense(selectedExpense);
       setSelectedProduct(
         selectedExpense?.productName
-          ? {
-              label: selectedExpense.productName,
-              ...selectedExpense,
-            }
+          ? { label: selectedExpense.productName, ...selectedExpense }
           : null
       );
     }
   }, [open, selectedExpense, setExpense]);
 
+  /* =====================================================
+     Date Handling
+  ====================================================== */
   const handleDateChange = useCallback(
     (date) => {
       const key = expense.purchased ? "purchaseDate" : "registeredDate";
@@ -68,13 +72,16 @@ const EditExpenseDialog = ({
     [expense.purchased, handleFieldChange]
   );
 
-  // Product search
+  /* =====================================================
+     Product Search & Options
+  ====================================================== */
   const {
     data: infiniteData,
     isLoading: isLoadingProducts,
     fetchNextPage,
     hasNextPage,
   } = useInfiniteProducts(productSearch);
+
   const productOptions = useMemo(
     () =>
       infiniteData?.pages.flatMap((page) =>
@@ -87,13 +94,22 @@ const EditExpenseDialog = ({
     [infiniteData]
   );
 
-  // --- BRANDS ---
+  // Debounce product search input to minimize API calls
+  const debouncedSearch = useMemo(
+    () => debounce((value) => setProductSearch(value), 250),
+    []
+  );
+
+  /* =====================================================
+     Brand Options Computation
+  ====================================================== */
   const { data: brandOptions, isLoading: isLoadingBrands } = useFetchData(
     "brands",
     "/api/brands",
     (data) => data.brands || [],
     { enabled: open }
   );
+
   const computedBrandOptions = useMemo(() => {
     if (!selectedProduct?.brands?.length) return [];
     return (brandOptions || [])
@@ -101,20 +117,19 @@ const EditExpenseDialog = ({
       .map((brand) => ({ label: brand.name, value: brand.name }));
   }, [selectedProduct, brandOptions]);
 
-  // --- SHOPS ---
+  /* =====================================================
+     Shop Options Computation
+  ====================================================== */
   const { data: shops, isLoading: isLoadingShops } = useFetchData(
     "shops",
     "/api/shops",
-    async ({ signal }, shopsData) => {
+    async (shopsData) => {
       const shopsArray = Array.isArray(shopsData)
         ? shopsData
         : shopsData?.shops || [];
       return Promise.all(
         shopsArray.map(async (shop) => {
-          const locationResponse = await fetch(
-            `/api/locations/${shop.location}`,
-            { signal }
-          );
+          const locationResponse = await fetch(`/api/locations/${shop.location}`);
           const location = await locationResponse.json();
           return { ...shop, locationName: location.name };
         })
@@ -123,14 +138,13 @@ const EditExpenseDialog = ({
     { enabled: open }
   );
 
+  
   const safeShops = useMemo(() => (Array.isArray(shops) ? shops : []), [shops]);
 
   const shopOptions = useMemo(
     () =>
       safeShops.map((shop) => ({
-        label: `${shop.name}${
-          shop.locationName ? `, ${shop.locationName}` : ""
-        }`,
+        label: `${shop.name}${shop.locationName ? `, ${shop.locationName}` : ""}`,
         value: shop.name,
         locationName: shop.locationName || "",
       })),
@@ -143,13 +157,30 @@ const EditExpenseDialog = ({
     [expense.shopName, shopOptions]
   );
 
-  // Debouncing
-  const debouncedSearch = useMemo(
-    () => debounce((value) => setProductSearch(value), 250),
-    []
+  /* =====================================================
+     Event Handlers
+  ====================================================== */
+  // Handle product selection.
+  const handleProductSelect = useCallback(
+    (option) => {
+      setSelectedProduct(option);
+      setExpense((prev) => ({
+        ...prev,
+        productName: option?.label || "",
+        brandName: "",
+        type: option?.type || "",
+        measurementUnit: option?.measurementUnit || "",
+        volume: option?.measures?.[0] || 0,
+      }));
+    },
+    [setExpense]
   );
 
-  // Discount handlers
+  // Handle brand selection inline in the select onChange callback
+
+  // Handle shop selection inline in the select onChange callback
+
+  // Handle discount changes
   const handleDiscountChange = useCallback(
     (e) => {
       const checked = e.target.checked;
@@ -166,10 +197,7 @@ const EditExpenseDialog = ({
     (e) => {
       const value = parseFloat(e.target.value);
       handleFieldChange("discountValue", value);
-      handleFieldChange(
-        "discountAmount",
-        (expense.price * (value / 100)).toFixed(2)
-      );
+      handleFieldChange("discountAmount", (expense.price * (value / 100)).toFixed(2));
     },
     [expense.price, handleFieldChange]
   );
@@ -178,35 +206,12 @@ const EditExpenseDialog = ({
     (e) => {
       const amount = parseFloat(e.target.value);
       handleFieldChange("discountAmount", amount);
-      handleFieldChange(
-        "discountValue",
-        ((amount / expense.price) * 100).toFixed(2)
-      );
+      handleFieldChange("discountValue", ((amount / expense.price) * 100).toFixed(2));
     },
     [expense.price, handleFieldChange]
   );
 
-  const handleClose = useCallback(() => {
-    queryClient.resetQueries(["products", "brands", "shops"]);
-    resetForm();
-    onClose();
-  }, [queryClient, resetForm, onClose]);
-
-  const handleProductSelect = useCallback(
-    (option) => {
-      setSelectedProduct(option);
-      setExpense((prev) => ({
-        ...prev,
-        productName: option?.label || "",
-        brandName: "",
-        type: option?.type || "",
-        measurementUnit: option?.measurementUnit || "",
-        volume: option?.measures?.[0] || 0,
-      }));
-    },
-    [setExpense]
-  );
-
+  // Handle transaction type (purchased vs. registered)
   const handleTransactionType = useCallback(
     (e) => {
       const isPurchased = e.target.value === "purchased";
@@ -220,21 +225,37 @@ const EditExpenseDialog = ({
     [setExpense]
   );
 
+  // Close handler with query reset
+  const handleClose = useCallback(() => {
+    queryClient.resetQueries(["products", "brands", "shops"]);
+    resetForm();
+    onClose();
+  }, [queryClient, resetForm, onClose]);
+
+  /* =====================================================
+     Overall Loading State & Early Return
+  ====================================================== */
+  const isLoadingCombined = useMemo(
+    () => isLoadingProducts || isLoadingBrands || isLoadingShops,
+    [isLoadingProducts, isLoadingBrands, isLoadingShops]
+  );
+
   if (!open) return null;
 
-  // Add loading check here
-if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
-  return (
-    <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <CircularProgress />
-        <p>Loading form data...</p>
-      </Box>
-    </BasicDialog>
-  );
-}
+  if (isLoadingCombined) {
+    return (
+      <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
+        <Box sx={{ p: 3, textAlign: "center" }}>
+          <CircularProgress />
+          <p>Loading form data...</p>
+        </Box>
+      </BasicDialog>
+    );
+  }
 
-
+  /* =====================================================
+     Render Markup
+  ====================================================== */
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
       <form
@@ -249,7 +270,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
       >
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
-            {/* Product Selection */}
+            {/* ===== Product Selection ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -265,7 +286,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Brand Selection */}
+            {/* ===== Brand Selection ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -278,18 +299,17 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
                 menuPortalTarget={document.body}
                 isDisabled={!selectedProduct}
                 styles={selectStyles}
-                isLoading={isLoadingBrands}  // Add loading state
+                isLoading={isLoadingBrands}
               />
             </Grid>
 
-            {/* Shop Selection */}
+            {/* ===== Shop Selection ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
                 options={shopOptions}
                 value={selectedShopOption}
                 onChange={(option) => {
-                  // Fix 2: Use the locationName from the option directly
                   handleFieldChange("shopName", option?.value || "");
                   handleFieldChange("locationName", option?.locationName || "");
                 }}
@@ -300,7 +320,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Read-only Location Field */}
+            {/* ===== Read-only Location Field ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Location"
@@ -309,7 +329,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Price Field */}
+            {/* ===== Price Field ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Price"
@@ -326,7 +346,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Volume / Quantity Field */}
+            {/* ===== Volume / Quantity Field ===== */}
             <Grid item xs={12} md={6}>
               {expense.measurementUnit &&
               selectedProduct &&
@@ -359,9 +379,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
                 <ExpenseField
                   label="Volume/Quantity"
                   type="number"
-                  value={
-                    expense.volume != null ? expense.volume.toString() : ""
-                  }
+                  value={expense.volume != null ? expense.volume.toString() : ""}
                   onChange={(e) =>
                     setExpense((prev) => ({
                       ...prev,
@@ -379,7 +397,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               )}
             </Grid>
 
-            {/* Price Per Unit (Read-only) */}
+            {/* ===== Price Per Unit (Read-only) ===== */}
             <Grid item xs={12}>
               <ExpenseField
                 label={`Price per ${expense.measurementUnit || ""}`}
@@ -389,7 +407,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Discount Checkbox */}
+            {/* ===== Discount Checkbox ===== */}
             <Grid item xs={12} md={6}>
               <FormControlLabel
                 control={
@@ -403,7 +421,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Discount Fields */}
+            {/* ===== Discount Fields ===== */}
             {expense.hasDiscount && (
               <>
                 <Grid item xs={12} md={6}>
@@ -436,7 +454,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               </>
             )}
 
-            {/* Final Price (Read-only) */}
+            {/* ===== Final Price (Read-only) ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Final Price"
@@ -451,7 +469,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Type (Read-only) */}
+            {/* ===== Type (Read-only) ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Type"
@@ -461,8 +479,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               />
             </Grid>
 
-            {/* Purchased/Registered Checkboxes */}
-            {/* Transaction Type */}
+            {/* ===== Transaction Type ===== */}
             <Grid item xs={12}>
               <RadioGroup
                 row
@@ -482,7 +499,7 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
               </RadioGroup>
             </Grid>
 
-            {/* Date Picker */}
+            {/* ===== Date Picker ===== */}
             <Grid item xs={12} md={6}>
               <DatePicker
                 label="Date"
@@ -498,18 +515,12 @@ if (isLoadingProducts || isLoadingBrands || isLoadingShops) {
           </Grid>
         </Box>
 
-        {/* Action Buttons */}
-        <Box
-          sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}
-        >
+        {/* ===== Action Buttons ===== */}
+        <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}>
           <Button variant="contained" onClick={handleClose}>
             Cancel
           </Button>
-          <Button
-            variant="contained"
-            type="submit"
-            disabled={loading || !isFormValid}
-          >
+          <Button variant="contained" type="submit" disabled={loading || !isFormValid}>
             {loading ? <CircularProgress size={24} /> : "Save Changes"}
           </Button>
         </Box>

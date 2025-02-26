@@ -21,11 +21,13 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
 
   // Consolidate submission in a handleSubmit function
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent the default form submission behavior
+    event.preventDefault(); // Prevent default form submission
+
+    // Call the handleSaveLocation function to save the new location
     if (isFormValid()) {
       const success = await handleSaveBrand(onClose);
       if (success) {
-        onAdd({ name: brand }); // Pass the new brand name for feedback purposes
+        onAdd({ name: brand.name }); // Trigger onAdd for success notification
       }
     }
   };
@@ -49,7 +51,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
               value={brand.name}
               error={Boolean(validationError)}
               onChange={(e) => {
-                setBrand(e.target.value);
+                setBrand({ ...brand, name: e.target.value });
                 resetValidationErrors();
                 resetServerError();
               }}
@@ -57,7 +59,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
             {displayError || validationError ? (
               <ErrorHandling
                 resource="brands"
-                field="brandName"
+                field="name"
                 loading={loading}
               />
             ) : null}
@@ -70,7 +72,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
                   onClose();
                 }}
               >
-                Cancel
+                Avbryt
               </Button>
             </Grid>
             <Grid item>

@@ -1,27 +1,14 @@
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  lazy,
-  Suspense,
-  useCallback,
-} from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  SnackbarContent,
-  Slider,
-} from "@mui/material";
+import React, { useState, useMemo, useEffect, lazy, Suspense, useCallback } from "react";
+import { Box, Button, IconButton, Snackbar, SnackbarContent, Slider } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import debounce from "lodash/debounce";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@mui/material/styles";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
+import { usePaginatedData } from "./common/usePaginatedData"; // Adjust the import path as needed
 
 // Lazy-loaded Expense Dialogs
 const AddExpenseDialog = lazy(() =>
@@ -34,12 +21,17 @@ const EditExpenseDialog = lazy(() =>
   import("../components/Expenses/ExpenseDialogs/EditExpenseDialog")
 );
 
+// =================================================================
 // Constants
+// =================================================================
+
 const INITIAL_PAGINATION = {
   pageIndex: 0,
   pageSize: 10,
 };
+
 const INITIAL_SORTING = [{ id: "purchaseDate", desc: true }];
+
 const INITIAL_SELECTED_EXPENSE = {
   _id: "",
   productName: "",
@@ -60,15 +52,12 @@ const INITIAL_SELECTED_EXPENSE = {
   measurementUnit: "",
   pricePerUnit: 0,
 };
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : "http://localhost:3000";
 
-const DEBOUNCE_DELAY = 1000;
+// =================================================================
+// PriceRangeFilter Component
+// =================================================================
 
 const PriceRangeFilter = ({ value, onChange }) => {
-  // Create a debounced version of the onChange handler
   const debouncedOnChange = useMemo(
     () =>
       debounce((newValue) => {
@@ -81,11 +70,8 @@ const PriceRangeFilter = ({ value, onChange }) => {
     debouncedOnChange(newValue);
   };
 
-  // Cleanup the debounced function on unmount
   useEffect(() => {
-    return () => {
-      debouncedOnChange.cancel();
-    };
+    return () => debouncedOnChange.cancel();
   }, [debouncedOnChange]);
 
   return (
@@ -103,208 +89,96 @@ const PriceRangeFilter = ({ value, onChange }) => {
   );
 };
 
+// =================================================================
+// ExpenseScreen Component using usePaginatedData
+// =================================================================
+
 const ExpenseScreen = () => {
-  // Table state
+  // --------------------------------------------------------------
+  // State Declarations
+  // --------------------------------------------------------------
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedExpense, setSelectedExpense] = useState(
-    INITIAL_SELECTED_EXPENSE
-  );
+  const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
+  const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
+  const [priceStatsByType, setPriceStatsByType] = useState({});
 
   // Dialog modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Price range filter with debouncing so rapid slider changes won’t trigger many fetches
-  const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
-  const [debouncedPriceRangeFilter, setDebouncedPriceRangeFilter] = useState([
-    0, 1000,
-  ]);
-  const debouncedSetPriceFilter = useMemo(
-    () =>
-      debounce(
-        (newValue) => setDebouncedPriceRangeFilter(newValue),
-        DEBOUNCE_DELAY
-      ),
-    [] // Empty dependency array - debounce once
-  );
-
-  useEffect(() => {
-    return () => debouncedSetPriceFilter.cancel();
-  }, [debouncedSetPriceFilter]);
-
   const theme = useTheme();
-  const memoizedSelectedExpense = useMemo(
-    () => selectedExpense,
-    [selectedExpense]
-  );
-
   const queryClient = useQueryClient();
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSuccessSnackbar,
+    showErrorSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
-  // Helper: Build the fetch URL using the current table state
-  const buildFetchURL = (
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-    globalFilter,
-    priceRange
-  ) => {
-    const fetchURL = new URL("/api/expenses", API_URL);
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    fetchURL.searchParams.set("minPrice", `${priceRange[0]}`);
-    if (priceRange[1] < 1000) {
-      fetchURL.searchParams.set("maxPrice", `${priceRange[1]}`);
-    }
-    return fetchURL;
-  };
+  const memoizedSelectedExpense = useMemo(() => selectedExpense, [selectedExpense]);
 
-  // Calculate price statistics for color coding in the table cells
-  const calculatePriceStatsByType = (data) => {
-    const stats = {};
-    const groupedByType = data.reduce((acc, item) => {
-      if (!acc[item.type]) acc[item.type] = [];
-      acc[item.type].push(item.pricePerUnit);
-      return acc;
-    }, {});
-
-    for (const [type, prices] of Object.entries(groupedByType)) {
-      prices.sort((a, b) => a - b);
-      const min = prices[0];
-      const max = prices[prices.length - 1];
-      const median = prices[Math.floor(prices.length / 2)];
-      stats[type] = { min, max, median };
-    }
-
-    return stats;
-  };
-
-  // Fetch expenses data and update price stats
-  const fetchExpenses = async ({signal}) => {
-    const fetchURL = buildFetchURL(
-      pagination.pageIndex,
-      pagination.pageSize,
+  // --------------------------------------------------------------
+  // Data Fetching using usePaginatedData Hook
+  // --------------------------------------------------------------
+  // Build parameters for the hook – note we map columnFilters to "filters"
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
       sorting,
-      columnFilters,
+      filters: columnFilters,
       globalFilter,
-      debouncedPriceRangeFilter
-    );
-    const response = await fetch(fetchURL.href, {signal});
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText} (${response.status})`);
-    }
-    const json = await response.json();
-    const stats = calculatePriceStatsByType(json.expenses);
-    setPriceStatsByType(stats);
-    return { expenses: json.expenses, meta: json.meta };
-  };
-
-  // Prefetch function for preloading the next page’s data
-  const prefetchPageData = async (nextPageIndex, signal) => {
-    const fetchURL = buildFetchURL(
-      nextPageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter,
-      debouncedPriceRangeFilter
-    );
-    await queryClient.prefetchQuery(
-      [
-        "expenses",
-        columnFilters,
-        globalFilter,
-        nextPageIndex,
-        pagination.pageSize,
-        sorting,
-        debouncedPriceRangeFilter,
-      ],
-      async ({ signal: innerSignal }) => {
-        const response = await fetch(fetchURL.href, {signal});
-        if (!response.ok) {
-          throw new Error(`Error: ${response.statusText} (${response.status})`);
-        }
-        const json = await response.json();
-        return { expenses: json.expenses, meta: json.meta };
-      }
-    );
-  };
-
-  // Include debounced price range in the query key so that changing it re-fetches data
-  const queryKey = useMemo(
-    () => [
-      "expenses",
-      columnFilters,
-      globalFilter,
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      debouncedPriceRangeFilter,
-    ],
-    [
-      columnFilters,
-      globalFilter,
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      debouncedPriceRangeFilter,
-    ]
+      priceRange: priceRangeFilter,
+    }),
+    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter, priceRangeFilter]
   );
 
-  // React Query hook for expenses
-  const {
-    data: expensesData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: fetchExpenses,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
+  const { data: expensesData, isError, isFetching, isLoading, refetch } = usePaginatedData(
+    "/api/expenses",
+    fetchParams
+  );
 
-  // Ensure default sorting if none is provided
+  // Update price statistics when new data arrives
   useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+    if (expensesData && expensesData.expenses) {
+      const calculatePriceStatsByType = (data) => {
+        const stats = {};
+        const groupedByType = data.reduce((acc, item) => {
+          if (!acc[item.type]) acc[item.type] = [];
+          acc[item.type].push(item.pricePerUnit);
+          return acc;
+        }, {});
+
+        for (const [type, prices] of Object.entries(groupedByType)) {
+          prices.sort((a, b) => a - b);
+          const min = prices[0];
+          const max = prices[prices.length - 1];
+          const median = prices[Math.floor(prices.length / 2)];
+          stats[type] = { min, max, median };
+        }
+        return stats;
+      };
+
+      setPriceStatsByType(calculatePriceStatsByType(expensesData.expenses));
+    }
+  }, [expensesData]);
+
+  // Ensure default sorting is applied
+  useEffect(() => {
+    if (sorting.length === 0) {
+      setSorting(INITIAL_SORTING);
+    }
   }, [sorting]);
 
-  // Automatically prefetch the next page when table state changes using an AbortController
-  useEffect(() => {
-    const totalPages = Math.ceil(
-      (expensesData?.meta?.totalRowCount || 0) / pagination.pageSize
-    );
-    if (pagination.pageIndex + 1 < totalPages) {
-      const controller = new AbortController();
-      prefetchPageData(pagination.pageIndex + 1, controller.signal);
-      return () => controller.abort();
-    }
-  }, [
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-    columnFilters,
-    globalFilter,
-    debouncedPriceRangeFilter,
-    queryClient,
-    expensesData?.meta?.totalRowCount,
-  ]);
-
-  // Local state for price statistics
-  const [priceStatsByType, setPriceStatsByType] = useState({});
-
-  // Render the detail panel for each row (if needed)
+  // --------------------------------------------------------------
+  // Table Configuration & Render Helpers
+  // --------------------------------------------------------------
   const renderDetailPanel = useCallback(
     ({ row }) => (
       <DetailPanel expense={row.original} data-testid="detail-panel" />
@@ -312,7 +186,6 @@ const ExpenseScreen = () => {
     []
   );
 
-  // Table columns configuration
   const tableColumns = useMemo(
     () => [
       {
@@ -388,25 +261,15 @@ const ExpenseScreen = () => {
     [priceStatsByType, theme]
   );
 
-  // Snackbar state and handlers for feedback messages
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
-
-  // Expense action handlers
+  // --------------------------------------------------------------
+  // Expense Action Handlers
+  // --------------------------------------------------------------
   const addExpenseHandler = (savedData) => {
-    // If the response has a "data" property, extract the first expense.
     const expenseData =
       savedData.data && Array.isArray(savedData.data)
         ? savedData.data[0]
         : savedData;
 
-    // Get the product name from the expense data.
     const productName =
       typeof expenseData.productName === "object"
         ? expenseData.productName.name
@@ -420,8 +283,6 @@ const ExpenseScreen = () => {
     }
 
     showSuccessSnackbar(`Utgift for "${productName}" lagret!`);
-
-    // Force a refetch of expenses to update the table.
     refetch();
   };
 
@@ -435,7 +296,6 @@ const ExpenseScreen = () => {
         ? deletedExpense.productName.name
         : deletedExpense.productName || "Ukjent produkt";
     showSuccessSnackbar(`Utgift for "${productName}" slettet!`);
-    // Trigger immediate refetch so that the table updates:
     refetch();
   };
 
@@ -444,38 +304,39 @@ const ExpenseScreen = () => {
   };
 
   const editSuccessHandler = (updatedExpense) => {
-    // Check if updatedExpense contains a "data" array; if so, extract the first expense.
     const expenseData =
       updatedExpense.data && Array.isArray(updatedExpense.data)
         ? updatedExpense.data[0]
         : updatedExpense;
 
-    // Extract productName properly
     const productName =
       typeof expenseData.productName === "object"
         ? expenseData.productName.name
         : expenseData.productName || "Ukjent produkt";
 
     showSuccessSnackbar(`Utgift for "${productName}" oppdatert!`);
-    refetch(); // Trigger immediate refetch to update the table
+    refetch();
   };
 
-  // Handle slider changes by updating the price range filter state
+  // --------------------------------------------------------------
+  // Event Handlers
+  // --------------------------------------------------------------
   const handlePriceRangeChange = (newRange) => {
     setPriceRangeFilter(newRange);
   };
 
-  // Common dialog close handler that aborts in-flight queries and removes them from cache
   const handleDialogClose = (setDialogOpen) => {
     setDialogOpen(false);
-    // Abort any in-flight queries by removing them from the cache
     queryClient.removeQueries("expenses");
     queryClient.removeQueries("brands");
     queryClient.removeQueries("locations");
-    queryClient.removeQueries("shops")
+    queryClient.removeQueries("shops");
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
   };
 
+  // --------------------------------------------------------------
+  // Render
+  // --------------------------------------------------------------
   return (
     <TableLayout>
       <Box
@@ -508,19 +369,14 @@ const ExpenseScreen = () => {
         {expensesData && (
           <ReactTable
             muiTableContainerProps={{
-              sx: {
-                width: "100%",
-                overflowX: "auto",
-              },
+              sx: { width: "100%", overflowX: "auto" },
               "data-testid": "mui-table-container",
             }}
             muiTopToolbarProps={{
-              sx: {
-                width: "100%",
-              },
+              sx: { width: "100%" },
               "data-testid": "mui-top-toolbar",
             }}
-            data={expensesData?.expenses}
+            data={expensesData.expenses}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
             setGlobalFilter={setGlobalFilter}
@@ -534,10 +390,10 @@ const ExpenseScreen = () => {
             globalFilter={globalFilter}
             pagination={pagination}
             sorting={sorting}
-            meta={expensesData?.meta}
+            meta={expensesData.meta}
             setSelectedExpense={setSelectedExpense}
-            totalRowCount={expensesData?.meta?.totalRowCount}
-            rowCount={expensesData?.meta?.totalRowCount || 0}
+            totalRowCount={expensesData.meta?.totalRowCount}
+            rowCount={expensesData.meta?.totalRowCount || 0}
             handleEdit={(expense) => {
               setSelectedExpense(expense);
               setEditModalOpen(true);
@@ -560,7 +416,6 @@ const ExpenseScreen = () => {
         )}
       </Box>
 
-      {/* Lazy-loaded dialogs wrapped in Suspense */}
       <Suspense fallback={<div>Loading Dialog...</div>}>
         {memoizedSelectedExpense._id && editModalOpen && (
           <EditExpenseDialog

@@ -1,4 +1,3 @@
-// Import statements
 import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Box,
@@ -12,7 +11,10 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePaginatedData } from "./common/usePaginatedData";
+
+// Lazy-loaded Dialogs
 const AddProductDialog = lazy(() =>
   import("../components/Products/ProductDialogs/AddProductDialog")
 );
@@ -23,7 +25,7 @@ const EditProductDialog = lazy(() =>
   import("../components/Products/ProductDialogs/EditProductDialog")
 );
 
-// Constants for initial states and API URL
+// Constants for initial state and API URL
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
@@ -32,38 +34,31 @@ const API_URL =
     ? "https://www.material-react-table.com"
     : "http://localhost:3000";
 
-// Main ProductScreen component
+// Custom URL builder for products
+const productUrlBuilder = (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
+  const fetchURL = new URL(endpoint, API_URL);
+  fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+  fetchURL.searchParams.set("size", `${pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
+  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  return fetchURL;
+};
+
 const ProductScreen = () => {
+  // State declarations
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedProduct, setSelectedProduct] = useState(
-    INITIAL_SELECTED_PRODUCT
-  );
+  const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Memoized values and theme for styling
+  // Theme, query client, and snackbar setup
   const theme = useTheme();
-  const memoizedSelectedProduct = useMemo(
-    () => selectedProduct,
-    [selectedProduct]
-  );
-
-  // React Query client and query key for caching
   const queryClient = useQueryClient();
-  const queryKey = [
-    "products",
-    columnFilters,
-    globalFilter,
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-  ];
-
-  // Snackbar state and handlers for feedback messages
   const {
     snackbarOpen,
     snackbarMessage,
@@ -72,6 +67,33 @@ const ProductScreen = () => {
     showErrorSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
+
+  // Memoized selected product (to prevent unnecessary renders)
+  const memoizedSelectedProduct = useMemo(() => selectedProduct, [selectedProduct]);
+
+  // Ensure default sorting is applied
+  useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+  // Build parameters for the hook
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      filters: columnFilters,
+      globalFilter,
+    }),
+    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+  );
+
+  // Use the usePaginatedData hook to fetch product data
+  const { data: productsData, isError, isFetching, isLoading, refetch } = usePaginatedData(
+    "/api/products",
+    fetchParams,
+    productUrlBuilder
+  );
 
   // Table columns configuration
   const tableColumns = useMemo(
@@ -109,169 +131,14 @@ const ProductScreen = () => {
         maxSize: 300,
         cell: ({ cell }) => {
           const measures = cell.getValue();
-          return Array.isArray(measures)
-            ? measures.join(" ")
-            : measures || "N/A";
+          return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
         },
       },
     ],
     []
   );
 
-  // Common function to build the URL
-  const buildFetchURL = (
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-    globalFilter
-  ) => {
-    const fetchURL = new URL("/api/products", API_URL);
-
-    // Append query parameters to the URL
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-
-    return fetchURL;
-  };
-
-  // Fetch data function
-  const fetchData = async ({ signal }) => {
-    try {
-      const fetchURL = buildFetchURL(
-        pagination.pageIndex,
-        pagination.pageSize,
-        sorting,
-        columnFilters,
-        globalFilter
-      );
-
-      const response = await fetch(fetchURL.href, {signal});
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText} (${response.status})`);
-      }
-
-      const json = await response.json();
-      return json;
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      throw error; // This will show up in React Query as an error state
-    }
-  };
-
-  // Use React Query to fetch the initial page of data
-  const {
-    data: productsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey,
-    queryFn: fetchData,
-    keepPreviousData: true,
-    retry: 1,
-    refetchOnMount: true,
-  });
-
-  // Common function for prefetching data
-  const prefetchPageData = async (
-    queryClient,
-    nextPageIndex,
-    pagination,
-    sorting,
-    columnFilters,
-    globalFilter,
-    signal
-  ) => {
-    const fetchURL = buildFetchURL(
-      nextPageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-
-    // Prefetch the next page of data
-    queryClient.prefetchQuery(
-      [
-        "products",
-        columnFilters,
-        globalFilter,
-        nextPageIndex,
-        pagination.pageSize,
-        sorting,
-      ],
-      async () => {
-        const response = await fetch(fetchURL.href, {signal});
-        const json = await response.json();
-        return json;
-      }
-    );
-  };
-
-  // handlePrefetch now simply calls prefetchPageData
-  const handlePrefetch = (nextPageIndex) => {
-    const controller = new AbortController();
-    prefetchPageData(
-      queryClient,
-      nextPageIndex,
-      pagination,
-      sorting,
-      columnFilters,
-      globalFilter,
-      controller.signal
-    );
-    // Optionally, you can store and later abort this controller if needed.
-  };
-
-  
-
-  // AUTOMATIC PREFETCHING with cleanup using an AbortController
-  useEffect(() => {
-    const nextPageIndex = pagination.pageIndex + 1;
-    console.log(
-      "Current page:",
-      pagination.pageIndex,
-      "Prefetching data for page:",
-      nextPageIndex
-    );
-
-    const controller = new AbortController();
-    prefetchPageData(
-      queryClient,
-      nextPageIndex,
-      pagination,
-      sorting,
-      columnFilters,
-      globalFilter,
-      controller.signal
-    );
-
-    // Cleanup function aborts the prefetch if dependencies change or component unmounts
-    return () => controller.abort();
-  }, [
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-    columnFilters,
-    globalFilter,
-    queryClient,
-  ]);
-
-  // Ensure default sorting when sorting state is empty
-  useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
-  }, [sorting]);
-
-  // Handlers for product actions (Add, Edit, Delete)
+  // Handlers for product actions
   const addProductHandler = (newProduct) => {
     showSuccessSnackbar(`Produkt ${newProduct.name} er lagt til`);
     queryClient.invalidateQueries("products");
@@ -290,25 +157,24 @@ const ProductScreen = () => {
     refetch();
   };
 
-  // Cleanup function to reset selected product and remove queries when dialogs close
+  // Cleanup when dialogs close: reset selected product and remove cache entries
   const handleDialogClose = (closeDialogFn) => {
     closeDialogFn(false);
     setSelectedProduct(INITIAL_SELECTED_PRODUCT);
-    // Remove all queries related to products from the cache
     queryClient.removeQueries("products");
     queryClient.removeQueries("brands");
   };
 
-  // Render the main table layout and dialogs
+  // Render the layout, table, modals, and snackbars
   return (
     <TableLayout>
       <Box
         sx={{
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1, // Allow this whole section to expand
+          flexGrow: 1,
           width: "100%",
-          minHeight: "100%", // Ensure it stretches fully inside TableLayout
+          minHeight: "100%",
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
@@ -321,10 +187,9 @@ const ProductScreen = () => {
           </Button>
         </Box>
 
-        {/* Product Table */}
         <Box
           sx={{
-            flexGrow: 1, // Ensures the table fills all remaining space
+            flexGrow: 1,
             display: "flex",
             flexDirection: "column",
             width: "100%",
@@ -357,7 +222,7 @@ const ProductScreen = () => {
                 setSelectedProduct(product);
                 setDeleteModalOpen(true);
               }}
-              sx={{ flexGrow: 1, width: "100%" }} // Force table to expand fully
+              sx={{ flexGrow: 1, width: "100%" }}
             />
           )}
         </Box>
@@ -368,13 +233,11 @@ const ProductScreen = () => {
         <DeleteProductDialog
           open={deleteModalOpen}
           dialogTitle="Bekreft Sletting"
-          onClose={() => handleDialogClose(setDeleteModalOpen)}
+          onClose={() => handleDialogClose(setDeleteProductDialogOpen => setDeleteModalOpen(false))}
           selectedProduct={selectedProduct}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={() =>
-            showErrorSnackbar(
-              `Kunne ikke slette produktet ${selectedProduct.name}`
-            )
+            showErrorSnackbar(`Kunne ikke slette produktet ${selectedProduct.name}`)
           }
         />
       </Suspense>
@@ -392,6 +255,7 @@ const ProductScreen = () => {
           />
         )}
       </Suspense>
+
       <Suspense fallback={<div>Laster Dialog...</div>}>
         {addProductDialogOpen && (
           <AddProductDialog
@@ -402,7 +266,6 @@ const ProductScreen = () => {
         )}
       </Suspense>
 
-      {/* Snackbar for feedback messages */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -427,11 +290,7 @@ const ProductScreen = () => {
           }}
           message={snackbarMessage}
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon />
             </IconButton>
           }

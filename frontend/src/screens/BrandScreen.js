@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useMemo,
-  useEffect,
-  lazy,
-  Suspense,
-} from "react";
+import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -13,13 +7,14 @@ import {
   SnackbarContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import TableLayout from "../components/commons/TableLayout/TableLayout";
 import ReactTable from "../components/commons/React-Table/react-table";
-import { useTheme } from "@mui/material/styles";
+import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "@mui/material/styles";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePaginatedData } from "./common/usePaginatedData"; // Generic data hook
 
-// Lazy-load Brand Dialogs for consistency
+// Lazy-loaded Dialogs
 const AddBrandDialog = lazy(() =>
   import("../components/Brands/BrandDialogs/AddBrandDialog")
 );
@@ -31,16 +26,31 @@ const EditBrandDialog = lazy(() =>
 );
 
 // Constants
-const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 5 };
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
 const API_URL =
   process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
+    ? "https://api.example.com"
     : "http://localhost:3000";
 
+// URL builder for fetching brands
+const brandUrlBuilder = (
+  endpoint,
+  { pageIndex, pageSize, sorting, filters, globalFilter }
+) => {
+  const fetchURL = new URL(endpoint, API_URL);
+  fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
+  fetchURL.searchParams.set("size", `${pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
+  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  return fetchURL;
+};
+
+
 const BrandScreen = () => {
-  // State management for table filters, sorting, pagination, selection, and dialogs.
+  // State management
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -51,119 +61,7 @@ const BrandScreen = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const theme = useTheme();
-  const memoizedSelectedBrand = useMemo(
-    () => selectedBrand,
-    [selectedBrand]
-  );
-
-  // React Query client for cache manipulation
   const queryClient = useQueryClient();
-
-  // Helper: Build the fetch URL for brands using the current table state.
-  const buildFetchURL = (
-    pageIndex,
-    pageSize,
-    sorting,
-    columnFilters,
-    globalFilter
-  ) => {
-    const fetchURL = new URL("/api/brands", API_URL);
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(columnFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    return fetchURL;
-  };
-
-  // Fetch data function that retrieves brands from the API.
-  const fetchData = async () => {
-    const fetchURL = buildFetchURL(
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-    const response = await fetch(fetchURL.href);
-    if (!response.ok) {
-      throw new Error(`Error: ${response.statusText} (${response.status})`);
-    }
-    const json = await response.json();
-    // If sorting is empty, enforce default sorting.
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
-    return json;
-  };
-
-  // Prefetch next page data to optimize navigation.
-  const prefetchPageData = async (nextPageIndex) => {
-    const fetchURL = buildFetchURL(
-      nextPageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter
-    );
-    await queryClient.prefetchQuery(
-      [
-        "brands",
-        columnFilters,
-        globalFilter,
-        nextPageIndex,
-        pagination.pageSize,
-        sorting,
-      ],
-      async () => {
-        const response = await fetch(fetchURL.href);
-        if (!response.ok) {
-          throw new Error(
-            `Error: ${response.statusText} (${response.status})`
-          );
-        }
-        const json = await response.json();
-        return json;
-      }
-    );
-  };
-
-  // React Query hook to fetch brand data.
-  const {
-    data: brandsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: [
-      "brands",
-      columnFilters,
-      globalFilter,
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-    ],
-    queryFn: fetchData,
-    keepPreviousData: true,
-    refetchOnMount: true,
-  });
-
-  // Prefetch the next page whenever pagination, filters, or sorting change.
-  useEffect(() => {
-    const nextPageIndex = pagination.pageIndex + 1;
-    prefetchPageData(nextPageIndex);
-  }, [
-    pagination.pageIndex,
-    pagination.pageSize,
-    sorting,
-    columnFilters,
-    globalFilter,
-    queryClient,
-  ]);
-
-  // Snackbar for user feedback.
   const {
     snackbarOpen,
     snackbarMessage,
@@ -173,45 +71,95 @@ const BrandScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Handlers for brand actions.
-  const addBrandHandler = (newBrand) => {
-    showSuccessSnackbar(`Brand "${newBrand.name}" added successfully`);
-    queryClient.invalidateQueries("brands");
-    refetch();
-  };
+  const memoizedSelectedBrand = useMemo(() => selectedBrand, [selectedBrand]);
 
-  const deleteSuccessHandler = (deletedBrand) => {
-    showSuccessSnackbar(`Brand "${deletedBrand.name}" deleted successfully`);
+
+   // Build parameters for usePaginatedData hook
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      filters: columnFilters,
+      globalFilter,
+    }),
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+    ]
+  );
+
+  // Use the usePaginatedData hook to fetch locations data
+   const {
+     data: brandsData,
+     isError,
+     isFetching,
+     isLoading,
+     refetch,
+   } = usePaginatedData("/api/brands", fetchParams, brandUrlBuilder);
+
+  // Table columns
+  const tableColumns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: "Merkenavn",
+        size: 150,
+        grow: 2,
+        minSize: 150,
+        maxSize: 400,
+      },
+    ],
+    []
+  );
+
+   // Ensure default sorting
+   useEffect(() => {
+    if (sorting.length === 0) setSorting(INITIAL_SORTING);
+  }, [sorting]);
+
+ // Cleanup function for closing dialogs and clearing cached queries
+ const handleDialogClose = (closeDialogFn) => {
+  closeDialogFn(false);
+  queryClient.removeQueries("brands");
+  setSelectedBrand(INITIAL_SELECTED_BRAND);
+};
+
+ // Handlers for brand actions
+  const addBrandHandler = (newBrand) => {
+    showSuccessSnackbar(`Merke "${newBrand.name}" lagt til`);
     queryClient.invalidateQueries("brands");
     refetch();
-    setSelectedBrand(INITIAL_SELECTED_BRAND);
   };
 
   const deleteFailureHandler = (failedBrand) => {
-    showErrorSnackbar(`Failed to delete brand "${failedBrand.name}"`);
+    showErrorSnackbar(`Kunne ikke slette merke "${failedBrand.name}"`);
   };
 
-  const editSuccessHandler = (updatedBrand) => {
-    showSuccessSnackbar(`Brand "${updatedBrand.name}" updated successfully`);
+  const deleteSuccessHandler = (deletedBrand) => {
+    showSuccessSnackbar(`Merke "${deletedBrand.name}" slettet`);
     queryClient.invalidateQueries("brands");
     refetch();
   };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update brand");
+    showErrorSnackbar("Kunne ikke oppdatere merke");
   };
 
-  // Table column configuration.
-  const tableColumns = useMemo(
-    () => [{ accessorKey: "name", header: "Merkenavn" }],
-    []
-  );
+  const editSuccessHandler = (updatedBrand) => {
+    showSuccessSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
+    queryClient.invalidateQueries("brands");
+    refetch();
+  };
+
+  
 
   return (
     <TableLayout>
-      <Box
-        sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Button
           variant="contained"
           color="primary"
@@ -223,10 +171,11 @@ const BrandScreen = () => {
 
       <Box
         sx={{
-          width: "100%",
+          flexGrow: 1,
           display: "flex",
-          justifyContent: "center",
-          boxShadow: 2,
+          flexDirection: "column",
+          width: "100%",
+          minWidth: 600,
         }}
       >
         {brandsData && (
@@ -245,10 +194,9 @@ const BrandScreen = () => {
             globalFilter={globalFilter}
             pagination={pagination}
             sorting={sorting}
-            meta={brandsData?.meta}
+            meta={brandsData.meta}
             setSelectedBrand={setSelectedBrand}
-            totalRowCount={brandsData?.meta?.totalRowCount}
-            rowCount={brandsData?.meta?.totalRowCount ?? 0}
+            totalRowCount={brandsData.meta?.totalRowCount}
             handleEdit={(brand) => {
               setSelectedBrand(brand);
               setEditModalOpen(true);
@@ -261,11 +209,10 @@ const BrandScreen = () => {
         )}
       </Box>
 
-      {/* Lazy-loaded Dialogs */}
       <Suspense fallback={<div>Laster Dialog...</div>}>
         <AddBrandDialog
           open={addBrandDialogOpen}
-          onClose={() => setAddBrandDialogOpen(false)}
+          onClose={() => handleDialogClose(setAddBrandDialogOpen)}
           onAdd={addBrandHandler}
         />
       </Suspense>
@@ -273,11 +220,8 @@ const BrandScreen = () => {
       <Suspense fallback={<div>Laster...</div>}>
         <DeleteBrandDialog
           open={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
-          dialogTitle="Confirm Deletion"
-          cancelButton={
-            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
-          }
+          onClose={() => handleDialogClose(setDeleteModalOpen)}
+          dialogTitle="Bekreft sletting" // Add this line
           selectedBrand={selectedBrand}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
@@ -288,11 +232,7 @@ const BrandScreen = () => {
         {memoizedSelectedBrand._id && editModalOpen && (
           <EditBrandDialog
             open={editModalOpen}
-            onClose={() => setEditModalOpen(false)}
-            cancelButton={
-              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-            }
-            dialogTitle="Edit Brand"
+            onClose={() => handleDialogClose(setEditModalOpen)}
             selectedBrand={selectedBrand}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={editFailureHandler}
@@ -300,7 +240,6 @@ const BrandScreen = () => {
         )}
       </Suspense>
 
-      {/* Snackbar for Feedback */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -312,10 +251,7 @@ const BrandScreen = () => {
             backgroundColor:
               snackbarSeverity === "success"
                 ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main,
-            color: theme.palette.success.contrastText,
+                : theme.palette.error.main,
           }}
           message={snackbarMessage}
           action={
@@ -334,4 +270,3 @@ const BrandScreen = () => {
 };
 
 export default BrandScreen;
-
