@@ -103,7 +103,7 @@ const ExpenseScreen = () => {
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
   const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
   const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
-  const [priceStatsByType, setPriceStatsByType] = useState({});
+
 
   // Dialog modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -121,7 +121,7 @@ const ExpenseScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  const memoizedSelectedExpense = useMemo(() => selectedExpense, [selectedExpense]);
+
 
   // --------------------------------------------------------------
   // Data Fetching using usePaginatedData Hook
@@ -144,47 +144,53 @@ const ExpenseScreen = () => {
     fetchParams
   );
 
-  // Update price statistics when new data arrives
-  useEffect(() => {
-    if (expensesData && expensesData.expenses) {
-      const calculatePriceStatsByType = (data) => {
-        const stats = {};
-        const groupedByType = data.reduce((acc, item) => {
-          if (!acc[item.type]) acc[item.type] = [];
-          acc[item.type].push(item.pricePerUnit);
-          return acc;
-        }, {});
-
-        for (const [type, prices] of Object.entries(groupedByType)) {
-          prices.sort((a, b) => a - b);
-          const min = prices[0];
-          const max = prices[prices.length - 1];
-          const median = prices[Math.floor(prices.length / 2)];
-          stats[type] = { min, max, median };
-        }
-        return stats;
-      };
-
-      setPriceStatsByType(calculatePriceStatsByType(expensesData.expenses));
-    }
+  // --------------------------------------------------------------
+  // Derived Data: Price Statistics Calculation
+  // --------------------------------------------------------------
+  const priceStatsByType = useMemo(() => {
+    if (!expensesData?.expenses) return {};
+    const grouped = expensesData.expenses.reduce((acc, item) => {
+      (acc[item.type] = acc[item.type] || []).push(item.pricePerUnit);
+      return acc;
+    }, {});
+    const stats = {};
+    Object.entries(grouped).forEach(([type, prices]) => {
+      prices.sort((a, b) => a - b);
+      const min = prices[0];
+      const max = prices[prices.length - 1];
+      const median = prices[Math.floor(prices.length / 2)];
+      stats[type] = { min, max, median };
+    });
+    return stats;
   }, [expensesData]);
 
-  // Ensure default sorting is applied
-  useEffect(() => {
-    if (sorting.length === 0) {
-      setSorting(INITIAL_SORTING);
-    }
-  }, [sorting]);
 
+    // --------------------------------------------------------------
+  // Memoized Handlers for Editing and Deleting Expenses
   // --------------------------------------------------------------
-  // Table Configuration & Render Helpers
-  // --------------------------------------------------------------
+  const handleEditExpense = useCallback((expense) => {
+    setSelectedExpense(expense);
+    setEditModalOpen(true);
+  }, []);
+
+  const handleDeleteExpense = useCallback((expense) => {
+    setSelectedExpense(expense);
+    setDeleteModalOpen(true);
+  }, []);
+
   const renderDetailPanel = useCallback(
     ({ row }) => (
       <DetailPanel expense={row.original} data-testid="detail-panel" />
     ),
     []
   );
+
+
+
+
+  // --------------------------------------------------------------
+  // Table Configuration & Render Helpers
+  // --------------------------------------------------------------
 
   const tableColumns = useMemo(
     () => [
@@ -283,7 +289,7 @@ const ExpenseScreen = () => {
     }
 
     showSuccessSnackbar(`Utgift for "${productName}" lagret!`);
-    refetch();
+    refetch()
   };
 
   const deleteFailureHandler = (failedExpense) => {
@@ -394,14 +400,8 @@ const ExpenseScreen = () => {
             setSelectedExpense={setSelectedExpense}
             totalRowCount={expensesData.meta?.totalRowCount}
             rowCount={expensesData.meta?.totalRowCount || 0}
-            handleEdit={(expense) => {
-              setSelectedExpense(expense);
-              setEditModalOpen(true);
-            }}
-            handleDelete={(expense) => {
-              setSelectedExpense(expense);
-              setDeleteModalOpen(true);
-            }}
+            handleEdit={handleEditExpense}     
+            handleDelete={handleDeleteExpense}
             editModalOpen={editModalOpen}
             setDeleteModalOpen={setDeleteModalOpen}
             initialState={{
@@ -417,7 +417,7 @@ const ExpenseScreen = () => {
       </Box>
 
       <Suspense fallback={<div>Loading Dialog...</div>}>
-        {memoizedSelectedExpense._id && editModalOpen && (
+      {selectedExpense._id && editModalOpen && (
           <EditExpenseDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}

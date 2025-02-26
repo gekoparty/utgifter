@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -70,11 +70,6 @@ const ProductScreen = () => {
 
   // Memoized selected product (to prevent unnecessary renders)
   const memoizedSelectedProduct = useMemo(() => selectedProduct, [selectedProduct]);
-
-  // Ensure default sorting is applied
-  useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
-  }, [sorting]);
 
   // Build parameters for the hook
   const fetchParams = useMemo(
