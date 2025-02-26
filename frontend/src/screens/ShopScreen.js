@@ -131,10 +131,6 @@ const ShopScreen = () => {
     transformShopsData
   );
 
-  // Ensure default sorting is applied.
-  useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
-  }, [sorting]);
 
   // Table columns configuration.
   const tableColumns = useMemo(

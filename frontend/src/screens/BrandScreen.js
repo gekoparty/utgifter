@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -116,10 +116,6 @@ const BrandScreen = () => {
     []
   );
 
-   // Ensure default sorting
-   useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
-  }, [sorting]);
 
  // Cleanup function for closing dialogs and clearing cached queries
  const handleDialogClose = (closeDialogFn) => {

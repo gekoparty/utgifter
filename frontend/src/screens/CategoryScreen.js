@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
@@ -104,10 +104,6 @@ const CategoryScreen = () => {
     []
   );
 
-  // Ensure default sorting is applied
-  useEffect(() => {
-    if (sorting.length === 0) setSorting(INITIAL_SORTING);
-  }, [sorting]);
 
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
