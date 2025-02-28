@@ -15,7 +15,7 @@ import useCustomHttp from "../../hooks/useHttp";
 import { useQuery } from "@tanstack/react-query";
 
 // ----------------------------------------------------------------------------
-// API Endpoints Constant
+// API-endepunkter
 // ----------------------------------------------------------------------------
 const API_ENDPOINTS = {
   products: "/api/products",
@@ -26,7 +26,7 @@ const API_ENDPOINTS = {
 };
 
 // ----------------------------------------------------------------------------
-// Expense Reducer for Form State Management
+// Reducer for utgiftsformularbehandling
 // ----------------------------------------------------------------------------
 const expenseReducer = (state, action) => {
   switch (action.type) {
@@ -51,7 +51,7 @@ const expenseReducer = (state, action) => {
 };
 
 // ----------------------------------------------------------------------------
-// Helper: Create Default Expense State
+// Standard utgiftstilstand
 // ----------------------------------------------------------------------------
 const createDefaultExpenseState = () => ({
   measurementUnit: "",
@@ -74,7 +74,7 @@ const createDefaultExpenseState = () => ({
 });
 
 // ----------------------------------------------------------------------------
-// Helper: Enrich Shop Data with Location Name
+// Hjelpefunksjon: Hent butikkdata med stedsnavn
 // ----------------------------------------------------------------------------
 const fetchShopsData = async (data, locationsEndpoint) => {
   const controller = new AbortController();
@@ -87,21 +87,21 @@ const fetchShopsData = async (data, locationsEndpoint) => {
         const res = await fetch(`${locationsEndpoint}/${shop.location}`, {
           signal,
         });
-        if (!res.ok) throw new Error("Failed to fetch location");
+        if (!res.ok) throw new Error("Kunne ikke hente sted");
         const location = await res.json();
         return { ...shop, locationName: location.name };
       })
     );
   } catch (error) {
     if (error.name !== "AbortError") {
-      console.error("Error fetching shop locations:", error);
+      console.error("Feil ved henting av butikksteder:", error);
     }
     return [];
   }
 };
 
 // ----------------------------------------------------------------------------
-// Custom Hook: useExpenseForm
+// Tilpasset hook: useExpenseForm
 // ----------------------------------------------------------------------------
 const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // --------------------------------------------------------------------------
@@ -125,12 +125,9 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // ----------------------------------------------------------------------------
   // Helper to update expense state
   // ----------------------------------------------------------------------------
-  const setExpense = useCallback(
-    (updateFn) => {
-      dispatchExpense({ type: "SET_EXPENSE", payload: updateFn });
-    },
-    []
-  );
+  const setExpense = useCallback((updateFn) => {
+    dispatchExpense({ type: "SET_EXPENSE", payload: updateFn });
+  }, []);
 
   // --------------------------------------------------------------------------
   // Data Fetching Configuration
@@ -162,7 +159,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     fetchConfig
   );
 
-
   // --------------------------------------------------------------------------
   // Expense Data Fetching using React Query (for editing an expense)
   // --------------------------------------------------------------------------
@@ -170,8 +166,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     ["expense", expenseId],
     () => sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`),
     {
-      enabled:
-        Boolean(expenseId && expenseId.trim() !== "" && !initialExpense),
+      enabled: Boolean(expenseId && expenseId.trim() !== "" && !initialExpense),
       initialData: initialExpense,
       staleTime: 5 * 60 * 1000, // 5 minutes
       refetchOnMount: false,
@@ -194,8 +189,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
     setValidationErrors({});
   }, [defaultExpenseState, storeDispatch]);
-
-
 
   // --------------------------------------------------------------------------
   // Prevent state updates on unmounted components
@@ -239,7 +232,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
           );
           setValidationErrors(errors);
         } else {
-          storeDispatch({ type: "SET_ERROR", resource: "expenses", error });
+          storeDispatch({
+            type: "SET_ERROR",
+            resource: "expenses",
+            error: {
+              message: "Kunne ikke lagre utgift. Vennligst prøv igjen.",
+            },
+          });
         }
       }
       throw error;
@@ -252,7 +251,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         await sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`, "DELETE");
         return true;
       } catch (error) {
-        storeDispatch({ type: "SET_ERROR", resource: "expenses", error });
+        storeDispatch({
+          type: "SET_ERROR",
+          resource: "expenses",
+          error: {
+            message: "Kunne ikke slette utgift. Vennligst prøv igjen.",
+          },
+        });
         return false;
       }
     },
@@ -260,12 +265,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   );
 
   // --------------------------------------------------------------------------
-  // Form Validity Check
+  // Validering av skjema
   // --------------------------------------------------------------------------
+
   const isFormValid = useMemo(() => {
     const requiredFields = ["productName", "brandName", "shopName"];
-    const areRequiredFieldsFilled = requiredFields.every(
-      (field) => expense[field]?.trim()
+    const areRequiredFieldsFilled = requiredFields.every((field) =>
+      expense[field]?.trim()
     );
     const hasValidNumbers = expense.price > 0 && expense.volume > 0;
     const noValidationErrors = Object.values(validationErrors).every(
