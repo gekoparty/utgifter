@@ -244,10 +244,10 @@ const EditExpenseDialog = ({
 
   if (isLoadingCombined) {
     return (
-      <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
+      <BasicDialog open={open} onClose={handleClose} dialogTitle="Rediger utgift">
         <Box sx={{ p: 3, textAlign: "center" }}>
           <CircularProgress />
-          <p>Loading form data...</p>
+          <p>Laster skjemadata...</p>
         </Box>
       </BasicDialog>
     );
@@ -257,7 +257,7 @@ const EditExpenseDialog = ({
      Render Markup
   ====================================================== */
   return (
-    <BasicDialog open={open} onClose={handleClose} dialogTitle="Edit Expense">
+    <BasicDialog open={open} onClose={handleClose} dialogTitle="Rediger utgift">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -270,7 +270,7 @@ const EditExpenseDialog = ({
       >
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
-            {/* ===== Product Selection ===== */}
+            {/* ===== Produktvalg ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -279,14 +279,14 @@ const EditExpenseDialog = ({
                 onChange={handleProductSelect}
                 onInputChange={debouncedSearch}
                 onMenuScrollToBottom={() => hasNextPage && fetchNextPage()}
-                placeholder="Select Product"
+                placeholder="Velg produkt"
                 menuPortalTarget={document.body}
                 styles={selectStyles}
                 isLoading={isLoadingProducts}
               />
             </Grid>
 
-            {/* ===== Brand Selection ===== */}
+            {/* ===== Merkevalg ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -295,7 +295,7 @@ const EditExpenseDialog = ({
                 onChange={(option) =>
                   handleFieldChange("brandName", option?.value || "")
                 }
-                placeholder="Select Brand"
+                placeholder="Velg merke"
                 menuPortalTarget={document.body}
                 isDisabled={!selectedProduct}
                 styles={selectStyles}
@@ -303,7 +303,7 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-            {/* ===== Shop Selection ===== */}
+            {/* ===== Butikkvalg ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -313,26 +313,26 @@ const EditExpenseDialog = ({
                   handleFieldChange("shopName", option?.value || "");
                   handleFieldChange("locationName", option?.locationName || "");
                 }}
-                placeholder="Select Store"
+                placeholder="Velg butikk"
                 menuPortalTarget={document.body}
                 styles={selectStyles}
                 isLoading={isLoadingShops}
               />
             </Grid>
 
-            {/* ===== Read-only Location Field ===== */}
+            {/* ===== Sted ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
-                label="Location"
+                label="Sted"
                 value={expense.locationName || ""}
                 InputProps={{ readOnly: true }}
               />
             </Grid>
 
-            {/* ===== Price Field ===== */}
+            {/* ===== Pris ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
-                label="Price"
+                label="Pris"
                 type="number"
                 value={expense.price}
                 onChange={(e) =>
@@ -346,7 +346,7 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-            {/* ===== Volume / Quantity Field ===== */}
+            {/* ===== Volum/antall ===== */}
             <Grid item xs={12} md={6}>
               {expense.measurementUnit &&
               selectedProduct &&
@@ -371,13 +371,13 @@ const EditExpenseDialog = ({
                       volume: option ? parseFloat(option.label) : 0,
                     }))
                   }
-                  placeholder="Select Volume"
+                  placeholder="Velg volum"
                   menuPortalTarget={document.body}
                   styles={selectStyles}
                 />
               ) : (
                 <ExpenseField
-                  label="Volume/Quantity"
+                  label="Volum/antall (manuelt)"
                   type="number"
                   value={expense.volume != null ? expense.volume.toString() : ""}
                   onChange={(e) =>
@@ -397,17 +397,17 @@ const EditExpenseDialog = ({
               )}
             </Grid>
 
-            {/* ===== Price Per Unit (Read-only) ===== */}
+            {/* ===== Pris per enhet ===== */}
             <Grid item xs={12}>
               <ExpenseField
-                label={`Price per ${expense.measurementUnit || ""}`}
+                label={`Pris per ${expense.measurementUnit || "enhet"}`}
                 value={expense.pricePerUnit}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
 
-            {/* ===== Discount Checkbox ===== */}
+            {/* ===== Rabatt ===== */}
             <Grid item xs={12} md={6}>
               <FormControlLabel
                 control={
@@ -417,7 +417,7 @@ const EditExpenseDialog = ({
                     color="primary"
                   />
                 }
-                label="Discount?"
+                label="Rabatt?"
               />
             </Grid>
 
@@ -426,7 +426,7 @@ const EditExpenseDialog = ({
               <>
                 <Grid item xs={12} md={6}>
                   <ExpenseField
-                    label="Discount (%)"
+                    label="Rabatt (%)"
                     type="number"
                     value={expense.discountValue || ""}
                     onChange={handleDiscountValueChange}
@@ -439,7 +439,7 @@ const EditExpenseDialog = ({
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <ExpenseField
-                    label="Discount (Kr)"
+                    label="Rabatt (kr)"
                     type="number"
                     value={expense.discountAmount || ""}
                     onChange={handleDiscountAmountChange}
@@ -454,10 +454,10 @@ const EditExpenseDialog = ({
               </>
             )}
 
-            {/* ===== Final Price (Read-only) ===== */}
+            {/* ===== Sluttpris ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
-                label="Final Price"
+                label="Sluttpris"
                 type="number"
                 value={expense.finalPrice || ""}
                 InputProps={{
@@ -469,7 +469,7 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-            {/* ===== Type (Read-only) ===== */}
+            {/* ===== Type ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Type"
@@ -479,30 +479,30 @@ const EditExpenseDialog = ({
               />
             </Grid>
 
-            {/* ===== Transaction Type ===== */}
+            {/* ===== Transaksjonstype ===== */}
             <Grid item xs={12}>
               <RadioGroup
                 row
-                value={expense.purchased ? "purchased" : "registered"}
+                value={expense.purchased ? "kjøpt" : "registrert"}
                 onChange={handleTransactionType}
               >
                 <FormControlLabel
-                  value="purchased"
-                  control={<Radio />}
-                  label="Purchased"
+                 value="kjøpt"
+                 control={<Radio />}
+                 label="Kjøpt"
                 />
                 <FormControlLabel
-                  value="registered"
+                  value="registrert"
                   control={<Radio />}
-                  label="Registered"
+                  label="Registrert"
                 />
               </RadioGroup>
             </Grid>
 
-            {/* ===== Date Picker ===== */}
+            {/* ===== Dato ===== */}
             <Grid item xs={12} md={6}>
               <DatePicker
-                label="Date"
+                label="Dato"
                 value={dayjs(
                   expense.purchased
                     ? expense.purchaseDate
@@ -515,13 +515,13 @@ const EditExpenseDialog = ({
           </Grid>
         </Box>
 
-        {/* ===== Action Buttons ===== */}
+       {/* ===== Handlingsknapper ===== */}
         <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}>
           <Button variant="contained" onClick={handleClose}>
-            Cancel
+          Avbryt
           </Button>
           <Button variant="contained" type="submit" disabled={loading || !isFormValid}>
-            {loading ? <CircularProgress size={24} /> : "Save Changes"}
+            {loading ? <CircularProgress size={24} /> : "Lagre endringer"}
           </Button>
         </Box>
       </form>

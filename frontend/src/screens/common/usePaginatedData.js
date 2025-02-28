@@ -25,10 +25,14 @@ const buildFetchURL = (endpoint, { pageIndex, pageSize, sorting, filters, global
   };
   
   export const usePaginatedData = (endpoint, params, urlBuilder, transformFn) => {
+
+    
+    
     const queryClient = useQueryClient();
     const finalUrlBuilder = urlBuilder || buildFetchURL;
     const queryKey = useMemo(() => [endpoint, params], [endpoint, params]);
-  
+   
+
     const fetchData = async ({ signal }) => {
       const url = finalUrlBuilder(endpoint, params);
       const response = await fetch(url.href, { signal });
@@ -44,6 +48,7 @@ const buildFetchURL = (endpoint, { pageIndex, pageSize, sorting, filters, global
       queryKey,
       queryFn: fetchData,
       keepPreviousData: true,
+      staleTime: 0 // 👈 Force immediate refetch on invalidation
     });
   
     // Prefetch next page

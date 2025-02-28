@@ -43,11 +43,11 @@ const DeleteExpenseDialog = ({
     >
       {selectedExpense && (
         <Typography component="p" marginTop={2}>
-          Er du sikker på at du vil slette denne utgiften? Utgifter tilhørende{" "}
+          Er du sikker på at du vil slette denne utgiften? Utgifter knyttet til{" "}
           <Typography component="span" fontWeight="bold">
             "{selectedExpense.productName?.name || selectedExpense.productName}"
           </Typography>{" "}
-          vil også påvirkes.
+          vil også bli påvirket.
         </Typography>
       )}
     </BasicDialog>

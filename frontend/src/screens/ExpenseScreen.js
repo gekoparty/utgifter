@@ -196,14 +196,14 @@ const ExpenseScreen = () => {
     () => [
       {
         accessorKey: "productName",
-        header: "Produkt",
+        header: "Produktnavn",
         Cell: ({ row }) => row.original.productName,
         enableColumnPinning: true,
         meta: { testId: "product-name-column" },
       },
       {
         accessorKey: "pricePerUnit",
-        header: "Pris pr kg/l",
+        header: "Pris per enhet",
         Cell: ({ cell, row }) => {
           const price = cell.getValue();
           const type = row.original.type;
@@ -246,21 +246,21 @@ const ExpenseScreen = () => {
       },
       {
         accessorKey: "shopName",
-        header: "Butikk",
+        header: "Butikknavn",
         Cell: ({ row }) => row.original.shopName,
         enableColumnPinning: true,
         meta: { testId: "shop-name-column" },
       },
       {
         accessorKey: "purchaseDate",
-        header: "Purchase Date",
+        header: "Kjøpsdato",
         manualFiltering: true,
         filterVariant: "date",
         Cell: ({ cell }) => {
           const dateValue = cell.getValue();
           return dateValue
             ? new Date(dateValue).toLocaleDateString()
-            : "Invalid Date";
+            : "Ugyldig dato";
         },
       },
     ],
@@ -288,12 +288,12 @@ const ExpenseScreen = () => {
       return;
     }
 
-    showSuccessSnackbar(`Utgift for "${productName}" lagret!`);
-    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+    showSuccessSnackbar(`Utgift for "${productName}" ble registrert!`);
+    refetch()
   };
 
   const deleteFailureHandler = (failedExpense) => {
-    showErrorSnackbar(`Failed to delete expense ${failedExpense.productName}`);
+    showErrorSnackbar(`Kunne ikke slette utgiften for ${failedExpense.productName}`);
   };
 
   const deleteSuccessHandler = (deletedExpense) => {
@@ -301,12 +301,12 @@ const ExpenseScreen = () => {
       typeof deletedExpense.productName === "object"
         ? deletedExpense.productName.name
         : deletedExpense.productName || "Ukjent produkt";
-    showSuccessSnackbar(`Utgift for "${productName}" slettet!`);
-    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+    showSuccessSnackbar(`Utgiften for "${productName}" ble slettet!`);
+    refetch()
   };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update expense");
+    showErrorSnackbar("Kunne ikke lagre endringer");
   };
 
   const editSuccessHandler = (updatedExpense) => {
@@ -314,14 +314,15 @@ const ExpenseScreen = () => {
       updatedExpense.data && Array.isArray(updatedExpense.data)
         ? updatedExpense.data[0]
         : updatedExpense;
-
+  
     const productName =
       typeof expenseData.productName === "object"
         ? expenseData.productName.name
         : expenseData.productName || "Ukjent produkt";
-
-    showSuccessSnackbar(`Utgift for "${productName}" oppdatert!`);
-    queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+  
+    showSuccessSnackbar(`Utgiften for "${productName}" ble oppdatert!`);
+    
+    refetch()
   };
 
   // --------------------------------------------------------------
@@ -333,10 +334,6 @@ const ExpenseScreen = () => {
 
   const handleDialogClose = (setDialogOpen) => {
     setDialogOpen(false);
-    queryClient.removeQueries("expenses");
-    queryClient.removeQueries("brands");
-    queryClient.removeQueries("locations");
-    queryClient.removeQueries("shops");
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
   };
 
@@ -355,7 +352,7 @@ const ExpenseScreen = () => {
           onClick={() => setAddExpenseDialogOpen(true)}
           data-testid="add-expense-button"
         >
-          Ny Utgift
+          Legg til ny utgift
         </Button>
         <PriceRangeFilter
           value={priceRangeFilter}
@@ -416,7 +413,7 @@ const ExpenseScreen = () => {
         )}
       </Box>
 
-      <Suspense fallback={<div>Loading Dialog...</div>}>
+      <Suspense fallback={<div>Laster inn dialog...</div>}>
       {selectedExpense._id && editModalOpen && (
           <EditExpenseDialog
             open={editModalOpen}
@@ -429,11 +426,11 @@ const ExpenseScreen = () => {
         )}
       </Suspense>
 
-      <Suspense fallback={<div>Loading Dialog...</div>}>
+      <Suspense fallback={<div>Laster inn dialog...</div>}>
         <DeleteExpenseDialog
           open={deleteModalOpen}
           onClose={() => handleDialogClose(setDeleteModalOpen)}
-          dialogTitle="Confirm Deletion"
+          dialogTitle="Bekreft sletting av utgift"
           selectedExpense={selectedExpense}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
@@ -441,7 +438,7 @@ const ExpenseScreen = () => {
         />
       </Suspense>
 
-      <Suspense fallback={<div>Loading Dialog...</div>}>
+      <Suspense fallback={<div>Laster inn dialog...</div>}>
         {addExpenseDialogOpen && (
           <AddExpenseDialog
             open={addExpenseDialogOpen}
