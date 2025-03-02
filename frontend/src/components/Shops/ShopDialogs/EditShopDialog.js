@@ -36,13 +36,12 @@ const EditShopDialog = ({
     data: locations = [],
     isLoading: locationLoading,
     isError: locationError,
-  } = useQuery(
-    ["locations"],
-    ({ signal }) => fetchLocations({ signal }),
-    {
-      select: (data) => data.locations.map((l) => l.name),
-    }
-  );
+  } = useQuery({
+    queryKey: ["locations"],
+    queryFn: ({ signal }) => fetchLocations({ signal }),
+    select: (data) => data.locations.map((l) => l.name),
+  });
+
 
   // CHANGED: Map the names into options
   const locationOptions = useMemo(
@@ -55,13 +54,13 @@ const EditShopDialog = ({
     data: categories = [],
     isLoading: categoryLoading,
     isError: categoryError,
-  } = useQuery(
-    ["categories"],
-    ({ signal }) => fetchCategories({ signal }),
-    {
-      select: (data) => data.categories.map((c) => c.name),
-    }
-  );
+  } = useQuery({
+    queryKey: ["categories"],
+    queryFn: ({ signal }) => fetchCategories({ signal }),
+    select: (data) => data.categories.map((c) => c.name),
+  });
+
+
   // CHANGED: Map the names into options
   const categoryOptions = useMemo(
     () => categories.map((name) => ({ value: name, label: name })),
@@ -70,7 +69,7 @@ const EditShopDialog = ({
 
   // CHANGED: When the dialog opens, reset the form with the selected shop.
   useEffect(() => {
-    if (open) {
+    if (open && selectedShop) {
       setShop({ ...selectedShop });
     }
   }, [selectedShop, open, setShop]);
@@ -88,7 +87,7 @@ const EditShopDialog = ({
   };
 
   // CHANGED: For location, update both value and display name.
-  const handleLocationChange = (selectedOption, action) => {
+  const handleLocationChange = (selectedOption) => {
     const value = selectedOption?.value || "";
     const label = selectedOption ? selectedOption.label : "";
     setShop((prev) => ({
@@ -101,7 +100,7 @@ const EditShopDialog = ({
   };
 
   // CHANGED: For category, update both value and display name.
-  const handleCategoryChange = (selectedOption, action) => {
+  const handleCategoryChange = (selectedOption) => {
     const value = selectedOption?.value || "";
     const label = selectedOption ? selectedOption.label : "";
     setShop((prev) => ({

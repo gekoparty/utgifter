@@ -5,18 +5,21 @@ const useSnackBar = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
 
-  const handleSnackbarClose = () => {
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') return;
     setSnackbarOpen(false);
   };
 
-  const showSnackbar = (message, severity) => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
 
+  const showSnackbar = (message, severity) => {
+    setSnackbarOpen(false);
+    // Queue the new message
     setTimeout(() => {
-      setSnackbarOpen(false);
-    }, 3000);
+      setSnackbarMessage(message);
+      setSnackbarSeverity(severity);
+      setSnackbarOpen(true);
+    }, 100);
+
   };
 
   const showSuccessSnackbar = (message) => {

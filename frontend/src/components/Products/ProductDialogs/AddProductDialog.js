@@ -67,7 +67,10 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     data: brandData = { brands: [] },
     isLoading: brandLoading,
     isError: brandError,
-  } = useQuery(["brands"], ({ signal }) => fetchBrands({ signal }))
+  } = useQuery({
+    queryKey: ["brands"],  // <-- Fixed query key format
+    queryFn: ({ signal }) => fetchBrands({ signal })  // <-- Fixed query function
+  });
 
   const brandOptions = brandData.brands;
 

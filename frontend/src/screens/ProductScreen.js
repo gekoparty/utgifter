@@ -4,8 +4,7 @@ import {
   Button,
   IconButton,
   Snackbar,
-  SnackbarContent,
-  useTheme,
+  Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
@@ -56,8 +55,6 @@ const ProductScreen = () => {
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Theme, query client, and snackbar setup
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const {
     snackbarOpen,
@@ -136,19 +133,19 @@ const ProductScreen = () => {
   // Handlers for product actions
   const addProductHandler = (newProduct) => {
     showSuccessSnackbar(`Produkt ${newProduct.name} er lagt til`);
-    queryClient.invalidateQueries("products");
+    queryClient.invalidateQueries(["products"]);
     refetch();
   };
 
   const deleteSuccessHandler = (deletedProduct) => {
     showSuccessSnackbar(`Produkt ${deletedProduct} slettet`);
-    queryClient.invalidateQueries("products");
+    queryClient.invalidateQueries(["products"]);
     refetch();
   };
 
   const editSuccessHandler = (updatedProduct) => {
     showSuccessSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
-    queryClient.invalidateQueries("products");
+    queryClient.invalidateQueries(["products"]);
     refetch();
   };
 
@@ -156,8 +153,6 @@ const ProductScreen = () => {
   const handleDialogClose = (closeDialogFn) => {
     closeDialogFn(false);
     setSelectedProduct(INITIAL_SELECTED_PRODUCT);
-    queryClient.removeQueries("products");
-    queryClient.removeQueries("brands");
   };
 
   // Render the layout, table, modals, and snackbars
@@ -261,35 +256,31 @@ const ProductScreen = () => {
         )}
       </Suspense>
 
+      {/* Updated Snackbar with MUI v6 Alert */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        slotProps={{
+          root: {
+            'data-testid': 'snackbar',
+            component: 'div',
+          }
+        }}
       >
-        <SnackbarContent
-          sx={{
-            backgroundColor:
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main,
-            color: theme.palette.getContrastText(
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main
-            ),
-          }}
-          message={snackbarMessage}
+        <Alert
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
           action={
             <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon />
             </IconButton>
           }
-        />
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </TableLayout>
   );

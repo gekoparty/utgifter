@@ -162,16 +162,14 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // --------------------------------------------------------------------------
   // Expense Data Fetching using React Query (for editing an expense)
   // --------------------------------------------------------------------------
-  const { data: expenseData } = useQuery(
-    ["expense", expenseId],
-    () => sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`),
-    {
-      enabled: Boolean(expenseId && expenseId.trim() !== "" && !initialExpense),
-      initialData: initialExpense,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      refetchOnMount: false,
-    }
-  );
+  const { data: expenseData } = useQuery({
+    queryKey: ["expense", expenseId],
+    queryFn: () => sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`),
+    enabled: Boolean(expenseId && expenseId.trim() !== "" && !initialExpense),
+    initialData: initialExpense,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: false,
+  });
 
   // Initialize form state with fetched expense data
   useEffect(() => {

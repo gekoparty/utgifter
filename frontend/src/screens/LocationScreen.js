@@ -4,13 +4,12 @@ import {
   Button,
   IconButton,
   Snackbar,
-  SnackbarContent,
+  Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTheme } from "@mui/material/styles";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "./common/usePaginatedData";
 
@@ -62,7 +61,6 @@ const LocationScreen = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Theme, query client, and snackbar setup
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const {
     snackbarOpen,
@@ -110,7 +108,7 @@ const LocationScreen = () => {
     () => [
       {
         accessorKey: "name",
-        header: "Steder....",
+        header: "Steder",
         size: 600,
         grow: 2,
         minWidth: 400,
@@ -125,35 +123,34 @@ const LocationScreen = () => {
   // Cleanup function for closing dialogs and clearing cached queries
   const handleDialogClose = (closeDialogFn) => {
     closeDialogFn(false);
-    queryClient.removeQueries("locations");
     setSelectedLocation(INITIAL_SELECTED_LOCATION);
   };
 
   // Handlers for location actions
   const addLocationHandler = (newLocation) => {
-    showSuccessSnackbar(`Sted "${newLocation.name}" added successfully`);
-    queryClient.invalidateQueries("locations");
+    showSuccessSnackbar(`Sted "${newLocation.name}" ble lagt til`);
+    queryClient.invalidateQueries(["locations"]);
     refetch();
   };
 
   const deleteSuccessHandler = (deletedLocation) => {
-    showSuccessSnackbar(`Sted "${deletedLocation.name}" deleted successfully`);
-    queryClient.invalidateQueries("locations");
+    showSuccessSnackbar(`Sted "${deletedLocation.name}" ble slettet`);
+    queryClient.invalidateQueries(["locations"]);
     refetch();
   };
 
   const deleteFailureHandler = (failedLocation) => {
-    showErrorSnackbar(`Failed to delete sted "${failedLocation.name}"`);
+    showErrorSnackbar(`Kunne ikke slette sted "${failedLocation.name}"`);
   };
 
   const editSuccessHandler = (updatedLocation) => {
-    showSuccessSnackbar(`Sted "${updatedLocation.name}" updated successfully`);
-    queryClient.invalidateQueries("locations");
+    showSuccessSnackbar(`Sted "${updatedLocation.name}" ble oppdatert`);
+    queryClient.invalidateQueries(["locations"]);
     refetch();
   };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update sted");
+    showErrorSnackbar("Kunne ikke lagre endringer av sted");
   };
 
   return (
@@ -234,9 +231,9 @@ const LocationScreen = () => {
         <DeleteLocationDialog
           open={deleteModalOpen}
           onClose={() => handleDialogClose(setDeleteModalOpen)}
-          dialogTitle="Confirm Deletion"
+          dialogTitle="Bekreft sletting"
           cancelButton={
-            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+            <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
           }
           selectedLocation={selectedLocation}
           onDeleteSuccess={deleteSuccessHandler}
@@ -250,9 +247,9 @@ const LocationScreen = () => {
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
             cancelButton={
-              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+              <Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>
             }
-            dialogTitle="Edit Location"
+            dialogTitle="Rediger sted"
             selectedLocation={selectedLocation}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={editFailureHandler}
@@ -260,23 +257,22 @@ const LocationScreen = () => {
         )}
       </Suspense>
 
+      {/* MUI v6 Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        slotProps={{
+          root: {
+            'data-testid': 'snackbar',
+            component: 'div',
+          }
+        }}
       >
-        <SnackbarContent
-          sx={{
-            backgroundColor:
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main,
-            color: theme.palette.success.contrastText,
-          }}
-          message={snackbarMessage}
+        <Alert
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
           action={
             <IconButton
               size="small"
@@ -286,7 +282,10 @@ const LocationScreen = () => {
               <CloseIcon />
             </IconButton>
           }
-        />
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </TableLayout>
   );

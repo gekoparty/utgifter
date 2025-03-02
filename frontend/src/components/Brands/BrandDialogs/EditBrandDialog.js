@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../commons/BasicDialog/BasicDialog";
@@ -13,8 +13,8 @@ const EditBrandDialog = ({
   onUpdateFailure,
 }) => {
   const {
-    brandName,
-    setBrandName,
+    brand,  // Changed from brandName
+    setBrand, 
     loading,
     handleSaveBrand,
     resetValidationErrors,
@@ -25,13 +25,19 @@ const EditBrandDialog = ({
     resetFormAndErrors,
   } = useBrandDialog(selectedBrand);
 
-  // Consolidate form submission in a handleSubmit function.
+  // Reset form when selected brand changes
+  useEffect(() => {
+    if (selectedBrand) {
+      setBrand(selectedBrand);
+    }
+  }, [selectedBrand, setBrand]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isFormValid()) {
       const success = await handleSaveBrand(onClose);
       if (success) {
-        onUpdateSuccess(selectedBrand);
+        onUpdateSuccess(brand);
       } else {
         onUpdateFailure();
       }
@@ -45,35 +51,33 @@ const EditBrandDialog = ({
         resetFormAndErrors();
         onClose();
       }}
-      dialogTitle="Rediger Merke"
+      dialogTitle="Rediger merke"
     >
       <form onSubmit={handleSubmit}>
         <Grid container direction="column" spacing={2}>
-          {/* Input Field for Brand Name */}
           <Grid item>
             <TextField
               size="small"
               fullWidth
               sx={{ marginTop: 2 }}
               label="Merkenavn"
-              value={brandName}
+              value={brand?.name || ""} 
               error={Boolean(validationError)}
               onChange={(e) => {
-                setBrandName(e.target.value);
+                setBrand({ ...brand, name: e.target.value });
                 resetValidationErrors();
                 resetServerError();
               }}
             />
-            {displayError || validationError ? (
+            {(displayError || validationError) && (
               <ErrorHandling
                 resource="brands"
                 field="brandName"
                 loading={loading}
               />
-            ) : null}
+            )}
           </Grid>
 
-          {/* Action Buttons */}
           <Grid item container justifyContent="flex-end" spacing={2} sx={{ mt: 2 }}>
             <Grid item>
               <Button
@@ -82,12 +86,16 @@ const EditBrandDialog = ({
                   onClose();
                 }}
               >
-                Cancel
+                Avbryt
               </Button>
             </Grid>
             <Grid item>
-              <Button type="submit" disabled={loading || !isFormValid()}>
-                {loading ? <CircularProgress size={24} /> : "Save"}
+              <Button 
+                type="submit" 
+                variant="contained"
+                disabled={loading || !isFormValid()}
+              >
+                {loading ? <CircularProgress size={24} /> : "Lagre"}
               </Button>
             </Grid>
           </Grid>
@@ -100,10 +108,12 @@ const EditBrandDialog = ({
 EditBrandDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  selectedBrand: PropTypes.object.isRequired,
+  selectedBrand: PropTypes.shape({
+    _id: PropTypes.string,
+    name: PropTypes.string,
+  }).isRequired,
   onUpdateSuccess: PropTypes.func.isRequired,
   onUpdateFailure: PropTypes.func.isRequired,
 };
 
 export default EditBrandDialog;
-

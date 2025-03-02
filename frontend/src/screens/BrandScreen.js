@@ -4,13 +4,12 @@ import {
   Button,
   IconButton,
   Snackbar,
-  SnackbarContent,
+  Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useTheme } from "@mui/material/styles";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "./common/usePaginatedData"; // Generic data hook
 
@@ -60,7 +59,6 @@ const BrandScreen = () => {
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const {
     snackbarOpen,
@@ -120,14 +118,13 @@ const BrandScreen = () => {
  // Cleanup function for closing dialogs and clearing cached queries
  const handleDialogClose = (closeDialogFn) => {
   closeDialogFn(false);
-  queryClient.removeQueries("brands");
   setSelectedBrand(INITIAL_SELECTED_BRAND);
 };
 
  // Handlers for brand actions
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Merke "${newBrand.name}" lagt til`);
-    queryClient.invalidateQueries("brands");
+    queryClient.invalidateQueries(["brands"]);
     refetch();
   };
 
@@ -137,7 +134,7 @@ const BrandScreen = () => {
 
   const deleteSuccessHandler = (deletedBrand) => {
     showSuccessSnackbar(`Merke "${deletedBrand.name}" slettet`);
-    queryClient.invalidateQueries("brands");
+    queryClient.invalidateQueries(["brands"]);
     refetch();
   };
 
@@ -147,7 +144,7 @@ const BrandScreen = () => {
 
   const editSuccessHandler = (updatedBrand) => {
     showSuccessSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
-    queryClient.invalidateQueries("brands");
+    queryClient.invalidateQueries(["brands"]);
     refetch();
   };
 
@@ -236,20 +233,22 @@ const BrandScreen = () => {
         )}
       </Suspense>
 
+      {/* MUI v6 Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        slotProps={{
+          root: {
+            'data-testid': 'snackbar',
+            component: 'div',
+          }
+        }}
       >
-        <SnackbarContent
-          sx={{
-            backgroundColor:
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : theme.palette.error.main,
-          }}
-          message={snackbarMessage}
+        <Alert
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
           action={
             <IconButton
               size="small"
@@ -259,7 +258,10 @@ const BrandScreen = () => {
               <CloseIcon />
             </IconButton>
           }
-        />
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </TableLayout>
   );

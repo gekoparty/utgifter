@@ -4,13 +4,12 @@ import {
   Button,
   IconButton,
   Snackbar,
-  SnackbarContent,
+  Alert,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useTheme } from "@mui/material/styles";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "./common/usePaginatedData"; // our generic hook
 
@@ -50,7 +49,6 @@ const ShopScreen = () => {
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const {
     snackbarOpen,
@@ -166,7 +164,7 @@ const ShopScreen = () => {
   // Handlers for shop actions.
   const addShopHandler = (newShop) => {
     showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`);
-    queryClient.invalidateQueries("shops");
+    queryClient.invalidateQueries(["shops"]); // Array format
     refetch();
   };
 
@@ -176,7 +174,7 @@ const ShopScreen = () => {
 
   const deleteSuccessHandler = (deletedShop) => {
     showSuccessSnackbar(`Shop ${deletedShop.name} deleted successfully`);
-    queryClient.invalidateQueries("shops");
+    queryClient.invalidateQueries(["shops"]); // Array format
     refetch();
   };
 
@@ -186,14 +184,14 @@ const ShopScreen = () => {
 
   const editSuccessHandler = (updatedShop) => {
     showSuccessSnackbar(`Shop ${updatedShop.name} updated successfully`);
-    queryClient.invalidateQueries("shops");
+    queryClient.invalidateQueries(["shops"]); // Array format
     refetch();
   };
 
   // Cleanup caches when dialogs are closed.
   useEffect(() => {
     if (!addShopDialogOpen && !editModalOpen && !deleteModalOpen) {
-      queryClient.removeQueries(["locations"]);
+      queryClient.removeQueries(["locations"]); // Array format for query keys
       queryClient.removeQueries(["categories"]);
     }
   }, [addShopDialogOpen, editModalOpen, deleteModalOpen, queryClient]);
@@ -297,29 +295,30 @@ const ShopScreen = () => {
       </Suspense>
 
       <Snackbar
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={handleSnackbarClose}
-      >
-        <SnackbarContent
-          sx={{
-            backgroundColor:
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main,
-            color: theme.palette.success.contrastText,
-          }}
-          message={snackbarMessage}
-          action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
-              <CloseIcon />
-            </IconButton>
-          }
-        />
-      </Snackbar>
+  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+  open={snackbarOpen}
+  autoHideDuration={3000}
+  onClose={handleSnackbarClose}
+  slotProps={{
+    root: {
+      'data-testid': 'snackbar',
+      component: 'div',
+    }
+  }}
+>
+  <Alert
+    severity={snackbarSeverity}
+    onClose={handleSnackbarClose}
+    sx={{ width: "100%" }}
+    action={
+      <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+        <CloseIcon />
+      </IconButton>
+    }
+  >
+    {snackbarMessage}
+  </Alert>
+</Snackbar>
     </TableLayout>
   );
 };
