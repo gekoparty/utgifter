@@ -41,13 +41,12 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     data: locations = [],
     isLoading: locationLoading,
     isError: locationError,
-  } = useQuery(
-    ["locations"],
-    ({ signal }) => fetchLocations({ signal }),
-    {
-      select: (data) => data.locations.map((l) => l.name),
-    }
-  );
+  } = useQuery({
+    queryKey: ["locations"],
+    queryFn: ({ signal }) => fetchLocations({ signal }),
+    select: (data) => data.locations.map((l) => l.name),
+  });
+
 
 
     // Fetch category names with abort signal support.
@@ -55,13 +54,11 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
       data: categories = [],
       isLoading: categoryLoading,
       isError: categoryError,
-    } = useQuery(
-      ["categories"],
-      ({ signal }) => fetchCategories({ signal }),
-      {
-        select: (data) => data.categories.map((c) => c.name),
-      }
-    );
+    } = useQuery({
+      queryKey: ["categories"],
+      queryFn: ({ signal }) => fetchCategories({ signal }),
+      select: (data) => data.categories.map((c) => c.name),
+    });
 
 
   // Memoized options
@@ -89,7 +86,7 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
   };
 
   // CHANGED: Update change handler to update both the raw value and the display name.
-  const handleLocationChange = (selectedOption, action) => {
+  const handleLocationChange = (selectedOption) => {
     const value = selectedOption?.value || "";
     const label = selectedOption ? selectedOption.label : "";
     setShop((prev) => ({
@@ -101,7 +98,7 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     resetServerError();
   };
 
-  const handleCategoryChange = (selectedOption, action) => {
+  const handleCategoryChange = (selectedOption) => {
     const value = selectedOption?.value || "";
     const label = selectedOption ? selectedOption.label : "";
     setShop((prev) => ({

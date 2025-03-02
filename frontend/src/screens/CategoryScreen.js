@@ -1,10 +1,9 @@
 import React, { useState, useMemo, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, SnackbarContent } from "@mui/material";
+import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useTheme } from "@mui/material/styles";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "./common/usePaginatedData";
 
@@ -54,7 +53,6 @@ const CategoryScreen = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Theme, query client, and snackbar setup
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const {
     snackbarOpen,
@@ -108,13 +106,13 @@ const CategoryScreen = () => {
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
     showSuccessSnackbar(`Kategori "${newCategory.name}" er lagt til`);
-    queryClient.invalidateQueries("categories");
+    queryClient.invalidateQueries(["categories"]);
     refetch();
   };
 
   const deleteSuccessHandler = (deletedCategory) => {
     showSuccessSnackbar(`Kategori "${deletedCategory.name}" slettet`);
-    queryClient.invalidateQueries("categories");
+    queryClient.invalidateQueries(["categories"]);
     refetch();
   };
 
@@ -124,7 +122,7 @@ const CategoryScreen = () => {
 
   const editSuccessHandler = (updatedCategory) => {
     showSuccessSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
-    queryClient.invalidateQueries("categories");
+    queryClient.invalidateQueries(["categories"]);
     refetch();
   };
 
@@ -135,7 +133,6 @@ const CategoryScreen = () => {
   // Cleanup when dialogs close: reset selected category and clear cache
   const handleDialogClose = (closeDialogFn) => {
     closeDialogFn(false);
-    queryClient.removeQueries("categories");
     setSelectedCategory(INITIAL_SELECTED_CATEGORY);
   };
 
@@ -235,25 +232,35 @@ const CategoryScreen = () => {
         )}
       </Suspense>
 
-      <Snackbar
+       {/* MUI v6 Snackbar */}
+       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        slotProps={{
+          root: {
+            'data-testid': 'snackbar',
+            component: 'div',
+          }
+        }}
       >
-        <SnackbarContent
-          sx={{
-            backgroundColor:
-              snackbarSeverity === "success" ? theme.palette.success.main : theme.palette.error.main,
-            color: theme.palette.success.contrastText,
-          }}
-          message={snackbarMessage}
+        <Alert
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon />
             </IconButton>
           }
-        />
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </TableLayout>
   );

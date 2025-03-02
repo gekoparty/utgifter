@@ -6,9 +6,9 @@ const useFetchData = (
   transformData = (data) => data,
   options = {}
 ) => {
-  const queryResult = useQuery(
-    [queryKey],
-    async ({ signal }) => {
+  const queryResult = useQuery({
+    queryKey: Array.isArray(queryKey) ? queryKey : [queryKey], // Ensure array format
+    queryFn: async ({ signal }) => {
       const response = await fetch(url, { signal });
       if (!response.ok) {
         throw new Error(`Failed to fetch data from ${url}`);
@@ -16,11 +16,9 @@ const useFetchData = (
       const data = await response.json();
       return transformData(data);
     },
-    {
-      enabled: options.enabled !== false, // Disable auto-fetching if `enabled` is false
-      ...options,
-    }
-  );
+    enabled: options.enabled !== false,
+    ...options
+  });
 
   return {
     data: queryResult.data,

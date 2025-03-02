@@ -1,11 +1,23 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense, useCallback } from "react";
-import { Box, Button, IconButton, Snackbar, SnackbarContent, Slider } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  lazy,
+  Suspense,
+  useCallback,
+} from "react";
+import {
+  Box,
+  Button,
+  Snackbar,
+  Slider,
+  Alert,
+} from "@mui/material";
+
 import ReactTable from "../components/commons/React-Table/react-table";
 import debounce from "lodash/debounce";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "@mui/material/styles";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 import { usePaginatedData } from "./common/usePaginatedData"; // Adjust the import path as needed
@@ -101,9 +113,10 @@ const ExpenseScreen = () => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
+  const [selectedExpense, setSelectedExpense] = useState(
+    INITIAL_SELECTED_EXPENSE
+  );
   const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
-
 
   // Dialog modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -111,7 +124,6 @@ const ExpenseScreen = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   const theme = useTheme();
-  const queryClient = useQueryClient();
   const {
     snackbarOpen,
     snackbarMessage,
@@ -120,8 +132,6 @@ const ExpenseScreen = () => {
     showErrorSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
-
-
 
   // --------------------------------------------------------------
   // Data Fetching using usePaginatedData Hook
@@ -136,13 +146,23 @@ const ExpenseScreen = () => {
       globalFilter,
       priceRange: priceRangeFilter,
     }),
-    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter, priceRangeFilter]
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+      priceRangeFilter,
+    ]
   );
 
-  const { data: expensesData, isError, isFetching, isLoading, refetch } = usePaginatedData(
-    "/api/expenses",
-    fetchParams
-  );
+  const {
+    data: expensesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData("/api/expenses", fetchParams);
 
   // --------------------------------------------------------------
   // Derived Data: Price Statistics Calculation
@@ -164,8 +184,7 @@ const ExpenseScreen = () => {
     return stats;
   }, [expensesData]);
 
-
-    // --------------------------------------------------------------
+  // --------------------------------------------------------------
   // Memoized Handlers for Editing and Deleting Expenses
   // --------------------------------------------------------------
   const handleEditExpense = useCallback((expense) => {
@@ -184,9 +203,6 @@ const ExpenseScreen = () => {
     ),
     []
   );
-
-
-
 
   // --------------------------------------------------------------
   // Table Configuration & Render Helpers
@@ -289,11 +305,13 @@ const ExpenseScreen = () => {
     }
 
     showSuccessSnackbar(`Utgift for "${productName}" ble registrert!`);
-    refetch()
+    refetch();
   };
 
   const deleteFailureHandler = (failedExpense) => {
-    showErrorSnackbar(`Kunne ikke slette utgiften for ${failedExpense.productName}`);
+    showErrorSnackbar(
+      `Kunne ikke slette utgiften for ${failedExpense.productName}`
+    );
   };
 
   const deleteSuccessHandler = (deletedExpense) => {
@@ -302,7 +320,7 @@ const ExpenseScreen = () => {
         ? deletedExpense.productName.name
         : deletedExpense.productName || "Ukjent produkt";
     showSuccessSnackbar(`Utgiften for "${productName}" ble slettet!`);
-    refetch()
+    refetch();
   };
 
   const editFailureHandler = () => {
@@ -314,15 +332,15 @@ const ExpenseScreen = () => {
       updatedExpense.data && Array.isArray(updatedExpense.data)
         ? updatedExpense.data[0]
         : updatedExpense;
-  
+
     const productName =
       typeof expenseData.productName === "object"
         ? expenseData.productName.name
         : expenseData.productName || "Ukjent produkt";
-  
+
     showSuccessSnackbar(`Utgiften for "${productName}" ble oppdatert!`);
-    
-    refetch()
+
+    refetch();
   };
 
   // --------------------------------------------------------------
@@ -397,7 +415,7 @@ const ExpenseScreen = () => {
             setSelectedExpense={setSelectedExpense}
             totalRowCount={expensesData.meta?.totalRowCount}
             rowCount={expensesData.meta?.totalRowCount || 0}
-            handleEdit={handleEditExpense}     
+            handleEdit={handleEditExpense}
             handleDelete={handleDeleteExpense}
             editModalOpen={editModalOpen}
             setDeleteModalOpen={setDeleteModalOpen}
@@ -414,7 +432,7 @@ const ExpenseScreen = () => {
       </Box>
 
       <Suspense fallback={<div>Laster inn dialog...</div>}>
-      {selectedExpense._id && editModalOpen && (
+        {selectedExpense._id && editModalOpen && (
           <EditExpenseDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
@@ -454,30 +472,21 @@ const ExpenseScreen = () => {
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        data-testid="snackbar"
-      >
-        <SnackbarContent
-          sx={{
-            backgroundColor:
-              snackbarSeverity === "success"
-                ? theme.palette.success.main
-                : snackbarSeverity === "error"
-                ? theme.palette.error.main
-                : theme.palette.info.main,
-            color: theme.palette.success.contrastText,
-          }}
-          message={snackbarMessage}
-          action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-              data-testid="snackbar-close-icon"
-            >
-              <CloseIcon />
-            </IconButton>
+        // Add these 2 props to filter internal MUI props:
+        slotProps={{
+          root: {
+            'data-testid': 'snackbar',
+            component: 'div',
           }
-        />
+        }}
+      >
+        <Alert
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </TableLayout>
   );

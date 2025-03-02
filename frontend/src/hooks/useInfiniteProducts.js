@@ -1,5 +1,4 @@
 // hooks/useInfiniteProducts.js
-// hooks/useInfiniteProducts.js
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 const fetchProducts = async ({ pageParam = 0, queryKey }) => {
@@ -13,18 +12,19 @@ const fetchProducts = async ({ pageParam = 0, queryKey }) => {
   return response.json();
 };
 
-// In your useInfiniteProducts hook, adjust cacheTime and staleTime:
 const useInfiniteProducts = (globalFilter) => {
-  return useInfiniteQuery(
-    ['products', globalFilter],
-    fetchProducts,
-    {
-      getNextPageParam: (lastPage, pages) => { /* ... */ },
-      staleTime: 5 * 60 * 1000,  // Data is fresh for 5 minutes
-      cacheTime: 10 * 60 * 1000, // Cache data for 10 minutes
-      keepPreviousData: true
-    }
-  );
+  return useInfiniteQuery({
+    queryKey: ['products', globalFilter],
+    queryFn: fetchProducts,
+    getNextPageParam: (lastPage, pages) => {
+      const totalItems = lastPage.meta?.totalRowCount || 0;
+      const loadedItems = pages.flatMap(page => page.products).length;
+      return loadedItems < totalItems ? loadedItems : undefined;
+    },
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    keepPreviousData: true
+  });
 };
 
 export default useInfiniteProducts;
