@@ -9,27 +9,25 @@ const TableLayout = ({ children }) => {
         minWidth: 600,
         marginLeft: `${drawerWidth}px`,
         display: "flex",
-        flexDirection: "column", // Stack children vertically
+        flexDirection: "column",
         justifyContent: "center",
-        alignItems: "stretch", // Make sure everything stretches
+        alignItems: "stretch",
         backgroundColor: "#2C2C2C",
         padding: 2,
         borderRadius: 2,
-        height: "100vh", // Force it to take full viewport height
+        height: "100vh",
       }}
-      data-testid="table-layout"
     >
       <Box
         sx={{
           minWidth: 600,
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1, // Let it expand fully
+          flexGrow: 1,
           backgroundColor: "#333",
           borderRadius: 1,
           width: "100%",
         }}
-        data-testid="table-layout-container"
       >
         {children}
       </Box>
@@ -38,6 +36,4 @@ const TableLayout = ({ children }) => {
 };
 
 export default TableLayout;
-
-
   

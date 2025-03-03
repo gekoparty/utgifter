@@ -1,11 +1,5 @@
 import React, { useState, useMemo, lazy, Suspense } from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  Alert,
-} from "@mui/material";
+import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -117,8 +111,6 @@ const LocationScreen = () => {
     ],
     []
   );
-
-
 
   // Cleanup function for closing dialogs and clearing cached queries
   const handleDialogClose = (closeDialogFn) => {
@@ -265,27 +257,37 @@ const LocationScreen = () => {
         onClose={handleSnackbarClose}
         slotProps={{
           root: {
-            'data-testid': 'snackbar',
-            component: 'div',
-          }
+            "data-testid": "snackbar",
+          },
         }}
       >
-        <Alert
-          severity={snackbarSeverity}
+        <Snackbar
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          open={snackbarOpen}
+          autoHideDuration={3000}
           onClose={handleSnackbarClose}
-          action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
-              <CloseIcon />
-            </IconButton>
-          }
-          sx={{ width: "100%" }}
         >
-          {snackbarMessage}
-        </Alert>
+          <Alert
+            severity={snackbarSeverity}
+            onClose={handleSnackbarClose}
+            variant="filled" // Add variant for better visual consistency
+            action={
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={handleSnackbarClose}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            }
+            sx={{
+              width: "100%",
+              "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+            }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Snackbar>
     </TableLayout>
   );
