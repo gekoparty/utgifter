@@ -270,17 +270,25 @@ const ProductScreen = () => {
         }}
       >
         <Alert
-          severity={snackbarSeverity}
-          onClose={handleSnackbarClose}
-          action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
-              <CloseIcon />
-            </IconButton>
-          }
-          sx={{ width: "100%" }}
-        >
-          {snackbarMessage}
-        </Alert>
+            severity={snackbarSeverity}
+            onClose={handleSnackbarClose}
+            variant="filled" // Add variant for better visual consistency
+            action={
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={handleSnackbarClose}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            }
+            sx={{
+              width: "100%",
+              "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+            }}
+          >
+            {snackbarMessage}
+          </Alert>
       </Snackbar>
     </TableLayout>
   );

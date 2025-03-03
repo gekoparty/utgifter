@@ -47,7 +47,9 @@ const CategoryScreen = () => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedCategory, setSelectedCategory] = useState(INITIAL_SELECTED_CATEGORY);
+  const [selectedCategory, setSelectedCategory] = useState(
+    INITIAL_SELECTED_CATEGORY
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -64,7 +66,10 @@ const CategoryScreen = () => {
   } = useSnackBar();
 
   // Memoize selected category to prevent unnecessary renders
-  const memoizedSelectedCategory = useMemo(() => selectedCategory, [selectedCategory]);
+  const memoizedSelectedCategory = useMemo(
+    () => selectedCategory,
+    [selectedCategory]
+  );
 
   // Build fetch parameters for the usePaginatedData hook
   const fetchParams = useMemo(
@@ -75,7 +80,13 @@ const CategoryScreen = () => {
       filters: columnFilters,
       globalFilter,
     }),
-    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+    ]
   );
 
   // Use the usePaginatedData hook to fetch category data
@@ -101,7 +112,6 @@ const CategoryScreen = () => {
     ],
     []
   );
-
 
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
@@ -148,7 +158,11 @@ const CategoryScreen = () => {
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-          <Button variant="contained" color="primary" onClick={() => setAddCategoryDialogOpen(true)}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddCategoryDialogOpen(true)}
+          >
             Ny Kategori
           </Button>
         </Box>
@@ -211,7 +225,9 @@ const CategoryScreen = () => {
           open={deleteModalOpen}
           onClose={() => handleDialogClose(setDeleteModalOpen)}
           dialogTitle="Bekreft sletting"
-          cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>}
+          cancelButton={
+            <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
+          }
           selectedCategory={memoizedSelectedCategory}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
@@ -224,7 +240,9 @@ const CategoryScreen = () => {
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
             dialogTitle="Rediger Kategori"
-            cancelButton={<Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>}
+            cancelButton={
+              <Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>
+            }
             selectedCategory={memoizedSelectedCategory}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={editFailureHandler}
@@ -232,32 +250,36 @@ const CategoryScreen = () => {
         )}
       </Suspense>
 
-       {/* MUI v6 Snackbar */}
-       <Snackbar
+      {/* MUI v6 Snackbar */}
+      <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
         slotProps={{
           root: {
-            'data-testid': 'snackbar',
-            component: 'div',
-          }
+            "data-testid": "snackbar",
+            component: "div",
+          },
         }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
+          variant="filled" // Add variant for better visual consistency
           action={
             <IconButton
               size="small"
               color="inherit"
               onClick={handleSnackbarClose}
             >
-              <CloseIcon />
+              <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{ width: "100%" }}
+          sx={{
+            width: "100%",
+            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+          }}
         >
           {snackbarMessage}
         </Alert>

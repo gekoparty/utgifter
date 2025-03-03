@@ -1,11 +1,5 @@
 import React, { useState, useMemo, lazy, Suspense } from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  Alert,
-} from "@mui/material";
+import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -47,7 +41,6 @@ const brandUrlBuilder = (
   return fetchURL;
 };
 
-
 const BrandScreen = () => {
   // State management
   const [columnFilters, setColumnFilters] = useState([]);
@@ -71,8 +64,7 @@ const BrandScreen = () => {
 
   const memoizedSelectedBrand = useMemo(() => selectedBrand, [selectedBrand]);
 
-
-   // Build parameters for usePaginatedData hook
+  // Build parameters for usePaginatedData hook
   const fetchParams = useMemo(
     () => ({
       pageIndex: pagination.pageIndex,
@@ -91,13 +83,13 @@ const BrandScreen = () => {
   );
 
   // Use the usePaginatedData hook to fetch locations data
-   const {
-     data: brandsData,
-     isError,
-     isFetching,
-     isLoading,
-     refetch,
-   } = usePaginatedData("/api/brands", fetchParams, brandUrlBuilder);
+  const {
+    data: brandsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData("/api/brands", fetchParams, brandUrlBuilder);
 
   // Table columns
   const tableColumns = useMemo(
@@ -114,14 +106,13 @@ const BrandScreen = () => {
     []
   );
 
+  // Cleanup function for closing dialogs and clearing cached queries
+  const handleDialogClose = (closeDialogFn) => {
+    closeDialogFn(false);
+    setSelectedBrand(INITIAL_SELECTED_BRAND);
+  };
 
- // Cleanup function for closing dialogs and clearing cached queries
- const handleDialogClose = (closeDialogFn) => {
-  closeDialogFn(false);
-  setSelectedBrand(INITIAL_SELECTED_BRAND);
-};
-
- // Handlers for brand actions
+  // Handlers for brand actions
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Merke "${newBrand.name}" lagt til`);
     queryClient.invalidateQueries(["brands"]);
@@ -147,8 +138,6 @@ const BrandScreen = () => {
     queryClient.invalidateQueries(["brands"]);
     refetch();
   };
-
-  
 
   return (
     <TableLayout>
@@ -241,24 +230,28 @@ const BrandScreen = () => {
         onClose={handleSnackbarClose}
         slotProps={{
           root: {
-            'data-testid': 'snackbar',
-            component: 'div',
-          }
+            "data-testid": "snackbar",
+            component: "div",
+          },
         }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
+          variant="filled" // Add variant for better visual consistency
           action={
             <IconButton
               size="small"
               color="inherit"
               onClick={handleSnackbarClose}
             >
-              <CloseIcon />
+              <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{ width: "100%" }}
+          sx={{
+            width: "100%",
+            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+          }}
         >
           {snackbarMessage}
         </Alert>

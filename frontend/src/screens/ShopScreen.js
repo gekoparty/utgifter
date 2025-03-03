@@ -1,11 +1,5 @@
 import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  Alert,
-} from "@mui/material";
+import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -63,19 +57,25 @@ const ShopScreen = () => {
 
   // Custom URL builder for shops. It sends "columnFilters" and
   // modifies filters for "location" or "category" as needed.
-  const shopUrlBuilder = (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
+  const shopUrlBuilder = (
+    endpoint,
+    { pageIndex, pageSize, sorting, filters, globalFilter }
+  ) => {
     const fetchURL = new URL(endpoint, API_URL);
     fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
     fetchURL.searchParams.set("size", `${pageSize}`);
     fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
     // Modify filters for location/category if needed.
-    const modifiedFilters = filters.map(filter => {
+    const modifiedFilters = filters.map((filter) => {
       if (filter.id === "location" || filter.id === "category") {
         return { id: filter.id, value: "" };
       }
       return filter;
     });
-    fetchURL.searchParams.set("columnFilters", JSON.stringify(modifiedFilters ?? []));
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(modifiedFilters ?? [])
+    );
     fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
     return fetchURL;
   };
@@ -86,10 +86,16 @@ const ShopScreen = () => {
     const shopsWithAssociatedData = await Promise.all(
       json.shops.map(async (shop) => {
         // Fetch location details.
-        const locationResponse = await fetch(`/api/locations/${shop.location}`, { signal });
+        const locationResponse = await fetch(
+          `/api/locations/${shop.location}`,
+          { signal }
+        );
         const locationData = await locationResponse.json();
         // Fetch category details.
-        const categoryResponse = await fetch(`/api/categories/${shop.category}`, { signal });
+        const categoryResponse = await fetch(
+          `/api/categories/${shop.category}`,
+          { signal }
+        );
         const categoryData = await categoryResponse.json();
 
         return {
@@ -118,17 +124,28 @@ const ShopScreen = () => {
       filters: columnFilters,
       globalFilter,
     }),
-    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+    ]
   );
 
   // Use the generic hook to fetch shop data.
-  const { data: shopsData, isError, isFetching, isLoading, refetch } = usePaginatedData(
+  const {
+    data: shopsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData(
     "/api/shops",
     fetchParams,
     shopUrlBuilder,
     transformShopsData
   );
-
 
   // Table columns configuration.
   const tableColumns = useMemo(
@@ -274,7 +291,9 @@ const ShopScreen = () => {
           open={deleteModalOpen}
           onClose={() => setDeleteModalOpen(false)}
           dialogTitle="Confirm Deletion"
-          cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>}
+          cancelButton={
+            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+          }
           selectedShop={selectedShop}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
@@ -285,7 +304,9 @@ const ShopScreen = () => {
           <EditShopDialog
             open={editModalOpen}
             onClose={() => setEditModalOpen(false)}
-            cancelButton={<Button onClick={() => setEditModalOpen(false)}>Cancel</Button>}
+            cancelButton={
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            }
             dialogTitle="Edit Shop"
             selectedShop={selectedShop}
             onUpdateSuccess={editSuccessHandler}
@@ -295,30 +316,38 @@ const ShopScreen = () => {
       </Suspense>
 
       <Snackbar
-  anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-  open={snackbarOpen}
-  autoHideDuration={3000}
-  onClose={handleSnackbarClose}
-  slotProps={{
-    root: {
-      'data-testid': 'snackbar',
-      component: 'div',
-    }
-  }}
->
-  <Alert
-    severity={snackbarSeverity}
-    onClose={handleSnackbarClose}
-    sx={{ width: "100%" }}
-    action={
-      <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
-        <CloseIcon />
-      </IconButton>
-    }
-  >
-    {snackbarMessage}
-  </Alert>
-</Snackbar>
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        slotProps={{
+          root: {
+            "data-testid": "snackbar",
+            component: "div",
+          },
+        }}
+      >
+        <Alert
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
+          variant="filled" // Add variant for better visual consistency
+          action={
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+          sx={{
+            width: "100%",
+            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+          }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </TableLayout>
   );
 };

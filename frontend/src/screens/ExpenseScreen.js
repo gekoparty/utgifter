@@ -6,13 +6,7 @@ import React, {
   Suspense,
   useCallback,
 } from "react";
-import {
-  Box,
-  Button,
-  Snackbar,
-  Slider,
-  Alert,
-} from "@mui/material";
+import { Box, Button, Snackbar, Slider, Alert } from "@mui/material";
 
 import ReactTable from "../components/commons/React-Table/react-table";
 import debounce from "lodash/debounce";
@@ -475,9 +469,9 @@ const ExpenseScreen = () => {
         // Add these 2 props to filter internal MUI props:
         slotProps={{
           root: {
-            'data-testid': 'snackbar',
-            component: 'div',
-          }
+            "data-testid": "snackbar",
+            component: "div",
+          },
         }}
       >
         <Alert
