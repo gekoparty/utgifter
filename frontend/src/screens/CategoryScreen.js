@@ -116,14 +116,14 @@ const CategoryScreen = () => {
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
     showSuccessSnackbar(`Kategori "${newCategory.name}" er lagt til`);
-    queryClient.invalidateQueries(["categories"]);
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    //refetch();
   };
 
   const deleteSuccessHandler = (deletedCategory) => {
     showSuccessSnackbar(`Kategori "${deletedCategory.name}" slettet`);
-    queryClient.invalidateQueries(["categories"]);
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    //refetch();
   };
 
   const deleteFailureHandler = (failedCategory) => {
@@ -132,8 +132,8 @@ const CategoryScreen = () => {
 
   const editSuccessHandler = (updatedCategory) => {
     showSuccessSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
-    queryClient.invalidateQueries(["categories"]);
-    refetch();
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    //refetch();
   };
 
   const editFailureHandler = () => {

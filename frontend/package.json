@@ -28,7 +28,8 @@
     "react-select": "^5.10.0",
     "react-windowed-select": "^5.2.0",
     "styled-components": "^6.1.15",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "yup": "^1.6.1"
   },
   "scripts": {
     "start": "react-scripts start",
