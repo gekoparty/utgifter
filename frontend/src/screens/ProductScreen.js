@@ -1,15 +1,10 @@
 import React, { useState, useMemo, lazy, Suspense } from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  Alert,
-} from "@mui/material";
+import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
+import { useDeepCompareMemo } from "use-deep-compare";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "./common/usePaginatedData";
 
@@ -34,7 +29,10 @@ const API_URL =
     : "http://localhost:3000";
 
 // Custom URL builder for products
-const productUrlBuilder = (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
+const productUrlBuilder = (
+  endpoint,
+  { pageIndex, pageSize, sorting, filters, globalFilter }
+) => {
   const fetchURL = new URL(endpoint, API_URL);
   fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
   fetchURL.searchParams.set("size", `${pageSize}`);
@@ -50,7 +48,9 @@ const ProductScreen = () => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
+  const [selectedProduct, setSelectedProduct] = useState(
+    INITIAL_SELECTED_PRODUCT
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -65,11 +65,17 @@ const ProductScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  // Proper query key structure for v4
+  const baseQueryKey = useMemo(() => ["products", "paginated"], []);
+
   // Memoized selected product (to prevent unnecessary renders)
-  const memoizedSelectedProduct = useMemo(() => selectedProduct, [selectedProduct]);
+  const memoizedSelectedProduct = useMemo(
+    () => selectedProduct,
+    [selectedProduct]
+  );
 
   // Build parameters for the hook
-  const fetchParams = useMemo(
+  const fetchParams = useDeepCompareMemo(
     () => ({
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
@@ -77,15 +83,25 @@ const ProductScreen = () => {
       filters: columnFilters,
       globalFilter,
     }),
-    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+    [pagination, sorting, columnFilters, globalFilter] // Deep comparison
   );
 
-  // Use the usePaginatedData hook to fetch product data
-  const { data: productsData, isError, isFetching, isLoading, refetch } = usePaginatedData(
-    "/api/products",
-    fetchParams,
-    productUrlBuilder
-  );
+  const {
+    data: productsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
+    endpoint: "/api/products",
+    params: fetchParams,
+    urlBuilder: productUrlBuilder,
+    baseQueryKey, // Pass the stable base query key
+  });
+
+  // SAFETY: Ensure data is always an array
+  const tableData = useMemo(() => productsData?.products || [], [productsData]);
+  const metaData = useMemo(() => productsData?.meta || {}, [productsData]);
 
   // Table columns configuration
   const tableColumns = useMemo(
@@ -123,7 +139,9 @@ const ProductScreen = () => {
         maxSize: 300,
         cell: ({ cell }) => {
           const measures = cell.getValue();
-          return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
+          return Array.isArray(measures)
+            ? measures.join(" ")
+            : measures || "N/A";
         },
       },
     ],
@@ -133,20 +151,26 @@ const ProductScreen = () => {
   // Handlers for product actions
   const addProductHandler = (newProduct) => {
     showSuccessSnackbar(`Produkt ${newProduct.name} er lagt til`);
-    queryClient.invalidateQueries(["products"]);
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const deleteSuccessHandler = (deletedProduct) => {
     showSuccessSnackbar(`Produkt ${deletedProduct} slettet`);
-    queryClient.invalidateQueries(["products"]);
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const editSuccessHandler = (updatedProduct) => {
     showSuccessSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
-    queryClient.invalidateQueries(["products"]);
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   // Cleanup when dialogs close: reset selected product and remove cache entries
@@ -186,9 +210,10 @@ const ProductScreen = () => {
             minWidth: 600,
           }}
         >
-          {productsData && (
+          {tableData && (
             <ReactTable
-              data={productsData?.products}
+              getRowId={(row) => row._id}
+              data={tableData} 
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -202,7 +227,7 @@ const ProductScreen = () => {
               globalFilter={globalFilter}
               pagination={pagination}
               sorting={sorting}
-              meta={productsData.meta}
+              meta={metaData}
               setSelectedProduct={setSelectedProduct}
               handleEdit={(product) => {
                 setSelectedProduct(product);
@@ -223,11 +248,17 @@ const ProductScreen = () => {
         <DeleteProductDialog
           open={deleteModalOpen}
           dialogTitle="Bekreft Sletting"
-          onClose={() => handleDialogClose(setDeleteProductDialogOpen => setDeleteModalOpen(false))}
+          onClose={() =>
+            handleDialogClose((setDeleteProductDialogOpen) =>
+              setDeleteModalOpen(false)
+            )
+          }
           selectedProduct={selectedProduct}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={() =>
-            showErrorSnackbar(`Kunne ikke slette produktet ${selectedProduct.name}`)
+            showErrorSnackbar(
+              `Kunne ikke slette produktet ${selectedProduct.name}`
+            )
           }
         />
       </Suspense>
@@ -264,31 +295,31 @@ const ProductScreen = () => {
         onClose={handleSnackbarClose}
         slotProps={{
           root: {
-            'data-testid': 'snackbar',
-            component: 'div',
-          }
+            "data-testid": "snackbar",
+            component: "div",
+          },
         }}
       >
         <Alert
-            severity={snackbarSeverity}
-            onClose={handleSnackbarClose}
-            variant="filled" // Add variant for better visual consistency
-            action={
-              <IconButton
-                size="small"
-                color="inherit"
-                onClick={handleSnackbarClose}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            }
-            sx={{
-              width: "100%",
-              "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
-            }}
-          >
-            {snackbarMessage}
-          </Alert>
+          severity={snackbarSeverity}
+          onClose={handleSnackbarClose}
+          variant="filled" // Add variant for better visual consistency
+          action={
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+          sx={{
+            width: "100%",
+            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+          }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
     </TableLayout>
   );

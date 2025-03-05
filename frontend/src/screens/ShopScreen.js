@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
@@ -53,6 +53,8 @@ const ShopScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  const baseQueryKey = useMemo(() => ["shops", "paginated"], []);
+
   const memoizedSelectedShop = useMemo(() => selectedShop, [selectedShop]);
 
   // Custom URL builder for shops. It sends "columnFilters" and
@@ -80,42 +82,57 @@ const ShopScreen = () => {
     return fetchURL;
   };
 
-  // Transform function to fetch associated location and category data for each shop.
-  const transformShopsData = async (json, signal) => {
-    const { meta } = json;
-    const shopsWithAssociatedData = await Promise.all(
-      json.shops.map(async (shop) => {
-        // Fetch location details.
-        const locationResponse = await fetch(
-          `/api/locations/${shop.location}`,
-          { signal }
-        );
-        const locationData = await locationResponse.json();
-        // Fetch category details.
-        const categoryResponse = await fetch(
-          `/api/categories/${shop.category}`,
-          { signal }
-        );
-        const categoryData = await categoryResponse.json();
+   // CORRECTED: Transform function with proper error handling
+   const transformShopsData = async (json, signal) => {
+    try {
+      const { meta } = json;
+      const shopsWithAssociatedData = await Promise.all(
+        json.shops.map(async (shop) => {
+          try {
+            const [locationResponse, categoryResponse] = await Promise.all([
+              fetch(`/api/locations/${shop.location}`, { signal }),
+              fetch(`/api/categories/${shop.category}`, { signal }),
+            ]);
 
-        return {
-          ...shop,
-          location: locationData,
-          category: categoryData,
-        };
-      })
-    );
-    const transformedData = shopsWithAssociatedData.map((shop) => ({
-      _id: shop._id,
-      name: shop.name,
-      location: shop.location ? shop.location.name : "N/A",
-      category: shop.category ? shop.category.name : "N/A",
-    }));
-    return { shops: transformedData, meta };
+            const locationData = locationResponse.ok 
+              ? await locationResponse.json()
+              : { name: "N/A" };
+            
+            const categoryData = categoryResponse.ok 
+              ? await categoryResponse.json()
+              : { name: "N/A" };
+
+            return {
+              ...shop,
+              location: locationData,
+              category: categoryData,
+            };
+          } catch (error) {
+            console.error("Error fetching associated data:", error);
+            return {
+              ...shop,
+              location: { name: "N/A" },
+              category: { name: "N/A" },
+            };
+          }
+        })
+      );
+      
+      return {
+        shops: shopsWithAssociatedData.map((shop) => ({
+          _id: shop._id,
+          name: shop.name,
+          location: shop.location?.name || "N/A",
+          category: shop.category?.name || "N/A",
+        })),
+        meta
+      };
+    } catch (error) {
+      console.error("Error transforming shops data:", error);
+      return { shops: [], meta: {} };
+    }
   };
 
-  // Build parameters for the usePaginatedData hook.
-  // Note: we pass our columnFilters as "filters" for the hook.
   const fetchParams = useMemo(
     () => ({
       pageIndex: pagination.pageIndex,
@@ -124,13 +141,7 @@ const ShopScreen = () => {
       filters: columnFilters,
       globalFilter,
     }),
-    [
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter,
-    ]
+    [pagination, sorting, columnFilters, globalFilter]
   );
 
   // Use the generic hook to fetch shop data.
@@ -140,12 +151,16 @@ const ShopScreen = () => {
     isFetching,
     isLoading,
     refetch,
-  } = usePaginatedData(
-    "/api/shops",
-    fetchParams,
-    shopUrlBuilder,
-    transformShopsData
-  );
+  } = usePaginatedData({
+    endpoint: "/api/shops",
+    params: fetchParams,
+    urlBuilder: shopUrlBuilder,
+    baseQueryKey,
+    transformFn: transformShopsData 
+  });
+
+  const tableData = useMemo(() => shopsData?.shops || [], [shopsData]);
+  const metaData = useMemo(() => shopsData?.meta || {}, [shopsData]);
 
   // Table columns configuration.
   const tableColumns = useMemo(
@@ -181,8 +196,10 @@ const ShopScreen = () => {
   // Handlers for shop actions.
   const addShopHandler = (newShop) => {
     showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`);
-    queryClient.invalidateQueries(["shops"]); // Array format
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const deleteFailureHandler = (failedShop) => {
@@ -191,8 +208,10 @@ const ShopScreen = () => {
 
   const deleteSuccessHandler = (deletedShop) => {
     showSuccessSnackbar(`Shop ${deletedShop.name} deleted successfully`);
-    queryClient.invalidateQueries(["shops"]); // Array format
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const editFailureHandler = () => {
@@ -201,17 +220,13 @@ const ShopScreen = () => {
 
   const editSuccessHandler = (updatedShop) => {
     showSuccessSnackbar(`Shop ${updatedShop.name} updated successfully`);
-    queryClient.invalidateQueries(["shops"]); // Array format
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
-  // Cleanup caches when dialogs are closed.
-  useEffect(() => {
-    if (!addShopDialogOpen && !editModalOpen && !deleteModalOpen) {
-      queryClient.removeQueries(["locations"]); // Array format for query keys
-      queryClient.removeQueries(["categories"]);
-    }
-  }, [addShopDialogOpen, editModalOpen, deleteModalOpen, queryClient]);
+
 
   return (
     <TableLayout>
@@ -243,9 +258,9 @@ const ShopScreen = () => {
             minWidth: 600,
           }}
         >
-          {shopsData && (
+          {tableData && (
             <ReactTable
-              data={shopsData.shops}
+              data={tableData}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -259,10 +274,8 @@ const ShopScreen = () => {
               globalFilter={globalFilter}
               pagination={pagination}
               sorting={sorting}
-              meta={shopsData.meta}
+              meta={metaData}
               setSelectedShop={setSelectedShop}
-              totalRowCount={shopsData.meta?.totalRowCount}
-              rowCount={shopsData.meta?.totalRowCount ?? 0}
               handleEdit={(shop) => {
                 setSelectedShop(shop);
                 setEditModalOpen(true);

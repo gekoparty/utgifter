@@ -62,6 +62,7 @@ const BrandScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  const baseQueryKey = useMemo(() => ["brands", "paginated"], []);
   const memoizedSelectedBrand = useMemo(() => selectedBrand, [selectedBrand]);
 
   // Build parameters for usePaginatedData hook
@@ -89,7 +90,15 @@ const BrandScreen = () => {
     isFetching,
     isLoading,
     refetch,
-  } = usePaginatedData("/api/brands", fetchParams, brandUrlBuilder);
+  } = usePaginatedData({
+    endpoint: "/api/brands",
+    params: fetchParams,
+    urlBuilder: brandUrlBuilder,
+    baseQueryKey, // Pass the stable base query key
+  });
+
+  const tableData = useMemo(() => brandsData?.brands || [], [brandsData]);
+  const metaData = useMemo(() => brandsData?.meta || {}, [brandsData]);
 
   // Table columns
   const tableColumns = useMemo(
@@ -115,8 +124,10 @@ const BrandScreen = () => {
   // Handlers for brand actions
   const addBrandHandler = (newBrand) => {
     showSuccessSnackbar(`Merke "${newBrand.name}" lagt til`);
-    queryClient.invalidateQueries(["brands"]);
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const deleteFailureHandler = (failedBrand) => {
@@ -125,8 +136,10 @@ const BrandScreen = () => {
 
   const deleteSuccessHandler = (deletedBrand) => {
     showSuccessSnackbar(`Merke "${deletedBrand.name}" slettet`);
-    queryClient.invalidateQueries(["brands"]);
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const editFailureHandler = () => {
@@ -135,8 +148,10 @@ const BrandScreen = () => {
 
   const editSuccessHandler = (updatedBrand) => {
     showSuccessSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
-    queryClient.invalidateQueries(["brands"]);
-    refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   return (
@@ -160,9 +175,9 @@ const BrandScreen = () => {
           minWidth: 600,
         }}
       >
-        {brandsData && (
+        {tableData && (
           <ReactTable
-            data={brandsData.brands}
+            data={tableData}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
             setGlobalFilter={setGlobalFilter}
@@ -176,9 +191,8 @@ const BrandScreen = () => {
             globalFilter={globalFilter}
             pagination={pagination}
             sorting={sorting}
-            meta={brandsData.meta}
+            meta={metaData}
             setSelectedBrand={setSelectedBrand}
-            totalRowCount={brandsData.meta?.totalRowCount}
             handleEdit={(brand) => {
               setSelectedBrand(brand);
               setEditModalOpen(true);

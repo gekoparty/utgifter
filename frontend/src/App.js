@@ -1,40 +1,62 @@
+import "./wdyr"; // MUST BE FIRST IMPORT
 import "./App.css";
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import { Outlet, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { StoreProvider } from "./Store/Store";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PermanentDrawerLeft from "./components/NavBar/PermanentDrawerLeft";
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // Import the QueryClient and QueryClientProvider
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // Import the QueryClient and QueryClientProvider
 import "dayjs/locale/nb";
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { Box } from "@mui/material";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { Box, Container } from "@mui/material";
+import React from "react";
+
+// Enable why-did-you-render for the entire app
+if (process.env.NODE_ENV === "development") {
+  const whyDidYouRender = require("@welldone-software/why-did-you-render");
+  whyDidYouRender(React); // This will start tracking all components
+}
+
+// Create a QueryClient instance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnReconnect: false,
+      refetchOnWindowFocus: false,
+      staleTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 15 * 60 * 1000, // 15 minutes
+    },
+  },
+});
 
 function App({ children }) {
-  const [title, setTitle] = useState(null);
   const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false); // Manage drawer state
 
-  useEffect(() => {
-    const parsedTitle = location.pathname.replace(/\W/g, " ");
-    setTitle(parsedTitle);
-  }, [location]);
-
-  // Create a QueryClient instance
-  const queryClient = new QueryClient();
+  const title = React.useMemo(
+    () => location.pathname.replace(/\W/g, " "),
+    [location.pathname]
+  );
 
   return (
     <ErrorBoundary>
-    <StoreProvider>
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
-    <QueryClientProvider client={queryClient}> {/* Wrap with QueryClientProvider */}
-      <PermanentDrawerLeft title={title} />
-      <Box
+      <StoreProvider>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
+          <QueryClientProvider client={queryClient}>
+            {" "}
+            {/* Wrap with QueryClientProvider */}
+            <PermanentDrawerLeft
+              title={title}
+              isDrawerOpen={isDrawerOpen}
+              setIsDrawerOpen={setIsDrawerOpen}
+            />
+            <Box
               sx={{
                 display: "flex",
                 justifyContent: "center",
@@ -46,12 +68,17 @@ function App({ children }) {
                 height: "100vh", // Ensure it takes the full height
               }}
             >
-      <Outlet />
+              <Container maxWidth="lg" sx={{ padding: 3 }}>
+                <Outlet />
+              </Container>
             </Box>
-      <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
-    </LocalizationProvider>
-    </StoreProvider>
+            <ReactQueryDevtools
+              initialIsOpen={false}
+              buttonPosition="top-left"
+            />
+          </QueryClientProvider>
+        </LocalizationProvider>
+      </StoreProvider>
     </ErrorBoundary>
   );
 }
