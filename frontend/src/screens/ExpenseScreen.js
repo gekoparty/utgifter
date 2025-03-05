@@ -6,10 +6,18 @@ import React, {
   Suspense,
   useCallback,
 } from "react";
-import { Box, Button, Snackbar, Slider, Alert } from "@mui/material";
-
+import {
+  Box,
+  Button,
+  Snackbar,
+  Slider,
+  Alert,
+  IconButton,
+} from "@mui/material";
+import { useQueryClient } from "@tanstack/react-query";
 import ReactTable from "../components/commons/React-Table/react-table";
 import debounce from "lodash/debounce";
+import CloseIcon from "@mui/icons-material/Close";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useTheme } from "@mui/material/styles";
@@ -30,14 +38,8 @@ const EditExpenseDialog = lazy(() =>
 // =================================================================
 // Constants
 // =================================================================
-
-const INITIAL_PAGINATION = {
-  pageIndex: 0,
-  pageSize: 10,
-};
-
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "purchaseDate", desc: true }];
-
 const INITIAL_SELECTED_EXPENSE = {
   _id: "",
   productName: "",
@@ -58,6 +60,10 @@ const INITIAL_SELECTED_EXPENSE = {
   measurementUnit: "",
   pricePerUnit: 0,
 };
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://www.material-react-table.com"
+    : "http://localhost:3000";
 
 // =================================================================
 // PriceRangeFilter Component
@@ -117,6 +123,7 @@ const ExpenseScreen = () => {
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
+  const queryClient = useQueryClient();
   const theme = useTheme();
   const {
     snackbarOpen,
@@ -127,10 +134,95 @@ const ExpenseScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  const baseQueryKey = useMemo(() => ["expenses", "paginated"], []);
+  const memoizedSelectedExpense = useMemo(
+    () => selectedExpense,
+    [selectedExpense]
+  );
+
+  const expenseUrlBuilder = (endpoint, params) => {
+    const fetchURL = new URL(endpoint, API_URL);
+    fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
+    fetchURL.searchParams.set("size", `${params.pageSize}`);
+    fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
+    fetchURL.searchParams.set(
+      "columnFilters",
+      JSON.stringify(params.filters ?? [])
+    );
+    fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
+    fetchURL.searchParams.set("minPrice", params.priceRange[0]);
+    fetchURL.searchParams.set("maxPrice", params.priceRange[1]);
+    return fetchURL;
+  };
+
   // --------------------------------------------------------------
   // Data Fetching using usePaginatedData Hook
   // --------------------------------------------------------------
   // Build parameters for the hook – note we map columnFilters to "filters"
+  const transformExpenseData = async (json, signal) => {
+    try {
+      const { meta } = json;
+
+      // If API already returns nested objects, use this version:
+      const transformedExpenses = json.expenses.map((expense) => ({
+        _id: expense._id,
+        productName: expense.product?.name || expense.productName || "N/A",
+        brandName: expense.brand?.name || expense.brandName || "N/A",
+        shopName: expense.shop?.name || expense.shopName || "N/A",
+        locationName: expense.location?.name || expense.locationName || "N/A",
+        price: expense.price,
+        volume: expense.volume,
+        discountValue: expense.discountValue,
+        discountAmount: expense.discountAmount,
+        finalPrice: expense.finalPrice,
+        quantity: expense.quantity,
+        hasDiscount: expense.hasDiscount,
+        purchased: expense.purchased,
+        registeredDate: expense.registeredDate,
+        purchaseDate: expense.purchaseDate,
+        type: expense.type,
+        measurementUnit: expense.measurementUnit,
+        pricePerUnit: expense.pricePerUnit,
+      }));
+
+      /* If you need to fetch related data from separate endpoints, use this version:
+      const expensesWithDetails = await Promise.all(
+        json.expenses.map(async (expense) => {
+          try {
+            const [productRes, shopRes] = await Promise.all([
+              fetch(`/api/products/${expense.product}`, { signal }),
+              fetch(`/api/shops/${expense.shop}`, { signal })
+            ]);
+  
+            return {
+              ...expense,
+              productName: productRes.ok ? (await productRes.json()).name : "N/A",
+              shopName: shopRes.ok ? (await shopRes.json()).name : "N/A",
+            };
+          } catch (error) {
+            console.error("Error fetching details:", error);
+            return {
+              ...expense,
+              productName: "N/A",
+              shopName: "N/A",
+            };
+          }
+        })
+      );*/
+
+      return {
+        expenses: transformedExpenses, // or expensesWithDetails if using API calls
+        meta,
+      };
+    } catch (error) {
+      console.error("Error transforming expense data:", error);
+      return {
+        expenses: [],
+        meta: { totalRowCount: 0 },
+      };
+    }
+  };
+
   const fetchParams = useMemo(
     () => ({
       pageIndex: pagination.pageIndex,
@@ -140,14 +232,7 @@ const ExpenseScreen = () => {
       globalFilter,
       priceRange: priceRangeFilter,
     }),
-    [
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter,
-      priceRangeFilter,
-    ]
+    [pagination, sorting, columnFilters, globalFilter, priceRangeFilter]
   );
 
   const {
@@ -156,8 +241,16 @@ const ExpenseScreen = () => {
     isFetching,
     isLoading,
     refetch,
-  } = usePaginatedData("/api/expenses", fetchParams);
+  } = usePaginatedData({
+    endpoint: "/api/expenses",
+    params: fetchParams,
+    urlBuilder: expenseUrlBuilder,
+    baseQueryKey,
+    transformFn: transformExpenseData,
+  });
 
+  const tableData = useMemo(() => expensesData?.expenses || [], [expensesData]);
+  const metaData = useMemo(() => expensesData?.meta || {}, [expensesData]);
   // --------------------------------------------------------------
   // Derived Data: Price Statistics Calculation
   // --------------------------------------------------------------
@@ -178,23 +271,45 @@ const ExpenseScreen = () => {
     return stats;
   }, [expensesData]);
 
-  // --------------------------------------------------------------
-  // Memoized Handlers for Editing and Deleting Expenses
-  // --------------------------------------------------------------
-  const handleEditExpense = useCallback((expense) => {
-    setSelectedExpense(expense);
-    setEditModalOpen(true);
-  }, []);
+  const handleMutationSuccess = useCallback(
+    (message) => {
+      showSuccessSnackbar(message);
+      queryClient.invalidateQueries({ queryKey: baseQueryKey });
+    },
+    [queryClient, showSuccessSnackbar, baseQueryKey]
+  );
 
-  const handleDeleteExpense = useCallback((expense) => {
-    setSelectedExpense(expense);
-    setDeleteModalOpen(true);
-  }, []);
+  const addExpenseHandler = useCallback(
+    (newExpense) => {
+      const productName =
+        newExpense.productName?.name ||
+        newExpense.productName ||
+        "Ukjent produkt";
+      handleMutationSuccess(`Utgift for "${productName}" ble registrert`);
+    },
+    [handleMutationSuccess]
+  );
+
+  const deleteSuccessHandler = useCallback(
+    (deletedExpense) => {
+      handleMutationSuccess(
+        `Utgift for "${deletedExpense.productName}" slettet`
+      );
+    },
+    [handleMutationSuccess]
+  );
+
+  const editSuccessHandler = useCallback(
+    (updatedExpense) => {
+      handleMutationSuccess(
+        `Utgift for "${updatedExpense.productName}" oppdatert`
+      );
+    },
+    [handleMutationSuccess]
+  );
 
   const renderDetailPanel = useCallback(
-    ({ row }) => (
-      <DetailPanel expense={row.original} data-testid="detail-panel" />
-    ),
+    ({ row }) => <DetailPanel expense={row.original} />,
     []
   );
 
@@ -280,62 +395,6 @@ const ExpenseScreen = () => {
   // --------------------------------------------------------------
   // Expense Action Handlers
   // --------------------------------------------------------------
-  const addExpenseHandler = (savedData) => {
-    const expenseData =
-      savedData.data && Array.isArray(savedData.data)
-        ? savedData.data[0]
-        : savedData;
-
-    const productName =
-      typeof expenseData.productName === "object"
-        ? expenseData.productName.name
-        : expenseData.productName;
-
-    if (!expenseData || !productName) {
-      showErrorSnackbar(
-        "Kunne ikke legge til utgift. Ugyldig respons fra server."
-      );
-      return;
-    }
-
-    showSuccessSnackbar(`Utgift for "${productName}" ble registrert!`);
-    refetch();
-  };
-
-  const deleteFailureHandler = (failedExpense) => {
-    showErrorSnackbar(
-      `Kunne ikke slette utgiften for ${failedExpense.productName}`
-    );
-  };
-
-  const deleteSuccessHandler = (deletedExpense) => {
-    const productName =
-      typeof deletedExpense.productName === "object"
-        ? deletedExpense.productName.name
-        : deletedExpense.productName || "Ukjent produkt";
-    showSuccessSnackbar(`Utgiften for "${productName}" ble slettet!`);
-    refetch();
-  };
-
-  const editFailureHandler = () => {
-    showErrorSnackbar("Kunne ikke lagre endringer");
-  };
-
-  const editSuccessHandler = (updatedExpense) => {
-    const expenseData =
-      updatedExpense.data && Array.isArray(updatedExpense.data)
-        ? updatedExpense.data[0]
-        : updatedExpense;
-
-    const productName =
-      typeof expenseData.productName === "object"
-        ? expenseData.productName.name
-        : expenseData.productName || "Ukjent produkt";
-
-    showSuccessSnackbar(`Utgiften for "${productName}" ble oppdatert!`);
-
-    refetch();
-  };
 
   // --------------------------------------------------------------
   // Event Handlers
@@ -391,7 +450,7 @@ const ExpenseScreen = () => {
               sx: { width: "100%" },
               "data-testid": "mui-top-toolbar",
             }}
-            data={expensesData.expenses}
+            data={tableData}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
             setGlobalFilter={setGlobalFilter}
@@ -405,12 +464,16 @@ const ExpenseScreen = () => {
             globalFilter={globalFilter}
             pagination={pagination}
             sorting={sorting}
-            meta={expensesData.meta}
+            meta={metaData}
             setSelectedExpense={setSelectedExpense}
-            totalRowCount={expensesData.meta?.totalRowCount}
-            rowCount={expensesData.meta?.totalRowCount || 0}
-            handleEdit={handleEditExpense}
-            handleDelete={handleDeleteExpense}
+            handleEdit={(expense) => {
+              setSelectedExpense(expense);
+              setEditModalOpen(true);
+            }}
+            handleDelete={(expense) => {
+              setSelectedExpense(expense);
+              setDeleteModalOpen(true);
+            }}
             editModalOpen={editModalOpen}
             setDeleteModalOpen={setDeleteModalOpen}
             initialState={{
@@ -425,40 +488,35 @@ const ExpenseScreen = () => {
         )}
       </Box>
 
-      <Suspense fallback={<div>Laster inn dialog...</div>}>
-        {selectedExpense._id && editModalOpen && (
+      <Suspense fallback={<div>Laster...</div>}>
+        {memoizedSelectedExpense._id && (
           <EditExpenseDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
             selectedExpense={selectedExpense}
             onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={editFailureHandler}
-            data-testid="edit-expense-dialog"
+            onUpdateFailure={() => showErrorSnackbar("Oppdatering mislyktes")}
           />
         )}
       </Suspense>
 
-      <Suspense fallback={<div>Laster inn dialog...</div>}>
+      <Suspense fallback={<div>Laster...</div>}>
         <DeleteExpenseDialog
           open={deleteModalOpen}
           onClose={() => handleDialogClose(setDeleteModalOpen)}
-          dialogTitle="Bekreft sletting av utgift"
           selectedExpense={selectedExpense}
           onDeleteSuccess={deleteSuccessHandler}
-          onDeleteFailure={deleteFailureHandler}
-          data-testid="delete-expense-dialog"
+          dialogTitle="Bekreft sletting av utgift" // Add this line
+          onDeleteFailure={() => showErrorSnackbar("Sletting mislyktes")}
         />
       </Suspense>
 
-      <Suspense fallback={<div>Laster inn dialog...</div>}>
-        {addExpenseDialogOpen && (
-          <AddExpenseDialog
-            open={addExpenseDialogOpen}
-            onClose={() => handleDialogClose(setAddExpenseDialogOpen)}
-            onAdd={addExpenseHandler}
-            data-testid="add-expense-dialog"
-          />
-        )}
+      <Suspense fallback={<div>Laster...</div>}>
+        <AddExpenseDialog
+          open={addExpenseDialogOpen}
+          onClose={() => handleDialogClose(setAddExpenseDialogOpen)}
+          onAdd={addExpenseHandler}
+        />
       </Suspense>
 
       <Snackbar
@@ -466,18 +524,20 @@ const ExpenseScreen = () => {
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        // Add these 2 props to filter internal MUI props:
-        slotProps={{
-          root: {
-            "data-testid": "snackbar",
-            component: "div",
-          },
-        }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
-          sx={{ width: "100%" }}
+          variant="filled"
+          action={
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
         >
           {snackbarMessage}
         </Alert>

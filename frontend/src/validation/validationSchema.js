@@ -4,7 +4,7 @@ export const addBrandValidationSchema = Yup.object().shape({
   name: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(1, "Navnet må være minst 2 tegn")
-    .max(30, "Maks 20 tegn")
+    .max(30, "Maks 30 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
 });
 
@@ -12,7 +12,7 @@ export const addLocationValidationSchema = Yup.object().shape({
   name: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
-    .max(20, "Maks 20 tegn")
+    .max(30, "Maks 30 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
 });
 
@@ -20,7 +20,7 @@ export const addCategoryValidationSchema = Yup.object().shape({
   name: Yup.string()
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
-    .max(20, "Maks 20 tegn")
+    .max(30, "Maks 30 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
 });
 
@@ -44,7 +44,7 @@ export const addExpenseValidationSchema = Yup.object()
     shopName: Yup.string()
       .required("Navn kan ikke være tomt")
       .min(2, "Navnet må være minst 2 tegn")
-      .max(40, "Maks 20 tegn"),
+      .max(40, "Maks 40 tegn"),
     brandName: Yup.string()
       .required("Navn kan ikke være tomt")
       .min(1, "Navnet må være minst 1 tegn")
@@ -95,9 +95,9 @@ export const addExpenseValidationSchema = Yup.object()
     locationName: Yup.string()  // Changed from 'location' to 'locationName'
       .required("Må ha et sted")
       .min(2, "Lokasjon må være minst 2 tegn")
-      .max(20, "Maks 20 tegn"),
+      .max(30, "Maks 30 tegn"),
     categoryName: Yup.string()  // Changed from 'category' to 'categoryName'
       .required("Må ha en kategori")
       .min(2, "Må være minst 2 tegn")
-      .max(20, "Maks 20 tegn"),
+      .max(30, "Maks 30 tegn"),
   });

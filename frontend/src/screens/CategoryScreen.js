@@ -65,6 +65,8 @@ const CategoryScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  const baseQueryKey = useMemo(() => ["products", "paginated"], []);
+
   // Memoize selected category to prevent unnecessary renders
   const memoizedSelectedCategory = useMemo(
     () => selectedCategory,
@@ -91,12 +93,20 @@ const CategoryScreen = () => {
 
   // Use the usePaginatedData hook to fetch category data
   const {
-    data: categoriesData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = usePaginatedData("/api/categories", fetchParams, categoryUrlBuilder);
+      data: categoriesData,
+      isError,
+      isFetching,
+      isLoading,
+      refetch,
+    } = usePaginatedData({
+      endpoint: "/api/categories",
+      params: fetchParams,
+      urlBuilder: categoryUrlBuilder,
+      baseQueryKey, // Pass the stable base query key
+    });
+
+  const tableData = useMemo(() => categoriesData?.categories || [], [categoriesData]);
+  const metaData = useMemo(() => categoriesData?.meta || {}, [categoriesData]);
 
   // Table columns configuration
   const tableColumns = useMemo(
@@ -116,14 +126,18 @@ const CategoryScreen = () => {
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
     showSuccessSnackbar(`Kategori "${newCategory.name}" er lagt til`);
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
-    //refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const deleteSuccessHandler = (deletedCategory) => {
     showSuccessSnackbar(`Kategori "${deletedCategory.name}" slettet`);
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
-    //refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const deleteFailureHandler = (failedCategory) => {
@@ -132,8 +146,10 @@ const CategoryScreen = () => {
 
   const editSuccessHandler = (updatedCategory) => {
     showSuccessSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
-    //refetch();
+    queryClient.invalidateQueries({
+      queryKey: baseQueryKey,
+      refetchType: "active",
+    });
   };
 
   const editFailureHandler = () => {
@@ -176,9 +192,9 @@ const CategoryScreen = () => {
             minWidth: 600,
           }}
         >
-          {categoriesData && (
+          {tableData && (
             <ReactTable
-              data={categoriesData?.categories}
+              data={tableData} 
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -192,9 +208,7 @@ const CategoryScreen = () => {
               globalFilter={globalFilter}
               pagination={pagination}
               sorting={sorting}
-              meta={categoriesData?.meta}
-              totalRowCount={categoriesData?.meta?.totalRowCount}
-              rowCount={categoriesData?.meta?.totalRowCount ?? 0}
+              meta={metaData}
               setSelectedRow={setSelectedCategory}
               handleEdit={(category) => {
                 setSelectedCategory(category);
