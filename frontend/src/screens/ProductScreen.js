@@ -6,7 +6,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useDeepCompareMemo } from "use-deep-compare";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePaginatedData } from "./common/usePaginatedData";
+import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Dialogs
 const AddProductDialog = lazy(() =>
@@ -60,8 +60,7 @@ const ProductScreen = () => {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar, // ✅ Use only this now
     handleSnackbarClose,
   } = useSnackBar();
 
@@ -150,7 +149,7 @@ const ProductScreen = () => {
 
   // Handlers for product actions
   const addProductHandler = (newProduct) => {
-    showSuccessSnackbar(`Produkt ${newProduct.name} er lagt til`);
+    showSnackbar(`Produkt ${newProduct.name} er lagt til`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -158,7 +157,7 @@ const ProductScreen = () => {
   };
 
   const deleteSuccessHandler = (deletedProduct) => {
-    showSuccessSnackbar(`Produkt ${deletedProduct} slettet`);
+    showSnackbar(`Produkt ${deletedProduct} slettet`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -166,7 +165,7 @@ const ProductScreen = () => {
   };
 
   const editSuccessHandler = (updatedProduct) => {
-    showSuccessSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
+    showSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -213,7 +212,7 @@ const ProductScreen = () => {
           {tableData && (
             <ReactTable
               getRowId={(row) => row._id}
-              data={tableData} 
+              data={tableData}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -256,9 +255,7 @@ const ProductScreen = () => {
           selectedProduct={selectedProduct}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={() =>
-            showErrorSnackbar(
-              `Kunne ikke slette produktet ${selectedProduct.name}`
-            )
+            showSnackbar(`Kunne ikke slette produktet ${selectedProduct.name}`)
           }
         />
       </Suspense>
@@ -271,7 +268,7 @@ const ProductScreen = () => {
             selectedProduct={selectedProduct}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={() =>
-              showErrorSnackbar("Kunne ikke oppdatere produktet")
+              showSnackbar("Kunne ikke oppdatere produktet")
             }
           />
         )}

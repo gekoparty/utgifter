@@ -6,7 +6,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import { useQueryClient } from "@tanstack/react-query";
 import useSnackBar from "../hooks/useSnackBar";
 import { useDeepCompareMemo } from "use-deep-compare";
-import { usePaginatedData } from "./common/usePaginatedData";
+import { usePaginatedData } from "../hooks/usePaginatedData";
 
 const AddLocationDialog = lazy(() =>
   import("../components/Locations/LocationDialogs/AddLocationDialog")
@@ -55,8 +55,7 @@ const LocationScreen = () => {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar, // ✅ Use only this now
     handleSnackbarClose,
   } = useSnackBar();
 
@@ -124,13 +123,13 @@ const LocationScreen = () => {
   // Update mutation handlers to use proper query key structure
   const handleMutationSuccess = useCallback(
     (message) => {
-      showSuccessSnackbar(message);
+      showSnackbar(message);
       queryClient.invalidateQueries({
         queryKey: baseQueryKey,
         refetchType: "active",
       });
     },
-    [queryClient, showSuccessSnackbar, baseQueryKey]
+    [queryClient, showSnackbar, baseQueryKey]
   );
 
   const addLocationHandler = useCallback(
@@ -226,7 +225,7 @@ const LocationScreen = () => {
           selectedLocation={selectedLocation}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={(failedLocation) =>
-            showErrorSnackbar(`Kunne ikke slette sted "${failedLocation.name}"`)
+            showSnackbar(`Kunne ikke slette sted "${failedLocation.name}"`)
           }
         />
       </Suspense>
@@ -243,7 +242,7 @@ const LocationScreen = () => {
             selectedLocation={selectedLocation}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={() =>
-              showErrorSnackbar("Kunne ikke lagre endringer av sted")
+              showSnackbar("Kunne ikke lagre endringer av sted")
             }
           />
         )}

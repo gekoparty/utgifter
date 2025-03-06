@@ -5,7 +5,7 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePaginatedData } from "./common/usePaginatedData"; // our generic hook
+import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Dialogs
 const AddShopDialog = lazy(() =>
@@ -48,8 +48,7 @@ const ShopScreen = () => {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
 
@@ -82,8 +81,8 @@ const ShopScreen = () => {
     return fetchURL;
   };
 
-   // CORRECTED: Transform function with proper error handling
-   const transformShopsData = async (json, signal) => {
+  // CORRECTED: Transform function with proper error handling
+  const transformShopsData = async (json, signal) => {
     try {
       const { meta } = json;
       const shopsWithAssociatedData = await Promise.all(
@@ -94,11 +93,11 @@ const ShopScreen = () => {
               fetch(`/api/categories/${shop.category}`, { signal }),
             ]);
 
-            const locationData = locationResponse.ok 
+            const locationData = locationResponse.ok
               ? await locationResponse.json()
               : { name: "N/A" };
-            
-            const categoryData = categoryResponse.ok 
+
+            const categoryData = categoryResponse.ok
               ? await categoryResponse.json()
               : { name: "N/A" };
 
@@ -117,7 +116,7 @@ const ShopScreen = () => {
           }
         })
       );
-      
+
       return {
         shops: shopsWithAssociatedData.map((shop) => ({
           _id: shop._id,
@@ -125,7 +124,7 @@ const ShopScreen = () => {
           location: shop.location?.name || "N/A",
           category: shop.category?.name || "N/A",
         })),
-        meta
+        meta,
       };
     } catch (error) {
       console.error("Error transforming shops data:", error);
@@ -156,7 +155,7 @@ const ShopScreen = () => {
     params: fetchParams,
     urlBuilder: shopUrlBuilder,
     baseQueryKey,
-    transformFn: transformShopsData 
+    transformFn: transformShopsData,
   });
 
   const tableData = useMemo(() => shopsData?.shops || [], [shopsData]);
@@ -195,7 +194,7 @@ const ShopScreen = () => {
 
   // Handlers for shop actions.
   const addShopHandler = (newShop) => {
-    showSuccessSnackbar(`Butikk ${newShop.name} er lagt til`);
+    showSnackbar(`Butikk ${newShop.name} er lagt til`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -203,11 +202,11 @@ const ShopScreen = () => {
   };
 
   const deleteFailureHandler = (failedShop) => {
-    showErrorSnackbar(`Failed to delete shop ${failedShop.name}`);
+    showSnackbar(`Failed to delete shop ${failedShop.name}`);
   };
 
   const deleteSuccessHandler = (deletedShop) => {
-    showSuccessSnackbar(`Shop ${deletedShop.name} deleted successfully`);
+    showSnackbar(`Shop ${deletedShop.name} deleted successfully`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -215,18 +214,16 @@ const ShopScreen = () => {
   };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Failed to update shop");
+    showSnackbar("Failed to update shop");
   };
 
   const editSuccessHandler = (updatedShop) => {
-    showSuccessSnackbar(`Shop ${updatedShop.name} updated successfully`);
+    showSnackbar(`Shop ${updatedShop.name} updated successfully`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
     });
   };
-
-
 
   return (
     <TableLayout>

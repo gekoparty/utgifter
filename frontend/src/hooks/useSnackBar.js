@@ -1,41 +1,37 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const useSnackBar = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  
+  // Track if component is mounted
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   const handleSnackbarClose = (event, reason) => {
-    if (reason === 'clickaway') return;
+    if (reason === "clickaway") return;
     setSnackbarOpen(false);
   };
 
+  const showSnackbar = (message, severity = "success") => {
+    if (!isMounted.current) return; // Prevent updates if unmounted
 
-  const showSnackbar = (message, severity) => {
-    setSnackbarOpen(false);
-    // Queue the new message
-    setTimeout(() => {
-      setSnackbarMessage(message);
-      setSnackbarSeverity(severity);
-      setSnackbarOpen(true);
-    }, 100);
-
-  };
-
-  const showSuccessSnackbar = (message) => {
-    showSnackbar(message, "success");
-  };
-
-  const showErrorSnackbar = (message) => {
-    showSnackbar(message, "error");
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
   };
 
   return {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar, // Single function handles all cases
     handleSnackbarClose,
   };
 };
