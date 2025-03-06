@@ -5,7 +5,7 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePaginatedData } from "./common/usePaginatedData"; // Generic data hook
+import { usePaginatedData } from "../hooks/usePaginatedData"; // Generic data hook
 
 // Lazy-loaded Dialogs
 const AddBrandDialog = lazy(() =>
@@ -57,8 +57,7 @@ const BrandScreen = () => {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
 
@@ -123,7 +122,7 @@ const BrandScreen = () => {
 
   // Handlers for brand actions
   const addBrandHandler = (newBrand) => {
-    showSuccessSnackbar(`Merke "${newBrand.name}" lagt til`);
+    showSnackbar(`Merke "${newBrand.name}" lagt til`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -131,11 +130,11 @@ const BrandScreen = () => {
   };
 
   const deleteFailureHandler = (failedBrand) => {
-    showErrorSnackbar(`Kunne ikke slette merke "${failedBrand.name}"`);
+    showSnackbar(`Kunne ikke slette merke "${failedBrand.name}"`);
   };
 
   const deleteSuccessHandler = (deletedBrand) => {
-    showSuccessSnackbar(`Merke "${deletedBrand.name}" slettet`);
+    showSnackbar(`Merke "${deletedBrand.name}" slettet`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -143,11 +142,11 @@ const BrandScreen = () => {
   };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Kunne ikke oppdatere merke");
+    showSnackbar("Kunne ikke oppdatere merke");
   };
 
   const editSuccessHandler = (updatedBrand) => {
-    showSuccessSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
+    showSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",

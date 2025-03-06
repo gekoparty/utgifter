@@ -22,7 +22,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useTheme } from "@mui/material/styles";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
-import { usePaginatedData } from "./common/usePaginatedData"; // Adjust the import path as needed
+import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Expense Dialogs
 const AddExpenseDialog = lazy(() =>
@@ -129,8 +129,7 @@ const ExpenseScreen = () => {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
 
@@ -273,10 +272,10 @@ const ExpenseScreen = () => {
 
   const handleMutationSuccess = useCallback(
     (message) => {
-      showSuccessSnackbar(message);
+      showSnackbar(message);
       queryClient.invalidateQueries({ queryKey: baseQueryKey });
     },
-    [queryClient, showSuccessSnackbar, baseQueryKey]
+    [queryClient, showSnackbar, baseQueryKey]
   );
 
   const addExpenseHandler = useCallback(
@@ -495,7 +494,7 @@ const ExpenseScreen = () => {
             onClose={() => handleDialogClose(setEditModalOpen)}
             selectedExpense={selectedExpense}
             onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={() => showErrorSnackbar("Oppdatering mislyktes")}
+            onUpdateFailure={() => showSnackbar("Oppdatering mislyktes")}
           />
         )}
       </Suspense>
@@ -507,7 +506,7 @@ const ExpenseScreen = () => {
           selectedExpense={selectedExpense}
           onDeleteSuccess={deleteSuccessHandler}
           dialogTitle="Bekreft sletting av utgift" // Add this line
-          onDeleteFailure={() => showErrorSnackbar("Sletting mislyktes")}
+          onDeleteFailure={() => showSnackbar("Sletting mislyktes")}
         />
       </Suspense>
 

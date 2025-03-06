@@ -6,53 +6,40 @@ import {
 } from "../components/commons/Utils/expenseUtils";
 
 const useHandleFieldChange = (expense, setExpense) => {
+  const updateExpenseValues = (prevExpense, overrides = {}) => {
+    const { price, discountValue, discountAmount, hasDiscount, volume, measurementUnit } = {
+      ...prevExpense,
+      ...overrides,
+    };
+
+    let newDiscountAmount = discountAmount;
+    let newDiscountValue = discountValue;
+
+    // Ensure both discount fields are in sync
+    if ("discountValue" in overrides) {
+      newDiscountAmount = hasDiscount ? calculateDiscountAmount(price, discountValue) : 0;
+    } else if ("discountAmount" in overrides && price > 0) {
+      newDiscountValue = hasDiscount ? (discountAmount / price) * 100 : 0;
+    }
+
+    const finalPrice = calculateFinalPrice(price, newDiscountAmount, hasDiscount);
+    const pricePerUnit = calculatePricePerUnit(finalPrice, volume, measurementUnit);
+
+    return {
+      ...prevExpense,
+      ...overrides,
+      discountAmount: Number(newDiscountAmount.toFixed(2)),
+      discountValue: Number(newDiscountValue.toFixed(2)),
+      finalPrice,
+      pricePerUnit,
+    };
+  };
+
   const handleFieldChange = useCallback(
     (field, value, additionalChanges = {}) => {
       setExpense((prevExpense) => {
-        let updatedExpense = {
-          ...prevExpense,
-          [field]: value,
-          ...additionalChanges,
-        };
-
-        // Handle price, discount, and final price calculations
-        if (["price", "discountValue", "discountAmount"].includes(field)) {
-          let discountAmount = updatedExpense.hasDiscount
-            ? calculateDiscountAmount(updatedExpense.price, updatedExpense.discountValue)
-            : 0;
-
-            let finalPrice = calculateFinalPrice(
-              updatedExpense.price,
-              discountAmount,
-              updatedExpense.hasDiscount
-            );
-
-
-          if (field === "discountAmount" && updatedExpense.price > 0) {
-            updatedExpense.discountValue = parseFloat(
-              ((value / updatedExpense.price) * 100).toFixed(2)
-            );
-          }
-
-          updatedExpense.discountAmount = parseFloat(discountAmount.toFixed(2));
-          updatedExpense.finalPrice = finalPrice;
-        }
-
-        // Handle volume changes
-        if (field === "volume") {
-          updatedExpense.volume = parseFloat(value) || 0;
-        }
-
-        // Calculate price per unit based on measurement unit
-        if (["finalPrice", "volume", "measurementUnit"].includes(field)) {
-          updatedExpense.pricePerUnit = calculatePricePerUnit(
-            updatedExpense.finalPrice,
-            updatedExpense.volume,
-            updatedExpense.measurementUnit
-          );
-        }
-
-        return updatedExpense;
+        const updatedValues = { [field]: value, ...additionalChanges };
+        return updateExpenseValues(prevExpense, updatedValues);
       });
     },
     [setExpense]
@@ -60,100 +47,35 @@ const useHandleFieldChange = (expense, setExpense) => {
 
   const handleDiscountAmountChange = useCallback(
     (event) => {
-      const value = parseFloat(event.target.value) || 0;
-      setExpense((prevExpense) => {
-        const discountValue = prevExpense.price > 0 ? (value / prevExpense.price) * 100 : 0;
-
-        const finalPrice = calculateFinalPrice(
-          prevExpense.price,
-          value,
-          prevExpense.hasDiscount
-        );
-
-        return {
-          ...prevExpense,
-          discountAmount: value,
-          discountValue: parseFloat(discountValue.toFixed(2)),
-          finalPrice: finalPrice,
-          pricePerUnit: calculatePricePerUnit(
-            finalPrice,
-            prevExpense.volume,
-            prevExpense.measurementUnit
-          ),
-        };
-      });
+      const value = Number(event.target.value) || 0;
+      setExpense((prevExpense) => updateExpenseValues(prevExpense, { discountAmount: value }));
     },
     [setExpense]
   );
 
   const handleDiscountValueChange = useCallback(
     (event) => {
-      const value = parseFloat(event.target.value) || 0;
-      setExpense((prevExpense) => {
-        const discountAmount = calculateDiscountAmount(prevExpense.price, value);
-
-        const finalPrice = calculateFinalPrice(
-          prevExpense.price,
-          discountAmount,
-          prevExpense.hasDiscount
-        );
-
-        return {
-          ...prevExpense,
-          discountValue: value,
-          discountAmount: parseFloat(discountAmount.toFixed(2)),
-          finalPrice: finalPrice,
-          pricePerUnit: calculatePricePerUnit(
-            finalPrice,
-            prevExpense.volume,
-            prevExpense.measurementUnit
-          ),
-        };
-      });
+      const value = Number(event.target.value) || 0;
+      setExpense((prevExpense) => updateExpenseValues(prevExpense, { discountValue: value }));
     },
     [setExpense]
   );
 
   useEffect(() => {
-    const discountAmount = expense.hasDiscount
-      ? calculateDiscountAmount(expense.price, expense.discountValue)
-      : 0;
-  
-    const finalPrice = calculateFinalPrice(
-      expense.price,
-      discountAmount,
-      expense.hasDiscount
-    );
-  
-    const pricePerUnit = calculatePricePerUnit(
-      finalPrice,
-      expense.volume,
-      expense.measurementUnit
-    );
-  
-    if (
-      expense.finalPrice !== finalPrice ||
-      expense.discountAmount !== discountAmount ||
-      expense.pricePerUnit !== pricePerUnit
-    ) {
-      setExpense((prevExpense) => ({
-        ...prevExpense,
-        finalPrice: finalPrice,
-        discountAmount: parseFloat(discountAmount.toFixed(2)),
-        pricePerUnit: pricePerUnit,
-      }));
-    }
- }, [
-  expense.price,
-  expense.discountValue,
-  expense.hasDiscount,
-  expense.volume,
-  expense.measurementUnit,
-  expense.finalPrice,
-  expense.discountAmount,
-  expense.pricePerUnit,
-  setExpense
-]);
+    setExpense((prevExpense) => {
+      const updatedExpense = updateExpenseValues(prevExpense);
+
+      if (
+        prevExpense.finalPrice !== updatedExpense.finalPrice ||
+        prevExpense.discountAmount !== updatedExpense.discountAmount ||
+        prevExpense.pricePerUnit !== updatedExpense.pricePerUnit
+      ) {
+        return updatedExpense;
+      }
+
+      return prevExpense;
+    });
+  }, [expense.price, expense.discountValue, expense.hasDiscount, expense.volume, expense.measurementUnit, setExpense]);
 
   return {
     handleFieldChange,

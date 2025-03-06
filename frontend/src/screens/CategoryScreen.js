@@ -5,7 +5,7 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useQueryClient } from "@tanstack/react-query";
-import { usePaginatedData } from "./common/usePaginatedData";
+import { usePaginatedData } from "../hooks/usePaginatedData"
 
 // Lazy-loaded dialogs for category actions
 const AddCategoryDialog = lazy(() =>
@@ -60,8 +60,7 @@ const CategoryScreen = () => {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSuccessSnackbar,
-    showErrorSnackbar,
+    showSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
 
@@ -125,7 +124,7 @@ const CategoryScreen = () => {
 
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
-    showSuccessSnackbar(`Kategori "${newCategory.name}" er lagt til`);
+    showSnackbar(`Kategori "${newCategory.name}" er lagt til`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -133,7 +132,7 @@ const CategoryScreen = () => {
   };
 
   const deleteSuccessHandler = (deletedCategory) => {
-    showSuccessSnackbar(`Kategori "${deletedCategory.name}" slettet`);
+    showSnackbar(`Kategori "${deletedCategory.name}" slettet`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -141,11 +140,11 @@ const CategoryScreen = () => {
   };
 
   const deleteFailureHandler = (failedCategory) => {
-    showErrorSnackbar(`Kunne ikke slette kategori "${failedCategory.name}"`);
+    showSnackbar(`Kunne ikke slette kategori "${failedCategory.name}"`);
   };
 
   const editSuccessHandler = (updatedCategory) => {
-    showSuccessSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
+    showSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -153,7 +152,7 @@ const CategoryScreen = () => {
   };
 
   const editFailureHandler = () => {
-    showErrorSnackbar("Kunne ikke oppdatere kategori");
+    showSnackbar("Kunne ikke oppdatere kategori");
   };
 
   // Cleanup when dialogs close: reset selected category and clear cache
