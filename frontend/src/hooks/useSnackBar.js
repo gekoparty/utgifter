@@ -20,11 +20,10 @@ const useSnackBar = () => {
   };
 
   const showSnackbar = (message, severity = "success") => {
-    if (!isMounted.current) return; // Prevent updates if unmounted
-
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
+    setSnackbarOpen(false); // Force close before reopening
+    setTimeout(() => setSnackbarOpen(true), 100); // Ensure re-triggering
   };
 
   return {

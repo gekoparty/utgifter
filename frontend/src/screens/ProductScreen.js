@@ -300,11 +300,9 @@ const ProductScreen = () => {
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        slotProps={{
-          root: {
-            "data-testid": "snackbar",
-            component: "div",
-          },
+        sx={{
+          width: "auto", // <-- Change this from 100% to auto
+          maxWidth: 400, // <-- Optional: Limit the maximum width
         }}
       >
         <Alert
