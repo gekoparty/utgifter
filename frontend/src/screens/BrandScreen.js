@@ -9,13 +9,13 @@ import { usePaginatedData } from "../hooks/usePaginatedData"; // Generic data ho
 
 // Lazy-loaded Dialogs
 const AddBrandDialog = lazy(() =>
-  import("../components/Brands/BrandDialogs/AddBrandDialog")
+  import("../components/features/Brands/BrandDialogs/AddBrand/AddBrandDialog")
 );
 const DeleteBrandDialog = lazy(() =>
-  import("../components/Brands/BrandDialogs/DeleteBrandDialog")
+  import("../components/features/Brands/BrandDialogs/DeleteBrand/DeleteBrandDialog")
 );
 const EditBrandDialog = lazy(() =>
-  import("../components/Brands/BrandDialogs/EditBrandDialog")
+  import("../components/features/Brands/BrandDialogs/EditBrand/EditBrandDialog")
 );
 
 // Constants

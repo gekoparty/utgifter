@@ -1,11 +1,10 @@
 import React, { useMemo, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
+import { getTableStyles } from "./tableStyles"; // Import styles
 import { IconButton, Tooltip, MenuItem } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTheme } from "@mui/material/styles";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
-
-
 
 const Table = ({
   data,
@@ -29,59 +28,44 @@ const Table = ({
   renderDetailPanel,
   layoutMode = "table",
 }) => {
-  const columnsConfig = useMemo(() => [...columns], [columns]);
+  const columnsConfig = useMemo(() => columns, [columns]);
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === "dark";
 
-  const muiTableHeadCellStyles = useMemo(
-    () => ({
-      backgroundColor: isDarkMode ? theme.palette.grey[800] : theme.palette.grey[200],
-      color: isDarkMode ? theme.palette.common.white : theme.palette.common.black,
-      minWidth: 80,
-      maxWidth: 300,
-    }),
-    [isDarkMode, theme]
-  );
+  const {
+    muiTableHeadCellStyles,
+    muiTableBodyCellStyles,
+    muiTopToolbarStyles,
+    muiBottomToolbarStyles,
+  } = useMemo(() => getTableStyles(theme, isDarkMode), [theme, isDarkMode]);
 
-  const muiTableBodyCellStyles = useMemo(
-    () => ({
-      backgroundColor: isDarkMode ? theme.palette.grey[900] : theme.palette.grey[200],
-      color: isDarkMode ? theme.palette.grey[300] : theme.palette.grey[800],
-      minWidth: 80,
-      maxWidth: 300,
-    }),
-    [isDarkMode, theme]
-  );
+  const columnFilterState = useMemo(() => columnFilters, [columnFilters]);
+  const globalFilterState = useMemo(() => globalFilter, [globalFilter]);
+  const sortingState = useMemo(() => sorting, [sorting]);
+  const paginationState = useMemo(() => pagination, [pagination]);
 
-  const muiTopToolbarStyles = useMemo(
-    () => ({
-      backgroundColor: isDarkMode ? theme.palette.grey[800] : "#e0e0e0",
-      color: isDarkMode ? theme.palette.common.white : "#333",
-      boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
-    }),
-    [isDarkMode, theme]
-  );
-
-  const muiBottomToolbarStyles = useMemo(
-    () => ({
-      backgroundColor: isDarkMode ? theme.palette.grey[800] : "#e0e0e0",
-      color: isDarkMode ? theme.palette.common.white : "#333",
-      boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.1)",
-    }),
-    [isDarkMode, theme]
-  );
+  const showAlertBanner = isError;
+  const showProgressBars = isFetching;
 
   const tableState = useMemo(
     () => ({
-      columnFilters,
-      globalFilter,
+      columnFilters: columnFilterState,
+      globalFilter: globalFilterState,
+      sorting: sortingState,
+      pagination: paginationState,
       isLoading,
-      showAlertBanner: isError,
-      showProgressBars: isFetching,
-      sorting,
-      pagination,
+      showAlertBanner,
+      showProgressBars,
     }),
-    [columnFilters, globalFilter, isLoading, isError, isFetching, sorting, pagination]
+    [
+      columnFilterState,
+      globalFilterState,
+      sortingState,
+      paginationState,
+      isLoading,
+      showAlertBanner,
+      showProgressBars,
+    ]
   );
 
   const initialTableState = useMemo(
@@ -99,10 +83,18 @@ const Table = ({
 
   const renderRowActions = useCallback(
     ({ row }) => [
-      <MenuItem key="edit" onClick={() => handleEdit(row.original)} data-testid="edit-menu-item">
+      <MenuItem
+        key="edit"
+        onClick={() => handleEdit(row.original)}
+        data-testid="edit-menu-item"
+      >
         Rediger
       </MenuItem>,
-      <MenuItem key="delete" onClick={() => handleDelete(row.original)} data-testid="delete-menu-item">
+      <MenuItem
+        key="delete"
+        onClick={() => handleDelete(row.original)}
+        data-testid="delete-menu-item"
+      >
         Slett
       </MenuItem>,
     ],
@@ -112,7 +104,11 @@ const Table = ({
   const renderTopToolbarActions = useCallback(
     () => (
       <Tooltip arrow title="Refresh Data">
-        <IconButton onClick={handleRefresh} data-testid="refresh-data-button">
+        <IconButton
+          onClick={handleRefresh}
+          aria-label="Refresh data"
+          data-testid="refresh-data-button"
+        >
           <RefreshIcon />
         </IconButton>
       </Tooltip>
@@ -121,7 +117,6 @@ const Table = ({
   );
 
   return (
-    
     <MaterialReactTable
       layoutMode={layoutMode}
       data-testid="material-react-table"
@@ -141,9 +136,7 @@ const Table = ({
       positionActionsColumn="left"
       renderRowActionMenuItems={renderRowActions}
       muiToolbarAlertBannerProps={
-        isError
-          ? { color: "error", children: "Error loading data" }
-          : undefined
+        isError ? { color: "error", children: "Error loading data" } : undefined
       }
       onColumnFiltersChange={setColumnFilters}
       onGlobalFilterChange={setGlobalFilter}
@@ -160,13 +153,11 @@ const Table = ({
 };
 
 const ReactTable = React.memo(
-  ({ setDeleteModalOpen, setSelectedBrand, handleEdit, handleDelete, slotProps, ...props }) => (
+  ({ handleEdit, handleDelete, slotProps, ...props }) => (
     <Table
       data-testid="react-table"
-      setSelectedBrand={setSelectedBrand}
       handleEdit={handleEdit}
       handleDelete={handleDelete}
-      setDeleteModalOpen={setDeleteModalOpen}
       {...props}
     />
   )
@@ -174,4 +165,4 @@ const ReactTable = React.memo(
 
 export default ReactTable;
 
-MaterialReactTable.whyDidYouRender = true
+MaterialReactTable.whyDidYouRender = true;

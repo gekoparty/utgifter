@@ -1,13 +1,14 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
+const buildApiUrl = (globalFilter, pageParam) =>
+  `/api/products?globalFilter=${encodeURIComponent(globalFilter || '')}&start=${pageParam}&size=10`;
+
 const useInfiniteProducts = (globalFilter) => {
   const queryKey = useMemo(() => ['products', globalFilter], [globalFilter]);
 
-  const fetchProducts = async ({ pageParam = 0 }) => {
-    const response = await fetch(
-      `/api/products?globalFilter=${encodeURIComponent(globalFilter || '')}&start=${pageParam}&size=10`
-    );
+  const fetchProducts = async ({ pageParam = 0, signal }) => {
+    const response = await fetch(buildApiUrl(globalFilter, pageParam), { signal });
 
     if (!response.ok) {
       const errorMessage = await response.text();
@@ -24,7 +25,8 @@ const useInfiniteProducts = (globalFilter) => {
   };
 
   const getNextPageParam = (lastPage, pages) => {
-    const totalItems = lastPage?.meta?.totalRowCount ?? 0;
+    if (!lastPage || !lastPage.meta) return undefined;
+    const totalItems = lastPage.meta.totalRowCount || 0;
     const loadedItems = pages.reduce((acc, page) => acc + (page.products?.length || 0), 0);
     return loadedItems < totalItems ? loadedItems : undefined;
   };
@@ -36,7 +38,9 @@ const useInfiniteProducts = (globalFilter) => {
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
     keepPreviousData: true,
-    useErrorBoundary: true, // Improve React 18 error handling
+    onError: (error) => {
+      console.error("Infinite query error:", error);
+    }
   });
 };
 

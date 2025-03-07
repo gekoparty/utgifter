@@ -26,13 +26,13 @@ import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Expense Dialogs
 const AddExpenseDialog = lazy(() =>
-  import("../components/Expenses/ExpenseDialogs/AddExpenseDialog")
+  import("../components/features/Expenses/ExpenseDialogs/AddExpense/AddExpenseDialog")
 );
 const DeleteExpenseDialog = lazy(() =>
-  import("../components/Expenses/ExpenseDialogs/DeleteExpenseDialog")
+  import("../components/features/Expenses/ExpenseDialogs/DeleteExpense/DeleteExpenseDialog")
 );
 const EditExpenseDialog = lazy(() =>
-  import("../components/Expenses/ExpenseDialogs/EditExpenseDialog")
+  import("../components/features/Expenses/ExpenseDialogs/EditExpense/EditExpenseDialog")
 );
 
 // =================================================================

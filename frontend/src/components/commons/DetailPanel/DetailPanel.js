@@ -1,9 +1,16 @@
-import { Card, CardContent, Grid, Typography, CircularProgress} from "@mui/material";
+import { Card, CardContent, Grid, Typography, Skeleton } from "@mui/material";
 import CurrencyBox from "../CurrencyBox/CurrencyBox";
 
 const DetailPanel = ({ expense }) => {
-  // If no expense is passed, show a loading indicator (or you can handle it as needed)
-  if (!expense) return <CircularProgress />;
+  if (!expense) {
+    return (
+      <Card sx={{ p: 2, width: "100%" }}>
+        <CardContent>
+          <Skeleton variant="rectangular" width="100%" height={100} />
+        </CardContent>
+      </Card>
+    );
+  }
 
   const {
     shopName,
@@ -28,9 +35,9 @@ const DetailPanel = ({ expense }) => {
             <Typography variant="h6" gutterBottom>
               Butikk Informasjon
             </Typography>
-            {shopName && <div><b>Butikk:</b> {shopName}</div>}
-            {brandName && <div><b>Merke:</b> {brandName}</div>}
-            {locationName && <div><b>Sted:</b> {locationName}</div>}
+            <Typography variant="body1"><b>Butikk:</b> {shopName || "Ikke tilgjengelig"}</Typography>
+            <Typography variant="body1"><b>Merke:</b> {brandName || "Ukjent"}</Typography>
+            <Typography variant="body1"><b>Sted:</b> {locationName || "Ikke oppgitt"}</Typography>
           </Grid>
 
           {/* Column 2: Prices and Discounts */}
@@ -38,23 +45,15 @@ const DetailPanel = ({ expense }) => {
             <Typography variant="h6" gutterBottom>
               Priser og Rabatter
             </Typography>
-            <div>
-              <b>Pris:</b> <CurrencyBox value={price} />
-            </div>
+            <Typography variant="body1"><b>Pris:</b> <CurrencyBox value={price} /></Typography>
             {discountAmount > 0 && (
               <>
-                <div>
-                  <b>Rabatt i kr:</b> <CurrencyBox value={discountAmount} />
-                </div>
-                <div>
-                  <b>Rabatt i %:</b> {discountValue} %
-                </div>
+                <Typography variant="body1"><b>Rabatt i kr:</b> <CurrencyBox value={discountAmount} /></Typography>
+                <Typography variant="body1"><b>Rabatt i %:</b> {discountValue} %</Typography>
               </>
             )}
             {finalPrice !== price && (
-              <div>
-                <b>Pris etter rabatt:</b> <CurrencyBox value={finalPrice} />
-              </div>
+              <Typography variant="body1"><b>Pris etter rabatt:</b> <CurrencyBox value={finalPrice} /></Typography>
             )}
           </Grid>
 
@@ -63,10 +62,10 @@ const DetailPanel = ({ expense }) => {
             <Typography variant="h6" gutterBottom>
               Detaljer
             </Typography>
-            {type && <div><b>Type:</b> {type}</div>}
-            {volume && <div><b>Volum:</b> {volume}</div>}
-            {purchaseDate && <div><b>Kjøpt Dato:</b> {purchaseDate}</div>}
-            {registeredDate && <div><b>Registrert Dato:</b> {registeredDate}</div>}
+            <Typography variant="body1"><b>Type:</b> {type || "Ikke spesifisert"}</Typography>
+            <Typography variant="body1"><b>Volum:</b> {volume || "N/A"}</Typography>
+            <Typography variant="body1"><b>Kjøpt Dato:</b> {purchaseDate || "Ikke oppgitt"}</Typography>
+            <Typography variant="body1"><b>Registrert Dato:</b> {registeredDate || "Ikke registrert"}</Typography>
           </Grid>
         </Grid>
       </CardContent>

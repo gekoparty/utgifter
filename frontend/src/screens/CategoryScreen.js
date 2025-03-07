@@ -9,13 +9,13 @@ import { usePaginatedData } from "../hooks/usePaginatedData"
 
 // Lazy-loaded dialogs for category actions
 const AddCategoryDialog = lazy(() =>
-  import("../components/Categories/CategoryDialogs/AddCategoryDialog")
+  import("../components/features/Categories/CategoryDialogs/AddCategory/AddCategoryDialog")
 );
 const DeleteCategoryDialog = lazy(() =>
-  import("../components/Categories/CategoryDialogs/DeleteCategoryDialog")
+  import("../components/features/Categories/CategoryDialogs/DeleteCategory/DeleteCategoryDialog")
 );
 const EditCategoryDialog = lazy(() =>
-  import("../components/Categories/CategoryDialogs/EditCategoryDialog")
+  import("../components/features/Categories/CategoryDialogs/EditCategory/EditCategoryDialog")
 );
 
 // Constants for initial states and API URL
