@@ -10,13 +10,19 @@ import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Dialogs
 const AddProductDialog = lazy(() =>
-  import("../components/Products/ProductDialogs/AddProductDialog")
+  import(
+    "../components/features/Products/ProductDialogs/AddProduct/AddProductDialog"
+  )
 );
 const DeleteProductDialog = lazy(() =>
-  import("../components/Products/ProductDialogs/DeleteProductDialog")
+  import(
+    "../components/features/Products/ProductDialogs/DeleteProduct/DeleteProductDialog"
+  )
 );
 const EditProductDialog = lazy(() =>
-  import("../components/Products/ProductDialogs/EditProductDialog")
+  import(
+    "../components/features/Products/ProductDialogs/EditProduct/EditProductDialog"
+  )
 );
 
 // Constants for initial state and API URL
@@ -157,7 +163,7 @@ const ProductScreen = () => {
   };
 
   const deleteSuccessHandler = (deletedProduct) => {
-    showSnackbar(`Produkt ${deletedProduct} slettet`);
+    showSnackbar(`Produkt ${deletedProduct.name} slettet`);
     queryClient.invalidateQueries({
       queryKey: baseQueryKey,
       refetchType: "active",
@@ -209,10 +215,10 @@ const ProductScreen = () => {
             minWidth: 600,
           }}
         >
-          {tableData && (
+          {!isLoading ? (
             <ReactTable
               getRowId={(row) => row._id}
-              data={tableData}
+              data={tableData || []}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -238,6 +244,10 @@ const ProductScreen = () => {
               }}
               sx={{ flexGrow: 1, width: "100%" }}
             />
+          ) : (
+            <Box sx={{ textAlign: "center", p: 4 }}>
+              {isLoading ? "Laster produkter..." : "Ingen produkter funnet"}
+            </Box>
           )}
         </Box>
       </Box>

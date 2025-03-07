@@ -9,13 +9,13 @@ import { useDeepCompareMemo } from "use-deep-compare";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 
 const AddLocationDialog = lazy(() =>
-  import("../components/Locations/LocationDialogs/AddLocationDialog")
+  import("../components/features/Locations/LocationDialogs/AddLocation/AddLocationDialog")
 );
 const EditLocationDialog = lazy(() =>
-  import("../components/Locations/LocationDialogs/EditLocationDialog")
+  import("../components/features/Locations/LocationDialogs/EditLocation/EditLocationDialog")
 );
 const DeleteLocationDialog = lazy(() =>
-  import("../components/Locations/LocationDialogs/DeleteLocationDialog")
+  import("../components/features/Locations/LocationDialogs/DeleteLocation/DeleteLocationDialog")
 );
 
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };

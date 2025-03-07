@@ -9,13 +9,13 @@ import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Dialogs
 const AddShopDialog = lazy(() =>
-  import("../components/Shops/ShopDialogs/AddShopDialog")
+  import("../components/features/Shops/ShopDialogs/AddShop/AddShopDialog")
 );
 const DeleteShopDialog = lazy(() =>
-  import("../components/Shops/ShopDialogs/DeleteShopDialog")
+  import("../components/features/Shops/ShopDialogs/DeleteShop/DeleteShopDialog")
 );
 const EditShopDialog = lazy(() =>
-  import("../components/Shops/ShopDialogs/EditShopDialog")
+  import("../components/features/Shops/ShopDialogs/EditShop/EditShopDialog")
 );
 
 // Constants
