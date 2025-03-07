@@ -523,6 +523,10 @@ const ExpenseScreen = () => {
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
+        sx={{
+          width: "auto", // <-- Change this from 100% to auto
+          maxWidth: 400, // <-- Optional: Limit the maximum width
+        }}
       >
         <Alert
           severity={snackbarSeverity}
@@ -537,6 +541,10 @@ const ExpenseScreen = () => {
               <CloseIcon fontSize="small" />
             </IconButton>
           }
+          sx={{
+            width: "100%",
+            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+          }}
         >
           {snackbarMessage}
         </Alert>
