@@ -1,24 +1,17 @@
 // src/components/Expenses/ProductDialogs/AddProductDialog/AddProductDialog.js
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Grid, Box, Button, Fade, CircularProgress } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import useProductDialog from "../../UseProduct/useProductDialog";
 import commonSelectStyles from "../../../../commons/Styles/SelectStyles";
-import { predefinedTypes, measurementUnitOptions } from "../../../../commons/Consts/constants";
 import { useQuery } from "@tanstack/react-query";
 import { fetchBrands } from "../../../../commons/Utils/apiUtils";
+import ProductForm from "../commons/ProductForm";
 import LinearProgress from "@mui/material/LinearProgress";
 
 // Import our split components
-import ProductNameInput from "./ProductNameInput";
-import BrandSelect from "./BrandSelect";
-import ProductTypeSelect from "./ProductTypeSelect";
-import MeasurementUnitSelect from "./MeasurementUnitSelect";
-import MeasuresInput from "./MeasuresInput";
 
-const MemoizedErrorHandling = React.memo(ErrorHandling);
 
 const AddProductDialog = ({ open, onClose, onAdd }) => {
   const {
@@ -36,10 +29,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
 
   const [selectedBrands, setSelectedBrands] = useState([]);
 
-  const formattedBrands = useMemo(
-    () => product?.brands?.map((brand) => ({ name: brand })) || [],
-    [product?.brands]
-  );
+  
 
   useEffect(() => {
     if (open) {
@@ -69,31 +59,32 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-  const handleBrandCreate = useCallback(
-    (inputValue) => {
-      const trimmedValue = inputValue.trim();
-      if (trimmedValue !== "") {
-        // Update product state with new brand
-        setProduct((prevProduct) => ({
-          ...prevProduct,
-          brands: [...(prevProduct.brands || []), trimmedValue],
-        }));
-        resetValidationErrors();
-        resetServerError();
-      }
-    },
-    [setProduct, resetValidationErrors, resetServerError]
-  );
-
   const handleBrandChange = useCallback((selectedOptions) => {
     setSelectedBrands(selectedOptions);
     setProduct({
       ...product,
-      brands: selectedOptions.map((brand) => brand.name),
+      // Extract the brand values from the selected options:
+      brands: selectedOptions ? selectedOptions.map((brand) => brand.value) : [],
     });
     resetValidationErrors();
     resetServerError();
   }, [product, resetValidationErrors, resetServerError, setProduct]);
+  
+  // Update handleBrandCreate to add a new brand in the same shape:
+  const handleBrandCreate = useCallback((inputValue) => {
+    const trimmedValue = inputValue.trim();
+    if (trimmedValue !== "") {
+      const newBrand = { label: trimmedValue, value: trimmedValue };
+      setSelectedBrands((prev) => [...prev, newBrand]);
+      setProduct((prevProduct) => ({
+        ...prevProduct,
+        // Append the new brand value
+        brands: [...(prevProduct.brands || []), trimmedValue],
+      }));
+      resetValidationErrors();
+      resetServerError();
+    }
+  }, [setProduct, resetValidationErrors, resetServerError]);
 
   const handleNameChange = (name) => {
     setProduct({ ...product, name });
@@ -140,87 +131,43 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
       <Box>
         <BasicDialog
           open={open}
-          onClose={() => { resetFormAndErrors(); onClose(); }}
+          onClose={() => {
+            resetFormAndErrors();
+            onClose();
+          }}
           dialogTitle="Nytt Produkt"
         >
           {(loading || brandLoading) && <LinearProgress />}
+          {brandError && <div>Error loading brands</div>}
           <form onSubmit={handleSubmit}>
-            <Grid container direction="column" spacing={2}>
-              {/* Product Name */}
-              <Grid item>
-                <ProductNameInput
-                  value={product?.name || ""}
-                  onChange={handleNameChange}
-                  error={validationError?.name}
-                />
-                {(displayError || validationError) && (
-                  <MemoizedErrorHandling resource="products" field="name" loading={loading} />
-                )}
-              </Grid>
-
-              {/* Brand Selection */}
-              <Grid item>
-                <BrandSelect
-                  options={brandOptions}
-                  value={formattedBrands}
-                  onCreateOption={handleBrandCreate} 
-                  onChange={handleBrandChange}
-                  isLoading={brandLoading}
-                  error={brandError}
-                  selectStyles={commonSelectStyles}
-                />
-                {(displayError || validationError) && (
-                  <MemoizedErrorHandling resource="products" field="brand" loading={loading} />
-                )}
-              </Grid>
-
-              {/* Product Type */}
-              <Grid item>
-                <ProductTypeSelect
-                  options={predefinedTypes.map((type) => ({ value: type, label: type }))}
-                  value={product?.type ? { value: product.type, label: product.type } : null}
-                  onChange={handleProductTypeChange}
-                  selectStyles={commonSelectStyles}
-                />
-              </Grid>
-
-              {/* Measurement Unit */}
-              <Grid item>
-                <MeasurementUnitSelect
-                  options={measurementUnitOptions}
-                  value={measurementUnitOptions.find(
-                    (option) => option.value === product?.measurementUnit
-                  )}
-                  onChange={handleMeasurementUnitChange}
-                  selectStyles={commonSelectStyles}
-                />
-                {(displayError || validationError) && (
-                  <MemoizedErrorHandling resource="products" field="measurementUnit" loading={loading} />
-                )}
-              </Grid>
-
-              {/* Measures Input */}
-              <Grid item>
-                <MeasuresInput
-                  options={[]} // you can pass predefined measures if any
-                  value={
-                    product?.measures?.map((measure) => ({ value: measure, label: measure })) || []
-                  }
-                  onChange={handleMeasuresChange}
-                  onCreateOption={handleMeasureCreate}
-                  selectStyles={commonSelectStyles}
-                />
-              </Grid>
-
-              {/* Action Buttons */}
-              <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
-                <Button type="submit" disabled={loading || !isFormValid()}>
-                  {loading ? <CircularProgress size={24} /> : "Lagre"}
-                </Button>
-                <Button onClick={() => { resetFormAndErrors(); onClose(); }} sx={{ ml: 2 }}>
-                  Cancel
-                </Button>
-              </Grid>
+            <ProductForm
+              product={product}
+              onNameChange={handleNameChange}
+              onBrandChange={handleBrandChange}
+              onBrandCreate={handleBrandCreate}
+              onProductTypeChange={handleProductTypeChange}
+              onMeasurementUnitChange={handleMeasurementUnitChange}
+              onMeasuresChange={handleMeasuresChange}
+              onMeasureCreate={handleMeasureCreate}
+              brandOptions={brandOptions}
+              selectStyles={commonSelectStyles}
+              loading={loading}
+              validationError={validationError}
+              displayError={displayError}
+            />
+            <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+              <Button type="submit" disabled={loading || !isFormValid()}>
+                {loading ? <CircularProgress size={24} /> : "Lagre"}
+              </Button>
+              <Button
+                onClick={() => {
+                  resetFormAndErrors();
+                  onClose();
+                }}
+                sx={{ ml: 2 }}
+              >
+                Avbryt
+              </Button>
             </Grid>
           </form>
         </BasicDialog>
