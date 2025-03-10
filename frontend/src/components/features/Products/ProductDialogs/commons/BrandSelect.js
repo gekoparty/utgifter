@@ -1,4 +1,4 @@
-// src/components/Expenses/ProductDialogs/AddProductDialog/BrandSelect.js
+// src/components/Expenses/ProductDialogs/Common/BrandSelect.js
 import React from "react";
 import CreatableSelect from "react-select/creatable";
 import PropTypes from "prop-types";
@@ -21,12 +21,11 @@ const BrandSelect = ({
         isMulti
         value={value}
         onChange={onChange}
-        getOptionLabel={(option) => option.label || option.name}  //
-        getOptionValue={(option) => option.name}
+        getOptionLabel={(option) => option.label || option.name}
+        getOptionValue={(option) => option.value} 
         placeholder="Velg Merke..."
         isClearable
         onCreateOption={onCreateOption}
-        
       />
       {isLoading && <LinearProgress sx={{ mt: 2 }} />}
       {error && <div>Error loading brands</div>}

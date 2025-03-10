@@ -1,17 +1,12 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { Button, CircularProgress, Grid } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
-import CreatableSelect from "react-select/creatable";
-import Select from "react-select";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
+import ProductForm from "../commons/ProductForm";
 import useProductDialog from "../../UseProduct/useProductDialog";
+
 import { fetchBrands } from "../../../../commons/Utils/apiUtils";
-import {
-  measurementUnitOptions,
-  predefinedTypes,
-} from "../../../../commons/Consts/constants";
 
 const EditProductDialog = ({
   selectedProduct,
@@ -46,42 +41,129 @@ const EditProductDialog = ({
     isLoading: brandLoading,
     isError: brandError,
   } = useQuery({
-    queryKey: ["brands"],  // <-- Fixed query key format
-    queryFn: ({ signal }) => fetchBrands({ signal })  // <-- Fixed query function
+    queryKey: ["brands"], // <-- Fixed query key format
+    queryFn: ({ signal }) => fetchBrands({ signal }), // <-- Fixed query function
   });
 
   const brandOptionsArray = brandData?.brands || [];
 
   // Local state for selected brands and measures
-  const [selectedBrands, setSelectedBrands] = useState([]);
+
   const [measures, setMeasures] = useState([]); // State to manage measures input
 
   // Sync selected product and reset state on open
   useEffect(() => {
-    if (open) {
-      const initialBrands = Array.isArray(selectedProduct.brand)
-        ? selectedProduct.brand.map((brand) => ({ label: brand, value: brand }))
-        : typeof selectedProduct.brand === "string"
-        ? selectedProduct.brand.split(",").map((brand) => ({
-            label: brand.trim(),
-            value: brand.trim(),
-          }))
+    if (open && brandData.brands) { // Ensure brandData is available
+      // Normalize brands to an array of IDs (assuming selectedProduct.brand contains IDs)
+      let brandIds = [];
+      if (Array.isArray(selectedProduct.brand)) {
+        brandIds = selectedProduct.brand;
+      } else if (typeof selectedProduct.brand === 'string') {
+        brandIds = selectedProduct.brand.split(',').map((b) => b.trim());
+      }
+  
+      // Convert brand IDs to names using fetched brandData
+      const brandsArray = brandIds.map((id) => {
+        const foundBrand = brandData.brands.find((brand) => brand.id === id);
+        return foundBrand ? foundBrand.name : id; // Fallback to ID if not found
+      });
+  
+      // Convert measures to strings for consistent handling
+      const measuresArray = selectedProduct.measures
+        ? selectedProduct.measures.map((m) => m.toString())
         : [];
-
-      setSelectedBrands(initialBrands);
+  
       setProduct({
         ...selectedProduct,
-        brands: initialBrands.map((brand) => brand.value),
+        brands: brandsArray,
+        measures: measuresArray,
       });
-
-      // Convert measures to string format for consistent input handling
-      setMeasures(
-        selectedProduct.measures
-          ? selectedProduct.measures.map((measure) => measure.toString())
-          : []
-      );
+      resetFormAndErrors();
     }
-  }, [selectedProduct, open, setProduct]);
+  }, [selectedProduct, open, setProduct, resetFormAndErrors, brandData])
+
+  const handleNameChange = useCallback(
+    (name) => {
+      setProduct({ ...product, name });
+      resetValidationErrors();
+      resetServerError();
+    },
+    [product, setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleBrandChange = useCallback(
+    (selectedOptions) => {
+      setProduct({
+        ...product,
+        brands: selectedOptions ? selectedOptions.map((opt) => opt.value) : [],
+      });
+      resetValidationErrors();
+      resetServerError();
+    },
+    [product, setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleBrandCreate = useCallback(
+    (inputValue) => {
+      const trimmed = inputValue.trim();
+      if (trimmed) {
+        setProduct((prevProduct) => ({
+          ...prevProduct,
+          brands: [...(prevProduct.brands || []), trimmed],
+        }));
+        resetValidationErrors();
+        resetServerError();
+      }
+    },
+    [setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleProductTypeChange = useCallback(
+    (selectedOption) => {
+      setProduct({ ...product, type: selectedOption?.value || "" });
+      resetValidationErrors();
+      resetServerError();
+    },
+    [product, setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleMeasurementUnitChange = useCallback(
+    (selectedOption) => {
+      setProduct({ ...product, measurementUnit: selectedOption?.value || "" });
+      resetValidationErrors();
+      resetServerError();
+    },
+    [product, setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleMeasuresChange = useCallback(
+    (newValues) => {
+      const updatedMeasures = newValues
+        ? newValues.map((option) => option.value)
+        : [];
+      setMeasures(updatedMeasures);
+      setProduct({ ...product, measures: updatedMeasures });
+      resetValidationErrors();
+      resetServerError();
+    },
+    [product, setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleMeasureCreate = useCallback(
+    (inputValue) => {
+      const trimmed = inputValue.trim();
+      if (/^\d+(\.\d+)?$/.test(trimmed)) {
+        setMeasures((prev) => [...prev, trimmed]);
+        setProduct({
+          ...product,
+          measures: [...(product.measures || []), trimmed],
+        });
+        resetValidationErrors();
+        resetServerError();
+      }
+    },
+    [product, setProduct, resetValidationErrors, resetServerError]
+  );
 
   // Handle brand query loading state
   if (brandLoading) {
@@ -96,14 +178,12 @@ const EditProductDialog = ({
   // Submit handler for saving the product
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     if (isFormValid()) {
       const updatedProduct = {
         ...product,
-        brands: product.brands, // Ensure brands array is correctly set
-        measures: measures.map((measure) => parseFloat(measure)), // Convert measures to float
+        brands: product.brands, // ensure brands array is set
+        measures: measures.map((m) => parseFloat(m)), // convert measures to numbers
       };
-
       const success = await handleSaveProduct(onClose, updatedProduct);
       if (success) {
         onUpdateSuccess(selectedProduct);
@@ -123,158 +203,24 @@ const EditProductDialog = ({
       dialogTitle="Edit Product"
     >
       <form onSubmit={handleSubmit}>
-        <Grid container direction="column" spacing={1}>
-          {/* Product Name Field */}
-          <Grid item>
-            <TextField
-              sx={{ marginTop: 2 }}
-              size="small"
-              label="Product Name"
-              value={product?.name || ""}
-              error={Boolean(validationError?.name)}
-              onChange={(e) => {
-                setProduct({ ...product, name: e.target.value });
-                resetValidationErrors();
-                resetServerError();
-              }}
-            />
-            {displayError || validationError ? (
-              <ErrorHandling
-                resource="products"
-                field="name"
-                loading={loading}
-              />
-            ) : null}
-          </Grid>
-
-          {/* Brand Selector */}
-          <Grid item>
-            <CreatableSelect
-              className="custom-select"
-              options={brandOptionsArray.map((brand) => ({
-                label: brand.name,
-                value: brand.name,
-              }))}
-              value={selectedBrands}
-              isMulti
-              onChange={(selectedOptions) => {
-                setSelectedBrands(selectedOptions || []);
-                setProduct({
-                  ...product,
-                  brands: (selectedOptions || []).map((option) => option.value),
-                });
-                resetValidationErrors();
-                resetServerError();
-              }}
-              getOptionLabel={(option) => option.label}
-              getOptionValue={(option) => option.value}
-              placeholder="Select Brand..."
-              isClearable
-              formatCreateLabel={(inputValue) => `New Brand: ${inputValue}`}
-              onCreateOption={(inputValue) => {
-                const newBrand = {
-                  label: inputValue.trim(),
-                  value: inputValue.trim(),
-                };
-                setSelectedBrands([...selectedBrands, newBrand]);
-                setProduct({
-                  ...product,
-                  brands: [...(product.brands || []), newBrand.value],
-                });
-              }}
-            />
-          </Grid>
-
-          {/* Type Selector */}
-          <Grid item>
-            <Select
-              options={predefinedTypes.map((type) => ({
-                value: type,
-                label: type,
-              }))}
-              value={
-                product?.type
-                  ? { value: product.type, label: product.type }
-                  : null
-              }
-              onChange={(selectedOption) => {
-                setProduct({
-                  ...product,
-                  type: selectedOption?.value || "",
-                });
-                resetValidationErrors();
-                resetServerError();
-              }}
-              isClearable
-              isSearchable
-            />
-          </Grid>
-
-          {/* Measurement Unit Selector */}
-          <Grid item>
-            <Select
-              options={measurementUnitOptions}
-              value={
-                measurementUnitOptions.find(
-                  (option) => option.value === product?.measurementUnit
-                ) || null
-              }
-              onChange={(selectedOption) => {
-                setProduct({
-                  ...product,
-                  measurementUnit: selectedOption?.value || "",
-                });
-                resetValidationErrors();
-                resetServerError();
-              }}
-              isClearable
-              isSearchable
-            />
-          </Grid>
-
-          {/* Measures Field */}
-          <Grid item>
-            <CreatableSelect
-              options={[]}
-              isMulti
-              value={measures.map((measure) => ({
-                value: measure,
-                label: measure,
-              }))}
-              onChange={(selectedOptions) => {
-                const selectedMeasures = selectedOptions.map(
-                  (option) => option.value
-                );
-                setMeasures(selectedMeasures);
-                setProduct({ ...product, measures: selectedMeasures });
-                resetValidationErrors();
-                resetServerError();
-              }}
-              isValidNewOption={(inputValue) =>
-                /^\d+(\.\d+)?$/.test(inputValue.trim())
-              }
-              onCreateOption={(inputValue) => {
-                const trimmedValue = inputValue.trim();
-                if (/^\d+(\.\d+)?$/.test(trimmedValue)) {
-                  setMeasures((prevMeasures) => [
-                    ...prevMeasures,
-                    trimmedValue,
-                  ]);
-                  setProduct((prevProduct) => ({
-                    ...prevProduct,
-                    measures: [...(prevProduct.measures || []), trimmedValue],
-                  }));
-                }
-              }}
-              placeholder="Add Measures..."
-            />
-          </Grid>
-        </Grid>
-
-        {/* Action Buttons */}
+        <ProductForm
+          product={product}
+          onNameChange={handleNameChange}
+          onBrandChange={handleBrandChange}
+          onBrandCreate={handleBrandCreate}
+          onProductTypeChange={handleProductTypeChange}
+          onMeasurementUnitChange={handleMeasurementUnitChange}
+          onMeasuresChange={handleMeasuresChange}
+          onMeasureCreate={handleMeasureCreate}
+          brandOptions={brandOptionsArray}
+          selectStyles={{}}
+          loading={loading}
+          validationError={validationError}
+          displayError={displayError}
+        />
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
           <Button type="submit" disabled={loading || !isFormValid()}>
-            {loading ? <CircularProgress size={24} /> : "Save"}
+            {loading ? <CircularProgress size={24} /> : "Lagre"}
           </Button>
           <Button
             onClick={() => {
@@ -283,7 +229,7 @@ const EditProductDialog = ({
             }}
             sx={{ ml: 2 }}
           >
-            Cancel
+            Avbryt
           </Button>
         </Grid>
       </form>
