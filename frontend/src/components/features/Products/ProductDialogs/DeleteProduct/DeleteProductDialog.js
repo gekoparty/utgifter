@@ -35,24 +35,24 @@ const DeleteProductDialog = ({
       // Cancel button to close the dialog
       cancelButton={
         <Button onClick={onClose} disabled={loading}>
-          Cancel
+          Avbryt
         </Button>
       }
       // Confirm button to trigger the delete action
       confirmButton={
         <Button onClick={handleDelete} disabled={loading}>
-          Delete
+          Slett
         </Button>
       }
     >
       {/* Display a confirmation message with the product name */}
       {selectedProduct && (
         <Typography component="p" marginTop={2}>
-          Are you sure you want to delete this product? Deleting{" "}
+          Er du sikker på at du vil slette dette produktet? Sletting av{" "}
           <Typography component="span" fontWeight="bold">
             "{selectedProduct.name}"
           </Typography>{" "}
-          may also affect associated expenses.
+          kan også påvirke tilknyttede utgifter.
         </Typography>
       )}
     </BasicDialog>
