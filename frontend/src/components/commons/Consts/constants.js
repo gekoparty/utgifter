@@ -10,7 +10,7 @@ export const measurementUnitOptions = [
     "Alkohol", "Bil", "Båt/Fiske", "Hus", "Gave", "Hage", "Kjøkken",
     "Gambling", "Datautstyr", "Pakke", "Ferje", "Hår/Hud", "Brev/Pakke",
     "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler",
-    "Klær", "Verktøy", "Tobakk",
+    "Klær", "Verktøy", "Tobakk", "Dokumenter", "Apper/Spill", "Annet"
   ];
 
   export const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
