@@ -1,4 +1,4 @@
-import React, { useState, useMemo, lazy, Suspense, useCallback } from "react";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import {
   Box,
   Button,
@@ -188,15 +188,15 @@ const ProductScreen = () => {
   };
 
   // Use useCallback to ensure stable functions
-  const handleEdit = useCallback((product) => {
+  const handleEdit = (product) => {
     setSelectedProduct(product);
     setEditModalOpen(true);
-  }, []);
+  };
 
-  const handleDelete = useCallback((product) => {
+  const handleDelete = (product) => {
     setSelectedProduct(product);
     setDeleteModalOpen(true);
-  }, []);
+  };
 
   // Render the layout, table, modals, and snackbars
   return (
