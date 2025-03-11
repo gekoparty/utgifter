@@ -198,6 +198,8 @@ const ProductScreen = () => {
     setDeleteModalOpen(true);
   };
 
+  
+
   // Render the layout, table, modals, and snackbars
   return (
     <TableLayout>
