@@ -1,5 +1,13 @@
-import React, { useState, useMemo, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
+import React, { useState, useMemo, lazy, Suspense, useCallback } from "react";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  Alert,
+  Skeleton,
+  Paper,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -73,12 +81,6 @@ const ProductScreen = () => {
   // Proper query key structure for v4
   const baseQueryKey = useMemo(() => ["products", "paginated"], []);
 
-  // Memoized selected product (to prevent unnecessary renders)
-  const memoizedSelectedProduct = useMemo(
-    () => selectedProduct,
-    [selectedProduct]
-  );
-
   // Build parameters for the hook
   const fetchParams = useDeepCompareMemo(
     () => ({
@@ -107,6 +109,7 @@ const ProductScreen = () => {
   // SAFETY: Ensure data is always an array
   const tableData = useMemo(() => productsData?.products || [], [productsData]);
   const metaData = useMemo(() => productsData?.meta || {}, [productsData]);
+  const memoizedSorting = useMemo(() => sorting, [sorting]);
 
   // Table columns configuration
   const tableColumns = useMemo(
@@ -179,10 +182,21 @@ const ProductScreen = () => {
   };
 
   // Cleanup when dialogs close: reset selected product and remove cache entries
-  const handleDialogClose = (closeDialogFn) => {
-    closeDialogFn(false);
+  const handleDialogClose = (setDialogOpen) => {
+    setDialogOpen(false);
     setSelectedProduct(INITIAL_SELECTED_PRODUCT);
   };
+
+  // Use useCallback to ensure stable functions
+  const handleEdit = useCallback((product) => {
+    setSelectedProduct(product);
+    setEditModalOpen(true);
+  }, []);
+
+  const handleDelete = useCallback((product) => {
+    setSelectedProduct(product);
+    setDeleteModalOpen(true);
+  }, []);
 
   // Render the layout, table, modals, and snackbars
   return (
@@ -215,10 +229,22 @@ const ProductScreen = () => {
             minWidth: 600,
           }}
         >
-          {!isLoading ? (
+          {isLoading ? (
+            <Paper
+              elevation={3}
+              sx={{
+                p: 4,
+                backgroundColor: "white",
+                textAlign: "center",
+              }}
+            >
+              <Skeleton variant="rectangular" width="100%" height={200} />
+              <Box sx={{ mt: 2 }}>Laster Produkter...</Box>
+            </Paper>
+          ) : (
             <ReactTable
               getRowId={(row) => row._id}
-              data={tableData || []}
+              data={tableData} // Always pass the table, even if empty
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -231,23 +257,14 @@ const ProductScreen = () => {
               columnFilters={columnFilters}
               globalFilter={globalFilter}
               pagination={pagination}
-              sorting={sorting}
+              sorting={memoizedSorting}
               meta={metaData}
               setSelectedProduct={setSelectedProduct}
-              handleEdit={(product) => {
-                setSelectedProduct(product);
-                setEditModalOpen(true);
-              }}
-              handleDelete={(product) => {
-                setSelectedProduct(product);
-                setDeleteModalOpen(true);
-              }}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
               sx={{ flexGrow: 1, width: "100%" }}
+              noDataMessage="Ingen produkter funnet"
             />
-          ) : (
-            <Box sx={{ textAlign: "center", p: 4 }}>
-              {isLoading ? "Laster produkter..." : "Ingen produkter funnet"}
-            </Box>
           )}
         </Box>
       </Box>
@@ -271,7 +288,7 @@ const ProductScreen = () => {
       </Suspense>
 
       <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
-        {memoizedSelectedProduct._id && editModalOpen && (
+        {selectedProduct._id && editModalOpen && (
           <EditProductDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}

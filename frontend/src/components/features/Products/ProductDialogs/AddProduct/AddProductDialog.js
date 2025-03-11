@@ -1,6 +1,6 @@
 // src/components/Expenses/ProductDialogs/AddProductDialog/AddProductDialog.js
 import React, { useState, useEffect, useCallback } from "react";
-import { Grid, Box, Button, Fade, CircularProgress } from "@mui/material";
+import { Grid, Box, Button, Fade, CircularProgress, Skeleton } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import useProductDialog from "../../UseProduct/useProductDialog";
@@ -8,7 +8,6 @@ import commonSelectStyles from "../../../../commons/Styles/SelectStyles";
 import { useQuery } from "@tanstack/react-query";
 import { fetchBrands } from "../../../../commons/Utils/apiUtils";
 import ProductForm from "../commons/ProductForm";
-import LinearProgress from "@mui/material/LinearProgress";
 
 // Import our split components
 
@@ -43,7 +42,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     queryKey: ["brands"],
     queryFn: ({ signal }) => fetchBrands({ signal }),
   });
-  const brandOptions = brandData.brands;
+  const brandOptions = brandData?.brands || [];
 
   // Handlers
   const handleSubmit = async (event) => {
@@ -137,39 +136,46 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
           }}
           dialogTitle="Nytt Produkt"
         >
-          {(loading || brandLoading) && <LinearProgress />}
-          {brandError && <div>Error loading brands</div>}
-          <form onSubmit={handleSubmit}>
-            <ProductForm
-              product={product}
-              onNameChange={handleNameChange}
-              onBrandChange={handleBrandChange}
-              onBrandCreate={handleBrandCreate}
-              onProductTypeChange={handleProductTypeChange}
-              onMeasurementUnitChange={handleMeasurementUnitChange}
-              onMeasuresChange={handleMeasuresChange}
-              onMeasureCreate={handleMeasureCreate}
-              brandOptions={brandOptions}
-              selectStyles={commonSelectStyles}
-              loading={loading}
-              validationError={validationError}
-              displayError={displayError}
-            />
-            <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
-              <Button type="submit" disabled={loading || !isFormValid()}>
-                {loading ? <CircularProgress size={24} /> : "Lagre"}
-              </Button>
-              <Button
-                onClick={() => {
-                  resetFormAndErrors();
-                  onClose();
-                }}
-                sx={{ ml: 2 }}
-              >
-                Avbryt
-              </Button>
-            </Grid>
-          </form>
+          {(loading || brandLoading) ? (
+            <Box sx={{ p: 2 }}>
+              <Skeleton variant="rectangular" width="100%" height={200} />
+            </Box>
+          ) : (
+            <>
+              {brandError && <div>Error loading brands</div>}
+              <form onSubmit={handleSubmit}>
+                <ProductForm
+                  product={product}
+                  onNameChange={handleNameChange}
+                  onBrandChange={handleBrandChange}
+                  onBrandCreate={handleBrandCreate}
+                  onProductTypeChange={handleProductTypeChange}
+                  onMeasurementUnitChange={handleMeasurementUnitChange}
+                  onMeasuresChange={handleMeasuresChange}
+                  onMeasureCreate={handleMeasureCreate}
+                  brandOptions={brandOptions}
+                  selectStyles={commonSelectStyles}
+                  loading={loading}
+                  validationError={validationError}
+                  displayError={displayError}
+                />
+                <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+                  <Button type="submit" disabled={loading || !isFormValid()}>
+                    {loading ? <CircularProgress size={24} /> : "Lagre"}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      resetFormAndErrors();
+                      onClose();
+                    }}
+                    sx={{ ml: 2 }}
+                  >
+                    Avbryt
+                  </Button>
+                </Grid>
+              </form>
+            </>
+          )}
         </BasicDialog>
       </Box>
     </Fade>

@@ -67,12 +67,23 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   } = useInfiniteProducts(productSearch);
 
   // Fetch brands options.
-  const { data: brands, isLoading: isLoadingBrands } = useFetchData(
+  const {
+    data: brands,
+    isLoading: isLoadingBrands,
+    refetch: refetchBrands,
+  } = useFetchData(
     "brands",
     "/api/brands",
-    (data) => (Array.isArray(data.brands) ? data.brands : []),
-    { enabled: open }
+    (data) => (Array.isArray(data.brands) ? data.brands : [])
   );
+
+   // Trigger a refetch whenever the dialog opens to ensure data freshness.
+   useEffect(() => {
+    if (open) {
+      refetchBrands();
+    }
+  }, [open, refetchBrands]);
+
 
   // Fetch shops options and enrich with location name.
   const { data: shops, isLoading: isLoadingShops } = useFetchData(

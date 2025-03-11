@@ -28,10 +28,10 @@ const Table = ({
   renderDetailPanel,
   layoutMode = "table",
 }) => {
-  const columnsConfig = useMemo(() => columns, [columns]);
   const theme = useTheme();
   const isDarkMode = theme.palette.mode === "dark";
 
+  // Memoized Styles
   const {
     muiTableHeadCellStyles,
     muiTableBodyCellStyles,
@@ -39,6 +39,8 @@ const Table = ({
     muiBottomToolbarStyles,
   } = useMemo(() => getTableStyles(theme, isDarkMode), [theme, isDarkMode]);
 
+  // Memoized States (prevents unnecessary re-renders)
+  const columnsConfig = useMemo(() => columns, [columns]);
   const columnFilterState = useMemo(() => columnFilters, [columnFilters]);
   const globalFilterState = useMemo(() => globalFilter, [globalFilter]);
   const sortingState = useMemo(() => sorting, [sorting]);
@@ -77,6 +79,7 @@ const Table = ({
     [initialState]
   );
 
+  // Memoized Handlers
   const handleRefresh = useCallback(() => {
     refetch({ stale: true });
   }, [refetch]);
@@ -153,14 +156,31 @@ const Table = ({
 };
 
 const ReactTable = React.memo(
-  ({ handleEdit, handleDelete, slotProps, ...props }) => (
-    <Table
-      data-testid="react-table"
-      handleEdit={handleEdit}
-      handleDelete={handleDelete}
-      {...props}
-    />
-  )
+  ({ handleEdit, handleDelete, ...props }) => (
+    <Table handleEdit={handleEdit} handleDelete={handleDelete} {...props} />
+  ),
+  (prevProps, nextProps) => {
+    // Avoid re-renders if props haven't changed
+    return (
+      prevProps.data === nextProps.data &&
+      prevProps.columns === nextProps.columns &&
+      prevProps.setColumnFilters === nextProps.setColumnFilters &&
+      prevProps.setGlobalFilter === nextProps.setGlobalFilter &&
+      prevProps.setSorting === nextProps.setSorting &&
+      prevProps.setPagination === nextProps.setPagination &&
+      prevProps.refetch === nextProps.refetch &&
+      prevProps.isError === nextProps.isError &&
+      prevProps.isLoading === nextProps.isLoading &&
+      prevProps.isFetching === nextProps.isFetching &&
+      prevProps.columnFilters === nextProps.columnFilters &&
+      prevProps.globalFilter === nextProps.globalFilter &&
+      prevProps.pagination === nextProps.pagination &&
+      prevProps.sorting === nextProps.sorting &&
+      prevProps.meta === nextProps.meta &&
+      prevProps.initialState === nextProps.initialState &&
+      prevProps.renderDetailPanel === nextProps.renderDetailPanel
+    );
+  }
 );
 
 export default ReactTable;
