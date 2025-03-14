@@ -1,13 +1,14 @@
 // src/components/Expenses/ProductDialogs/AddProductDialog/AddProductDialog.js
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Grid, Box, Button, Fade, CircularProgress, Skeleton } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import useProductDialog from "../../UseProduct/useProductDialog";
 import commonSelectStyles from "../../../../commons/Styles/SelectStyles";
 import { useQuery } from "@tanstack/react-query";
-import { fetchBrands } from "../../../../commons/Utils/apiUtils";
+//import { fetchBrands } from "../../../../commons/Utils/apiUtils";
 import ProductForm from "../commons/ProductForm";
+import useInfiniteBrands from "../../../../../hooks/useInfiniteBrands";
 
 // Import our split components
 
@@ -24,9 +25,11 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     validationError,
     isFormValid,
     resetFormAndErrors,
+   
   } = useProductDialog();
 
   const [selectedBrands, setSelectedBrands] = useState([]);
+  const [brandSearch, setBrandSearch] = useState("");
 
   
 
@@ -37,12 +40,29 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     }
   }, [open, resetFormAndErrors]);
 
-  // Fetch brand options
-  const { data: brandData = { brands: [] }, isLoading: brandLoading, isError: brandError } = useQuery({
-    queryKey: ["brands"],
-    queryFn: ({ signal }) => fetchBrands({ signal }),
-  });
-  const brandOptions = brandData?.brands || [];
+  const {
+    data: infiniteData,
+    isLoading: isLoadingBrands,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteBrands(brandSearch);
+
+  const prevBrandOptionsRef = useRef([]);
+useEffect(() => {
+  if (infiniteData && infiniteData.pages) {
+    const newOptions = infiniteData.pages.flatMap(page => page.brands);
+    prevBrandOptionsRef.current = newOptions;
+  }
+}, [infiniteData]);
+
+const brandOptions = infiniteData && infiniteData.pages
+  ? infiniteData.pages.flatMap(page => page.brands)
+  : prevBrandOptionsRef.current;
+     // Log fetched brand options for debugging:
+  useEffect(() => {
+    console.log("Fetched brand options:", brandOptions);
+  }, [brandOptions]);
 
   // Handlers
   const handleSubmit = async (event) => {
@@ -65,6 +85,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
       // Extract the brand values from the selected options:
       brands: selectedOptions ? selectedOptions.map((brand) => brand.value) : [],
     });
+    setBrandSearch("");
     resetValidationErrors();
     resetServerError();
   }, [product, resetValidationErrors, resetServerError, setProduct]);
@@ -125,6 +146,22 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
+  // Update search query when input changes
+  const handleInputChange = useCallback((inputValue, { action }) => {
+    if (action === "input-change") {
+      setBrandSearch(inputValue);
+    }
+  }, []);
+
+  // Fetch next page when the menu is scrolled to the bottom
+  // When the menu is scrolled to the bottom, fetch the next page.
+  const handleMenuScrollToBottom = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      console.log('Fetching next page');
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   return (
     <Fade in={open} timeout={300}>
       <Box>
@@ -136,16 +173,16 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
           }}
           dialogTitle="Nytt Produkt"
         >
-          {(loading || brandLoading) ? (
+           {(loading || isLoadingBrands) ? (
             <Box sx={{ p: 2 }}>
               <Skeleton variant="rectangular" width="100%" height={200} />
             </Box>
           ) : (
             <>
-              {brandError && <div>Error loading brands</div>}
-              <form onSubmit={handleSubmit}>
+               <form onSubmit={handleSubmit}>
                 <ProductForm
                   product={product}
+                  inputValue={brandSearch}
                   onNameChange={handleNameChange}
                   onBrandChange={handleBrandChange}
                   onBrandCreate={handleBrandCreate}
@@ -153,11 +190,15 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   onMeasurementUnitChange={handleMeasurementUnitChange}
                   onMeasuresChange={handleMeasuresChange}
                   onMeasureCreate={handleMeasureCreate}
+                  // Pass the infinite query data and handlers.
                   brandOptions={brandOptions}
                   selectStyles={commonSelectStyles}
-                  loading={loading}
+                  // Combine loading states from the dialog and infinite query.
+                  loading={loading || isLoadingBrands || isFetchingNextPage}
                   validationError={validationError}
                   displayError={displayError}
+                  onInputChange={handleInputChange}
+                  onMenuScrollToBottom={handleMenuScrollToBottom}
                 />
                 <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
                   <Button type="submit" disabled={loading || !isFormValid()}>

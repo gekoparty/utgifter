@@ -51,12 +51,32 @@ export const fetchProducts = async ({ signal }) => {
     return data;
   };
 
-  export const fetchBrands = async ({ signal }) => {
-    const fetchURL = new URL("/api/brands", API_URL); // Replace with your actual endpoint
+  export const fetchBrands = async ({ infinite = false, page, search, signal } = {}) => {
+    const fetchURL = new URL("/api/brands", API_URL);
+    
+    if (infinite) {
+      // Convert to backend's expected parameters
+      fetchURL.searchParams.set("page", page);
+      fetchURL.searchParams.set("limit", 20);
+    }
+    
+    if (search) {
+      // Match backend's parameter name for search
+      fetchURL.searchParams.set("search", search);
+    }
+  
     const response = await fetch(fetchURL.href, { signal });
     const data = await response.json();
+    
+    console.log('Brands API Call:', {
+      url: fetchURL.href,
+      receivedPage: page,
+      response: data
+    });
+    
     return data;
   };
+  
 
   export const fetchExpenses = async ({ signal }) => {
     const fetchURL = new URL("/api/expenses", API_URL); // Replace with your actual endpoint

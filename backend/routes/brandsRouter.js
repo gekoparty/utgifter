@@ -9,7 +9,21 @@ brandsRouter.get("/", async (req, res) => {
   try {
     // Log incoming query parameters for debugging.
     console.log("Brands GET params:", req.query);
-    const { columnFilters, globalFilter, sorting, start, size } = req.query;
+    const { columnFilters, globalFilter, sorting, start, size, page, limit } = req.query;
+
+    // Compute pagination parameters.
+    let computedStart, computedSize;
+    if (page && limit) {
+      // If infinite scroll parameters are provided, convert them to start and size.
+      computedStart = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      computedSize = parseInt(limit, 10);
+      console.log(
+        `Using infinite scroll pagination: page=${page}, limit=${limit} => start=${computedStart}, size=${computedSize}`
+      );
+    } else {
+      computedStart = start !== undefined ? parseInt(start, 10) : 0;
+      computedSize = size !== undefined ? parseInt(size, 10) : 20; // Default size if not provided.
+    }
 
     // Start building the Mongoose query.
     let query = Brand.find();
@@ -49,16 +63,12 @@ brandsRouter.get("/", async (req, res) => {
       }
     }
 
+    // Count total matching documents based on the current filter.
+    const totalRowCount = await Brand.countDocuments(query.getFilter());
+    console.log("Total matching brands:", totalRowCount);
+
     // Apply pagination.
-    let totalRowCount = 0;
-    if (start !== undefined && size !== undefined) {
-      const startIndex = parseInt(start, 10);
-      const pageSize = parseInt(size, 10);
-      // Count total matching documents based on the current filter.
-      totalRowCount = await Brand.countDocuments(query.getFilter());
-      console.log("Total matching brands:", totalRowCount);
-      query = query.skip(startIndex).limit(pageSize);
-    }
+    query = query.skip(computedStart).limit(computedSize);
 
     // Execute the query.
     const brands = await query.exec();
