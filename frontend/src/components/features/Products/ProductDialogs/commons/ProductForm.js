@@ -2,12 +2,12 @@
 import React from "react";
 import { Grid } from "@mui/material";
 import ProductNameInput from "./ProductNameInput";
-import BrandSelect from "./BrandSelect"
+import BrandSelect from "./BrandSelect";
 import ProductTypeSelect from "./ProductTypeSelect";
 import MeasurementUnitSelect from "./MeasurementUnitSelect";
 import MeasuresInput from "./MeasuresInput";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
-import { predefinedTypes, measurementUnitOptions } from "../../../../commons/Consts/constants"
+import { predefinedTypes, measurementUnitOptions } from "../../../../commons/Consts/constants";
 
 const ProductForm = ({
   product,
@@ -23,6 +23,9 @@ const ProductForm = ({
   loading,
   validationError,
   displayError,
+  onInputChange,          // NEW: for filtering in BrandSelect
+  onMenuScrollToBottom,   // NEW: for infinite scrolling in BrandSelect
+  inputValue,             // NEW: the current search text
 }) => {
   // Format the brand options for the BrandSelect component
   const formattedBrandOptions = brandOptions.map((brand) => ({
@@ -35,7 +38,6 @@ const ProductForm = ({
     const found = brandOptions.find((b) => b._id === brandId || b.id === brandId);
     return found ? { label: found.name, value: found.name } : { label: brandId, value: brandId };
   }) || [];
-
 
   return (
     <Grid container direction="column" spacing={2}>
@@ -61,6 +63,9 @@ const ProductForm = ({
           isLoading={loading}
           error={validationError?.brand}
           selectStyles={selectStyles}
+          onInputChange={onInputChange}          // pass filtering handler
+          onMenuScrollToBottom={onMenuScrollToBottom} // pass scroll handler
+          inputValue={inputValue}                // pass the controlled input value
         />
         {(displayError || validationError) && (
           <ErrorHandling resource="products" field="brand" loading={loading} />
@@ -74,9 +79,7 @@ const ProductForm = ({
             value: type,
             label: type,
           }))}
-          value={
-            product?.type ? { value: product.type, label: product.type } : null
-          }
+          value={ product?.type ? { value: product.type, label: product.type } : null }
           onChange={onProductTypeChange}
           selectStyles={selectStyles}
         />
@@ -86,20 +89,12 @@ const ProductForm = ({
       <Grid item>
         <MeasurementUnitSelect
           options={measurementUnitOptions}
-          value={
-            measurementUnitOptions.find(
-              (option) => option.value === product?.measurementUnit
-            ) || null
-          }
+          value={ measurementUnitOptions.find((option) => option.value === product?.measurementUnit) || null }
           onChange={onMeasurementUnitChange}
           selectStyles={selectStyles}
         />
         {(displayError || validationError) && (
-          <ErrorHandling
-            resource="products"
-            field="measurementUnit"
-            loading={loading}
-          />
+          <ErrorHandling resource="products" field="measurementUnit" loading={loading} />
         )}
       </Grid>
 
@@ -107,12 +102,7 @@ const ProductForm = ({
       <Grid item>
         <MeasuresInput
           options={[]} // Pass any predefined measures if needed
-          value={
-            product?.measures?.map((measure) => ({
-              value: measure,
-              label: measure,
-            })) || []
-          }
+          value={ product?.measures?.map((measure) => ({ value: measure, label: measure })) || [] }
           onChange={onMeasuresChange}
           onCreateOption={onMeasureCreate}
           selectStyles={selectStyles}

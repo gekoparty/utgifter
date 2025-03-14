@@ -12,6 +12,9 @@ const BrandSelect = ({
   error,
   onCreateOption,
   selectStyles,
+  onInputChange,          // for filtering
+  onMenuScrollToBottom,   // for infinite scroll
+  inputValue, // new prop
 }) => {
   return (
     <>
@@ -21,11 +24,14 @@ const BrandSelect = ({
         isMulti
         value={value}
         onChange={onChange}
+        inputValue={inputValue} // make the input controlled
         getOptionLabel={(option) => option.label || option.name}
-        getOptionValue={(option) => option.value} 
+        getOptionValue={(option) => option.value}
         placeholder="Velg Merke..."
         isClearable
         onCreateOption={onCreateOption}
+        onInputChange={onInputChange} 
+        onMenuScrollToBottom={onMenuScrollToBottom}
       />
       {isLoading && <LinearProgress sx={{ mt: 2 }} />}
       {error && <div>Error loading brands</div>}
@@ -41,6 +47,11 @@ BrandSelect.propTypes = {
   error: PropTypes.bool,
   onCreateOption: PropTypes.func.isRequired,
   selectStyles: PropTypes.object.isRequired,
+  onInputChange: PropTypes.func,
+  onMenuScrollToBottom: PropTypes.func,
+  inputValue: PropTypes.string, // new prop type
 };
 
 export default React.memo(BrandSelect);
+
+
