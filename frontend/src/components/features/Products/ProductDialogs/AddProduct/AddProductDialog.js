@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import ProductForm from "../commons/ProductForm";
 import useInfiniteBrands from "../../../../../hooks/useInfiniteBrands";
 
+
 // Import our split components
 
 
@@ -74,6 +75,7 @@ const brandOptions = infiniteData && infiniteData.pages
       });
       if (success) {
         onAdd({ name: product.name });
+       
       }
     }
   };
