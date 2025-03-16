@@ -1,5 +1,6 @@
 import { useCallback, useContext, useState, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
+import { useQueryClient } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../../Store/Store";
@@ -17,6 +18,8 @@ const useProductDialog = (initialProduct = null) => {
     }),
     []
   );
+
+  const queryClient = useQueryClient();
 
   // Local state to manage the product form
   const [product, setProduct] = useState(
@@ -147,6 +150,8 @@ const useProductDialog = (initialProduct = null) => {
         dispatch({ type: "RESET_ERROR", resource: "products" });
         dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
         onClose();
+
+        queryClient.removeQueries(["brands"], { exact: false });
         return true;
       }
     } catch (fetchError) {
@@ -218,7 +223,6 @@ const useProductDialog = (initialProduct = null) => {
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
-   
   };
 };
 
