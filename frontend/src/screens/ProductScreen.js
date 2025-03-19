@@ -12,6 +12,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
+import {LinearProgress} from "@mui/material";
 import { useDeepCompareMemo } from "use-deep-compare";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "../hooks/usePaginatedData";
@@ -272,7 +273,7 @@ const ProductScreen = () => {
       </Box>
 
       {/* Modals */}
-      <Suspense fallback={<div>Laster...</div>}>
+      <Suspense fallback={<Box sx={{ p: 2 }}><LinearProgress /></Box>}>
         <DeleteProductDialog
           open={deleteModalOpen}
           dialogTitle="Bekreft Sletting"
@@ -289,7 +290,12 @@ const ProductScreen = () => {
         />
       </Suspense>
 
-      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
+      <Suspense 
+  fallback={
+    <Box sx={{ p: 2 }}>
+      <LinearProgress sx={{ width: '100%' }}/>
+    </Box>
+  }>
         {selectedProduct._id && editModalOpen && (
           <EditProductDialog
             open={editModalOpen}
@@ -303,7 +309,12 @@ const ProductScreen = () => {
         )}
       </Suspense>
 
-      <Suspense fallback={<div>Laster Dialog...</div>}>
+      <Suspense 
+  fallback={
+    <Box sx={{ p: 2 }}>
+      <LinearProgress sx={{ width: '100%' }}/>
+    </Box>
+  }>
         {addProductDialogOpen && (
           <AddProductDialog
             open={addProductDialogOpen}

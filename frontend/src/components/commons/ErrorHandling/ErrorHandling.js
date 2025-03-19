@@ -2,7 +2,6 @@ import React, { useContext } from "react";
 import PropTypes from "prop-types"; 
 import { Typography } from "@mui/material";
 import { StoreContext } from "../../../Store/Store";
-import CircularProgress from "@mui/material/CircularProgress";
 
 const ErrorHandling = ({ resource, loading, field }) => {
   const { state } = useContext(StoreContext);
@@ -11,19 +10,13 @@ const ErrorHandling = ({ resource, loading, field }) => {
   const displayError = error?.[resource];
   const validationError = validationErrors?.[resource]?.[field];
 
-
+  // Only render an error message when showError is true and there's an error to display.
   return (
     <div>
-      {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <CircularProgress />
-        </div>
-      ) : (
-        showError && (displayError || validationError?.message) && (
-          <Typography sx={{ marginTop: 1, fontSize: "0.8rem"}} variant="body1" color="error">
-            {displayError || validationError?.message}
-          </Typography>
-        )
+      {showError && (displayError || validationError?.message) && (
+        <Typography sx={{ marginTop: 1, fontSize: "0.8rem"}} variant="body1" color="error">
+          {displayError || validationError?.message}
+        </Typography>
       )}
     </div>
   );

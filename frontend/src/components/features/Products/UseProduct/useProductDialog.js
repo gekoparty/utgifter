@@ -60,7 +60,6 @@ const useProductDialog = (initialProduct = null) => {
     resetValidationErrors,
   ]);
 
-  // Initialize or reset the form when `initialProduct` changes
   useEffect(() => {
     if (initialProduct) {
       setProduct((prevProduct) => ({
@@ -72,13 +71,14 @@ const useProductDialog = (initialProduct = null) => {
     } else {
       resetFormAndErrors();
     }
-
-    // Cleanup: Clear product and brand resources in the global store
+  
+    // Cleanup: clear products and brands resources and remove the brands cache
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "products" });
       dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
+      queryClient.removeQueries(["brands"], { exact: false });
     };
-  }, [initialProduct, resetFormAndErrors, dispatch]);
+  }, [initialProduct, resetFormAndErrors, dispatch, queryClient]);
 
   // Save the product (either create or update)
   const handleSaveProduct = async (onClose) => {
