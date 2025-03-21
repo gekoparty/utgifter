@@ -21,7 +21,7 @@ if (process.env.NODE_ENV === "development") {
   whyDidYouRender(React);
 }
 
-// Create a QueryClient instance
+// Create a QueryClient instance for React Query v5
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -40,7 +40,7 @@ function App({ children }) {
         <StoreProvider>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
             <QueryClientProvider client={queryClient}>
-              {children} {/* Now App only wraps children, which will be provided by Router */}
+              {children}
               <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-left" />
             </QueryClientProvider>
           </LocalizationProvider>

@@ -17,6 +17,8 @@ import { useDeepCompareMemo } from "use-deep-compare";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 
+
+
 // Lazy-loaded Dialogs
 const AddProductDialog = lazy(() =>
   import(
@@ -160,26 +162,14 @@ const ProductScreen = () => {
   // Handlers for product actions
   const addProductHandler = (newProduct) => {
     showSnackbar(`Produkt ${newProduct.name} er lagt til`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   const deleteSuccessHandler = (deletedProduct) => {
     showSnackbar(`Produkt ${deletedProduct.name} slettet`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   const editSuccessHandler = (updatedProduct) => {
     showSnackbar(`Produkt ${updatedProduct.name} oppdatert`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   // Cleanup when dialogs close: reset selected product and remove cache entries

@@ -1,6 +1,6 @@
 import { useCallback, useContext, useState, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../../Store/Store";
@@ -71,19 +71,80 @@ const useProductDialog = (initialProduct = null) => {
     } else {
       resetFormAndErrors();
     }
-  
+
     // Cleanup: clear products and brands resources and remove the brands cache
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "products" });
       dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
-      queryClient.removeQueries(["brands"], { exact: false });
+      queryClient.removeQueries({ queryKey: ["brands"] });
     };
   }, [initialProduct, resetFormAndErrors, dispatch, queryClient]);
 
-  // Save the product (either create or update)
+  // Define the mutation function for saving (create/update) a product.
+const saveProductMutation = useMutation({
+  mutationFn: async (formattedProduct) => {
+    const url = initialProduct
+      ? `/api/products/${initialProduct._id}`
+      : "/api/products";
+    const method = initialProduct ? "PUT" : "POST";
+
+    const { data, error: addDataError } = await sendRequest(
+      url,
+      method,
+      formattedProduct
+    );
+    if (addDataError) {
+      throw new Error(data.error || addDataError);
+    }
+    return data;
+  },
+  onMutate: async (formattedProduct) => {
+    await queryClient.cancelQueries(["products"]);
+    const previousProducts = queryClient.getQueryData(["products"]);
+
+    if (initialProduct) {
+      queryClient.setQueryData(["products"], (oldProducts = []) =>
+        oldProducts.map((p) =>
+          p._id === initialProduct._id ? { ...p, ...formattedProduct } : p
+        )
+      );
+    } else {
+      queryClient.setQueryData(["products"], (oldProducts = []) => [
+        ...oldProducts,
+        {
+          ...formattedProduct,
+          _id: Math.random().toString(36).substr(2, 9),
+        },
+      ]);
+    }
+    return { previousProducts };
+  },
+  onError: (error, formattedProduct, context) => {
+    if (context?.previousProducts) {
+      queryClient.setQueryData(["products"], context.previousProducts);
+    }
+    dispatch({
+      type: "SET_ERROR",
+      error: error.message,
+      resource: "products",
+      showError: true,
+    });
+  },
+  onSuccess: (data) => {
+    dispatch({ type: "RESET_ERROR", resource: "products" });
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  },
+  onSettled: () => {
+    queryClient.invalidateQueries({ queryKey: ["brands"] });
+  },
+});
+
+
+  // Validate and handle product save (create/update)
   const handleSaveProduct = async (onClose) => {
     if (!product.name.trim() || product.brands.length === 0) {
-      return; // Ensure product name and brands are valid
+      return; // Validate required fields before submission
     }
 
     let formattedProduct = { ...product };
@@ -127,41 +188,13 @@ const useProductDialog = (initialProduct = null) => {
       return;
     }
 
-    try {
-      const url = initialProduct
-        ? `/api/products/${initialProduct._id}`
-        : "/api/products";
-      const method = initialProduct ? "PUT" : "POST";
-
-      const { data, error: addDataError } = await sendRequest(
-        url,
-        method,
-        formattedProduct
-      );
-
-      if (addDataError) {
-        dispatch({
-          type: "SET_ERROR",
-          error: data.error || addDataError,
-          resource: "products",
-          showError: true,
-        });
-      } else {
-        dispatch({ type: "RESET_ERROR", resource: "products" });
-        dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
-        onClose();
-
-        queryClient.removeQueries(["brands"], { exact: false });
-        return true;
-      }
-    } catch (fetchError) {
-      dispatch({
-        type: "SET_ERROR",
-        error: fetchError,
-        resource: "/api/products",
-        showError: true,
-      });
-    }
+    // Execute the mutation with the formatted product
+    saveProductMutation.mutate(formattedProduct, {
+      onSuccess: () => {
+        // Call the provided onClose callback if mutation succeeds
+        onClose && onClose();
+      },
+    });
   };
 
   // Delete a product
@@ -185,6 +218,7 @@ const useProductDialog = (initialProduct = null) => {
           resource: "products",
           payload: selectedProduct._id,
         });
+        queryClient.invalidateQueries({ queryKey: ["products"] });
         return true;
       }
     } catch (error) {
@@ -213,7 +247,7 @@ const useProductDialog = (initialProduct = null) => {
 
   return {
     isFormValid,
-    loading,
+    loading: loading || saveProductMutation.isPending,
     handleSaveProduct,
     handleDeleteProduct,
     displayError,
