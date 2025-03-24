@@ -1,26 +1,11 @@
 import React, { useMemo, useEffect } from "react";
-import {
-  Button,
-  TextField,
-  CircularProgress,
-  Grid,
-  Fade,
-  Box,
-} from "@mui/material";
-import { useQuery } from "@tanstack/react-query";
+import { Grid, Fade, Box, CircularProgress } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
-import useShopDialog from "../../UseShop/useShopDialog";
-import LinearProgress from "@mui/material/LinearProgress";
+import { useQuery } from "@tanstack/react-query";
 import { fetchLocations, fetchCategories } from "../../../../commons/Utils/apiUtils";
-import commonSelectStyles from "../../../../commons/Styles/SelectStyles";
-import CreatableSelect from "react-select/creatable";
-
-// Memoized components
-const MemoizedBasicDialog = React.memo(BasicDialog);
-const MemoizedErrorHandling = React.memo(ErrorHandling);
-const MemoizedCreatableSelect = React.memo(CreatableSelect);
+import useShopDialog from "../../UseShop/useShopDialog"
+import ShopForm from "../commons/ShopForm";
 
 const AddShopDialog = ({ open, onClose, onAdd }) => {
   const {
@@ -36,43 +21,25 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useShopDialog();
 
-  // Fetch location names with abort signal support.
-  const {
-    data: locations = [],
-    isLoading: locationLoading,
-    isError: locationError,
-  } = useQuery({
+  // Fetch locations
+  const { data: locations = [], isLoading: locationLoading, isError: locationError } = useQuery({
     queryKey: ["locations"],
     queryFn: ({ signal }) => fetchLocations({ signal }),
     select: (data) => data.locations.map((l) => l.name),
   });
 
+  // Fetch categories
+  const { data: categories = [], isLoading: categoryLoading, isError: categoryError } = useQuery({
+    queryKey: ["categories"],
+    queryFn: ({ signal }) => fetchCategories({ signal }),
+    select: (data) => data.categories.map((c) => c.name),
+  });
 
+  // Memoize select options
+  const locationOptions = useMemo(() => locations.map((name) => ({ value: name, label: name })), [locations]);
+  const categoryOptions = useMemo(() => categories.map((name) => ({ value: name, label: name })), [categories]);
 
-    // Fetch category names with abort signal support.
-    const {
-      data: categories = [],
-      isLoading: categoryLoading,
-      isError: categoryError,
-    } = useQuery({
-      queryKey: ["categories"],
-      queryFn: ({ signal }) => fetchCategories({ signal }),
-      select: (data) => data.categories.map((c) => c.name),
-    });
-
-
-  // Memoized options
-  const locationOptions = useMemo(
-    () => locations.map((name) => ({ value: name, label: name })),
-    [locations]
-  );
-
-  const categoryOptions = useMemo(
-    () => categories.map((name) => ({ value: name, label: name })),
-    [categories]
-  );
-
-  // Reset form when dialog opens
+  // Reset form when dialog opens.
   useEffect(() => {
     if (open) resetFormAndErrors();
   }, [open, resetFormAndErrors]);
@@ -85,35 +52,10 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
     }
   };
 
-  // CHANGED: Update change handler to update both the raw value and the display name.
-  const handleLocationChange = (selectedOption) => {
-    const value = selectedOption?.value || "";
-    const label = selectedOption ? selectedOption.label : "";
-    setShop((prev) => ({
-      ...prev,
-      location: value,
-      locationName: label, // CHANGED: Update locationName too
-    }));
-    resetValidationErrors();
-    resetServerError();
-  };
-
-  const handleCategoryChange = (selectedOption) => {
-    const value = selectedOption?.value || "";
-    const label = selectedOption ? selectedOption.label : "";
-    setShop((prev) => ({
-      ...prev,
-      category: value,
-      categoryName: label, // CHANGED: Update categoryName too
-    }));
-    resetValidationErrors();
-    resetServerError();
-  };
-
   return (
     <Fade in={open} timeout={300}>
       <Box>
-        <MemoizedBasicDialog
+        <BasicDialog
           open={open}
           onClose={() => {
             resetFormAndErrors();
@@ -121,139 +63,28 @@ const AddShopDialog = ({ open, onClose, onAdd }) => {
           }}
           dialogTitle="Ny Butikk"
         >
-          <form onSubmit={handleSubmit}>
-            <Grid container direction="column" spacing={2}>
-              {/* Shop Name */}
-              <Grid item>
-                <TextField
-                  sx={{ mt: 2 }}
-                  size="small"
-                  label="Butikk"
-                  value={shop?.name || ""}
-                  error={Boolean(validationError?.name)}
-                  onChange={(e) => {
-                    setShop((prev) => ({ ...prev, name: e.target.value }));
-                    resetValidationErrors();
-                    resetServerError();
-                  }}
-                />
-                {(displayError || validationError) && (
-                  <MemoizedErrorHandling
-                    resource="shops"
-                    field="name"
-                    loading={loading}
-                  />
-                )}
-              </Grid>
-
-              {/* Location Select */}
-              <Grid item>
-                <MemoizedCreatableSelect
-                  styles={commonSelectStyles}
-                  options={locationOptions}
-                  value={
-                    locationOptions.find((o) => o.value === shop.location) ||
-                    (shop.location && {
-                      value: shop.location,
-                      label: shop.locationName,
-                      name: shop.locationName,
-                    })
-                  }
-                  onChange={handleLocationChange}
-                  placeholder="Velg Sted..."
-                  isClearable
-                  // CHANGED: When creating a new option, prefix with "temp-" so it passes through your formatUtil.
-                  onCreateOption={(inputValue) => {
-                    const value = inputValue.trim();
-                    setShop((prev) => ({
-                      ...prev,
-                      location: `temp-${value}`, // CHANGED: Prefix with "temp-"
-                      locationName: value,
-                    }));
-                    resetValidationErrors();
-                    resetServerError();
-                  }}
-                  isValidNewOption={(inputValue) =>
-                    !!inputValue.trim() &&
-                    !locationOptions.find(
-                      (o) => o.value === inputValue.trim()
-                    )
-                  }
-                  formatCreateLabel={(input) => `Ny sted: ${input}`}
-                />
-                {locationLoading && <LinearProgress sx={{ mt: 1 }} />}
-                {locationError && (
-                  <MemoizedErrorHandling
-                    resource="locations"
-                    field="location"
-                    loading={locationLoading}
-                  />
-                )}
-              </Grid>
-
-              {/* Category Select */}
-              <Grid item>
-                <MemoizedCreatableSelect
-                  styles={commonSelectStyles}
-                  options={categoryOptions}
-                  value={
-                    categoryOptions.find((o) => o.value === shop.category) ||
-                    (shop.category && {
-                      value: shop.category,
-                      label: shop.categoryName,
-                      name: shop.categoryName,
-                    })
-                  }
-                  onChange={handleCategoryChange}
-                  placeholder="Velg Kategori..."
-                  isClearable
-                  // CHANGED: When creating a new option, prefix with "temp-" so it passes through your formatUtil.
-                  onCreateOption={(inputValue) => {
-                    const value = inputValue.trim();
-                    setShop((prev) => ({
-                      ...prev,
-                      category: `temp-${value}`, // CHANGED: Prefix with "temp-"
-                      categoryName: value,
-                    }));
-                    resetValidationErrors();
-                    resetServerError();
-                  }}
-                  isValidNewOption={(inputValue) =>
-                    !!inputValue.trim() &&
-                    !categoryOptions.find(
-                      (o) => o.value === inputValue.trim()
-                    )
-                  }
-                  formatCreateLabel={(input) => `Ny kategori: ${input}`}
-                />
-                {categoryLoading && <LinearProgress sx={{ mt: 1 }} />}
-                {categoryError && (
-                  <MemoizedErrorHandling
-                    resource="categories"
-                    field="category"
-                    loading={categoryLoading}
-                  />
-                )}
-              </Grid>
-
-              {/* Action Buttons */}
-              <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
-                <Button type="submit" disabled={loading || !isFormValid()}>
-                  {loading ? <CircularProgress size={24} /> : "Lagre"}
-                </Button>
-                <Button
-                  onClick={() => {
-                    resetFormAndErrors();
-                    onClose();
-                  }}
-                  sx={{ ml: 2 }}
-                >
-                  Avbryt
-                </Button>
-              </Grid>
-            </Grid>
-          </form>
-        </MemoizedBasicDialog>
+          <ShopForm
+            shop={shop}
+            setShop={setShop}
+            validationError={validationError}
+            displayError={displayError}
+            loading={loading}
+            locationOptions={locationOptions}
+            categoryOptions={categoryOptions}
+            locationLoading={locationLoading}
+            categoryLoading={categoryLoading}
+            locationError={locationError}
+            categoryError={categoryError}
+            resetValidationErrors={resetValidationErrors}
+            resetServerError={resetServerError}
+            onSubmit={handleSubmit}
+            submitLabel="Lagre"
+            onCancel={() => {
+              resetFormAndErrors();
+              onClose();
+            }}
+          />
+        </BasicDialog>
       </Box>
     </Fade>
   );
