@@ -6,15 +6,14 @@ const useFetchData = (queryKey, url, transformData = (data) => data, options = {
 
   const fetchData = async ({ signal }) => {
     const response = await fetch(url, { signal });
-
     if (!response.ok) {
       const errorMessage = await response.text();
       console.error(`Fetch error: ${errorMessage}`);
       throw new Error(`Failed to fetch data from ${url} - ${response.statusText}`);
     }
-
+  
     try {
-      const data = await response.json();
+      const data = await response.json()
       return transformData(data);
     } catch (jsonError) {
       console.error('JSON Parsing Error:', jsonError);
