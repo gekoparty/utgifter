@@ -8,8 +8,7 @@ const brandsRouter = express.Router();
 brandsRouter.get("/", async (req, res) => {
   try {
     // Log incoming query parameters for debugging.
-    console.log("Brands GET params:", req.query);
-    const { columnFilters, globalFilter, sorting, start, size, page, limit } = req.query;
+    const { columnFilters, globalFilter, sorting, start, size, page, limit, ids } = req.query;
 
     // Compute pagination parameters.
     let computedStart, computedSize;
@@ -17,9 +16,6 @@ brandsRouter.get("/", async (req, res) => {
       // If infinite scroll parameters are provided, convert them to start and size.
       computedStart = (parseInt(page, 10) - 1) * parseInt(limit, 10);
       computedSize = parseInt(limit, 10);
-      console.log(
-        `Using infinite scroll pagination: page=${page}, limit=${limit} => start=${computedStart}, size=${computedSize}`
-      );
     } else {
       computedStart = start !== undefined ? parseInt(start, 10) : 0;
       computedSize = size !== undefined ? parseInt(size, 10) : 20; // Default size if not provided.
@@ -27,6 +23,13 @@ brandsRouter.get("/", async (req, res) => {
 
     // Start building the Mongoose query.
     let query = Brand.find();
+
+    // <-- NEW: Filter by ids if provided
+    if (ids) {
+      // Expecting a comma separated list of ids.
+      const idsArray = ids.split(",").map(id => id.trim());
+      query = query.where("_id").in(idsArray);
+    }
 
     // Apply columnFilters (assumes filtering on the 'name' field).
     if (columnFilters) {
@@ -58,21 +61,18 @@ brandsRouter.get("/", async (req, res) => {
           acc[id] = desc ? -1 : 1;
           return acc;
         }, {});
-        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
 
     // Count total matching documents based on the current filter.
     const totalRowCount = await Brand.countDocuments(query.getFilter());
-    console.log("Total matching brands:", totalRowCount);
 
     // Apply pagination.
     query = query.skip(computedStart).limit(computedSize);
 
     // Execute the query.
     const brands = await query.exec();
-    console.log("Fetched brands:", brands);
 
     // Return the data with meta information.
     res.json({ brands, meta: { totalRowCount } });

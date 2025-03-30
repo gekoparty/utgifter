@@ -6,6 +6,33 @@ import Brand from "../models/brandSchema.js";
 
 const productsRouter = express.Router();
 
+// Helper function for consistent slug generation
+const createSlug = (name) => slugify(name, { 
+  lower: true, 
+  strict: true, 
+  remove: /[*+~.()'"!:@]/g 
+});
+
+// Helper function for brand resolution (used in both POST and PUT)
+const resolveBrandIds = async (brandNames) => {
+  if (!Array.isArray(brandNames)) {
+    throw new Error("Brands must be an array");
+  }
+  
+  return Promise.all(
+    brandNames.map(async (name) => {
+      const slug = createSlug(name);
+      // Find or create brand using atomic operation
+      const brand = await Brand.findOneAndUpdate(
+        { slug },
+        { $setOnInsert: { name, slug } },
+        { new: true, upsert: true }
+      );
+      return brand._id;
+    })
+  );
+};
+
 productsRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
@@ -71,11 +98,20 @@ productsRouter.get("/", async (req, res) => {
     );
 
     // Attach brand names to the products
-    const enrichedProducts = products.map((product) => ({
-      ...product,
-      brand: product.brands.map((id) => brandIdToNameMap[id.toString()] || "N/A").join(", "),
-    }));
-
+    const enrichedProducts = products.map((product) => {
+      console.log(`[DEBUG] Product: ${product.name}`);
+      console.log(`[DEBUG] Brand IDs:`, product.brands);
+      
+      const resolvedBrands = product.brands.map((id) => brandIdToNameMap[id.toString()] || "N/A");
+      
+      console.log(`[DEBUG] Resolved Brands:`, resolvedBrands);
+    
+      return {
+        ...product,
+        brand: resolvedBrands.join(", "),
+      };
+    });
+    
     res.json({ products: enrichedProducts, meta: { totalRowCount } });
   } catch (err) {
     console.error("Error in /api/products:", err.message, err.stack);
@@ -85,71 +121,55 @@ productsRouter.get("/", async (req, res) => {
 
 
 productsRouter.post("/", async (req, res) => {
- 
   try {
+    console.log("[POST] Incoming request body:", req.body);
     const { name, brands, measurementUnit, type, measures } = req.body;
 
-     // Handle each brand name in the array
-     const brandPromises = brands.map(async (brandName) => {
-      const slugifiedBrandName = slugify(brandName, { lower: true });
-      let brandId;
-
-    // Find existing brand or create a new one
-    const existingBrand = await Brand.findOne({ slug: slugifiedBrandName });
-    if (!existingBrand) {
-      const newBrand = new Brand({
-        name: brandName,
-        slug: slugifiedBrandName,
-      });
-
-      const savedBrand = await newBrand.save();
-      brandId = savedBrand._id;
-    } else {
-      brandId = existingBrand._id;
+    // Validate brands input format
+    if (!Array.isArray(brands)) {
+      return res.status(400).json({ message: "Brands must be an array" });
     }
-    return brandId;
-  });
 
-  const brandIds = await Promise.all(brandPromises);
+    // Resolve brand names to IDs
+    const brandIds = await resolveBrandIds(brands);
 
     // Check for duplicate product
+    const productSlug = createSlug(name);
     const existingProduct = await Product.findOne({
-      slug: slugify(name, { lower: true }),
-      brands: { $in: brandIds }, // Check if all brands exist in the product
+      slug: productSlug,
+      brands: { $all: brandIds },
     });
 
     if (existingProduct) {
       return res.status(400).json({ message: "duplicate" });
     }
 
-    // Save the product
+    // Create and save product
     const product = new Product({
       name,
       measurementUnit,
       type,
-      measures: measures || [], // Save measures or default to an empty array
+      measures: measures || [],
       brands: brandIds,
-      slug: slugify(name, { lower: true }),
+      slug: productSlug,
     });
 
-    try {
-      
+    const savedProduct = await product.save();
+    
+    // Return populated result
+    const populatedProduct = await Product.findById(savedProduct._id)
+      .populate("brands", "name _id")
+      .lean();
 
-      const savedProduct = await product.save();
-      
+      console.log("[POST] Response body:", populatedProduct); // Log the response before sending
 
-      const populatedProduct = await Product.findById(savedProduct._id)
-        .populate("brands")
-        .exec();
-
-      res.status(201).json(populatedProduct);
-    } catch (saveError) {
-      console.error("Error saving product:", saveError);
-      res.status(500).json({ message: "Error saving product" });
-    }
+    res.status(201).json(populatedProduct);
   } catch (error) {
-    console.error("Server error:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("[POST] Error:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 });
 
@@ -169,65 +189,71 @@ productsRouter.delete("/:id", async (req, res) => {
 });
 
 productsRouter.put("/:id", async (req, res) => {
-  console.log("Incoming request body:", req.body);
-  const { id } = req.params;
-  
   try {
+    const { id } = req.params;
     const { name, brands, measurementUnit, type, measures } = req.body;
-    const brandIds = [];
+    
+    // Log the incoming request body
+    console.log("[PUT] Incoming request body:", req.body);
 
-    // Handle each brand name in the array
-    const brandPromises = brands.map(async (brandName) => {
-      const slugifiedBrandName = slugify(brandName, { lower: true });
-      let brandId;
+    // Validate brands input format (added consistency with POST)
+    if (!Array.isArray(brands)) {
+      console.error("[PUT] Brands is not an array:", brands);
+      return res.status(400).json({ message: "Brands must be an array" });
+    }
 
-      // Find existing brand or create a new one
-      const existingBrand = await Brand.findOne({ slug: slugifiedBrandName });
-      if (!existingBrand) {
-        const newBrand = new Brand({
-          name: brandName,
-          slug: slugifiedBrandName,
-        });
+    // Resolve brand names to IDs (shared helper)
+    const brandIds = await resolveBrandIds(brands);
+    console.log("[PUT] Resolved brand IDs:", brandIds);
 
-        const savedBrand = await newBrand.save();
-        brandId = savedBrand._id;
-      } else {
-        brandId = existingBrand._id;
-      }
-      return brandId;
+    // Duplicate check (added consistency with POST)
+    const productSlug = createSlug(name);
+    const duplicateProduct = await Product.findOne({
+      slug: productSlug,
+      brands: { $all: brandIds },
+      _id: { $ne: id }, // Exclude current product
     });
 
-    const resolvedBrandIds = await Promise.all(brandPromises);
-    
-    // Now, resolvedBrandIds contains the IDs of existing or newly created brands
+    if (duplicateProduct) {
+      console.error("[PUT] Duplicate product found:", duplicateProduct);
+      return res.status(400).json({ message: "duplicate" });
+    }
 
-    // Update the product with the new data
+    // Update product payload
     const updatedProduct = {
       name,
       measurementUnit,
-      measures: measures || [], // Update measures or default to an empty array
-      brands: resolvedBrandIds, // Assign the resolved brand IDs
+      measures: measures || [],
+      brands: brandIds,
       type,
-      slug: slugify(name, { lower: true }),
+      slug: productSlug,
     };
 
-    
+    console.log("[PUT] Updated product payload:", updatedProduct);
 
     const result = await Product.findByIdAndUpdate(id, updatedProduct, {
       new: true,
       runValidators: true,
-      populate: "brands", // Populate the "brands" field
     });
 
-    if (result) {
-      res.status(200).json(result);
-    } else {
-      res.status(404).json({ message: "Product not found" });
+    if (!result) {
+      console.error("[PUT] Product not found for id:", id);
+      return res.status(404).json({ message: "Product not found" });
     }
+
+    // Return populated result (added consistency with POST)
+    const populatedProduct = await Product.findById(result._id)
+      .populate("brands", "name _id")
+      .lean();
+
+    console.log("[PUT] Populated updated product:", populatedProduct);
+    res.status(200).json(populatedProduct);
   } catch (error) {
-    console.error("Server error", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("[PUT] Error:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 });
-
 export default productsRouter;

@@ -14,7 +14,6 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import {LinearProgress} from "@mui/material";
 import { useDeepCompareMemo } from "use-deep-compare";
-import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 
 
@@ -72,7 +71,6 @@ const ProductScreen = () => {
   const [addProductDialogOpen, setAddProductDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const queryClient = useQueryClient();
   const {
     snackbarOpen,
     snackbarMessage,

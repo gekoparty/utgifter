@@ -20,7 +20,7 @@ import dayjs from "dayjs";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import ExpenseField from "../../../../commons/ExpenseField/ExpenseField";
 import WindowedSelect from "react-windowed-select";
-import useExpenseForm from "../../UseExpense/useExpenseForm"
+import useExpenseForm from "../../UseExpense/useExpenseForm";
 import useFetchData from "../../../../../hooks/useFetchData";
 import useInfiniteProducts from "../../../../../hooks/useInfiniteProducts";
 import useHandleFieldChange from "../../../../../hooks/useHandleFieldChange";
@@ -66,7 +66,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     hasNextPage,
   } = useInfiniteProducts(productSearch);
 
-  // Fetch brands options.
+  // Fetch all brands as a fallback.
   const {
     data: brands,
     isLoading: isLoadingBrands,
@@ -77,13 +77,35 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     (data) => (Array.isArray(data.brands) ? data.brands : [])
   );
 
-   // Trigger a refetch whenever the dialog opens to ensure data freshness.
-   useEffect(() => {
+  // Fetch product-specific brands when a product is selected.
+  // This hook calls the API with the product's brand IDs via the "ids" query parameter.
+  const {
+    data: productBrands,
+    isLoading: isLoadingProductBrands,
+    refetch: refetchProductBrands,
+  } = useFetchData(
+    // Query key includes selectedProduct.brands for cache separation.
+    ["brands", selectedProduct?.brands],
+    selectedProduct
+      ? `/api/brands?ids=${selectedProduct.brands.join(",")}`
+      : "/api/brands",
+    (data) => (Array.isArray(data.brands) ? data.brands : []),
+    { enabled: !!selectedProduct } // Only enabled when a product is selected.
+  );
+
+  // Refetch brands when the dialog opens to ensure data freshness.
+  useEffect(() => {
     if (open) {
       refetchBrands();
     }
   }, [open, refetchBrands]);
 
+  // Also, refetch product-specific brands when the selected product changes.
+  useEffect(() => {
+    if (selectedProduct) {
+      refetchProductBrands();
+    }
+  }, [selectedProduct, refetchProductBrands]);
 
   // Fetch shops options and enrich with location name.
   const { data: shops, isLoading: isLoadingShops } = useFetchData(
@@ -118,7 +140,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   }, [debouncedSetProductSearch]);
 
   // Ensure options are arrays.
-  const safeBrands = useMemo(() => (Array.isArray(brands) ? brands : []), [brands]);
+  const safeBrands = useMemo(() => {
+    const brandsArray = Array.isArray(brands) ? brands : [];
+    return brandsArray;
+  }, [brands]);
   const safeShops = useMemo(() => (Array.isArray(shops) ? shops : []), [shops]);
 
   // Map infinite product pages to option objects.
@@ -132,28 +157,54 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         type: product.type,
         measurementUnit: product.measurementUnit,
         measures: product.measures,
-        brands: product.brands,
+        brands: product.brands, // Array of brand IDs.
       }))
     );
   }, [infiniteData]);
 
-  // Derive brand options based on the selected product.
+  /* =====================================================
+     Derive Brand Options Based on Selected Product
+     - Use product-specific brands if a product is selected.
+     - Fallback to all brands otherwise.
+  ====================================================== */
   const brandOptions = useMemo(() => {
-    if (selectedProduct && selectedProduct.brands && safeBrands.length > 0) {
-      return safeBrands
-        .filter((brand) => selectedProduct.brands.includes(brand._id))
+    // If a product is selected, prefer the productBrands fetched with the "ids" parameter.
+    const brandsSource = selectedProduct ? productBrands : safeBrands;
+    
+    // If either brands are loading, return empty array.
+    if (isLoadingProductBrands || isLoadingBrands) return [];
+  
+    if (selectedProduct?.brands?.length && brandsSource?.length) {
+      // Filter brands that match one of the product's brand IDs.
+      const mappedBrands = brandsSource
+        .filter((brand) => {
+          const brandIdStr = String(brand._id);
+          const productBrandIds = selectedProduct.brands.map(String);
+          const isIncluded = productBrandIds.includes(brandIdStr);
+          return isIncluded;
+        })
         .map((brand) => ({
           label: brand.name,
-          value: brand.name,
+          value: brand._id, // Use ID as value for consistency.
           name: brand.name,
         }));
+      return mappedBrands;
     }
-    return safeBrands.map((brand) => ({
+  
+    // Fallback to all brands if no product is selected.
+    return (brandsSource || []).map((brand) => ({
       label: brand.name,
-      value: brand.name,
+      value: brand._id,
       name: brand.name,
     }));
-  }, [selectedProduct, safeBrands]);
+  }, [
+    selectedProduct,
+    productBrands,
+    safeBrands,
+    isLoadingProductBrands,
+    isLoadingBrands,
+  ]);
+
 
   /* =====================================================
      Event Handlers
@@ -319,7 +370,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
       <form onSubmit={handleSubmit}>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
-           {/* ===== Produktvalg ===== */}
+            {/* ===== Produktvalg ===== */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -354,10 +405,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 }
                 onChange={handleBrandSelect}
                 placeholder={selectedProduct ? "Velg merke" : "Velg et produkt først"}
-                isLoading={isLoadingBrands}
+                isLoading={isLoadingBrands || isLoadingProductBrands}
                 loadingMessage={() => "Laster inn merker..."}
                 menuPortalTarget={document.body}
-                isDisabled={!selectedProduct}
+                isDisabled={!selectedProduct || isLoadingBrands || isLoadingProductBrands}
                 styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
               />
             </Grid>
@@ -466,7 +517,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-           {/* ===== Antall ===== */}
+            {/* ===== Antall ===== */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Antall"
@@ -522,7 +573,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               </>
             )}
 
-           {/* ===== Sluttpris ===== */}
+            {/* ===== Sluttpris ===== */}
             <Grid item xs={12}>
               <ExpenseField
                 label="Sluttpris"
@@ -575,7 +626,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         {/* ===== Handlingsknapper ===== */}
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button onClick={handleClose} sx={{ mr: 1 }}>
-          Avbryt
+            Avbryt
           </Button>
           <Button
             type="submit"

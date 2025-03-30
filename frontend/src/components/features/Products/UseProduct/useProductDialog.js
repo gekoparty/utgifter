@@ -81,70 +81,69 @@ const useProductDialog = (initialProduct = null) => {
   }, [initialProduct, resetFormAndErrors, dispatch, queryClient]);
 
   // Define the mutation function for saving (create/update) a product.
-const saveProductMutation = useMutation({
-  mutationFn: async (formattedProduct) => {
-    const url = initialProduct
-      ? `/api/products/${initialProduct._id}`
-      : "/api/products";
-    const method = initialProduct ? "PUT" : "POST";
+  const saveProductMutation = useMutation({
+    mutationFn: async (formattedProduct) => {
+      const url = initialProduct
+        ? `/api/products/${initialProduct._id}`
+        : "/api/products";
+      const method = initialProduct ? "PUT" : "POST";
 
-    const { data, error: addDataError } = await sendRequest(
-      url,
-      method,
-      formattedProduct
-    );
-    if (addDataError) {
-      throw new Error(data.error || addDataError);
-    }
-    return data;
-  },
-  onMutate: async (formattedProduct) => {
-    await queryClient.cancelQueries(["products"]);
-    const previousProducts = queryClient.getQueryData(["products"]);
-
-    if (initialProduct) {
-      queryClient.setQueryData(["products"], (oldProducts = []) =>
-        oldProducts.map((p) =>
-          p._id === initialProduct._id ? { ...p, ...formattedProduct } : p
-        )
+      const { data, error: addDataError } = await sendRequest(
+        url,
+        method,
+        formattedProduct
       );
-    } else {
-      queryClient.setQueryData(["products"], (oldProducts = []) => [
-        ...oldProducts,
-        {
-          ...formattedProduct,
-          _id: Math.random().toString(36).substr(2, 9),
-        },
-      ]);
-    }
-    return { previousProducts };
-  },
-  onError: (error, formattedProduct, context) => {
-    if (context?.previousProducts) {
-      queryClient.setQueryData(["products"], context.previousProducts);
-    }
-    dispatch({
-      type: "SET_ERROR",
-      error: error.message,
-      resource: "products",
-      showError: true,
-    });
-  },
-  onSuccess: (data) => {
-    dispatch({ type: "RESET_ERROR", resource: "products" });
-    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
-    queryClient.invalidateQueries({ queryKey: ["products"] });
-  },
-  onSettled: () => {
-    queryClient.invalidateQueries({ queryKey: ["brands"] });
-  },
-});
+      if (addDataError) {
+        throw new Error(data.error || addDataError);
+      }
+      return data;
+    },
+    onMutate: async (formattedProduct) => {
+      await queryClient.cancelQueries(["products"]);
+      const previousProducts = queryClient.getQueryData(["products"]);
 
+      if (initialProduct) {
+        queryClient.setQueryData(["products"], (oldProducts = []) =>
+          oldProducts.map((p) =>
+            p._id === initialProduct._id ? { ...p, ...formattedProduct } : p
+          )
+        );
+      } else {
+        queryClient.setQueryData(["products"], (oldProducts = []) => [
+          ...oldProducts,
+          {
+            ...formattedProduct,
+            _id: Math.random().toString(36).substr(2, 9),
+          },
+        ]);
+      }
+      return { previousProducts };
+    },
+    onError: (error, formattedProduct, context) => {
+      if (context?.previousProducts) {
+        queryClient.setQueryData(["products"], context.previousProducts);
+      }
+      dispatch({
+        type: "SET_ERROR",
+        error: error.message,
+        resource: "products",
+        showError: true,
+      });
+    },
+    onSuccess: (data) => {
+      dispatch({ type: "RESET_ERROR", resource: "products" });
+      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
+    },
+  });
 
   // Validate and handle product save (create/update)
   const handleSaveProduct = async (onClose) => {
     if (!product.name.trim() || product.brands.length === 0) {
-      return; // Validate required fields before submission
+      return false; // or throw an error if required
     }
 
     let formattedProduct = { ...product };
@@ -185,16 +184,19 @@ const saveProductMutation = useMutation({
         },
         showError: true,
       });
-      return;
+      return false;
     }
 
-    // Execute the mutation with the formatted product
-    saveProductMutation.mutate(formattedProduct, {
-      onSuccess: () => {
-        // Call the provided onClose callback if mutation succeeds
-        onClose && onClose();
-      },
-    });
+    try {
+      // Use mutateAsync so we get a promise back and can check the result.
+      const data = await saveProductMutation.mutateAsync(formattedProduct);
+      setProduct(data);
+      onClose && onClose();
+      return true;
+    } catch (error) {
+      // Optionally, log or handle error here
+      return false;
+    }
   };
 
   // Delete a product
