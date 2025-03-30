@@ -2,7 +2,7 @@ import React from 'react';
 import { Box } from '@mui/material';
 
 const CurrencyBox = ({ value }) => (
-  <Box>
+  <Box component="span">
     {value?.toLocaleString('nb-NO', {
       style: 'currency',
       currency: 'NOK',
