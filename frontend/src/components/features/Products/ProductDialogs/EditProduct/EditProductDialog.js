@@ -88,7 +88,6 @@ const EditProductDialog = ({
       selectedProduct.brands &&
       selectedProduct.brands.length > 0
     ) {
-      console.log("Mapping stored brands. Original selectedProduct.brands:", selectedProduct.brands);
       
       // If there is a fallback in selectedProduct.brand, split it by comma.
       const fallbackBrands = selectedProduct.brand
@@ -100,19 +99,14 @@ const EditProductDialog = ({
         const match = brandOptions.find((option) => option._id === stored);
         if (match) {
           const name = match.name || match.label || stored;
-          console.log(`Found match for stored brand ${stored}:`, name);
           return { label: name, value: name };
         }
         // If no match is found and we have a fallback split, use the fallback for the corresponding index.
         if (fallbackBrands.length > 0 && fallbackBrands[index]) {
-          console.log(`Using fallback for index ${index}:`, fallbackBrands[index]);
           return { label: fallbackBrands[index], value: fallbackBrands[index] };
         }
-        console.log(`No match found for stored brand ${stored}, using ID as fallback.`);
         return { label: stored, value: stored };
       });
-      
-      console.log("Mapped brand options:", mapped);
       setSelectedBrands(mapped);
       setProduct((prev) => ({
         ...prev,
@@ -137,6 +131,8 @@ const EditProductDialog = ({
     },
     [product, setProduct, resetValidationErrors, resetServerError]
   );
+
+
 
   // Handler for creating a new brand.
   const handleBrandCreate = useCallback(
@@ -172,6 +168,45 @@ const EditProductDialog = ({
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const handleNameChange = useCallback(
+    (e) => {
+      setProduct({ ...product, name: e.target.value });
+    },
+    [product, setProduct]
+  );
+
+  const handleProductTypeChange = useCallback(
+    (option) => {
+      setProduct({ ...product, type: option.value });
+    },
+    [product, setProduct]
+  );
+
+  const handleMeasurementUnitChange = useCallback(
+    (option) => {
+      setProduct({ ...product, measurementUnit: option.value });
+    },
+    [product, setProduct]
+  );
+
+  const handleMeasuresChange = useCallback(
+    (options) => {
+      setProduct({ ...product, measures: options.map((opt) => opt.value) });
+    },
+    [product, setProduct]
+  );
+
+  const handleMeasureCreate = useCallback(
+    (inputValue) => {
+      const newMeasure = inputValue.trim();
+      if (newMeasure !== "") {
+        setProduct({ ...product, measures: [...(product.measures || []), newMeasure] });
+      }
+    },
+    [product, setProduct]
+  );
+
+
   // Submit handler for saving the updated product.
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -206,6 +241,11 @@ const EditProductDialog = ({
       <form onSubmit={handleSubmit}>
         <ProductForm
           product={product}
+          onNameChange={handleNameChange}
+          onProductTypeChange={handleProductTypeChange}
+          onMeasurementUnitChange={handleMeasurementUnitChange}
+          onMeasuresChange={handleMeasuresChange}
+          onMeasureCreate={handleMeasureCreate}
           inputValue={brandSearch}
           onBrandChange={handleBrandChange}
           onBrandCreate={handleBrandCreate}
