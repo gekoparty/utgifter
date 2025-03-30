@@ -1,7 +1,7 @@
 import React, {
   useState,
   useMemo,
-  useEffect,
+ 
   lazy,
   Suspense,
   useCallback,
@@ -10,13 +10,11 @@ import {
   Box,
   Button,
   Snackbar,
-  Slider,
   Alert,
   IconButton,
 } from "@mui/material";
 import { useQueryClient } from "@tanstack/react-query";
 import ReactTable from "../components/commons/React-Table/react-table";
-import debounce from "lodash/debounce";
 import CloseIcon from "@mui/icons-material/Close";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
@@ -69,37 +67,7 @@ const API_URL =
 // PriceRangeFilter Component
 // =================================================================
 
-const PriceRangeFilter = ({ value, onChange }) => {
-  const debouncedOnChange = useMemo(
-    () =>
-      debounce((newValue) => {
-        onChange(newValue);
-      }, 1000),
-    [onChange]
-  );
 
-  const handleSliderChange = (event, newValue) => {
-    debouncedOnChange(newValue);
-  };
-
-  useEffect(() => {
-    return () => debouncedOnChange.cancel();
-  }, [debouncedOnChange]);
-
-  return (
-    <Box sx={{ width: 300, mb: 2 }} data-testid="price-range-filter">
-      <Slider
-        value={value}
-        onChange={handleSliderChange}
-        valueLabelDisplay="auto"
-        min={0}
-        max={1000}
-        step={10}
-        data-testid="slider"
-      />
-    </Box>
-  );
-};
 
 // =================================================================
 // ExpenseScreen Component using usePaginatedData
@@ -116,7 +84,7 @@ const ExpenseScreen = () => {
   const [selectedExpense, setSelectedExpense] = useState(
     INITIAL_SELECTED_EXPENSE
   );
-  const [priceRangeFilter, setPriceRangeFilter] = useState([0, 1000]);
+  
 
   // Dialog modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -144,13 +112,8 @@ const ExpenseScreen = () => {
     fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
     fetchURL.searchParams.set("size", `${params.pageSize}`);
     fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(params.filters ?? [])
-    );
+    fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
     fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
-    fetchURL.searchParams.set("minPrice", params.priceRange[0]);
-    fetchURL.searchParams.set("maxPrice", params.priceRange[1]);
     return fetchURL;
   };
 
@@ -161,9 +124,10 @@ const ExpenseScreen = () => {
   const transformExpenseData = async (json, signal) => {
     try {
       const { meta } = json;
-
-      // If API already returns nested objects, use this version:
-      const transformedExpenses = json.expenses.map((expense) => ({
+      // Check for both "expenses" and "data"
+      const expenseList = json.expenses || json.data || [];
+      
+      const transformedExpenses = expenseList.map((expense) => ({
         _id: expense._id,
         productName: expense.product?.name || expense.productName || "N/A",
         brandName: expense.brand?.name || expense.brandName || "N/A",
@@ -183,34 +147,9 @@ const ExpenseScreen = () => {
         measurementUnit: expense.measurementUnit,
         pricePerUnit: expense.pricePerUnit,
       }));
-
-      /* If you need to fetch related data from separate endpoints, use this version:
-      const expensesWithDetails = await Promise.all(
-        json.expenses.map(async (expense) => {
-          try {
-            const [productRes, shopRes] = await Promise.all([
-              fetch(`/api/products/${expense.product}`, { signal }),
-              fetch(`/api/shops/${expense.shop}`, { signal })
-            ]);
   
-            return {
-              ...expense,
-              productName: productRes.ok ? (await productRes.json()).name : "N/A",
-              shopName: shopRes.ok ? (await shopRes.json()).name : "N/A",
-            };
-          } catch (error) {
-            console.error("Error fetching details:", error);
-            return {
-              ...expense,
-              productName: "N/A",
-              shopName: "N/A",
-            };
-          }
-        })
-      );*/
-
       return {
-        expenses: transformedExpenses, // or expensesWithDetails if using API calls
+        expenses: transformedExpenses, // This is what your table uses.
         meta,
       };
     } catch (error) {
@@ -229,9 +168,8 @@ const ExpenseScreen = () => {
       sorting,
       filters: columnFilters,
       globalFilter,
-      priceRange: priceRangeFilter,
     }),
-    [pagination, sorting, columnFilters, globalFilter, priceRangeFilter]
+    [pagination, sorting, columnFilters, globalFilter]
   );
 
   const {
@@ -398,9 +336,7 @@ const ExpenseScreen = () => {
   // --------------------------------------------------------------
   // Event Handlers
   // --------------------------------------------------------------
-  const handlePriceRangeChange = (newRange) => {
-    setPriceRangeFilter(newRange);
-  };
+  
 
   const handleDialogClose = (setDialogOpen) => {
     setDialogOpen(false);
@@ -424,10 +360,6 @@ const ExpenseScreen = () => {
         >
           Legg til ny utgift
         </Button>
-        <PriceRangeFilter
-          value={priceRangeFilter}
-          onChange={handlePriceRangeChange}
-        />
       </Box>
 
       <Box
