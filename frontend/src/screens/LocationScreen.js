@@ -3,7 +3,6 @@ import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import { useQueryClient } from "@tanstack/react-query";
 import useSnackBar from "../hooks/useSnackBar";
 import { useDeepCompareMemo } from "use-deep-compare";
 import { usePaginatedData } from "../hooks/usePaginatedData";
@@ -43,23 +42,20 @@ const LocationScreen = () => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedLocation, setSelectedLocation] = useState(
-    INITIAL_SELECTED_LOCATION
-  );
+  const [selectedLocation, setSelectedLocation] = useState(INITIAL_SELECTED_LOCATION);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [addLocationDialogOpen, setAddLocationDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const queryClient = useQueryClient();
   const {
     snackbarOpen,
     snackbarMessage,
     snackbarSeverity,
-    showSnackbar, // ✅ Use only this now
+    showSnackbar,
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Proper query key structure for v4
+  // Define a stable query key for paginated data
   const baseQueryKey = useMemo(() => ["locations", "paginated"], []);
 
   const fetchParams = useDeepCompareMemo(
@@ -83,13 +79,10 @@ const LocationScreen = () => {
     endpoint: "/api/locations",
     params: fetchParams,
     urlBuilder: locationUrlBuilder,
-    baseQueryKey, // Pass the stable base query key
+    baseQueryKey,
   });
 
-  const tableData = useMemo(
-    () => locationsData?.locations || [],
-    [locationsData]
-  );
+  const tableData = useMemo(() => locationsData?.locations || [], [locationsData]);
   const metaData = useMemo(() => locationsData?.meta || {}, [locationsData]);
 
   const tableColumns = useMemo(
@@ -111,46 +104,30 @@ const LocationScreen = () => {
     setSelectedLocation(INITIAL_SELECTED_LOCATION);
   }, []);
 
-  const handleSortingChange = useCallback(
-    (newSorting) => setSorting(newSorting),
-    []
-  );
-  const handleGlobalFilterChange = useCallback(
-    (newGlobalFilter) => setGlobalFilter(newGlobalFilter),
-    []
-  );
+  const handleSortingChange = useCallback((newSorting) => setSorting(newSorting), []);
+  const handleGlobalFilterChange = useCallback((newGlobalFilter) => setGlobalFilter(newGlobalFilter), []);
 
-  // Update mutation handlers to use proper query key structure
-  const handleMutationSuccess = useCallback(
-    (message) => {
-      showSnackbar(message);
-      queryClient.invalidateQueries({
-        queryKey: baseQueryKey,
-        refetchType: "active",
-      });
-    },
-    [queryClient, showSnackbar, baseQueryKey]
-  );
-
+  // Success handlers now only show snackbar messages.
+  // Cache invalidation and refetching are handled by the useLocationDialog hook.
   const addLocationHandler = useCallback(
     (newLocation) => {
-      handleMutationSuccess(`Sted "${newLocation.name}" ble lagt til`);
+      showSnackbar(`Sted "${newLocation.name}" ble lagt til`);
     },
-    [handleMutationSuccess]
+    [showSnackbar]
   );
 
   const deleteSuccessHandler = useCallback(
     (deletedLocation) => {
-      handleMutationSuccess(`Sted "${deletedLocation.name}" ble slettet`);
+      showSnackbar(`Sted "${deletedLocation.name}" ble slettet`);
     },
-    [handleMutationSuccess]
+    [showSnackbar]
   );
 
   const editSuccessHandler = useCallback(
     (updatedLocation) => {
-      handleMutationSuccess(`Sted "${updatedLocation.name}" ble oppdatert`);
+      showSnackbar(`Sted "${updatedLocation.name}" ble oppdatert`);
     },
-    [handleMutationSuccess]
+    [showSnackbar]
   );
 
   const handleEdit = useCallback((location) => {
@@ -165,19 +142,9 @@ const LocationScreen = () => {
 
   return (
     <TableLayout>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          width: "100%",
-        }}
-      >
+      <Box sx={{ display: "flex", flexDirection: "column", flexGrow: 1, width: "100%" }}>
         <Box sx={{ mb: 2 }}>
-          <Button
-            variant="contained"
-            onClick={() => setAddLocationDialogOpen(true)}
-          >
+          <Button variant="contained" onClick={() => setAddLocationDialogOpen(true)}>
             Nytt Sted
           </Button>
         </Box>
@@ -219,9 +186,7 @@ const LocationScreen = () => {
           open={deleteModalOpen}
           onClose={() => handleDialogClose(setDeleteModalOpen)}
           dialogTitle="Bekreft sletting"
-          cancelButton={
-            <Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>
-          }
+          cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>}
           selectedLocation={selectedLocation}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={(failedLocation) =>
@@ -235,15 +200,11 @@ const LocationScreen = () => {
           <EditLocationDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
-            cancelButton={
-              <Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>
-            }
+            cancelButton={<Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>}
             dialogTitle="Rediger sted"
             selectedLocation={selectedLocation}
             onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={() =>
-              showSnackbar("Kunne ikke lagre endringer av sted")
-            }
+            onUpdateFailure={() => showSnackbar("Kunne ikke lagre endringer av sted")}
           />
         )}
       </Suspense>
@@ -254,8 +215,8 @@ const LocationScreen = () => {
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
         sx={{
-          width: "auto", // <-- Change this from 100% to auto
-          maxWidth: 400, // <-- Optional: Limit the maximum width
+          width: "auto",
+          maxWidth: 400,
         }}
       >
         <Alert
@@ -263,17 +224,13 @@ const LocationScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }
           sx={{
             width: "100%",
-            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+            "& .MuiAlert-message": { flexGrow: 1 },
           }}
         >
           {snackbarMessage}

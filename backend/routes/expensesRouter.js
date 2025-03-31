@@ -69,10 +69,8 @@ const applyPagination = async (query, start, size) => {
 // GET Expenses
 expensesRouter.get("/", async (req, res) => {
   try {
-    const { columnFilters, globalFilter, sorting, start, size, minPrice, maxPrice } = req.query;
+    const { columnFilters, globalFilter, sorting, start, size } = req.query;
     let query = Expense.find();
-
-    if (minPrice && maxPrice) query.where("price").gte(minPrice).lte(maxPrice);
     if (columnFilters) await applyFilters(query, JSON.parse(columnFilters));
     if (globalFilter) query.or([{ productName: new RegExp(globalFilter, "i") }]);
     if (sorting) applySorting(query, JSON.parse(sorting));
