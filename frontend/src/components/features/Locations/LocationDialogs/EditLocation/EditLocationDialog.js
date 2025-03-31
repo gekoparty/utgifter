@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo } from "react";
-import { Button, TextField, CircularProgress, Grid } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import useLocationDialog from "../../UseLocation/useLocationDialog";
+import LocationForm from "../commons/LocationForm";
 
-const EditLocationDialog = ({ open, onClose, selectedLocation, onUpdateSuccess, onUpdateFailure }) => {
+const EditLocationDialog = ({
+  open,
+  onClose,
+  selectedLocation,
+  onUpdateSuccess,
+  onUpdateFailure,
+}) => {
   const memoizedSelectedLocation = useMemo(() => selectedLocation, [selectedLocation]);
 
   const {
@@ -21,7 +26,6 @@ const EditLocationDialog = ({ open, onClose, selectedLocation, onUpdateSuccess, 
     resetFormAndErrors,
   } = useLocationDialog(memoizedSelectedLocation);
 
-  // Synchronize state with selected location when dialog opens
   useEffect(() => {
     if (open) {
       setLocation({ ...selectedLocation });
@@ -29,7 +33,7 @@ const EditLocationDialog = ({ open, onClose, selectedLocation, onUpdateSuccess, 
   }, [selectedLocation, open, setLocation]);
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent default form submission behavior
+    event.preventDefault();
 
     if (isFormValid()) {
       const success = await handleSaveLocation(onClose);
@@ -50,41 +54,23 @@ const EditLocationDialog = ({ open, onClose, selectedLocation, onUpdateSuccess, 
       }}
       dialogTitle="Edit Location"
     >
-      <form onSubmit={handleSubmit}>
-        <Grid container direction="column" spacing={2}>
-          <Grid item>
-            <TextField
-              sx={{ marginTop: 2 }}
-              size="small"
-              label="Location Name"
-              value={location?.name || ""}
-              error={Boolean(validationError?.name)}
-              onChange={(e) => {
-                setLocation({ ...location, name: e.target.value });
-                resetValidationErrors();
-                resetServerError();
-              }}
-            />
-            {displayError || validationError ? (
-              <ErrorHandling resource="locations" field="name" loading={loading} />
-            ) : null}
-          </Grid>
-        </Grid>
-        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
-          <Button type="submit" disabled={loading || !isFormValid()}>
-            {loading ? <CircularProgress size={24} /> : "Save"}
-          </Button>
-          <Button
-            onClick={() => {
-              resetFormAndErrors();
-              onClose();
-            }}
-            sx={{ ml: 2 }}
-          >
-            Cancel
-          </Button>
-        </Grid>
-      </form>
+      <LocationForm
+        formLabel="Location Name"
+        submitLabel="Save"
+        location={location}
+        setLocation={setLocation}
+        validationError={validationError}
+        displayError={displayError}
+        loading={loading}
+        isFormValid={isFormValid}
+        resetValidationErrors={resetValidationErrors}
+        resetServerError={resetServerError}
+        onSubmit={handleSubmit}
+        onCancel={() => {
+          resetFormAndErrors();
+          onClose();
+        }}
+      />
     </BasicDialog>
   );
 };
