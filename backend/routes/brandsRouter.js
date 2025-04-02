@@ -7,74 +7,62 @@ const brandsRouter = express.Router();
 
 brandsRouter.get("/", async (req, res) => {
   try {
-    // Log incoming query parameters for debugging.
-    const { columnFilters, globalFilter, sorting, start, size, page, limit, ids } = req.query;
+    // Destructure the expected query parameters
+    const { columnFilters, globalFilter, sorting, start, size, ids } = req.query;
 
-    // Compute pagination parameters.
-    let computedStart, computedSize;
-    if (page && limit) {
-      // If infinite scroll parameters are provided, convert them to start and size.
-      computedStart = (parseInt(page, 10) - 1) * parseInt(limit, 10);
-      computedSize = parseInt(limit, 10);
-    } else {
-      computedStart = start !== undefined ? parseInt(start, 10) : 0;
-      computedSize = size !== undefined ? parseInt(size, 10) : 20; // Default size if not provided.
-    }
-
-    // Start building the Mongoose query.
+    // Begin building the Mongoose query
     let query = Brand.find();
 
-    // <-- NEW: Filter by ids if provided
+    // Filter by ids if provided (expects a comma-separated list)
     if (ids) {
-      // Expecting a comma separated list of ids.
       const idsArray = ids.split(",").map(id => id.trim());
       query = query.where("_id").in(idsArray);
     }
 
-    // Apply columnFilters (assumes filtering on the 'name' field).
+    // Apply column filters (assumes filtering on the 'name' field)
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
       filters.forEach(({ id, value }) => {
         if (id && value) {
           if (id === "name") {
-            // Use a case-insensitive regular expression.
             query = query.where("name").regex(new RegExp(value, "i"));
           }
-          // Extend here for additional fields if necessary.
+          // Extend here for additional fields if needed.
         }
       });
     }
 
-    // Apply globalFilter.
+    // Apply global filter (searching on the 'name' field)
     if (globalFilter) {
       const globalFilterRegex = new RegExp(globalFilter, "i");
-      // Search on the 'name' field. Add other fields as needed.
       query = query.or([{ name: globalFilterRegex }]);
     }
 
-    // Apply sorting.
+    // Apply sorting if provided
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
-        // Build the sorting object (e.g., { name: 1 } or { name: -1 }).
         const sortObject = parsedSorting.reduce((acc, { id, desc }) => {
-          acc[id] = desc ? -1 : 1;
+          // Ensure MongoDB sort matches the column ID
+          const mongoField = id === "name" ? "name" : "_id";
+          acc[mongoField] = desc ? -1 : 1;
           return acc;
         }, {});
         query = query.sort(sortObject);
       }
     }
 
-    // Count total matching documents based on the current filter.
-    const totalRowCount = await Brand.countDocuments(query.getFilter());
+    // Handle pagination: use start and size if provided
+    let totalRowCount = 0;
+    if (start !== undefined && size !== undefined) {
+      const startIndex = parseInt(start, 10);
+      const pageSize = parseInt(size, 10);
+      totalRowCount = await Brand.countDocuments(query.getFilter());
+      query = query.skip(startIndex).limit(pageSize);
+    }
 
-    // Apply pagination.
-    query = query.skip(computedStart).limit(computedSize);
-
-    // Execute the query.
+    // Execute the query and return the results along with meta information
     const brands = await query.exec();
-
-    // Return the data with meta information.
     res.json({ brands, meta: { totalRowCount } });
   } catch (err) {
     console.error("Error in /api/brands:", err);

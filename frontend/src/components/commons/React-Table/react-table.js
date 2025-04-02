@@ -119,6 +119,8 @@ const Table = ({
     [handleRefresh]
   );
 
+  
+
   return (
     <MaterialReactTable
       layoutMode={layoutMode}
@@ -162,7 +164,7 @@ const ReactTable = React.memo(
   (prevProps, nextProps) => {
     // Avoid re-renders if props haven't changed
     return (
-      prevProps.data === nextProps.data &&
+      prevProps.data?.length === nextProps.data?.length &&
       prevProps.columns === nextProps.columns &&
       prevProps.setColumnFilters === nextProps.setColumnFilters &&
       prevProps.setGlobalFilter === nextProps.setGlobalFilter &&
