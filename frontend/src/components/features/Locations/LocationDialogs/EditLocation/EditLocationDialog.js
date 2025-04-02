@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo } from "react";
+import React from "react";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
-import useLocationDialog from "../../UseLocation/useLocationDialog";
 import LocationForm from "../commons/LocationForm";
 
 const EditLocationDialog = ({
@@ -11,65 +10,15 @@ const EditLocationDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
-  const memoizedSelectedLocation = useMemo(() => selectedLocation, [selectedLocation]);
-
-  const {
-    location,
-    setLocation,
-    loading,
-    handleSaveLocation,
-    resetValidationErrors,
-    resetServerError,
-    displayError,
-    validationError,
-    isFormValid,
-    resetFormAndErrors,
-  } = useLocationDialog(memoizedSelectedLocation);
-
-  useEffect(() => {
-    if (open) {
-      setLocation({ ...selectedLocation });
-    }
-  }, [selectedLocation, open, setLocation]);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (isFormValid()) {
-      const success = await handleSaveLocation(onClose);
-      if (success) {
-        onUpdateSuccess(selectedLocation);
-      } else {
-        onUpdateFailure();
-      }
-    }
-  };
-
   return (
-    <BasicDialog
-      open={open}
-      onClose={() => {
-        resetFormAndErrors();
-        onClose();
-      }}
-      dialogTitle="Edit Location"
-    >
+    <BasicDialog open={open} onClose={onClose} dialogTitle="Edit Location">
       <LocationForm
+        open={open}
+        initialLocation={selectedLocation}
         formLabel="Location Name"
         submitLabel="Save"
-        location={location}
-        setLocation={setLocation}
-        validationError={validationError}
-        displayError={displayError}
-        loading={loading}
-        isFormValid={isFormValid}
-        resetValidationErrors={resetValidationErrors}
-        resetServerError={resetServerError}
-        onSubmit={handleSubmit}
-        onCancel={() => {
-          resetFormAndErrors();
-          onClose();
-        }}
+        onSave={(location) => onUpdateSuccess(selectedLocation)}
+        onCancel={onClose}
       />
     </BasicDialog>
   );
@@ -80,7 +29,7 @@ EditLocationDialog.propTypes = {
   onClose: PropTypes.func.isRequired,
   selectedLocation: PropTypes.object.isRequired,
   onUpdateSuccess: PropTypes.func.isRequired,
-  onUpdateFailure: PropTypes.func.isRequired,
+  onUpdateFailure: PropTypes.func,
 };
 
 export default EditLocationDialog;
