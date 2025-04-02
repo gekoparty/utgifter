@@ -1,11 +1,11 @@
-import React, { useState, useMemo, lazy, Suspense } from "react";
+import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQueryClient } from "@tanstack/react-query";
-import { usePaginatedData } from "../hooks/usePaginatedData"; // Generic data hook
+import { useDeepCompareMemo } from "use-deep-compare";
+import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Dialogs
 const AddBrandDialog = lazy(() =>
@@ -28,16 +28,13 @@ const API_URL =
     : "http://localhost:3000";
 
 // URL builder for fetching brands
-const brandUrlBuilder = (
-  endpoint,
-  { pageIndex, pageSize, sorting, filters, globalFilter }
-) => {
+const brandUrlBuilder = (endpoint, params) => {
   const fetchURL = new URL(endpoint, API_URL);
-  fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-  fetchURL.searchParams.set("size", `${pageSize}`);
-  fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-  fetchURL.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
-  fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
+  fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
+  fetchURL.searchParams.set("size", `${params.pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
   return fetchURL;
 };
 
@@ -52,7 +49,7 @@ const BrandScreen = () => {
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const queryClient = useQueryClient();
+
   const {
     snackbarOpen,
     snackbarMessage,
@@ -61,11 +58,11 @@ const BrandScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
+  // Define a stable query key for paginated data
   const baseQueryKey = useMemo(() => ["brands", "paginated"], []);
-  const memoizedSelectedBrand = useMemo(() => selectedBrand, [selectedBrand]);
 
-  // Build parameters for usePaginatedData hook
-  const fetchParams = useMemo(
+  // Build parameters for usePaginatedData hook using deep compare
+  const fetchParams = useDeepCompareMemo(
     () => ({
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
@@ -73,16 +70,10 @@ const BrandScreen = () => {
       filters: columnFilters,
       globalFilter,
     }),
-    [
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      globalFilter,
-    ]
+    [pagination, sorting, columnFilters, globalFilter]
   );
 
-  // Use the usePaginatedData hook to fetch locations data
+  // Use the usePaginatedData hook to fetch brands data
   const {
     data: brandsData,
     isError,
@@ -93,97 +84,110 @@ const BrandScreen = () => {
     endpoint: "/api/brands",
     params: fetchParams,
     urlBuilder: brandUrlBuilder,
-    baseQueryKey, // Pass the stable base query key
+    baseQueryKey,
   });
 
   const tableData = useMemo(() => brandsData?.brands || [], [brandsData]);
   const metaData = useMemo(() => brandsData?.meta || {}, [brandsData]);
 
-  // Table columns
+  // Define table columns
   const tableColumns = useMemo(
     () => [
       {
         accessorKey: "name",
         header: "Merkenavn",
+        id: "name",
         size: 150,
-        grow: 2,
-        minSize: 150,
-        maxSize: 400,
+        // Add explicit cell rendering to verify values
+        Cell: ({ cell }) => {
+          console.log('Cell value:', cell.getValue());
+          return <span>{cell.getValue()}</span>;
+        },
       },
     ],
     []
   );
 
-  // Cleanup function for closing dialogs and clearing cached queries
-  const handleDialogClose = (closeDialogFn) => {
+  // Callback to handle dialog close and reset the selected brand
+  const handleDialogClose = useCallback((closeDialogFn) => {
     closeDialogFn(false);
     setSelectedBrand(INITIAL_SELECTED_BRAND);
-  };
+  }, []);
 
-  // Handlers for brand actions
-  const addBrandHandler = (newBrand) => {
-    showSnackbar(`Merke "${newBrand.name}" lagt til`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
-  };
+  // Callback wrappers for sorting and global filtering
+  const handleSortingChange = useCallback((newSorting) => setSorting(newSorting), []);
+  const handleGlobalFilterChange = useCallback((newGlobalFilter) => setGlobalFilter(newGlobalFilter), []);
 
-  const deleteFailureHandler = (failedBrand) => {
-    showSnackbar(`Kunne ikke slette merke "${failedBrand.name}"`);
-  };
+  // Success and failure handlers: show snackbar messages and let the mutation handle cache invalidation.
+  const addBrandHandler = useCallback(
+    (newBrand) => {
+      showSnackbar(`Merke "${newBrand.name}" lagt til`);
+    },
+    [showSnackbar]
+  );
 
-  const deleteSuccessHandler = (deletedBrand) => {
-    showSnackbar(`Merke "${deletedBrand.name}" slettet`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
-  };
+  const deleteSuccessHandler = useCallback(
+    (deletedBrand) => {
+      showSnackbar(`Merke "${deletedBrand.name}" slettet`);
+    },
+    [showSnackbar]
+  );
 
-  const editFailureHandler = () => {
-    showSnackbar("Kunne ikke oppdatere merke");
-  };
+  const deleteFailureHandler = useCallback(
+    (failedBrand) => {
+      showSnackbar(`Kunne ikke slette merke "${failedBrand.name}"`);
+    },
+    [showSnackbar]
+  );
 
-  const editSuccessHandler = (updatedBrand) => {
-    showSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
-  };
+  const editSuccessHandler = useCallback(
+    (updatedBrand) => {
+      showSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
+    },
+    [showSnackbar]
+  );
+
+  const editFailureHandler = useCallback(
+    () => {
+      showSnackbar("Kunne ikke oppdatere merke");
+    },
+    [showSnackbar]
+  );
+
+  // Handlers for editing and deleting a brand
+  const handleEdit = useCallback((brand) => {
+    setSelectedBrand(brand);
+    setEditModalOpen(true);
+  }, []);
+
+  const handleDelete = useCallback((brand) => {
+    setSelectedBrand(brand);
+    setDeleteModalOpen(true);
+  }, []);
+
+  console.log('Brand data:', brandsData?.brands);
+console.log('Table data:', tableData);
 
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddBrandDialogOpen(true)}
-        >
-          Nytt Merke
-        </Button>
-      </Box>
-
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          minWidth: 600,
-        }}
-      >
+      <Box sx={{ display: "flex", flexDirection: "column", flexGrow: 1, width: "100%" }}>
+        <Box sx={{ mb: 2 }}>
+          <Button variant="contained" color="primary" onClick={() => setAddBrandDialogOpen(true)}>
+            Nytt Merke
+          </Button>
+        </Box>
         {tableData && (
           <ReactTable
+          key={tableData.length} 
+            getRowId={(row) => row._id}
             data={tableData}
             columns={tableColumns}
             setColumnFilters={setColumnFilters}
-            setGlobalFilter={setGlobalFilter}
-            setSorting={setSorting}
+            setGlobalFilter={handleGlobalFilterChange}
+            setSorting={handleSortingChange}
             setPagination={setPagination}
-            refetch={refetch}
             isError={isError}
+            refetch={refetch}
             isFetching={isFetching}
             isLoading={isLoading}
             columnFilters={columnFilters}
@@ -191,15 +195,9 @@ const BrandScreen = () => {
             pagination={pagination}
             sorting={sorting}
             meta={metaData}
-            setSelectedBrand={setSelectedBrand}
-            handleEdit={(brand) => {
-              setSelectedBrand(brand);
-              setEditModalOpen(true);
-            }}
-            handleDelete={(brand) => {
-              setSelectedBrand(brand);
-              setDeleteModalOpen(true);
-            }}
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+            sx={{ flexGrow: 1, width: "100%", minWidth: 600 }}
           />
         )}
       </Box>
@@ -215,8 +213,8 @@ const BrandScreen = () => {
       <Suspense fallback={<div>Laster...</div>}>
         <DeleteBrandDialog
           open={deleteModalOpen}
-          onClose={() => handleDialogClose(setDeleteModalOpen)}
-          dialogTitle="Bekreft sletting" // Add this line
+          onClose={() => handleDialogClose(setDeleteBrandDialogOpen => setDeleteModalOpen(false))}
+          dialogTitle="Bekreft sletting"
           selectedBrand={selectedBrand}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
@@ -224,7 +222,7 @@ const BrandScreen = () => {
       </Suspense>
 
       <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
-        {memoizedSelectedBrand._id && editModalOpen && (
+        {selectedBrand._id && editModalOpen && (
           <EditBrandDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
@@ -235,34 +233,23 @@ const BrandScreen = () => {
         )}
       </Suspense>
 
-      {/* MUI v6 Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        sx={{
-          width: "auto", // <-- Change this from 100% to auto
-          maxWidth: 400, // <-- Optional: Limit the maximum width
-        }}
+        sx={{ width: "auto", maxWidth: 400 }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
-          variant="filled" // Add variant for better visual consistency
+          variant="filled"
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{
-            width: "100%",
-            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
-          }}
+          sx={{ width: "100%", "& .MuiAlert-message": { flexGrow: 1 } }}
         >
           {snackbarMessage}
         </Alert>
