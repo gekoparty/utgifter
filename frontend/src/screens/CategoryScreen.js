@@ -4,8 +4,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQueryClient } from "@tanstack/react-query";
-import { usePaginatedData } from "../hooks/usePaginatedData"
+import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded dialogs for category actions
 const AddCategoryDialog = lazy(() =>
@@ -55,7 +54,6 @@ const CategoryScreen = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
 
   // Theme, query client, and snackbar setup
-  const queryClient = useQueryClient();
   const {
     snackbarOpen,
     snackbarMessage,
@@ -64,7 +62,7 @@ const CategoryScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  const baseQueryKey = useMemo(() => ["products", "paginated"], []);
+  const baseQueryKey = useMemo(() => ["categories", "paginated"], []);
 
   // Memoize selected category to prevent unnecessary renders
   const memoizedSelectedCategory = useMemo(
@@ -92,19 +90,22 @@ const CategoryScreen = () => {
 
   // Use the usePaginatedData hook to fetch category data
   const {
-      data: categoriesData,
-      isError,
-      isFetching,
-      isLoading,
-      refetch,
-    } = usePaginatedData({
-      endpoint: "/api/categories",
-      params: fetchParams,
-      urlBuilder: categoryUrlBuilder,
-      baseQueryKey, // Pass the stable base query key
-    });
+    data: categoriesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
+    endpoint: "/api/categories",
+    params: fetchParams,
+    urlBuilder: categoryUrlBuilder,
+    baseQueryKey, // Pass the stable base query key
+  });
 
-  const tableData = useMemo(() => categoriesData?.categories || [], [categoriesData]);
+  const tableData = useMemo(
+    () => categoriesData?.categories || [],
+    [categoriesData]
+  );
   const metaData = useMemo(() => categoriesData?.meta || {}, [categoriesData]);
 
   // Table columns configuration
@@ -125,18 +126,11 @@ const CategoryScreen = () => {
   // Handlers for category actions
   const addCategoryHandler = (newCategory) => {
     showSnackbar(`Kategori "${newCategory.name}" er lagt til`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
+    // No need to invalidate queries here; the mutation in useCategoryDialog does that.
   };
 
   const deleteSuccessHandler = (deletedCategory) => {
     showSnackbar(`Kategori "${deletedCategory.name}" slettet`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   const deleteFailureHandler = (failedCategory) => {
@@ -145,17 +139,13 @@ const CategoryScreen = () => {
 
   const editSuccessHandler = (updatedCategory) => {
     showSnackbar(`Kategori "${updatedCategory.name}" oppdatert`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   const editFailureHandler = () => {
     showSnackbar("Kunne ikke oppdatere kategori");
   };
 
-  // Cleanup when dialogs close: reset selected category and clear cache
+  // Cleanup when dialogs close: reset selected category
   const handleDialogClose = (closeDialogFn) => {
     closeDialogFn(false);
     setSelectedCategory(INITIAL_SELECTED_CATEGORY);
@@ -193,7 +183,7 @@ const CategoryScreen = () => {
         >
           {tableData && (
             <ReactTable
-              data={tableData} 
+              data={tableData}
               columns={tableColumns}
               setColumnFilters={setColumnFilters}
               setGlobalFilter={setGlobalFilter}
@@ -270,14 +260,14 @@ const CategoryScreen = () => {
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
         sx={{
-          width: "auto", // <-- Change this from 100% to auto
-          maxWidth: 400, // <-- Optional: Limit the maximum width
+          width: "auto",
+          maxWidth: 400,
         }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
-          variant="filled" // Add variant for better visual consistency
+          variant="filled"
           action={
             <IconButton
               size="small"
@@ -289,7 +279,7 @@ const CategoryScreen = () => {
           }
           sx={{
             width: "100%",
-            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
+            "& .MuiAlert-message": { flexGrow: 1 },
           }}
         >
           {snackbarMessage}
@@ -300,3 +290,4 @@ const CategoryScreen = () => {
 };
 
 export default CategoryScreen;
+
