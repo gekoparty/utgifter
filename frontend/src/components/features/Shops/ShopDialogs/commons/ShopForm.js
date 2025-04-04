@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { Grid, TextField, CircularProgress, Button } from "@mui/material";
 import PropTypes from "prop-types";
 import CreatableSelect from "react-select/creatable";
@@ -11,7 +11,7 @@ const ShopForm = ({
   setShop,
   validationError,
   displayError,
-  loading,
+  loading = false,
   locationOptions,
   categoryOptions,
   locationLoading,

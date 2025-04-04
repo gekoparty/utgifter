@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from "react";
-import { Grid, Fade, Box, CircularProgress } from "@mui/material";
+import { Fade, Box } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import { useQuery } from "@tanstack/react-query";

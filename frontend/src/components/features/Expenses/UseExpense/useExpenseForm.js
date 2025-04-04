@@ -12,7 +12,7 @@ import { StoreContext } from "../../../../Store/Store";
 import useFetchData from "../../../../hooks/useFetchData";
 import { addExpenseValidationSchema } from "../../../../validation/validationSchema";
 import useCustomHttp from "../../../../hooks/useHttp";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // ----------------------------------------------------------------------------
 // API-endepunkter
@@ -26,7 +26,7 @@ const API_ENDPOINTS = {
 };
 
 // ----------------------------------------------------------------------------
-// Reducer for utgiftsformularbehandling
+// Reducer for expense form handling
 // ----------------------------------------------------------------------------
 const expenseReducer = (state, action) => {
   switch (action.type) {
@@ -51,7 +51,7 @@ const expenseReducer = (state, action) => {
 };
 
 // ----------------------------------------------------------------------------
-// Standard utgiftstilstand
+// Standard expense state
 // ----------------------------------------------------------------------------
 const createDefaultExpenseState = () => ({
   measurementUnit: "",
@@ -74,7 +74,7 @@ const createDefaultExpenseState = () => ({
 });
 
 // ----------------------------------------------------------------------------
-// Hjelpefunksjon: Hent butikkdata med stedsnavn
+// Helper function: fetch shop data with location name
 // ----------------------------------------------------------------------------
 const fetchShopsData = async (data, locationsEndpoint) => {
   const controller = new AbortController();
@@ -101,19 +101,18 @@ const fetchShopsData = async (data, locationsEndpoint) => {
 };
 
 // ----------------------------------------------------------------------------
-// Tilpasset hook: useExpenseForm
+// Custom hook: useExpenseForm
 // ----------------------------------------------------------------------------
 const useExpenseForm = (initialExpense = null, expenseId = null) => {
+  const queryClient = useQueryClient();
+
   // --------------------------------------------------------------------------
   // Initial State Setup
   // --------------------------------------------------------------------------
   const defaultExpenseState = useMemo(createDefaultExpenseState, []);
   const initialFormState = initialExpense || defaultExpenseState;
 
-  const [expense, dispatchExpense] = useReducer(
-    expenseReducer,
-    initialFormState
-  );
+  const [expense, dispatchExpense] = useReducer(expenseReducer, initialFormState);
   const [validationErrors, setValidationErrors] = useState({});
 
   // --------------------------------------------------------------------------
@@ -132,14 +131,10 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // --------------------------------------------------------------------------
   // Data Fetching Configuration
   // --------------------------------------------------------------------------
-  const fetchConfig = useMemo(
-    () => ({
-      enabled: Boolean(expenseId && !initialExpense),
-    }),
-    [expenseId, initialExpense]
-  );
+  const fetchConfig = useMemo(() => ({
+    enabled: Boolean(expenseId && !initialExpense),
+  }), [expenseId, initialExpense]);
 
-  // Fetch related data using custom hooks
   const { data: products } = useFetchData(
     "products",
     API_ENDPOINTS.products,
@@ -159,19 +154,16 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     fetchConfig
   );
 
-  // --------------------------------------------------------------------------
-  // Expense Data Fetching using React Query (for editing an expense)
-  // --------------------------------------------------------------------------
   const { data: expenseData } = useQuery({
     queryKey: ["expense", expenseId],
     queryFn: () => sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`),
     enabled: Boolean(expenseId && expenseId.trim() !== "" && !initialExpense),
     initialData: initialExpense,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     refetchOnMount: false,
   });
 
-  // Initialize form state with fetched expense data
+  // Initialize form state with fetched expense data.
   useEffect(() => {
     if (expenseData) {
       dispatchExpense({ type: "INIT", payload: expenseData });
@@ -181,7 +173,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // --------------------------------------------------------------------------
   // Form Operation Helpers
   // --------------------------------------------------------------------------
-
   const resetForm = useCallback(() => {
     dispatchExpense({ type: "RESET", initialState: defaultExpenseState });
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
@@ -194,14 +185,96 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   const isMountedRef = useRef(true);
   useEffect(() => {
     isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
+    return () => { isMountedRef.current = false; };
   }, []);
 
-  // --------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
+  // Mutation for saving an expense with optimistic updates.
+  // ----------------------------------------------------------------------------
+  const saveExpenseMutation = useMutation({
+    mutationFn: async (payload) => {
+      const method = initialExpense ? "PUT" : "POST";
+      const url = initialExpense
+        ? `${API_ENDPOINTS.expenses}/${initialExpense._id}`
+        : API_ENDPOINTS.expenses;
+      const { data } = await sendRequest(url, method, payload);
+      return data;
+    },
+    onMutate: async (newExpense) => {
+      await queryClient.cancelQueries({ queryKey: ["expenses"] });
+      const previousExpenses = queryClient.getQueryData(["expenses"]);
+      if (previousExpenses) {
+        queryClient.setQueryData(["expenses"], (old) => {
+          if (initialExpense) {
+            return old.map(exp =>
+              exp._id === initialExpense._id ? { ...exp, ...newExpense } : exp
+            );
+          }
+          return [...old, { ...newExpense, _id: `temp-${Date.now()}` }];
+        });
+      }
+      return { previousExpenses };
+    },
+    onError: (error, newExpense, context) => {
+      if (context?.previousExpenses) {
+        queryClient.setQueryData(["expenses"], context.previousExpenses);
+      }
+      storeDispatch({
+        type: "SET_ERROR",
+        resource: "expenses",
+        error: { message: "Kunne ikke lagre utgift. Vennligst prøv igjen." },
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    },
+    onSuccess: (result, newExpense) => {
+      // Ensure the returned expense includes a valid productName.
+      // If not, fallback to the current form state's productName.
+      const updatedExpense = {
+        ...result,
+        productName: result.productName || expense.productName || "Ukjent produkt",
+      };
+      return updatedExpense;
+    },
+  });
+
+  // ----------------------------------------------------------------------------
+  // Mutation for deleting an expense with optimistic updates.
+  // ----------------------------------------------------------------------------
+  const deleteExpenseMutation = useMutation({
+    mutationFn: async (expenseId) => {
+      await sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`, "DELETE");
+      return expenseId;
+    },
+    onMutate: async (expenseId) => {
+      await queryClient.cancelQueries({ queryKey: ["expenses"] });
+      const previousExpenses = queryClient.getQueryData(["expenses"]);
+      if (previousExpenses) {
+        queryClient.setQueryData(["expenses"], (old) =>
+          old.filter((exp) => exp._id !== expenseId)
+        );
+      }
+      return { previousExpenses };
+    },
+    onError: (error, expenseId, context) => {
+      if (context?.previousExpenses) {
+        queryClient.setQueryData(["expenses"], context.previousExpenses);
+      }
+      storeDispatch({
+        type: "SET_ERROR",
+        resource: "expenses",
+        error: { message: "Kunne ikke slette utgift. Vennligst prøv igjen." },
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    },
+  });
+
+  // ----------------------------------------------------------------------------
   // Expense Save and Delete Handlers
-  // --------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   const handleSaveExpense = useCallback(async () => {
     try {
       const payload = {
@@ -210,17 +283,14 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         registeredDate: !expense.purchased ? expense.registeredDate : null,
       };
 
-      await addExpenseValidationSchema.validate(payload, {
-        abortEarly: false,
-      });
+      await addExpenseValidationSchema.validate(payload, { abortEarly: false });
 
-      const method = initialExpense ? "PUT" : "POST";
-      const url = initialExpense
-        ? `${API_ENDPOINTS.expenses}/${initialExpense._id}`
-        : API_ENDPOINTS.expenses;
-
-      const { data } = await sendRequest(url, method, payload);
-      return data;
+      const result = await saveExpenseMutation.mutateAsync(payload);
+      // Return an object that always includes a proper productName.
+      return {
+        ...result,
+        productName: result.productName || expense.productName || "Ukjent produkt",
+      };
     } catch (error) {
       if (isMountedRef.current) {
         if (error.name === "ValidationError") {
@@ -233,39 +303,29 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
           storeDispatch({
             type: "SET_ERROR",
             resource: "expenses",
-            error: {
-              message: "Kunne ikke lagre utgift. Vennligst prøv igjen.",
-            },
+            error: { message: "Kunne ikke lagre utgift. Vennligst prøv igjen." },
           });
         }
       }
       throw error;
     }
-  }, [expense, initialExpense, sendRequest, storeDispatch]);
+  }, [expense, saveExpenseMutation]);
 
   const handleDeleteExpense = useCallback(
     async (expenseId) => {
       try {
-        await sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`, "DELETE");
+        await deleteExpenseMutation.mutateAsync(expenseId);
         return true;
       } catch (error) {
-        storeDispatch({
-          type: "SET_ERROR",
-          resource: "expenses",
-          error: {
-            message: "Kunne ikke slette utgift. Vennligst prøv igjen.",
-          },
-        });
         return false;
       }
     },
-    [sendRequest, storeDispatch]
+    [deleteExpenseMutation]
   );
 
-  // --------------------------------------------------------------------------
-  // Validering av skjema
-  // --------------------------------------------------------------------------
-
+  // ----------------------------------------------------------------------------
+  // Form Validation
+  // ----------------------------------------------------------------------------
   const isFormValid = useMemo(() => {
     const requiredFields = ["productName", "brandName", "shopName"];
     const areRequiredFieldsFilled = requiredFields.every((field) =>
@@ -275,18 +335,19 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     const noValidationErrors = Object.values(validationErrors).every(
       (error) => !error
     );
-
     return areRequiredFieldsFilled && hasValidNumbers && noValidationErrors;
   }, [expense, validationErrors]);
 
-  // --------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
   // Expose the Hook's API
-  // --------------------------------------------------------------------------
+  // ----------------------------------------------------------------------------
+  const isLoading = loading || saveExpenseMutation.isLoading || deleteExpenseMutation.isLoading;
+
   return useMemo(
     () => ({
       isFormValid,
       expense,
-      loading,
+      loading: isLoading,
       products,
       brands,
       shops,
@@ -299,7 +360,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     [
       isFormValid,
       expense,
-      loading,
+      isLoading,
       products,
       brands,
       shops,
@@ -313,3 +374,4 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
 };
 
 export default useExpenseForm;
+
