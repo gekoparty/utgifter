@@ -6,7 +6,7 @@ export const measurementUnitOptions = [
   ];
   
   export const predefinedTypes = [
-    "Matvare", "Medesin", "Elektronikk", "Hobby", "Katt", "Soverom",
+    "Matvare", "Medisin", "Elektronikk", "Hobby", "Katt", "Soverom",
     "Alkohol", "Bil", "Båt/Fiske", "Hus", "Gave", "Hage", "Kjøkken",
     "Gambling", "Datautstyr", "Pakke", "Ferje", "Hår/Hud", "Brev/Pakke",
     "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler",
@@ -23,4 +23,3 @@ export const API_URL =
     ? "http://localhost:3000"
     : "http://localhost:3000"; // Fallback for unknown environments
 
-console.log("API_URL:", API_URL); // Debugging line
