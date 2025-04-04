@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
-import { Grid, CircularProgress } from "@mui/material";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import { useQuery } from "@tanstack/react-query";
 import { fetchLocations, fetchCategories } from "../../../../commons/Utils/apiUtils";
@@ -39,9 +38,15 @@ const EditShopDialog = ({ selectedShop, open, onClose, onUpdateSuccess, onUpdate
   const locationOptions = useMemo(() => locations.map((name) => ({ value: name, label: name })), [locations]);
   const categoryOptions = useMemo(() => categories.map((name) => ({ value: name, label: name })), [categories]);
 
+  // Update the shop state when dialog opens, merging computed display fields.
   useEffect(() => {
     if (open && selectedShop) {
-      setShop({ ...selectedShop });
+      setShop((prevShop) => ({
+        ...prevShop,
+        ...selectedShop,
+        locationName: selectedShop.locationName || selectedShop.location || "",
+        categoryName: selectedShop.categoryName || selectedShop.category || "",
+      }));
     }
   }, [selectedShop, open, setShop]);
 
@@ -100,4 +105,5 @@ EditShopDialog.propTypes = {
 };
 
 export default EditShopDialog;
+
 

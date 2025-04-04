@@ -165,8 +165,6 @@ const BrandScreen = () => {
     setDeleteModalOpen(true);
   }, []);
 
-  console.log('Brand data:', brandsData?.brands);
-console.log('Table data:', tableData);
 
   return (
     <TableLayout>

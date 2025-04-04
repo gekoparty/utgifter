@@ -13,7 +13,6 @@ import {
   Alert,
   IconButton,
 } from "@mui/material";
-import { useQueryClient } from "@tanstack/react-query";
 import ReactTable from "../components/commons/React-Table/react-table";
 import CloseIcon from "@mui/icons-material/Close";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -68,11 +67,6 @@ const API_URL =
 // =================================================================
 
 
-
-// =================================================================
-// ExpenseScreen Component using usePaginatedData
-// =================================================================
-
 const ExpenseScreen = () => {
   // --------------------------------------------------------------
   // State Declarations
@@ -91,7 +85,6 @@ const ExpenseScreen = () => {
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const queryClient = useQueryClient();
   const theme = useTheme();
   const {
     snackbarOpen,
@@ -208,42 +201,33 @@ const ExpenseScreen = () => {
     return stats;
   }, [expensesData]);
 
-  const handleMutationSuccess = useCallback(
-    (message) => {
-      showSnackbar(message);
-      queryClient.invalidateQueries({ queryKey: baseQueryKey });
-    },
-    [queryClient, showSnackbar, baseQueryKey]
-  );
-
+ 
   const addExpenseHandler = useCallback(
     (newExpense) => {
-      const productName =
-        newExpense.productName?.name ||
-        newExpense.productName ||
-        "Ukjent produkt";
-      handleMutationSuccess(`Utgift for "${productName}" ble registrert`);
+      const productName = newExpense.productName || "Ukjent produkt";
+      showSnackbar(`Utgift for "${productName}" ble registrert`);
+      setAddExpenseDialogOpen(false); // Close dialog on success
     },
-    [handleMutationSuccess]
+    [showSnackbar]
   );
 
   const deleteSuccessHandler = useCallback(
     (deletedExpense) => {
-      handleMutationSuccess(
-        `Utgift for "${deletedExpense.productName}" slettet`
-      );
+      showSnackbar(`Utgift for "${deletedExpense.productName}" slettet`);
+      setDeleteModalOpen(false); // Close dialog on success
     },
-    [handleMutationSuccess]
+    [showSnackbar]
   );
 
   const editSuccessHandler = useCallback(
     (updatedExpense) => {
-      handleMutationSuccess(
-        `Utgift for "${updatedExpense.productName}" oppdatert`
-      );
+      const productName = updatedExpense.productName || "Ukjent produkt";
+      showSnackbar(`Utgift for "${productName}" oppdatert`);
+      setEditModalOpen(false); // Close dialog on success
     },
-    [handleMutationSuccess]
+    [showSnackbar]
   );
+
 
   const renderDetailPanel = useCallback(
     ({ row }) => <DetailPanel expense={row.original} />,
@@ -338,11 +322,10 @@ const ExpenseScreen = () => {
   // --------------------------------------------------------------
   
 
-  const handleDialogClose = (setDialogOpen) => {
-    setDialogOpen(false);
+   const handleDialogClose = useCallback((setState) => {
+    setState(false);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
-  };
-
+  }, []);
   // --------------------------------------------------------------
   // Render
   // --------------------------------------------------------------

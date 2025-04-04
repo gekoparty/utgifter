@@ -1,9 +1,4 @@
-import React, {
-  useEffect,
-  useState,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { debounce } from "lodash";
 import PropTypes from "prop-types";
 import {
@@ -26,9 +21,7 @@ import useInfiniteProducts from "../../../../../hooks/useInfiniteProducts";
 import useHandleFieldChange from "../../../../../hooks/useHandleFieldChange";
 
 const AddExpenseDialog = ({ open, onClose, onAdd }) => {
-  /* =====================================================
-     Expense Form Hooks & State Initialization
-  ====================================================== */
+  // Initialize expense form hook.
   const {
     expense,
     handleSaveExpense,
@@ -38,7 +31,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     loading,
   } = useExpenseForm();
 
-  // Field change handlers including discount-related fields.
+  // Field change handlers.
   const {
     handleFieldChange,
     handleDiscountAmountChange,
@@ -49,16 +42,13 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Close handler that resets form and closes dialog.
+  // Define a close handler that resets the form and calls the parent's onClose.
   const handleClose = useCallback(() => {
     resetForm();
     onClose();
   }, [resetForm, onClose]);
 
-  /* =====================================================
-     Data Fetching
-  ====================================================== */
-  // Infinite product fetching based on product search.
+  // Infinite product fetching.
   const {
     data: infiniteData,
     isLoading: isLoadingProducts,
@@ -66,7 +56,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     hasNextPage,
   } = useInfiniteProducts(productSearch);
 
-  // Fetch all brands as a fallback.
+  // Fetch all brands.
   const {
     data: brands,
     isLoading: isLoadingBrands,
@@ -77,37 +67,35 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     (data) => (Array.isArray(data.brands) ? data.brands : [])
   );
 
-  // Fetch product-specific brands when a product is selected.
-  // This hook calls the API with the product's brand IDs via the "ids" query parameter.
+  // Fetch product-specific brands if a product is selected.
   const {
     data: productBrands,
     isLoading: isLoadingProductBrands,
     refetch: refetchProductBrands,
   } = useFetchData(
-    // Query key includes selectedProduct.brands for cache separation.
     ["brands", selectedProduct?.brands],
     selectedProduct
       ? `/api/brands?ids=${selectedProduct.brands.join(",")}`
       : "/api/brands",
     (data) => (Array.isArray(data.brands) ? data.brands : []),
-    { enabled: !!selectedProduct } // Only enabled when a product is selected.
+    { enabled: !!selectedProduct }
   );
 
-  // Refetch brands when the dialog opens to ensure data freshness.
+  // Refetch brands when dialog opens.
   useEffect(() => {
     if (open) {
       refetchBrands();
     }
   }, [open, refetchBrands]);
 
-  // Also, refetch product-specific brands when the selected product changes.
+  // Refetch product-specific brands when selected product changes.
   useEffect(() => {
     if (selectedProduct) {
       refetchProductBrands();
     }
   }, [selectedProduct, refetchProductBrands]);
 
-  // Fetch shops options and enrich with location name.
+  // Fetch shops options.
   const { data: shops, isLoading: isLoadingShops } = useFetchData(
     "shops",
     "/api/shops",
@@ -126,13 +114,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     { enabled: open }
   );
 
-  // Create debounced product search setter.
+  // Debounce product search input.
   const debouncedSetProductSearch = useMemo(
     () => debounce(setProductSearch, 300),
     [setProductSearch]
   );
 
-  // Cleanup debounce on unmount.
   useEffect(() => {
     return () => {
       debouncedSetProductSearch.cancel();
@@ -140,10 +127,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
   }, [debouncedSetProductSearch]);
 
   // Ensure options are arrays.
-  const safeBrands = useMemo(() => {
-    const brandsArray = Array.isArray(brands) ? brands : [];
-    return brandsArray;
-  }, [brands]);
+  const safeBrands = useMemo(() => (Array.isArray(brands) ? brands : []), [brands]);
   const safeShops = useMemo(() => (Array.isArray(shops) ? shops : []), [shops]);
 
   // Map infinite product pages to option objects.
@@ -162,36 +146,24 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     );
   }, [infiniteData]);
 
-  /* =====================================================
-     Derive Brand Options Based on Selected Product
-     - Use product-specific brands if a product is selected.
-     - Fallback to all brands otherwise.
-  ====================================================== */
+  // Derive brand options based on selected product.
   const brandOptions = useMemo(() => {
-    // If a product is selected, prefer the productBrands fetched with the "ids" parameter.
     const brandsSource = selectedProduct ? productBrands : safeBrands;
-    
-    // If either brands are loading, return empty array.
     if (isLoadingProductBrands || isLoadingBrands) return [];
-  
     if (selectedProduct?.brands?.length && brandsSource?.length) {
-      // Filter brands that match one of the product's brand IDs.
       const mappedBrands = brandsSource
         .filter((brand) => {
           const brandIdStr = String(brand._id);
           const productBrandIds = selectedProduct.brands.map(String);
-          const isIncluded = productBrandIds.includes(brandIdStr);
-          return isIncluded;
+          return productBrandIds.includes(brandIdStr);
         })
         .map((brand) => ({
           label: brand.name,
-          value: brand._id, // Use ID as value for consistency.
+          value: brand._id,
           name: brand.name,
         }));
       return mappedBrands;
     }
-  
-    // Fallback to all brands if no product is selected.
     return (brandsSource || []).map((brand) => ({
       label: brand.name,
       value: brand._id,
@@ -205,17 +177,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     isLoadingBrands,
   ]);
 
-
-  /* =====================================================
-     Event Handlers
-  ====================================================== */
-  // Handle product selection.
+  // Event Handlers:
   const handleProductSelect = useCallback(
     (selectedOption) => {
       setSelectedProduct(selectedOption);
       // Reset brand field when product changes.
       handleFieldChange("brandName", "");
-
       if (selectedOption) {
         const unit = selectedOption.measurementUnit || "unit";
         const volume = selectedOption.measures?.[0] || 0;
@@ -236,7 +203,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [handleFieldChange]
   );
 
-  // Update product search on input change.
   const handleProductInputChange = useCallback(
     (inputValue) => {
       if (inputValue.trim() === "" && productSearch === "") return;
@@ -245,7 +211,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [debouncedSetProductSearch, productSearch]
   );
 
-  // Handle brand selection.
   const handleBrandSelect = useCallback(
     (selectedOption) => {
       handleFieldChange("brandName", selectedOption?.name || "");
@@ -253,7 +218,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [handleFieldChange]
   );
 
-  // Handle shop selection.
   const handleShopSelect = useCallback(
     (selectedOption) => {
       handleFieldChange("shopName", selectedOption?.value || "", {
@@ -263,7 +227,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [handleFieldChange]
   );
 
-  // Handle date change for purchase or registration.
   const handleDateChange = useCallback(
     (date) => {
       const key = expense.purchased ? "purchaseDate" : "registeredDate";
@@ -272,7 +235,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [expense.purchased, handleFieldChange]
   );
 
-  // Handle volume selection.
   const handleVolumeChange = useCallback(
     (selectedOption) => {
       const volume = selectedOption ? parseFloat(selectedOption.value) : 0;
@@ -281,7 +243,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [handleFieldChange]
   );
 
-  // Handle discount checkbox toggle.
   const handleDiscountChange = useCallback(
     (event) => {
       const checked = event.target.checked;
@@ -293,7 +254,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [expense.discountValue, expense.discountAmount, handleFieldChange]
   );
 
-  // Toggle purchased status.
   const handlePurchaseChange = useCallback(
     (event) => {
       const isPurchased = event.target.checked;
@@ -305,7 +265,6 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [expense.registeredDate, expense.purchaseDate, handleFieldChange]
   );
 
-  // Toggle registered status.
   const handleRegisterChange = useCallback(
     (event) => {
       const isRegistered = event.target.checked;
@@ -317,7 +276,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [expense.registeredDate, expense.purchaseDate, handleFieldChange]
   );
 
-  // Handle form submission.
+  // Submit handler: call handleSaveExpense and then close the dialog.
   const handleSubmit = useCallback(
     async (event) => {
       event.preventDefault();
@@ -325,22 +284,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
         if (isFormValid) {
           const savedExpense = await handleSaveExpense();
           if (savedExpense) {
-            const expenseData =
-              savedExpense.data && Array.isArray(savedExpense.data)
-                ? savedExpense.data[0]
-                : savedExpense;
-            const productName =
-              typeof expenseData.productName === "object"
-                ? expenseData.productName.name
-                : expenseData.productName;
-
-            if (!expenseData || !productName) {
-              console.error("Invalid response from server:", savedExpense);
-            } else {
-              onAdd(expenseData);
-              // Reset and close dialog.
-              handleClose();
-            }
+            onAdd(savedExpense);
+            handleClose();
           }
         }
       } catch (error) {
@@ -350,27 +295,18 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     [isFormValid, handleSaveExpense, onAdd, handleClose]
   );
 
-  /* =====================================================
-     Overall Loading State
-  ====================================================== */
+  // Overall loading state.
   const isLoadingCombined = useMemo(
     () => isLoadingProducts || isLoadingBrands || isLoadingShops || loading,
     [isLoadingProducts, isLoadingBrands, isLoadingShops, loading]
   );
 
-  /* =====================================================
-     Render Markup
-  ====================================================== */
   return (
-    <BasicDialog
-      open={open}
-      onClose={handleClose}
-      dialogTitle="Legg til ny utgift"
-    >
+    <BasicDialog open={open} onClose={handleClose} dialogTitle="Legg til ny utgift">
       <form onSubmit={handleSubmit}>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2}>
-            {/* ===== Produktvalg ===== */}
+            {/* Product Selection */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -393,7 +329,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Merkevalg ===== */}
+            {/* Brand Selection */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -413,7 +349,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Butikkvalg ===== */}
+            {/* Shop Selection */}
             <Grid item xs={12} md={6}>
               <WindowedSelect
                 isClearable
@@ -435,7 +371,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Sted ===== */}
+            {/* Read-only location field */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Sted"
@@ -444,7 +380,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Pris ===== */}
+            {/* Price Field */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Pris"
@@ -464,7 +400,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Volum ===== */}
+            {/* Volume Field */}
             <Grid item xs={12} md={6}>
               {expense.measurementUnit &&
               selectedProduct &&
@@ -507,17 +443,17 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               )}
             </Grid>
 
-            {/* ===== Pris per enhet ===== */}
+            {/* Price Per Unit Field */}
             <Grid item xs={12}>
               <ExpenseField
                 label={`Pris per ${expense.measurementUnit || ""}`}
-                value={expense.pricePerUnit}
+                value={expense.pricePerUnit || 0}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
 
-            {/* ===== Antall ===== */}
+            {/* Quantity Field */}
             <Grid item xs={12} md={6}>
               <ExpenseField
                 label="Antall"
@@ -527,7 +463,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Rabatt ===== */}
+            {/* Discount Toggle */}
             <Grid item xs={12} md={6}>
               <FormControlLabel
                 control={
@@ -573,7 +509,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               </>
             )}
 
-            {/* ===== Sluttpris ===== */}
+            {/* Final Price Field */}
             <Grid item xs={12}>
               <ExpenseField
                 label="Sluttpris"
@@ -583,7 +519,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Kjøpt/Registrert ===== */}
+            {/* Purchased / Registered Toggle */}
             <Grid item xs={12} md={6}>
               <FormControlLabel
                 control={
@@ -607,15 +543,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
               />
             </Grid>
 
-            {/* ===== Dato ===== */}
+            {/* Date Picker */}
             <Grid item xs={12} md={6}>
               <DatePicker
                 label="Dato"
-                value={dayjs(
-                  expense.purchased
-                    ? expense.purchaseDate
-                    : expense.registeredDate
-                )}
+                value={dayjs(expense.purchased ? expense.purchaseDate : expense.registeredDate)}
                 onChange={handleDateChange}
                 slotProps={{ textField: { fullWidth: true } }}
               />
@@ -623,7 +555,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           </Grid>
         </Box>
 
-        {/* ===== Handlingsknapper ===== */}
+        {/* Action Buttons */}
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
           <Button onClick={handleClose} sx={{ mr: 1 }}>
             Avbryt
@@ -649,5 +581,6 @@ AddExpenseDialog.propTypes = {
 };
 
 export default AddExpenseDialog;
+
 
 

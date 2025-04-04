@@ -4,7 +4,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useQueryClient } from "@tanstack/react-query";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 
 // Lazy-loaded Dialogs
@@ -43,7 +42,6 @@ const ShopScreen = () => {
   const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-  const queryClient = useQueryClient();
   const {
     snackbarOpen,
     snackbarMessage,
@@ -53,11 +51,9 @@ const ShopScreen = () => {
   } = useSnackBar();
 
   const baseQueryKey = useMemo(() => ["shops", "paginated"], []);
-
   const memoizedSelectedShop = useMemo(() => selectedShop, [selectedShop]);
 
-  // Custom URL builder for shops. It sends "columnFilters" and
-  // modifies filters for "location" or "category" as needed.
+  // Custom URL builder for shops.
   const shopUrlBuilder = (
     endpoint,
     { pageIndex, pageSize, sorting, filters, globalFilter }
@@ -81,7 +77,7 @@ const ShopScreen = () => {
     return fetchURL;
   };
 
-  // CORRECTED: Transform function with proper error handling
+  // Transform function for shops data.
   const transformShopsData = async (json, signal) => {
     try {
       const { meta } = json;
@@ -195,10 +191,6 @@ const ShopScreen = () => {
   // Handlers for shop actions.
   const addShopHandler = (newShop) => {
     showSnackbar(`Butikk ${newShop.name} er lagt til`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   const deleteFailureHandler = (failedShop) => {
@@ -207,10 +199,6 @@ const ShopScreen = () => {
 
   const deleteSuccessHandler = (deletedShop) => {
     showSnackbar(`Shop ${deletedShop.name} deleted successfully`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   const editFailureHandler = () => {
@@ -219,10 +207,6 @@ const ShopScreen = () => {
 
   const editSuccessHandler = (updatedShop) => {
     showSnackbar(`Shop ${updatedShop.name} updated successfully`);
-    queryClient.invalidateQueries({
-      queryKey: baseQueryKey,
-      refetchType: "active",
-    });
   };
 
   return (
