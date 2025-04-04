@@ -1,3 +1,4 @@
+// EditProductDialog.js
 import React, {
   useState,
   useEffect,
@@ -20,7 +21,10 @@ const EditProductDialog = ({
   onUpdateFailure,
 }) => {
   // Memoize the selected product.
-  const memoizedSelectedProduct = useMemo(() => selectedProduct, [selectedProduct]);
+  const memoizedSelectedProduct = useMemo(
+    () => selectedProduct,
+    [selectedProduct]
+  );
 
   const {
     product,
@@ -39,6 +43,23 @@ const EditProductDialog = ({
   const [brandSearch, setBrandSearch] = useState("");
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [initialized, setInitialized] = useState(false);
+
+  // Define the selectStyles object to pass to the select components
+  const selectStyles = {
+    control: (provided, state) => ({
+      ...provided,
+      minHeight: 36,
+      borderColor: state.isFocused ? "#3f51b5" : provided.borderColor,
+    }),
+    menu: (provided) => ({
+      ...provided,
+      zIndex: 9999,
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.isFocused ? "#f0f0f0" : provided.backgroundColor,
+    }),
+  };
 
   // Infinite scrolling hook for brands.
   const {
@@ -88,12 +109,11 @@ const EditProductDialog = ({
       selectedProduct.brands &&
       selectedProduct.brands.length > 0
     ) {
-      
       // If there is a fallback in selectedProduct.brand, split it by comma.
       const fallbackBrands = selectedProduct.brand
         ? selectedProduct.brand.split(",").map((s) => s.trim())
         : [];
-        
+
       const mapped = selectedProduct.brands.map((stored, index) => {
         // Look for a matching option by comparing stored (ID) to option._id.
         const match = brandOptions.find((option) => option._id === stored);
@@ -114,8 +134,14 @@ const EditProductDialog = ({
       }));
       setInitialized(true);
     }
-  }, [open, initialized, brandOptions, selectedProduct.brands, selectedProduct.brand, setProduct]);
-  
+  }, [
+    open,
+    initialized,
+    brandOptions,
+    selectedProduct.brands,
+    selectedProduct.brand,
+    setProduct,
+  ]);
 
   // Handler for when the brand selection changes.
   const handleBrandChange = useCallback(
@@ -131,8 +157,6 @@ const EditProductDialog = ({
     },
     [product, setProduct, resetValidationErrors, resetServerError]
   );
-
-
 
   // Handler for creating a new brand.
   const handleBrandCreate = useCallback(
@@ -170,7 +194,9 @@ const EditProductDialog = ({
 
   const handleNameChange = useCallback(
     (e) => {
-      setProduct({ ...product, name: e.target.value });
+      // If the onChange returns an event, extract the value; otherwise, use the value directly.
+      const name = e?.target?.value ?? e;
+      setProduct({ ...product, name });
     },
     [product, setProduct]
   );
@@ -200,12 +226,14 @@ const EditProductDialog = ({
     (inputValue) => {
       const newMeasure = inputValue.trim();
       if (newMeasure !== "") {
-        setProduct({ ...product, measures: [...(product.measures || []), newMeasure] });
+        setProduct({
+          ...product,
+          measures: [...(product.measures || []), newMeasure],
+        });
       }
     },
     [product, setProduct]
   );
-
 
   // Submit handler for saving the updated product.
   const handleSubmit = async (event) => {
@@ -246,15 +274,16 @@ const EditProductDialog = ({
           onMeasurementUnitChange={handleMeasurementUnitChange}
           onMeasuresChange={handleMeasuresChange}
           onMeasureCreate={handleMeasureCreate}
-          inputValue={brandSearch}
           onBrandChange={handleBrandChange}
           onBrandCreate={handleBrandCreate}
           brandOptions={brandOptions}
           loading={loading || isLoadingBrands || isFetchingNextPage}
           validationError={validationError}
           displayError={displayError}
-          onInputChange={handleInputChange}
-          onMenuScrollToBottom={handleMenuScrollToBottom}
+          onInputChange={handleInputChange} // Filtering handler for BrandSelect
+          onMenuScrollToBottom={handleMenuScrollToBottom} // Infinite scroll handler
+          inputValue={brandSearch} // Controlled input value for filtering
+          selectStyles={selectStyles} // Pass the defined styles
         />
         <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
           <Button type="submit" disabled={loading || !isFormValid()}>
@@ -284,6 +313,7 @@ EditProductDialog.propTypes = {
 };
 
 export default EditProductDialog;
+
 
 
 
