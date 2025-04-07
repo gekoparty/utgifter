@@ -21,11 +21,12 @@ const resolveBrandIds = async (brandNames) => {
   
   return Promise.all(
     brandNames.map(async (name) => {
-      const slug = createSlug(name);
-      // Find or create brand using atomic operation
+      const trimmedName = name.trim();
+      const slug = createSlug(trimmedName);
+      // Use both slug and name in the filter for extra consistency.
       const brand = await Brand.findOneAndUpdate(
-        { slug },
-        { $setOnInsert: { name, slug } },
+        { slug, name: trimmedName },
+        { $setOnInsert: { name: trimmedName, slug } },
         { new: true, upsert: true }
       );
       return brand._id;
