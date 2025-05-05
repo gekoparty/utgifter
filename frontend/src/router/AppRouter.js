@@ -8,6 +8,7 @@ import ShopScreen from "../screens/ShopScreen";
 import BrandScreen from "../screens/BrandScreen";
 import LocationScreen from "../screens/LocationScreen";
 import ProductScreen from "../screens/ProductScreen";
+import StatsScreen from "../screens/StatsScreen"
 
 const AppRouter = () => (
   <BrowserRouter>
@@ -21,6 +22,7 @@ const AppRouter = () => (
           <Route path="brands" element={<BrandScreen />} />
           <Route path="locations" element={<LocationScreen />} />
           <Route path="products" element={<ProductScreen />} />
+          <Route path="stats" element={<StatsScreen />} />
         </Route>
       </Routes>
     </App>
