@@ -49,4 +49,10 @@ export const mainNavbarItems = [
         label: 'Produkter',
         route: 'products',
     },
+    {
+        id: 6,
+        icon: <SettingsInputComponentIcon />,
+        label: 'Stats',
+        route: 'stats',
+    },
 ]
