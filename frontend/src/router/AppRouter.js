@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "../App";
 import Layout from "../layout/Layout";
+import BareLayout from "../layout/Barelayout";
 import CategoryScreen from "../screens/CategoryScreen";
 import ExpenseScreen from "../screens/ExpenseScreen";
 import ShopScreen from "../screens/ShopScreen";
@@ -22,6 +23,10 @@ const AppRouter = () => (
           <Route path="brands" element={<BrandScreen />} />
           <Route path="locations" element={<LocationScreen />} />
           <Route path="products" element={<ProductScreen />} />
+          
+        </Route>
+        {/* stats page without sidebar */}
+        <Route element={<BareLayout />}>
           <Route path="stats" element={<StatsScreen />} />
         </Route>
       </Routes>
