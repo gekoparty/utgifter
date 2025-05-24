@@ -1,22 +1,46 @@
-// src/layout/BareLayout.jsx
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Outlet, Link as RouterLink } from "react-router-dom";
-import { AppBar, Toolbar, IconButton, Typography, Container, Box, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
+import {
+  AppBar, Toolbar, IconButton, Typography, Container, Box,
+  FormControl, InputLabel, Button, CircularProgress
+} from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useQuery } from "@tanstack/react-query";
+import WindowedSelect from "react-windowed-select";
+import debounce from "lodash.debounce";
+import useInfiniteProducts from "../hooks/useInfiniteProducts"
 
 export default function BareLayout() {
-  // Chart view state
   const [view, setView] = useState("expenses");
   const [productId, setProductId] = useState("");
+  const [productSearch, setProductSearch] = useState("");
 
-  // Fetch products for dropdown
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["productsForStats"],
-    queryFn: () => fetch("/api/products").then(res => res.json()),
-    enabled: view === "price"
-  });
-  const products = Array.isArray(data) ? data : data?.products || [];
+  // Wire up infinite products
+  const {
+    data: infiniteData,
+    isLoading: isLoadingProducts,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteProducts(productSearch);
+
+  // Flatten pages into options
+  const productOptions = useMemo(() => {
+    return (infiniteData?.pages || []).flatMap(page =>
+      page.products.map(p => ({
+        label: p.name,
+        value: p._id || p.id,
+      }))
+    );
+  }, [infiniteData]);
+
+  // Debounced search
+  const debouncedSearch = useMemo(
+    () => debounce(q => setProductSearch(q), 300),
+    []
+  );
+  const handleInputChange = useCallback(
+    value => { debouncedSearch(value || ""); },
+    [debouncedSearch]
+  );
 
   return (
     <>
@@ -29,48 +53,47 @@ export default function BareLayout() {
             Statistics
           </Typography>
 
-          {/* Chart type selector */}
           <FormControl size="small" sx={{ m: 1, minWidth: 150 }}>
-            <InputLabel id="view-select-label">Chart</InputLabel>
-            <Select
-              labelId="view-select-label"
-              value={view}
-              label="Chart"
-              onChange={e => {
-                setView(e.target.value);
-                setProductId("");
-              }}
+            <Button
+              variant={view === "expenses" ? "contained" : "outlined"}
+              onClick={() => { setView("expenses"); setProductId(""); }}
             >
-              <MenuItem value="expenses">Monthly Expenses</MenuItem>
-              <MenuItem value="price">Price History</MenuItem>
-            </Select>
+              Monthly Expenses
+            </Button>
+            <Button
+              variant={view === "price" ? "contained" : "outlined"}
+              onClick={() => { setView("price"); setProductId(""); }}
+              sx={{ ml: 1 }}
+            >
+              Price History
+            </Button>
           </FormControl>
 
-          {/* Product selector when price chart */}
           {view === "price" && (
-            <FormControl size="small" sx={{ m: 1, minWidth: 150 }}>
-              <InputLabel id="product-select-label">Product</InputLabel>
-              <Select
-                labelId="product-select-label"
-                value={productId}
-                label="Product"
-                onChange={e => setProductId(e.target.value)}
-                disabled={isLoading || !!error}
-              >
-                {isLoading && <MenuItem>Loading…</MenuItem>}
-                {error && <MenuItem>Error loading</MenuItem>}
-                {products.map(p => (
-                  <MenuItem key={p._id || p.id} value={p._id || p.id}> {p.name} </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box sx={{ width: 250, m: 1 }}>
+              <WindowedSelect
+                isClearable
+                options={productOptions}
+                value={productOptions.find(o => o.value === productId) || null}
+                onChange={opt => setProductId(opt?.value || "")}
+                onInputChange={handleInputChange}
+                onMenuScrollToBottom={() => {
+                  if (hasNextPage) fetchNextPage();
+                }}
+                isLoading={isLoadingProducts}
+                loadingMessage={() => "Loading…"}
+                noOptionsMessage={() => (productSearch ? "No matches" : "Type to search")}
+                placeholder="Search products..."
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+              />
+            </Box>
           )}
         </Toolbar>
       </AppBar>
 
       <Box sx={{ p: 3, backgroundColor: "#2C2C2C", minHeight: "100vh" }}>
         <Container maxWidth="lg">
-          {/* Provide view and productId to child via context */}
           <Outlet context={{ view, productId }} />
         </Container>
       </Box>
