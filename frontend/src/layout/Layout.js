@@ -3,6 +3,8 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Box, Container } from "@mui/material";
 import PermanentDrawerLeft from "../components/NavBar/PermanentDrawerLeft";
 
+const DRAWER_WIDTH = 240;
+
 const Layout = () => {
   const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -19,18 +21,25 @@ const Layout = () => {
       <Box
         sx={{
           display: "flex",
-          justifyContent: "center",
-          backgroundColor: "#2C2C2C",
-          padding: 2,
-          borderRadius: 2,
-          marginLeft: isDrawerOpen ? "240px" : "0",
-          width: "100%",
-          height: "100vh",
+          flexDirection: "column",
+          bgcolor: "#F5F5F5", // Light background improves readability
+          ml: isDrawerOpen ? `${DRAWER_WIDTH}px` : "0",
+          transition: "margin-left 0.3s ease",
+          minHeight: "100vh",
         }}
       >
-        <Container maxWidth="lg" sx={{ padding: 3 }}>
-          <Outlet />
-        </Container>
+        <Box
+          sx={{
+            px: 3,
+            py: 4,
+            flexGrow: 1,
+            width: "100%",
+          }}
+        >
+          <Container maxWidth="lg">
+            <Outlet />
+          </Container>
+        </Box>
       </Box>
     </>
   );

@@ -1,5 +1,12 @@
 import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  Alert,
+  CircularProgress,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -7,7 +14,6 @@ import useSnackBar from "../hooks/useSnackBar";
 import { useDeepCompareMemo } from "use-deep-compare";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 
-// Lazy-loaded Dialogs
 const AddBrandDialog = lazy(() =>
   import("../components/features/Brands/BrandDialogs/AddBrand/AddBrandDialog")
 );
@@ -18,7 +24,6 @@ const EditBrandDialog = lazy(() =>
   import("../components/features/Brands/BrandDialogs/EditBrand/EditBrandDialog")
 );
 
-// Constants
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
@@ -27,7 +32,6 @@ const API_URL =
     ? "https://api.example.com"
     : "http://localhost:3000";
 
-// URL builder for fetching brands
 const brandUrlBuilder = (endpoint, params) => {
   const fetchURL = new URL(endpoint, API_URL);
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
@@ -39,7 +43,6 @@ const brandUrlBuilder = (endpoint, params) => {
 };
 
 const BrandScreen = () => {
-  // State management
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -49,7 +52,6 @@ const BrandScreen = () => {
   const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
-
   const {
     snackbarOpen,
     snackbarMessage,
@@ -58,10 +60,8 @@ const BrandScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Define a stable query key for paginated data
   const baseQueryKey = useMemo(() => ["brands", "paginated"], []);
 
-  // Build parameters for usePaginatedData hook using deep compare
   const fetchParams = useDeepCompareMemo(
     () => ({
       pageIndex: pagination.pageIndex,
@@ -73,7 +73,6 @@ const BrandScreen = () => {
     [pagination, sorting, columnFilters, globalFilter]
   );
 
-  // Use the usePaginatedData hook to fetch brands data
   const {
     data: brandsData,
     isError,
@@ -90,7 +89,6 @@ const BrandScreen = () => {
   const tableData = useMemo(() => brandsData?.brands || [], [brandsData]);
   const metaData = useMemo(() => brandsData?.meta || {}, [brandsData]);
 
-  // Define table columns
   const tableColumns = useMemo(
     () => [
       {
@@ -98,27 +96,20 @@ const BrandScreen = () => {
         header: "Merkenavn",
         id: "name",
         size: 150,
-        // Add explicit cell rendering to verify values
-        Cell: ({ cell }) => {
-          console.log('Cell value:', cell.getValue());
-          return <span>{cell.getValue()}</span>;
-        },
+        Cell: ({ cell }) => <span>{cell.getValue()}</span>,
       },
     ],
     []
   );
 
-  // Callback to handle dialog close and reset the selected brand
   const handleDialogClose = useCallback((closeDialogFn) => {
     closeDialogFn(false);
     setSelectedBrand(INITIAL_SELECTED_BRAND);
   }, []);
 
-  // Callback wrappers for sorting and global filtering
   const handleSortingChange = useCallback((newSorting) => setSorting(newSorting), []);
   const handleGlobalFilterChange = useCallback((newGlobalFilter) => setGlobalFilter(newGlobalFilter), []);
 
-  // Success and failure handlers: show snackbar messages and let the mutation handle cache invalidation.
   const addBrandHandler = useCallback(
     (newBrand) => {
       showSnackbar(`Merke "${newBrand.name}" lagt til`);
@@ -154,7 +145,6 @@ const BrandScreen = () => {
     [showSnackbar]
   );
 
-  // Handlers for editing and deleting a brand
   const handleEdit = useCallback((brand) => {
     setSelectedBrand(brand);
     setEditModalOpen(true);
@@ -165,18 +155,44 @@ const BrandScreen = () => {
     setDeleteModalOpen(true);
   }, []);
 
-
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", flexDirection: "column", flexGrow: 1, width: "100%" }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          width: "100%",
+          p: 3,
+          bgcolor: "#f9f9f9",
+          borderRadius: 2,
+          boxShadow: 1,
+        }}
+      >
         <Box sx={{ mb: 2 }}>
-          <Button variant="contained" color="primary" onClick={() => setAddBrandDialogOpen(true)}>
-            Nytt Merke
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddBrandDialogOpen(true)}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              px: 3,
+              py: 1,
+              fontWeight: "bold",
+              boxShadow: 1,
+              bgcolor: "#1976d2",
+              ":hover": {
+                bgcolor: "#1565c0",
+              },
+            }}
+          >
+            + Nytt Merke
           </Button>
         </Box>
         {tableData && (
           <ReactTable
-          key={tableData.length} 
+            key={tableData.length}
             getRowId={(row) => row._id}
             data={tableData}
             columns={tableColumns}
@@ -195,12 +211,32 @@ const BrandScreen = () => {
             meta={metaData}
             handleEdit={handleEdit}
             handleDelete={handleDelete}
-            sx={{ flexGrow: 1, width: "100%", minWidth: 600 }}
+            sx={{
+              flexGrow: 1,
+              width: "100%",
+              minWidth: 600,
+              bgcolor: "white",
+              borderRadius: 2,
+              boxShadow: 1,
+              p: 2,
+              "& .MuiTableHead-root": {
+                bgcolor: "#f1f3f5",
+              },
+              "& .MuiTableCell-root": {
+                borderBottom: "1px solid #e0e0e0",
+              },
+            }}
           />
         )}
       </Box>
 
-      <Suspense fallback={<div>Laster Dialog...</div>}>
+      <Suspense
+        fallback={
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+            <CircularProgress size={28} />
+          </Box>
+        }
+      >
         <AddBrandDialog
           open={addBrandDialogOpen}
           onClose={() => handleDialogClose(setAddBrandDialogOpen)}
@@ -208,10 +244,16 @@ const BrandScreen = () => {
         />
       </Suspense>
 
-      <Suspense fallback={<div>Laster...</div>}>
+      <Suspense
+        fallback={
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+            <CircularProgress size={28} />
+          </Box>
+        }
+      >
         <DeleteBrandDialog
           open={deleteModalOpen}
-          onClose={() => handleDialogClose(setDeleteBrandDialogOpen => setDeleteModalOpen(false))}
+          onClose={() => handleDialogClose(() => setDeleteModalOpen(false))}
           dialogTitle="Bekreft sletting"
           selectedBrand={selectedBrand}
           onDeleteSuccess={deleteSuccessHandler}
@@ -219,7 +261,13 @@ const BrandScreen = () => {
         />
       </Suspense>
 
-      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
+      <Suspense
+        fallback={
+          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+            <CircularProgress size={28} />
+          </Box>
+        }
+      >
         {selectedBrand._id && editModalOpen && (
           <EditBrandDialog
             open={editModalOpen}
@@ -236,7 +284,7 @@ const BrandScreen = () => {
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        sx={{ width: "auto", maxWidth: 400 }}
+        sx={{ width: "auto", maxWidth: 400, mb: { xs: 2, sm: 4 } }}
       >
         <Alert
           severity={snackbarSeverity}
@@ -247,7 +295,7 @@ const BrandScreen = () => {
               <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{ width: "100%", "& .MuiAlert-message": { flexGrow: 1 } }}
+          sx={{ width: "100%", borderRadius: 1, "& .MuiAlert-message": { flexGrow: 1 } }}
         >
           {snackbarMessage}
         </Alert>
