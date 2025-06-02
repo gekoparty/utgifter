@@ -6,27 +6,23 @@ const TableLayout = ({ children }) => {
   return (
     <Box
       sx={{
-        minWidth: 600,
         marginLeft: `${drawerWidth}px`,
+        padding: 3,
+        minHeight: "100vh",
+        backgroundColor: "#F5F5F5", // Light gray background
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "stretch",
-        backgroundColor: "#2C2C2C",
-        padding: 2,
-        borderRadius: 2,
-        height: "100vh",
       }}
     >
       <Box
         sx={{
-          minWidth: 600,
-          display: "flex",
-          flexDirection: "column",
+          backgroundColor: "#FFFFFF", // White card-style box
+          borderRadius: 2,
+          boxShadow: 1,
+          padding: 3,
           flexGrow: 1,
-          backgroundColor: "#333",
-          borderRadius: 1,
           width: "100%",
+          minWidth: 600,
         }}
       >
         {children}
@@ -36,4 +32,3 @@ const TableLayout = ({ children }) => {
 };
 
 export default TableLayout;
-  
