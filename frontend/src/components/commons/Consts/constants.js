@@ -18,8 +18,6 @@ export const INITIAL_SORTING = [{ id: "name", desc: false }];
 export const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 export const API_URL =
   process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "http://localhost:3000"; // Fallback for unknown environments
+    ? "https://utgifter.onrender.com"   // your backend on Render
+    : "http://localhost:5000";          // your local backend during dev
 
