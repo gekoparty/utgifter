@@ -1,5 +1,5 @@
 import express from "express";
-import Category from "../models/CategorySchema.js";
+import Category from "../models/categorySchema.js";
 import slugify from "slugify";
 
 const categoriesRouter = express.Router();
