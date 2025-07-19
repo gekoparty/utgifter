@@ -30,3 +30,4 @@ const Category = mongoose.model(
 );
 
 export default Category;
+
