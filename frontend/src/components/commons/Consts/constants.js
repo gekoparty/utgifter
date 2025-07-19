@@ -16,8 +16,5 @@ export const measurementUnitOptions = [
   export const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 export const INITIAL_SORTING = [{ id: "name", desc: false }];
 export const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
-export const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://utgifter.onrender.com"   // your backend on Render
-    : "http://localhost:5000";          // your local backend during dev
+export const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
