@@ -50,18 +50,21 @@ app.use("/api/expenses", expensesRouter);
 app.use("/api/stats", statsRouter);
 
 // For production: Serve frontend static files if using single service approach
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV !== 'production') {
+  // Serve frontend build locally only (e.g. after running `npm run build` in frontend)
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   app.use(express.static(path.join(__dirname, '../frontend/build')));
-  
+
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
   });
 } else {
-  app.get("/", (req, res) => {
-    res.send("Hello World!");
+  // In production, serve a simple message or API only
+  app.get('/', (req, res) => {
+    res.send('API is running. Frontend is hosted separately.');
   });
 }
+
 
 // Error handling middleware (uncomment and improve)
 app.use((err, req, res, next) => {
