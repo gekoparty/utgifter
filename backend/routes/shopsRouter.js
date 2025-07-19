@@ -2,7 +2,7 @@ import express from "express";
 import slugify from "slugify";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationScema.js";
-import Category from "../models/categorySchemat.js";
+import Category from "../models/categorySchema.js";
 
 const shopsRouter = express.Router();
 
