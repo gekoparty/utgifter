@@ -1,8 +1,5 @@
 // api.js (or any appropriate file)
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : "http://localhost:3000";
+import { API_URL } from "../Consts/constants";
 
 
 export const fetchLocations = async ({ signal }) => {
