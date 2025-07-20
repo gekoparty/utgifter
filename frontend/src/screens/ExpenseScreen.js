@@ -20,6 +20,7 @@ import useSnackBar from "../hooks/useSnackBar";
 import { useTheme } from "@mui/material/styles";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { API_URL } from "../components/commons/Consts/constants";
 
 // Lazy-loaded Expense Dialogs
 const AddExpenseDialog = lazy(() =>
@@ -57,10 +58,7 @@ const INITIAL_SELECTED_EXPENSE = {
   measurementUnit: "",
   pricePerUnit: 0,
 };
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : "http://localhost:3000";
+
 
 // =================================================================
 // PriceRangeFilter Component
