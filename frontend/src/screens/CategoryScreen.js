@@ -5,6 +5,7 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { API_URL } from "../components/commons/Consts/constants";
 
 // Lazy-loaded dialogs for category actions
 const AddCategoryDialog = lazy(() =>
@@ -21,10 +22,7 @@ const EditCategoryDialog = lazy(() =>
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_CATEGORY = { _id: "", name: "" };
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : "http://localhost:3000";
+
 
 // Custom URL builder for categories
 const categoryUrlBuilder = (

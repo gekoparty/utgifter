@@ -5,6 +5,7 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { API_URL } from "../components/commons/Consts/constants";
 
 // Lazy-loaded Dialogs
 const AddShopDialog = lazy(() =>
@@ -27,10 +28,7 @@ const INITIAL_SELECTED_SHOP = {
   _id: "",
   name: "",
 };
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : "http://localhost:3000";
+
 
 const ShopScreen = () => {
   const [columnFilters, setColumnFilters] = useState([]);

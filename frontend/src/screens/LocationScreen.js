@@ -6,6 +6,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useDeepCompareMemo } from "use-deep-compare";
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { API_URL } from "../components/commons/Consts/constants";
 
 const AddLocationDialog = lazy(() =>
   import("../components/features/Locations/LocationDialogs/AddLocation/AddLocationDialog")
@@ -20,10 +21,7 @@ const DeleteLocationDialog = lazy(() =>
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_LOCATION = { _id: "", name: "" };
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://www.material-react-table.com"
-    : "http://localhost:3000";
+
 
 const locationUrlBuilder = (endpoint, params) => {
   const fetchURL = new URL(endpoint, API_URL);
