@@ -83,8 +83,8 @@ const ShopScreen = () => {
         json.shops.map(async (shop) => {
           try {
             const [locationResponse, categoryResponse] = await Promise.all([
-              fetch(`/api/locations/${shop.location}`, { signal }),
-              fetch(`/api/categories/${shop.category}`, { signal }),
+              fetch(`${API_URL}/api/locations/${shop.location}`, { signal }),
+              fetch(`${API_URL}/api/categories/${shop.category}`, { signal }),
             ]);
 
             const locationData = locationResponse.ok
