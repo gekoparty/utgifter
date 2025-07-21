@@ -21,6 +21,8 @@ import { dashboardTheme } from "./theme/dashboardTheme";
   whyDidYouRender(React);
 } */
 
+  console.log("API_URL from env:", process.env.REACT_APP_API_URL);
+
 // Create a QueryClient instance for React Query v5
 const queryClient = new QueryClient({
   defaultOptions: {
