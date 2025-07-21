@@ -53,7 +53,7 @@ const LocationScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Define a stable query key for paginated data
+  // Define a stable query key for paginated data or not working
   const baseQueryKey = useMemo(() => ["locations", "paginated"], []);
 
   const fetchParams = useDeepCompareMemo(
