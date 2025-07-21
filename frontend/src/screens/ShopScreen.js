@@ -7,7 +7,7 @@ import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy-loaded Dialogs
+// Lazy-loaded Dialogstest
 const AddShopDialog = lazy(() =>
   import("../components/features/Shops/ShopDialogs/AddShop/AddShopDialog")
 );
