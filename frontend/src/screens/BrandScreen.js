@@ -13,6 +13,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { useDeepCompareMemo } from "use-deep-compare";
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { API_URL } from "../components/commons/Consts/constants";
 
 const AddBrandDialog = lazy(() =>
   import("../components/features/Brands/BrandDialogs/AddBrand/AddBrandDialog")
@@ -27,10 +28,7 @@ const EditBrandDialog = lazy(() =>
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://api.example.com"
-    : "http://localhost:3000";
+
 
 const brandUrlBuilder = (endpoint, params) => {
   const fetchURL = new URL(endpoint, API_URL);
