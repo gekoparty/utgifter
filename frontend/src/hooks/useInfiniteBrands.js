@@ -1,8 +1,9 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { API_URL } from '../components/commons/Consts/constants';
 
 const buildApiUrl = (globalFilter, pageParam) =>
-  `/api/brands?globalFilter=${encodeURIComponent(globalFilter || '')}&start=${pageParam}&size=10`;
+  `${API_URL}/api/brands?globalFilter=${encodeURIComponent(globalFilter || '')}&start=${pageParam}&size=10`;
 
 const useInfiniteBrands = (globalFilter) => {
   const queryKey = useMemo(() => ['brands', globalFilter], [globalFilter]);
