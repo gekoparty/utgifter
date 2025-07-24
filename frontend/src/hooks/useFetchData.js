@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
+
 const useFetchData = (queryKey, url, transformData = (data) => data, options = {}) => {
   const stableQueryKey = useMemo(() => (Array.isArray(queryKey) ? queryKey : [queryKey]), [queryKey]);
 

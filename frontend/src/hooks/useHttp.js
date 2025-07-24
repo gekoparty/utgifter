@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import PropTypes from "prop-types";
+import { API_URL } from "../components/commons/Consts/constants";
 import axios from "axios";
 
 const useCustomHttp = (initialUrl) => {
@@ -11,33 +12,35 @@ const useCustomHttp = (initialUrl) => {
   });
 
   const sendRequest = useCallback(async (url, method = "GET", payload = null) => {
-    setHttpState((prev) => ({ ...prev, loading: true, error: null }));
-    const controller = new AbortController();
+  setHttpState((prev) => ({ ...prev, loading: true, error: null }));
+  const controller = new AbortController();
 
-    try {
-      const response = await axios.request({
+  try {
+    const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
+
+    const response = await axios.request({
+      url: fullUrl,
+      method,
+      data: payload,
+      signal: controller.signal,
+    });
+
+    setHttpState({ data: response.data, loading: false, error: null, resource: fullUrl });
+    return { data: response.data, error: null };
+  } catch (error) {
+    setHttpState({
+      data: null,
+      loading: false,
+      error: {
+        message: error.response?.data || error.message,
+        status: error.response?.status,
         url,
-        method,
-        data: payload,
-        signal: controller.signal,
-      });
-
-      setHttpState({ data: response.data, loading: false, error: null, resource: url });
-      return { data: response.data, error: null };
-    } catch (error) {
-      setHttpState({
-        data: null,
-        loading: false,
-        error: {
-          message: error.response?.data || error.message,
-          status: error.response?.status,
-          url,
-        },
-        resource: url,
-      });
-      return { data: null, error };
-    }
-  }, []);
+      },
+      resource: url,
+    });
+    return { data: null, error };
+  }
+}, []);
 
   useEffect(() => {
     let isMounted = true; // Flag to track if the component is mounted or not
