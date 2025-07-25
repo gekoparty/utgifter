@@ -98,16 +98,19 @@ const ExpenseScreen = () => {
     [selectedExpense]
   );
 
-  const expenseUrlBuilder = (endpoint, params) => {
-    const fetchURL = new URL(endpoint, API_URL);
-    fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
-    fetchURL.searchParams.set("size", `${params.pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-    fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
-    fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
-    return fetchURL;
-  };
+ const expenseUrlBuilder = (endpoint, params) => {
+  const sanitizedEndpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
+  const base = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+  const fetchURL = new URL(`${base}${sanitizedEndpoint}`);
 
+  fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
+  fetchURL.searchParams.set("size", `${params.pageSize}`);
+  fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
+
+  return fetchURL;
+};
   // --------------------------------------------------------------
   // Data Fetching using usePaginatedData Hook
   // --------------------------------------------------------------
