@@ -3,6 +3,7 @@ import express from 'express';
 import mongoose from 'mongoose'; 
 import Expense from '../models/expenseSchema.js';
 import Product from '../models/productSchema.js';
+import Shop from '../models/shopSchema.js';
 
 const router = express.Router();
 
@@ -99,7 +100,7 @@ router.get('/price-history', async (req, res, next) => {
     }
   });
 
-  router.get('/price-per-unit-history', async (req, res, next) => {
+ router.get('/price-per-unit-history', async (req, res, next) => {
   const { productId } = req.query;
   if (!productId) {
     return res.status(400).json({ message: 'Missing productId' });
@@ -111,20 +112,37 @@ router.get('/price-history', async (req, res, next) => {
         $match: { productName: new mongoose.Types.ObjectId(productId) }
       },
       {
+        $lookup: {
+          from: 'products',
+          localField: 'productName',
+          foreignField: '_id',
+          as: 'product'
+        }
+      },
+      { $unwind: '$product' },
+      {
+        $lookup: {
+          from: 'shops',
+          localField: 'shopName',
+          foreignField: '_id',
+          as: 'shop'
+        }
+      },
+      { $unwind: '$shop' },
+      {
         $project: {
+          _id: 0,
           date: { $ifNull: ['$purchaseDate', '$registeredDate'] },
-          pricePerUnit: '$pricePerUnit', // directly use saved field here
-          measurementUnit: 1,  // include if you want it for frontend
-          productName: 1       // just keep productName ObjectId for now
+          pricePerUnit: 1,
+          productName: '$product.name',
+          measurementUnit: '$product.measurementUnit',
+          shopName: '$shop.name'
         }
       },
       { $sort: { date: 1 } }
     ]);
 
-    // If you want to populate productName for name and measurementUnit, do it here:
-    const populated = await Expense.populate(data, { path: 'productName', select: 'name measurementUnit' });
-
-    res.json(populated);
+    res.json(data);
   } catch (err) {
     console.error('Error in /api/stats/price-per-unit-history:', err);
     next(err);
