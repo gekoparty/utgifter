@@ -99,4 +99,36 @@ router.get('/price-history', async (req, res, next) => {
     }
   });
 
+  router.get('/price-per-unit-history', async (req, res, next) => {
+  const { productId } = req.query;
+  if (!productId) {
+    return res.status(400).json({ message: 'Missing productId' });
+  }
+
+  try {
+    const data = await Expense.aggregate([
+      {
+        $match: { productName: new mongoose.Types.ObjectId(productId) }
+      },
+      {
+        $project: {
+          date: { $ifNull: ['$purchaseDate', '$registeredDate'] },
+          pricePerUnit: '$pricePerUnit', // directly use saved field here
+          measurementUnit: 1,  // include if you want it for frontend
+          productName: 1       // just keep productName ObjectId for now
+        }
+      },
+      { $sort: { date: 1 } }
+    ]);
+
+    // If you want to populate productName for name and measurementUnit, do it here:
+    const populated = await Expense.populate(data, { path: 'productName', select: 'name measurementUnit' });
+
+    res.json(populated);
+  } catch (err) {
+    console.error('Error in /api/stats/price-per-unit-history:', err);
+    next(err);
+  }
+});
+
 export default router;
