@@ -1,47 +1,35 @@
 import React, { useState, useMemo } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { Box, Container } from "@mui/material";
+import { Container, Box } from "@mui/material";
 import PermanentDrawerLeft from "../components/NavBar/PermanentDrawerLeft";
-
-const DRAWER_WIDTH = 240;
 
 const Layout = () => {
   const location = useLocation();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
 
   const title = useMemo(() => location.pathname.replace(/\W/g, " "), [location.pathname]);
 
   return (
-    <>
-      <PermanentDrawerLeft
-        title={title}
-        isDrawerOpen={isDrawerOpen}
-        setIsDrawerOpen={setIsDrawerOpen}
-      />
+    <PermanentDrawerLeft
+      title={title}
+      isDrawerOpen={isDrawerOpen}
+      setIsDrawerOpen={setIsDrawerOpen}
+    >
       <Box
         sx={{
+          flexGrow: 1,
           display: "flex",
-          flexDirection: "column",
-          bgcolor: "#F5F5F5", // Light background improves readability
-          ml: isDrawerOpen ? `${DRAWER_WIDTH}px` : "0",
-          transition: "margin-left 0.3s ease",
+          justifyContent: "center", // center horizontally inside available space
+          pt: 4,
           minHeight: "100vh",
+          backgroundColor: "background.default", // bluish
         }}
       >
-        <Box
-          sx={{
-            px: 3,
-            py: 4,
-            flexGrow: 1,
-            width: "100%",
-          }}
-        >
-          <Container maxWidth="lg">
-            <Outlet />
-          </Container>
-        </Box>
+        <Container maxWidth="lg">
+          <Outlet />
+        </Container>
       </Box>
-    </>
+    </PermanentDrawerLeft>
   );
 };
 
