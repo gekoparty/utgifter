@@ -1,8 +1,16 @@
 import { createTheme } from "@mui/material/styles";
 
 export const dashboardTheme = createTheme({
+  palette: {
+    background: {
+      default: "#e3f2fd", // light bluish background for the whole app
+      paper: "#ffffff",   // white for cards, tables, etc.
+    },
+    white: {
+      main: "#fff",
+    },
+  },
   components: {
-    //none of the component
     MuiButton: {
       styleOverrides: {
         root: {
@@ -34,11 +42,6 @@ export const dashboardTheme = createTheme({
           fontSize: "1.7rem",
         },
       },
-    },
-  },
-  palette: {
-    white: {
-      main: "#fff",
     },
   },
   typography: {

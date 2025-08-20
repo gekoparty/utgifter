@@ -15,15 +15,15 @@ import InboxIcon from "@mui/icons-material/MoveToInbox";
 import MailIcon from "@mui/icons-material/Mail";
 import { mainNavbarItems } from "./Consts/NavBarListItems";
 import { Link } from "react-router-dom";
+import Container from "@mui/material/Container";
 
 const drawerWidth = 240;
 
-export default function PermanentDrawerLeft() {
+export default function PermanentDrawerLeft({ children, title, isDrawerOpen, setIsDrawerOpen }) {
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
       <AppBar
-        
         sx={{ width: `calc(100% - ${drawerWidth}px)`, ml: `${drawerWidth}px` }}
       >
         <Toolbar>
@@ -72,9 +72,20 @@ export default function PermanentDrawerLeft() {
       </Drawer>
       <Box
         component="main"
-        sx={{ flexGrow: 1, bgcolor: "background.default", p: 3 }}
+        sx={{
+          flexGrow: 1,
+          bgcolor: "background.default", // bluish background
+          p: 3,
+          minHeight: "100vh",
+          display: "flex",               // add flex container
+          justifyContent: "center",     // center horizontally
+          flexDirection: "column",      // stack children vertically
+        }}
       >
         <Toolbar />
+        <Container maxWidth="lg">
+          {children}
+        </Container>
       </Box>
     </Box>
   );

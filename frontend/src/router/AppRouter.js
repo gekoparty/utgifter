@@ -9,7 +9,7 @@ import ShopScreen from "../screens/ShopScreen";
 import BrandScreen from "../screens/BrandScreen";
 import LocationScreen from "../screens/LocationScreen";
 import ProductScreen from "../screens/ProductScreen";
-import StatsScreen from "../screens/StatsScreen"
+import StatsScreen from "../screens/StatsScreen";
 
 const AppRouter = () => (
   <BrowserRouter>
@@ -23,7 +23,6 @@ const AppRouter = () => (
           <Route path="brands" element={<BrandScreen />} />
           <Route path="locations" element={<LocationScreen />} />
           <Route path="products" element={<ProductScreen />} />
-          
         </Route>
         {/* stats page without sidebar */}
         <Route element={<BareLayout />}>
