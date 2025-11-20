@@ -1,151 +1,189 @@
-import { useState, useEffect, useContext, useCallback, useMemo } from "react";
+import { useCallback, useMemo, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../../validation/validationSchema";
 import { StoreContext } from "../../../../Store/Store";
 
 const useBrandDialog = (initialBrand = null) => {
-  // Memoize the initial state to prevent unnecessary recalculations.
-  const initialBrandState = useMemo(
-    () => ({
-      name: "",
-    }),
-    []
+  // Memoize initial state
+  const initialBrandState = useMemo(() => ({ name: "" }), []);
+
+  // Initialize state
+  const [brand, setBrand] = useState(
+    initialBrand ? initialBrand : { ...initialBrandState }
   );
 
-  // Initialize the brand state using the initial brand (if provided) or the default state.
-  const [brand, setBrand] = useState(initialBrand ? initialBrand : { ...initialBrandState });
-
-  // Custom HTTP hook for brands.
+  // Custom HTTP hook
   const { sendRequest, loading } = useCustomHttp("/api/brands");
 
-  // Global store context.
+  // Global store context
   const { dispatch, state } = useContext(StoreContext);
 
-  // Reset server error for brands.
+  // React Query client
+  const queryClient = useQueryClient();
+
+  // Error and validation reset functions
   const resetServerError = useCallback(() => {
-    dispatch({ type: "RESET_ERROR", resource: "brands" });
+    dispatch({
+      type: "RESET_ERROR",
+      resource: "brands",
+    });
   }, [dispatch]);
 
-  // Reset validation errors for brands.
   const resetValidationErrors = useCallback(() => {
-    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
+    dispatch({
+      type: "RESET_VALIDATION_ERRORS",
+      resource: "brands",
+    });
   }, [dispatch]);
 
-  // Reset the form state and clear all errors.
+  // Form reset: resets the state and errors
   const resetFormAndErrors = useCallback(() => {
     setBrand(initialBrand ? initialBrand : { ...initialBrandState });
     resetServerError();
     resetValidationErrors();
   }, [initialBrand, initialBrandState, resetServerError, resetValidationErrors]);
 
-  // Initialize or reset the form when initialBrand changes.
+  // Effect to update state when initialBrand changes and cleanup on unmount
   useEffect(() => {
     if (initialBrand) {
-      setBrand((prevBrand) => ({ ...prevBrand, ...initialBrand }));
+      setBrand((prevBrand) => ({
+        ...prevBrand,
+        ...initialBrand,
+      }));
     } else {
       resetFormAndErrors();
     }
-    // (Optional cleanup can be added here if needed.)
-  }, [initialBrand, resetFormAndErrors]);
 
-  // Save the brand (create or update) using formatting and validation.
+    return () => {
+      dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
+    };
+  }, [initialBrand, resetFormAndErrors, dispatch]);
+
+  // Mutation for saving brand with optimistic update and cache invalidation
+  const saveBrandMutation = useMutation({
+    mutationFn: async (formattedBrand) => {
+      const url = initialBrand
+        ? `/api/brands/${initialBrand._id}`
+        : "/api/brands";
+      const method = initialBrand ? "PUT" : "POST";
+      const { data, error: apiError } = await sendRequest(url, method, formattedBrand);
+      if (apiError) {
+        throw new Error(data?.error || apiError);
+      }
+      return data;
+    },
+    onMutate: async (formattedBrand) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["brands"] });
+      // Snapshot previous value
+      const previousBrands = queryClient.getQueryData(["brands"]);
+      // Optionally update the cache optimistically here (for add or update)
+      return { previousBrands };
+    },
+    onError: (error, formattedBrand, context) => {
+      if (context?.previousBrands) {
+        queryClient.setQueryData(["brands"], context.previousBrands);
+      }
+      dispatch({
+        type: "SET_ERROR",
+        error: error.message,
+        resource: "brands",
+        showError: true,
+      });
+    },
+    onSuccess: () => {
+      // Reset errors and validation
+      dispatch({ type: "RESET_ERROR", resource: "brands" });
+      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
+      // Invalidate queries so the list can refresh
+      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
+    },
+  });
+
+  // Save handler: validates, triggers the mutation, and resets the form
   const handleSaveBrand = async (onClose) => {
-    // Prevent submission if the brand name is empty.
-    if (!brand.name.trim()) {
-      return;
-    }
+    if (!brand.name.trim()) return;
+
+    let formattedBrand = { ...brand };
+    let validationErrors = {};
 
     try {
-      // Validate the brand using the validation schema.
-      await addBrandValidationSchema.validate({ name: brand.name });
+      // Format the field and validate the brand object
+      formattedBrand.name = formatComponentFields(brand.name, "brand", "name");
+      await addBrandValidationSchema.validate(formattedBrand, { abortEarly: false });
     } catch (validationError) {
+      if (validationError.inner) {
+        validationError.inner.forEach((err) => {
+          validationErrors[err.path] = { show: true, message: err.message };
+        });
+      }
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "brands",
         validationErrors: {
-          name: { show: true, message: "Navnet må være minst 2 tegn" },
+          ...state.validationErrors?.brands,
+          ...validationErrors,
         },
         showError: true,
       });
       return;
     }
 
-    // Format the brand name for consistency.
-    const formattedBrand = {
-      name: formatComponentFields(brand.name, "brand", "name"),
-    };
-
     try {
-      // Determine the correct URL and method based on whether we're updating or creating.
-      let url = "/api/brands";
-      let method = "POST";
-      if (initialBrand) {
-        url = `/api/brands/${initialBrand._id}`;
-        method = "PUT";
-      }
-
-      const { error: addDataError } = await sendRequest(url, method, formattedBrand);
-
-      if (addDataError) {
-        dispatch({
-          type: "SET_ERROR",
-          error: addDataError,
-          resource: "brands",
-          showError: true,
-        });
-      } else {
-        // Reset errors and clear the form after successful save.
-        dispatch({ type: "RESET_ERROR", resource: "brands" });
-        dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
-        setBrand({ ...initialBrandState });
-        onClose();
-        return true;
-      }
+      await saveBrandMutation.mutateAsync(formattedBrand);
+      // Reset the form and close on success
+      setBrand({ ...initialBrandState });
+      onClose();
+      return true;
     } catch (fetchError) {
       dispatch({
         type: "SET_ERROR",
-        error: fetchError,
+        error: fetchError.message,
         resource: "brands",
         showError: true,
       });
     }
   };
 
-  // Delete a brand.
+  // Delete handler with cache invalidation
   const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
     try {
       const response = await sendRequest(`/api/brands/${selectedBrand?._id}`, "DELETE");
       if (response.error) {
         onDeleteFailure(selectedBrand);
         return false;
-      } else {
-        onDeleteSuccess(selectedBrand);
-        return true;
       }
+      onDeleteSuccess(selectedBrand);
+      dispatch({
+        type: "DELETE_ITEM",
+        resource: "brands",
+        payload: selectedBrand._id,
+      });
+      // Invalidate the brands queries to refresh the data
+      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
+      return true;
     } catch (error) {
       onDeleteFailure(selectedBrand);
       return false;
     }
   };
 
-  // Extract any errors and validation info from the store.
+  // Expose error and validation states
   const displayError = state.error?.brands;
-  const validationError = state.validationErrors?.brands?.name;
+  const validationError = state.validationErrors?.brands;
 
-  // Check if the form is valid.
   const isFormValid = () => {
-    return (
-      typeof brand.name === "string" &&
-      brand.name.trim().length > 0 &&
-      !validationError
-    );
+    return brand?.name?.trim().length > 0 && !validationError?.name;
   };
 
   return {
     isFormValid,
-    loading,
+    loading: loading || saveBrandMutation.isLoading,
     handleSaveBrand,
     handleDeleteBrand,
     displayError,
@@ -159,7 +197,7 @@ const useBrandDialog = (initialBrand = null) => {
 };
 
 useBrandDialog.propTypes = {
-  initialBrand: PropTypes.object, // initialBrand is optional.
+  initialBrand: PropTypes.object,
 };
 
 export default useBrandDialog;
