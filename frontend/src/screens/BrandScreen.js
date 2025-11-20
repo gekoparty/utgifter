@@ -29,7 +29,6 @@ const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
 
-
 const brandUrlBuilder = (endpoint, params) => {
   const fetchURL = new URL(endpoint, API_URL);
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
@@ -59,6 +58,12 @@ const BrandScreen = () => {
   } = useSnackBar();
 
   const baseQueryKey = useMemo(() => ["brands", "paginated"], []);
+
+  // Memoize selected brand to prevent unnecessary renders
+  const memoizedSelectedBrand = useMemo(
+    () => selectedBrand,
+    [selectedBrand]
+  );
 
   const fetchParams = useDeepCompareMemo(
     () => ({
@@ -108,9 +113,11 @@ const BrandScreen = () => {
   const handleSortingChange = useCallback((newSorting) => setSorting(newSorting), []);
   const handleGlobalFilterChange = useCallback((newGlobalFilter) => setGlobalFilter(newGlobalFilter), []);
 
+  // Remove refetch calls - the mutations in dialogs should handle cache invalidation
   const addBrandHandler = useCallback(
     (newBrand) => {
       showSnackbar(`Merke "${newBrand.name}" lagt til`);
+      // No need to invalidate queries here; the mutation in useBrandDialog does that.
     },
     [showSnackbar]
   );
@@ -118,6 +125,7 @@ const BrandScreen = () => {
   const deleteSuccessHandler = useCallback(
     (deletedBrand) => {
       showSnackbar(`Merke "${deletedBrand.name}" slettet`);
+      // No need to invalidate queries here; the mutation in useBrandDialog does that.
     },
     [showSnackbar]
   );
@@ -132,6 +140,7 @@ const BrandScreen = () => {
   const editSuccessHandler = useCallback(
     (updatedBrand) => {
       showSnackbar(`Merke "${updatedBrand.name}" oppdatert`);
+      // No need to invalidate queries here; the mutation in useBrandDialog does that.
     },
     [showSnackbar]
   );
@@ -161,10 +170,7 @@ const BrandScreen = () => {
           flexDirection: "column",
           flexGrow: 1,
           width: "100%",
-          p: 3,
-          bgcolor: "#f9f9f9",
-          borderRadius: 2,
-          boxShadow: 1,
+          minHeight: "100%",
         }}
       >
         <Box sx={{ mb: 2 }}>
@@ -188,44 +194,53 @@ const BrandScreen = () => {
             + Nytt Merke
           </Button>
         </Box>
-        {tableData && (
-          <ReactTable
-            key={tableData.length}
-            getRowId={(row) => row._id}
-            data={tableData}
-            columns={tableColumns}
-            setColumnFilters={setColumnFilters}
-            setGlobalFilter={handleGlobalFilterChange}
-            setSorting={handleSortingChange}
-            setPagination={setPagination}
-            isError={isError}
-            refetch={refetch}
-            isFetching={isFetching}
-            isLoading={isLoading}
-            columnFilters={columnFilters}
-            globalFilter={globalFilter}
-            pagination={pagination}
-            sorting={sorting}
-            meta={metaData}
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-            sx={{
-              flexGrow: 1,
-              width: "100%",
-              minWidth: 600,
-              bgcolor: "white",
-              borderRadius: 2,
-              boxShadow: 1,
-              p: 2,
-              "& .MuiTableHead-root": {
-                bgcolor: "#f1f3f5",
-              },
-              "& .MuiTableCell-root": {
-                borderBottom: "1px solid #e0e0e0",
-              },
-            }}
-          />
-        )}
+
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            minWidth: 600,
+          }}
+        >
+          {tableData && (
+            <ReactTable
+              key={tableData.length}
+              getRowId={(row) => row._id}
+              data={tableData}
+              columns={tableColumns}
+              setColumnFilters={setColumnFilters}
+              setGlobalFilter={handleGlobalFilterChange}
+              setSorting={handleSortingChange}
+              setPagination={setPagination}
+              isError={isError}
+              refetch={refetch}
+              isFetching={isFetching}
+              isLoading={isLoading}
+              columnFilters={columnFilters}
+              globalFilter={globalFilter}
+              pagination={pagination}
+              sorting={sorting}
+              meta={metaData}
+              setSelectedRow={setSelectedBrand}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+              editModalOpen={editModalOpen}
+              setDeleteModalOpen={setDeleteModalOpen}
+              sx={{
+                flexGrow: 1,
+                width: "100%",
+                "& .MuiTableHead-root": {
+                  bgcolor: "#f1f3f5",
+                },
+                "& .MuiTableCell-root": {
+                  borderBottom: "1px solid #e0e0e0",
+                },
+              }}
+            />
+          )}
+        </Box>
       </Box>
 
       <Suspense
@@ -253,7 +268,7 @@ const BrandScreen = () => {
           open={deleteModalOpen}
           onClose={() => handleDialogClose(() => setDeleteModalOpen(false))}
           dialogTitle="Bekreft sletting"
-          selectedBrand={selectedBrand}
+          selectedBrand={memoizedSelectedBrand}
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
         />
@@ -266,11 +281,11 @@ const BrandScreen = () => {
           </Box>
         }
       >
-        {selectedBrand._id && editModalOpen && (
+        {memoizedSelectedBrand._id && editModalOpen && (
           <EditBrandDialog
             open={editModalOpen}
             onClose={() => handleDialogClose(setEditModalOpen)}
-            selectedBrand={selectedBrand}
+            selectedBrand={memoizedSelectedBrand}
             onUpdateSuccess={editSuccessHandler}
             onUpdateFailure={editFailureHandler}
           />

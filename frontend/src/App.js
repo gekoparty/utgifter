@@ -44,7 +44,7 @@ function App({ children }) {
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
             <QueryClientProvider client={queryClient}>
               {children}
-              <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-left" />
+              <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
             </QueryClientProvider>
           </LocalizationProvider>
         </StoreProvider>
