@@ -333,29 +333,37 @@ const ExpenseScreen = () => {
   return (
     <TableLayout>
       <Box
-        sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          width: "100%",
+          minHeight: "100%",
+        }}
         data-testid="main-container"
       >
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => setAddExpenseDialogOpen(true)}
-          data-testid="add-expense-button"
-        >
-          Legg til ny utgift
-        </Button>
-      </Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => setAddExpenseDialogOpen(true)}
+            data-testid="add-expense-button"
+          >
+            Legg til ny utgift
+          </Button>
+        </Box>
 
-      <Box
-        sx={{
-          width: "100%",
-          display: "flex",
-          justifyContent: "center",
-          boxShadow: 2,
-        }}
-        data-testid="table-wrapper"
-      >
-        {expensesData && (
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            minWidth: 600,
+          }}
+          data-testid="table-wrapper"
+        >
+          {expensesData && (
           <ReactTable
             muiTableContainerProps={{
               sx: { width: "100%", overflowX: "auto" },
@@ -401,6 +409,7 @@ const ExpenseScreen = () => {
             data-testid="react-table"
           />
         )}
+        </Box>
       </Box>
 
       <Suspense fallback={<div>Laster...</div>}>
