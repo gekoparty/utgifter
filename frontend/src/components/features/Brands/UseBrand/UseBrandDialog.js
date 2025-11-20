@@ -99,7 +99,6 @@ const useBrandDialog = (initialBrand = null) => {
       dispatch({ type: "RESET_ERROR", resource: "brands" });
       dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
       // Invalidate queries so the list can refresh
-      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
       queryClient.invalidateQueries({ queryKey: ["brands"] });
     },
   });
