@@ -1,10 +1,11 @@
-import React, { useMemo, useCallback } from "react";
+import React, { useMemo, useCallback, useContext, useState } from "react";
 import { MaterialReactTable } from "material-react-table";
 import { getTableStyles } from "./tableStyles"; // Import styles
 import { IconButton, Tooltip, MenuItem } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTheme } from "@mui/material/styles";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
+import { StoreContext } from "../../../Store/Store";
 
 const Table = ({
   data,
@@ -49,6 +50,30 @@ const Table = ({
   const showAlertBanner = isError;
   const showProgressBars = isFetching;
 
+  // Read global error state so the table can show a single unified message
+  const { state: storeState, dispatch } = useContext(StoreContext);
+  const { error: storeError, errorMessage: storeErrorMessage, showError: storeShowError } = storeState || {};
+  // no local retry state — retry logic removed, table shows only the alert message and Refresh button
+
+  // Build a friendly banner message from store if available
+  const globalBannerMessage = useMemo(() => {
+    const msgs = [];
+    if (storeErrorMessage && Object.keys(storeErrorMessage).length > 0) {
+      Object.entries(storeErrorMessage).forEach(([r, m]) => {
+        if (m) msgs.push(m);
+      });
+    } else if (storeError && Object.keys(storeError).length > 0) {
+      Object.entries(storeError).forEach(([r, m]) => {
+        if (m) {
+          // if stored raw error is an object, try to extract a message string
+          if (typeof m === 'string') msgs.push(m);
+          else if (m?.message) msgs.push(m.message);
+        }
+      });
+    }
+    return msgs.join(' — ');
+  }, [storeErrorMessage, storeError]);
+
   const tableState = useMemo(
     () => ({
       columnFilters: columnFilterState,
@@ -84,6 +109,8 @@ const Table = ({
     refetch({ stale: true });
   }, [refetch]);
 
+  // retry functionality removed — keep store for future use
+
   const renderRowActions = useCallback(
     ({ row }) => [
       <MenuItem
@@ -105,17 +132,21 @@ const Table = ({
   );
 
   const renderTopToolbarActions = useCallback(
-    () => (
-      <Tooltip arrow title="Refresh Data">
-        <IconButton
-          onClick={handleRefresh}
-          aria-label="Refresh data"
-          data-testid="refresh-data-button"
-        >
-          <RefreshIcon />
-        </IconButton>
-      </Tooltip>
-    ),
+    () => {
+      return (
+        <>
+          <Tooltip arrow title="Refresh Data">
+            <IconButton
+              onClick={handleRefresh}
+              aria-label="Refresh data"
+              data-testid="refresh-data-button"
+            >
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+        </>
+      );
+    },
     [handleRefresh]
   );
 
@@ -141,7 +172,9 @@ const Table = ({
       positionActionsColumn="left"
       renderRowActionMenuItems={renderRowActions}
       muiToolbarAlertBannerProps={
-        isError ? { color: "error", children: "Error loading data" } : undefined
+        (isError || storeShowError)
+          ? { color: "error", children: storeShowError && globalBannerMessage ? globalBannerMessage : "Error loading data" }
+          : undefined
       }
       onColumnFiltersChange={setColumnFilters}
       onGlobalFilterChange={setGlobalFilter}
