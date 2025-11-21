@@ -204,11 +204,12 @@ export default function MiniVariantDrawer({
             theme.transitions.create(["margin"], {
               duration: theme.transitions.duration.standard,
             }),
-          ml: isDrawerOpen ? `${openedWidth}px` : `${closedWidth}px`,
           mt: 8,
+          display: "flex",
+          justifyContent: "center",
         }}
       >
-        <Container maxWidth="lg">
+        <Container maxWidth="lg" sx={{ width: "100%" }}>
           {children}
         </Container>
       </Box>
