@@ -14,20 +14,18 @@ import {
   ListItemIcon,
   ListItemText,
   Container,
+  useTheme
 } from "@mui/material";
 
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import { styled } from "@mui/material/styles";
-
 import { mainNavbarItems } from "./Consts/NavBarListItems";
 import { Link, useLocation } from "react-router-dom";
 
-// Drawer widths
 const openedWidth = 240;
 const closedWidth = 70;
 
-// ----------------------- Drawer Styling -----------------------
 const StyledDrawer = styled(Drawer, {
   shouldForwardProp: (prop) => prop !== "open",
 })(({ theme, open }) => ({
@@ -44,11 +42,9 @@ const StyledDrawer = styled(Drawer, {
   "& .MuiDrawer-paper": {
     width: open ? openedWidth : closedWidth,
     overflowX: "hidden",
-    background: "rgba(20, 20, 20, 0.40)", 
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    borderRight: "1px solid rgba(255,255,255,0.12)",
-    boxShadow: "4px 0 20px rgba(0,0,0,0.25)",
+    background: theme.palette.background.paper,
+    borderRight: `1px solid ${theme.palette.divider}`,
+    boxShadow: theme.shadows[4],
     transition: theme.transitions.create("width", {
       easing: theme.transitions.easing.sharp,
       duration: open
@@ -58,15 +54,13 @@ const StyledDrawer = styled(Drawer, {
   },
 }));
 
-// ----------------------- Active Bubble -----------------------
 const ActiveBubble = styled("div")(({ theme }) => ({
   position: "absolute",
   left: 8,
   right: 8,
   height: 40,
   borderRadius: "12px",
-  background: "rgba(255, 255, 255, 0.12)",
-  backdropFilter: "blur(10px)",
+  background: theme.palette.primary.main + "22", // semi-transparent
   transition: "transform 0.25s ease, opacity 0.25s ease",
 }));
 
@@ -76,10 +70,9 @@ export default function MiniVariantDrawer({
   isDrawerOpen,
   setIsDrawerOpen,
 }) {
+  const theme = useTheme();
   const handleToggle = () => setIsDrawerOpen((prev) => !prev);
   const location = useLocation();
-
-  // find active index
   const activeIndex = mainNavbarItems.findIndex(
     (item) => item.route === location.pathname
   );
@@ -88,34 +81,31 @@ export default function MiniVariantDrawer({
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
 
-      {/* ----------------------- AppBar ----------------------- */}
+      {/* AppBar */}
       <AppBar
         position="fixed"
         color="transparent"
         elevation={0}
         sx={{
           backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          borderBottom: `1px solid ${theme.palette.divider}`,
           transition: (theme) =>
             theme.transitions.create(["width", "margin"], {
               duration: theme.transitions.duration.standard,
             }),
-          ...(isDrawerOpen && {
-            width: `calc(100% - ${openedWidth}px)`,
-            ml: `${openedWidth}px`,
-          }),
-          ...(!isDrawerOpen && {
-            width: `calc(100% - ${closedWidth}px)`,
-            ml: `${closedWidth}px`,
-          }),
+          width: `calc(100% - ${isDrawerOpen ? openedWidth : closedWidth}px)`,
+          ml: `${isDrawerOpen ? openedWidth : closedWidth}px`,
+          backgroundColor: theme.palette.background.paper + "CC",
         }}
       >
         <Toolbar>
-          <Typography variant="h6">{title}</Typography>
+          <Typography variant="h6" color="text.primary">
+            {title}
+          </Typography>
         </Toolbar>
       </AppBar>
 
-      {/* ----------------------- Drawer ----------------------- */}
+      {/* Drawer */}
       <StyledDrawer variant="permanent" open={isDrawerOpen}>
         <Toolbar
           sx={{
@@ -123,15 +113,14 @@ export default function MiniVariantDrawer({
             justifyContent: isDrawerOpen ? "flex-end" : "center",
           }}
         >
-          <IconButton onClick={handleToggle}>
+          <IconButton onClick={handleToggle} sx={{ color: "text.primary" }}>
             {isDrawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
         </Toolbar>
 
-        <Divider />
+        <Divider sx={{ borderColor: theme.palette.divider }} />
 
         <List sx={{ position: "relative" }}>
-          {/* Active highlight bubble */}
           {activeIndex !== -1 && (
             <ActiveBubble
               style={{
@@ -141,9 +130,8 @@ export default function MiniVariantDrawer({
             />
           )}
 
-          {mainNavbarItems.map(({ id, icon, label, route }, index) => {
+          {mainNavbarItems.map(({ id, icon, label, route }) => {
             const isActive = location.pathname === route;
-
             return (
               <ListItem key={id} disablePadding sx={{ display: "block" }}>
                 <ListItemButton
@@ -155,13 +143,12 @@ export default function MiniVariantDrawer({
                     px: 2.5,
                     position: "relative",
                     zIndex: 2,
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.7)",
-                    transition: "color 0.2s",
-
+                    color: isActive
+                      ? theme.palette.primary.main
+                      : theme.palette.text.secondary,
                     "&:hover": {
-                      background: "rgba(255, 255, 255, 0.08)",
-                      backdropFilter: "blur(15px)",
-                      color: "#fff",
+                      backgroundColor: theme.palette.action.hover,
+                      color: theme.palette.primary.main,
                     },
                   }}
                 >
@@ -171,20 +158,14 @@ export default function MiniVariantDrawer({
                       mr: isDrawerOpen ? 2 : "auto",
                       justifyContent: "center",
                       color: "inherit",
-                      transition: "all 0.2s",
                     }}
                   >
                     {icon}
                   </ListItemIcon>
-
-                  {/* Show label only when expanded */}
                   {isDrawerOpen && (
                     <ListItemText
                       primary={label}
-                      sx={{
-                        opacity: isDrawerOpen ? 1 : 0,
-                        transition: "opacity 0.25s",
-                      }}
+                      sx={{ opacity: 1, transition: "opacity 0.25s" }}
                     />
                   )}
                 </ListItemButton>
@@ -194,19 +175,17 @@ export default function MiniVariantDrawer({
         </List>
       </StyledDrawer>
 
-      {/* ----------------------- Main Content ----------------------- */}
+      {/* Main Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          transition: (theme) =>
-            theme.transitions.create(["margin"], {
-              duration: theme.transitions.duration.standard,
-            }),
           mt: 8,
           display: "flex",
           justifyContent: "center",
+          backgroundColor: "background.default",
+          minHeight: "100vh",
         }}
       >
         <Container maxWidth="lg" sx={{ width: "100%" }}>

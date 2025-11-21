@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { Outlet, Link as RouterLink } from "react-router-dom";
 import {
   AppBar, Toolbar, IconButton, Typography, Container, Box,
-  FormControl,  Button
+  FormControl,  Button, useTheme
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import WindowedSelect from "react-windowed-select";
@@ -13,16 +13,11 @@ export default function BareLayout() {
   const [view, setView] = useState("expenses");
   const [productId, setProductId] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const theme = useTheme();
 
-  // Wire up infinite products
-  const {
-    data: infiniteData,
-    isLoading: isLoadingProducts,
-    fetchNextPage,
-    hasNextPage,
-  } = useInfiniteProducts(productSearch);
+  const { data: infiniteData, isLoading: isLoadingProducts, fetchNextPage, hasNextPage } =
+    useInfiniteProducts(productSearch);
 
-  // Flatten pages into options
   const productOptions = useMemo(() => {
     return (infiniteData?.pages || []).flatMap(page =>
       page.products.map(p => ({
@@ -32,24 +27,20 @@ export default function BareLayout() {
     );
   }, [infiniteData]);
 
-  // Debounced search
   const debouncedSearch = useMemo(
     () => debounce(q => setProductSearch(q), 300),
     []
   );
-  const handleInputChange = useCallback(
-    value => { debouncedSearch(value || ""); },
-    [debouncedSearch]
-  );
+  const handleInputChange = useCallback(value => debouncedSearch(value || ""), [debouncedSearch]);
 
   return (
     <>
-      <AppBar position="static">
+      <AppBar position="static" color="transparent" sx={{ backgroundColor: theme.palette.background.paper + "CC" }}>
         <Toolbar>
           <IconButton component={RouterLink} to="/" edge="start" color="inherit">
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" sx={{ flexGrow: 1, color: theme.palette.text.primary }}>
             Statistics
           </Typography>
 
@@ -77,22 +68,30 @@ export default function BareLayout() {
                 value={productOptions.find(o => o.value === productId) || null}
                 onChange={opt => setProductId(opt?.value || "")}
                 onInputChange={handleInputChange}
-                onMenuScrollToBottom={() => {
-                  if (hasNextPage) fetchNextPage();
-                }}
+                onMenuScrollToBottom={() => { if (hasNextPage) fetchNextPage(); }}
                 isLoading={isLoadingProducts}
                 loadingMessage={() => "Loading…"}
                 noOptionsMessage={() => (productSearch ? "No matches" : "Type to search")}
                 placeholder="Search products..."
                 menuPortalTarget={document.body}
-                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
+                styles={{
+                  control: (base) => ({ ...base, backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary, borderColor: theme.palette.divider }),
+                  menu: (base) => ({ ...base, backgroundColor: theme.palette.background.paper, color: theme.palette.text.primary }),
+                  singleValue: (base) => ({ ...base, color: theme.palette.text.primary }),
+                  input: (base) => ({ ...base, color: theme.palette.text.primary }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isFocused ? theme.palette.primary.main : theme.palette.background.paper,
+                    color: state.isFocused ? theme.palette.primary.contrastText : theme.palette.text.primary,
+                  }),
+                }}
               />
             </Box>
           )}
         </Toolbar>
       </AppBar>
 
-      <Box sx={{ p: 3, backgroundColor: "#2C2C2C", minHeight: "100vh" }}>
+      <Box sx={{ p: 3, backgroundColor: "background.default", minHeight: "100vh" }}>
         <Container maxWidth="lg">
           <Outlet context={{ view, productId }} />
         </Container>
@@ -100,3 +99,4 @@ export default function BareLayout() {
     </>
   );
 }
+
