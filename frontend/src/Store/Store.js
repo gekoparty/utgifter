@@ -13,6 +13,7 @@ const initialState = {
   loading: false,
   error: {},
   errorMessage: {},
+  lastRequest: {},
   validationErrors: {},
   showError: false,
 };
@@ -43,19 +44,15 @@ const errorMessageMap = {
   },
 };
 
-// Define the updatedErrorState outside the reducer
-const getUpdatedErrorState = (state, action) => {
-  const errorKey = action.error?.response?.data?.message || "default";
-  const errorMessage =
-    errorMessageMap[action.resource] &&
-    errorMessageMap[action.resource][errorKey]
-      ? errorMessageMap[action.resource][errorKey]
-      : "An error occurred";
-
-  return {
-    ...state.errorMessage,
-    [action.resource]: errorMessage,
-  };
+// Helper to map a normalized error to a friendly message for the UI
+const getFriendlyMessage = (resource, actionError) => {
+  // actionError may be normalized ({ message, status, data }) or an axios error
+  const errorKey = actionError?.message || actionError?.data?.message || actionError?.response?.data?.message || "server";
+  return (
+    (errorMessageMap[resource] && errorMessageMap[resource][errorKey]) ||
+    (errorMessageMap[resource] && errorMessageMap[resource]["server"]) ||
+    "An error occurred"
+  );
 };
 
 // Reducer function to handle state transitions
@@ -93,17 +90,29 @@ const reducer = (state, action) => {
           item._id === action.payload._id ? action.payload : item
         ),
       };
-    case "SET_ERROR":
-      const updatedErrorState = getUpdatedErrorState(state, action);
+    case "SET_ERROR": {
+      const rawError = action.error ?? { message: action.error?.message ?? "Unknown error" };
+      const friendly = getFriendlyMessage(action.resource, action.error);
       return {
         ...state,
-        error: updatedErrorState,
+        error: {
+          ...state.error,
+          [action.resource]: rawError,
+        },
+        errorMessage: {
+          ...state.errorMessage,
+          [action.resource]: friendly,
+        },
         showError: action.showError,
       };
-    case "RESET_ERROR":
+    }
+    case "RESET_ERROR": {
       const { resource } = action;
       const { [resource]: _, ...restErrors } = state.error;
-      return { ...state, error: restErrors };
+      const { [resource]: __, ...restMessages } = state.errorMessage;
+      const hasRemaining = Object.keys(restErrors).length > 0;
+      return { ...state, error: restErrors, errorMessage: restMessages, showError: hasRemaining };
+    }
     case "SET_VALIDATION_ERRORS":
       console.log("Validation Errors:", action.validationErrors);
       return {

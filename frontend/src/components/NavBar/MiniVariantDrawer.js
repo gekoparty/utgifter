@@ -208,7 +208,9 @@ export default function MiniVariantDrawer({
           mt: 8,
         }}
       >
-        <Container maxWidth="lg">{children}</Container>
+        <Container maxWidth="lg">
+          {children}
+        </Container>
       </Box>
     </Box>
   );
