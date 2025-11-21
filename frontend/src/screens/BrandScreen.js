@@ -19,7 +19,9 @@ const AddBrandDialog = lazy(() =>
   import("../components/features/Brands/BrandDialogs/AddBrand/AddBrandDialog")
 );
 const DeleteBrandDialog = lazy(() =>
-  import("../components/features/Brands/BrandDialogs/DeleteBrand/DeleteBrandDialog")
+  import(
+    "../components/features/Brands/BrandDialogs/DeleteBrand/DeleteBrandDialog"
+  )
 );
 const EditBrandDialog = lazy(() =>
   import("../components/features/Brands/BrandDialogs/EditBrand/EditBrandDialog")
@@ -34,7 +36,10 @@ const brandUrlBuilder = (endpoint, params) => {
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
   fetchURL.searchParams.set("size", `${params.pageSize}`);
   fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  fetchURL.searchParams.set(
+    "columnFilters",
+    JSON.stringify(params.filters ?? [])
+  );
   fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
   return fetchURL;
 };
@@ -60,10 +65,7 @@ const BrandScreen = () => {
   const baseQueryKey = useMemo(() => ["brands", "paginated"], []);
 
   // Memoize selected brand to prevent unnecessary renders
-  const memoizedSelectedBrand = useMemo(
-    () => selectedBrand,
-    [selectedBrand]
-  );
+  const memoizedSelectedBrand = useMemo(() => selectedBrand, [selectedBrand]);
 
   const fetchParams = useDeepCompareMemo(
     () => ({
@@ -110,8 +112,14 @@ const BrandScreen = () => {
     setSelectedBrand(INITIAL_SELECTED_BRAND);
   }, []);
 
-  const handleSortingChange = useCallback((newSorting) => setSorting(newSorting), []);
-  const handleGlobalFilterChange = useCallback((newGlobalFilter) => setGlobalFilter(newGlobalFilter), []);
+  const handleSortingChange = useCallback(
+    (newSorting) => setSorting(newSorting),
+    []
+  );
+  const handleGlobalFilterChange = useCallback(
+    (newGlobalFilter) => setGlobalFilter(newGlobalFilter),
+    []
+  );
 
   // Remove refetch calls - the mutations in dialogs should handle cache invalidation
   const addBrandHandler = useCallback(
@@ -145,12 +153,9 @@ const BrandScreen = () => {
     [showSnackbar]
   );
 
-  const editFailureHandler = useCallback(
-    () => {
-      showSnackbar("Kunne ikke oppdatere merke");
-    },
-    [showSnackbar]
-  );
+  const editFailureHandler = useCallback(() => {
+    showSnackbar("Kunne ikke oppdatere merke");
+  }, [showSnackbar]);
 
   const handleEdit = useCallback((brand) => {
     setSelectedBrand(brand);
@@ -196,13 +201,7 @@ const BrandScreen = () => {
         </Box>
 
         <Box
-          sx={{
-            flexGrow: 1,
-            display: "flex",
-            flexDirection: "column",
-            width: "100%",
-            minWidth: 600,
-          }}
+         
         >
           {tableData && (
             <ReactTable
@@ -304,11 +303,19 @@ const BrandScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{ width: "100%", borderRadius: 1, "& .MuiAlert-message": { flexGrow: 1 } }}
+          sx={{
+            width: "100%",
+            borderRadius: 1,
+            "& .MuiAlert-message": { flexGrow: 1 },
+          }}
         >
           {snackbarMessage}
         </Alert>

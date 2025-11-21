@@ -38,6 +38,9 @@ const Table = ({
     muiTableBodyCellStyles,
     muiTopToolbarStyles,
     muiBottomToolbarStyles,
+    muiSearchTextFieldProps,
+  muiFilterTextFieldProps,
+  toolbarButtonStyles,
   } = useMemo(() => getTableStyles(theme, isDarkMode), [theme, isDarkMode]);
 
   // Memoized States (prevents unnecessary re-renders)
@@ -168,14 +171,29 @@ const Table = ({
       manualFiltering
       muiTableHeadCellProps={{ sx: muiTableHeadCellStyles }}
       muiTableBodyCellProps={{ sx: muiTableBodyCellStyles }}
+      muiSearchTextFieldProps={muiSearchTextFieldProps}
+  muiFilterTextFieldProps={muiFilterTextFieldProps}
       localization={MRT_Localization_NO}
       positionActionsColumn="left"
+       muiToolbarAlertBannerChipProps={{
+    sx: { color: "#fff" },
+  }}
+  muiTableToolbarButtonProps={toolbarButtonStyles}
+
+  
       renderRowActionMenuItems={renderRowActions}
       muiToolbarAlertBannerProps={
-        (isError || storeShowError)
-          ? { color: "error", children: storeShowError && globalBannerMessage ? globalBannerMessage : "Error loading data" }
-          : undefined
+  (isError || storeShowError)
+    ? {
+        color: "error",
+        children:
+          storeShowError && globalBannerMessage
+            ? globalBannerMessage
+            : "Error loading data",
+        sx: { color: "#fff" }, // <-- force white text
       }
+    : undefined
+}
       onColumnFiltersChange={setColumnFilters}
       onGlobalFilterChange={setGlobalFilter}
       onPaginationChange={setPagination}
