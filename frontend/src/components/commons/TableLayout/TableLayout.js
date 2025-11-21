@@ -9,7 +9,6 @@ const TableLayout = ({ children }) => {
         background: "linear-gradient(135deg, #f0f4f8, #e6ebef)",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center", // center horizontally
         width: "100%",        // full width, no margin
         boxSizing: "border-box",
       }}
