@@ -34,14 +34,14 @@ const Table = ({
 
   // Memoized Styles
   const {
-    muiTableHeadCellStyles,
-    muiTableBodyCellStyles,
-    muiTopToolbarStyles,
-    muiBottomToolbarStyles,
-    muiSearchTextFieldProps,
+  muiTableHeadCellStyles,
+  muiTableBodyCellStyles,
+  muiTopToolbarStyles,
+  muiBottomToolbarStyles,
+  muiSearchTextFieldProps,
   muiFilterTextFieldProps,
   toolbarButtonStyles,
-  } = useMemo(() => getTableStyles(theme, isDarkMode), [theme, isDarkMode]);
+} = useMemo(() => getTableStyles(theme), [theme]);
 
   // Memoized States (prevents unnecessary re-renders)
   const columnsConfig = useMemo(() => columns, [columns]);

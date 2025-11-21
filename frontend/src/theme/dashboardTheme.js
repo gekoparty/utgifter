@@ -2,31 +2,40 @@ import { createTheme } from "@mui/material/styles";
 
 export const dashboardTheme = createTheme({
   palette: {
-    mode: "light",
+    mode: "dark", // dark mode
     primary: {
-      main: "#2563EB",       // unified strong blue
+      main: "#2563EB",       // bright blue
       dark: "#1E4FCB",
       light: "#3B82F6",
       contrastText: "#fff",
     },
-    background: {
-      default: "#F5F7FA",     // page background
-      paper: "#FFFFFF",       // cards/tables
+    secondary: {
+      main: "#FBBF24",       // amber accent
+      contrastText: "#000",
     },
-    divider: "#E2E8F0",
+    background: {
+      default: "#1E1E2F",    // dark page background
+      paper: "#2C2C3F",      // cards, tables, modals
+    },
+    divider: "rgba(255,255,255,0.12)",
     text: {
-      primary: "#1E293B",
-      secondary: "#475569",
+      primary: "#E5E5E5",
+      secondary: "rgba(255,255,255,0.7)",
+    },
+    error: {
+      main: "#F87171",
+      contrastText: "#fff",
     },
   },
 
   shape: { borderRadius: 12 },
 
   typography: {
+    fontFamily: "'Inter', sans-serif",
     h1: {
       fontSize: "1.5rem",
       fontWeight: 600,
-      color: "#1E293B",
+      color: "#fff",
     },
   },
 
@@ -34,9 +43,8 @@ export const dashboardTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: "#F5F7FA",
-          color: "#1E293B",
-          fontFamily: "'Inter', sans-serif",
+          backgroundColor: "#1E1E2F",
+          color: "#E5E5E5",
         },
       },
     },
@@ -44,10 +52,11 @@ export const dashboardTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: "#FFFFFF",
-          color: "#1E293B",
-          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-          borderBottom: "1px solid #E2E8F0",
+          backgroundColor: "rgba(30,30,47,0.9)",
+          color: "#fff",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
         },
       },
     },
@@ -55,9 +64,9 @@ export const dashboardTheme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#2C2C3F",
           borderRadius: 12,
-          boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
         },
       },
     },
@@ -68,11 +77,50 @@ export const dashboardTheme = createTheme({
           fontWeight: 600,
           textTransform: "none",
           borderRadius: 8,
+          color: "#fff",
         },
         containedPrimary: {
           backgroundColor: "#2563EB",
           "&:hover": {
             backgroundColor: "#1E4FCB",
+          },
+        },
+        outlined: {
+          borderColor: "rgba(255,255,255,0.4)",
+          color: "#fff",
+          "&:hover": {
+            borderColor: "#2563EB",
+            backgroundColor: "rgba(37,99,235,0.1)",
+          },
+        },
+      },
+    },
+
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          "& .MuiInputBase-root": {
+            color: "#E5E5E5",
+          },
+          "& .MuiInputLabel-root": {
+            color: "rgba(255,255,255,0.7)",
+          },
+          "& .MuiOutlinedInput-notchedOutline": {
+            borderColor: "rgba(255,255,255,0.3)",
+          },
+          "&:hover .MuiOutlinedInput-notchedOutline": {
+            borderColor: "#2563EB",
+          },
+        },
+      },
+    },
+
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          color: "#E5E5E5",
+          "& .MuiOutlinedInput-notchedOutline": {
+            borderColor: "rgba(255,255,255,0.3)",
           },
         },
       },
@@ -81,7 +129,7 @@ export const dashboardTheme = createTheme({
     MuiTableHead: {
       styleOverrides: {
         root: {
-          backgroundColor: "#F0F2F5",
+          backgroundColor: "#3A3A50",
         },
       },
     },
@@ -89,7 +137,18 @@ export const dashboardTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: "1px solid #E2E8F0",
+          borderBottom: "1px solid rgba(255,255,255,0.12)",
+          color: "#E5E5E5",
+        },
+      },
+    },
+
+    MuiToolbar: {
+      styleOverrides: {
+        root: {
+          "& button, & .MuiTypography-root": {
+            color: "#fff",
+          },
         },
       },
     },
