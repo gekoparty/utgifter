@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useCallback,
   useRef,
+  useMemo
 } from "react";
 import {
   Grid,
@@ -16,13 +17,20 @@ import {
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import useProductDialog from "../../UseProduct/useProductDialog";
-import commonSelectStyles from "../../../../commons/Styles/SelectStyles";
 import ProductForm from "../commons/ProductForm";
 import useInfiniteBrands from "../../../../../hooks/useInfiniteBrands";
+import { useTheme } from "@mui/material/styles";
+import { getSelectStyles } from "../../../../../theme/selectStyles";
 
 // Import our split components
 
 const AddProductDialog = ({ open, onClose, onAdd }) => {
+    /** ------------------------------------------------------
+     *  THEME + SELECT STYLES
+     * ----------------------------------------------------- */
+    const theme = useTheme();
+    const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
+  
   const {
     product,
     setProduct,
@@ -210,7 +218,7 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   onMeasureCreate={handleMeasureCreate}
                   // Pass the infinite query data and handlers.
                   brandOptions={brandOptions}
-                  selectStyles={commonSelectStyles}
+                  selectStyles={selectStyles}
                   // Combine loading states from the dialog and infinite query.
                   loading={loading || isLoadingBrands || isFetchingNextPage}
                   validationError={validationError}
