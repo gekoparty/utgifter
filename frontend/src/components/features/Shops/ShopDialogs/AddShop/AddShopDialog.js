@@ -7,7 +7,11 @@ import { fetchLocations, fetchCategories } from "../../../../commons/Utils/apiUt
 import useShopDialog from "../../UseShop/useShopDialog"
 import ShopForm from "../commons/ShopForm";
 
+
 const AddShopDialog = ({ open, onClose, onAdd }) => {
+
+ 
+
   const {
     shop,
     setShop,

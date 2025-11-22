@@ -12,6 +12,8 @@ import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import ProductForm from "../commons/ProductForm";
 import useProductDialog from "../../UseProduct/useProductDialog";
 import useInfiniteBrands from "../../../../../hooks/useInfiniteBrands";
+import { useTheme } from "@mui/material/styles";
+import { getSelectStyles } from "../../../../../theme/selectStyles";
 
 const EditProductDialog = ({
   selectedProduct,
@@ -43,23 +45,10 @@ const EditProductDialog = ({
   const [brandSearch, setBrandSearch] = useState("");
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [initialized, setInitialized] = useState(false);
+  const theme = useTheme();
+const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
 
-  // Define the selectStyles object to pass to the select components
-  const selectStyles = {
-    control: (provided, state) => ({
-      ...provided,
-      minHeight: 36,
-      borderColor: state.isFocused ? "#3f51b5" : provided.borderColor,
-    }),
-    menu: (provided) => ({
-      ...provided,
-      zIndex: 9999,
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isFocused ? "#f0f0f0" : provided.backgroundColor,
-    }),
-  };
+  
 
   // Infinite scrolling hook for brands.
   const {

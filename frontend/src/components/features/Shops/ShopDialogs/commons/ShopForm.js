@@ -1,10 +1,12 @@
-import React from "react";
+import React, {useMemo} from "react";
 import { Grid, TextField, CircularProgress, Button } from "@mui/material";
 import PropTypes from "prop-types";
 import CreatableSelect from "react-select/creatable";
 import LinearProgress from "@mui/material/LinearProgress";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
-import commonSelectStyles from "../../../../commons/Styles/SelectStyles";
+import { useTheme } from "@mui/material/styles";
+import { getSelectStyles } from "../../../../../theme/selectStyles";
+
 
 const ShopForm = ({
   shop,
@@ -24,6 +26,8 @@ const ShopForm = ({
   submitLabel,
   onCancel,
 }) => {
+  const theme = useTheme();
+  const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
   // Handler for shop name change.
   const handleNameChange = (e) => {
     setShop((prev) => ({ ...prev, name: e.target.value }));
@@ -116,7 +120,7 @@ const ShopForm = ({
         {/* Location Select */}
         <Grid item>
           <CreatableSelect
-            styles={commonSelectStyles}
+            styles={selectStyles}
             options={locationOptions}
             value={currentLocationValue || null}
             onChange={handleLocationChange}
@@ -138,7 +142,7 @@ const ShopForm = ({
         {/* Category Select */}
         <Grid item>
           <CreatableSelect
-            styles={commonSelectStyles}
+            styles={selectStyles}
             options={categoryOptions}
             value={currentCategoryValue || null}
             onChange={handleCategoryChange}

@@ -16,14 +16,16 @@ import dayjs from "dayjs";
 import { debounce } from "lodash";
 import WindowedSelect from "react-windowed-select";
 import { useQueryClient } from "@tanstack/react-query";
-import useExpenseForm from "../../UseExpense/useExpenseForm"
+import useExpenseForm from "../../UseExpense/useExpenseForm";
 import useHandleFieldChange from "../../../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../../../hooks/useFetchData";
 import useInfiniteProducts from "../../../../../hooks/useInfiniteProducts";
 import ExpenseField from "../../../../commons/ExpenseField/ExpenseField";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
+import { useTheme } from "@mui/material/styles";
+import { getSelectStyles } from "../../../../../theme/selectStyles";
 
-const selectStyles = { menuPortal: (base) => ({ ...base, zIndex: 9999 }) };
+
 
 const EditExpenseDialog = ({
   open,
@@ -32,6 +34,12 @@ const EditExpenseDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
+  /** ------------------------------------------------------
+   *  THEME + SELECT STYLES
+   * ----------------------------------------------------- */
+  const theme = useTheme();
+  const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
+
   /* =====================================================
      Expense Form Hooks & State Initialization
   ====================================================== */
@@ -129,7 +137,9 @@ const EditExpenseDialog = ({
         : shopsData?.shops || [];
       return Promise.all(
         shopsArray.map(async (shop) => {
-          const locationResponse = await fetch(`/api/locations/${shop.location}`);
+          const locationResponse = await fetch(
+            `/api/locations/${shop.location}`
+          );
           const location = await locationResponse.json();
           return { ...shop, locationName: location.name };
         })
@@ -138,13 +148,14 @@ const EditExpenseDialog = ({
     { enabled: open }
   );
 
-  
   const safeShops = useMemo(() => (Array.isArray(shops) ? shops : []), [shops]);
 
   const shopOptions = useMemo(
     () =>
       safeShops.map((shop) => ({
-        label: `${shop.name}${shop.locationName ? `, ${shop.locationName}` : ""}`,
+        label: `${shop.name}${
+          shop.locationName ? `, ${shop.locationName}` : ""
+        }`,
         value: shop.name,
         locationName: shop.locationName || "",
       })),
@@ -197,7 +208,10 @@ const EditExpenseDialog = ({
     (e) => {
       const value = parseFloat(e.target.value);
       handleFieldChange("discountValue", value);
-      handleFieldChange("discountAmount", (expense.price * (value / 100)).toFixed(2));
+      handleFieldChange(
+        "discountAmount",
+        (expense.price * (value / 100)).toFixed(2)
+      );
     },
     [expense.price, handleFieldChange]
   );
@@ -206,7 +220,10 @@ const EditExpenseDialog = ({
     (e) => {
       const amount = parseFloat(e.target.value);
       handleFieldChange("discountAmount", amount);
-      handleFieldChange("discountValue", ((amount / expense.price) * 100).toFixed(2));
+      handleFieldChange(
+        "discountValue",
+        ((amount / expense.price) * 100).toFixed(2)
+      );
     },
     [expense.price, handleFieldChange]
   );
@@ -244,7 +261,11 @@ const EditExpenseDialog = ({
 
   if (isLoadingCombined) {
     return (
-      <BasicDialog open={open} onClose={handleClose} dialogTitle="Rediger utgift">
+      <BasicDialog
+        open={open}
+        onClose={handleClose}
+        dialogTitle="Rediger utgift"
+      >
         <Box sx={{ p: 3, textAlign: "center" }}>
           <CircularProgress />
           <p>Laster skjemadata...</p>
@@ -379,7 +400,9 @@ const EditExpenseDialog = ({
                 <ExpenseField
                   label="Volum/antall (manuelt)"
                   type="number"
-                  value={expense.volume != null ? expense.volume.toString() : ""}
+                  value={
+                    expense.volume != null ? expense.volume.toString() : ""
+                  }
                   onChange={(e) =>
                     setExpense((prev) => ({
                       ...prev,
@@ -487,9 +510,9 @@ const EditExpenseDialog = ({
                 onChange={handleTransactionType}
               >
                 <FormControlLabel
-                 value="kjøpt"
-                 control={<Radio />}
-                 label="Kjøpt"
+                  value="kjøpt"
+                  control={<Radio />}
+                  label="Kjøpt"
                 />
                 <FormControlLabel
                   value="registrert"
@@ -515,12 +538,18 @@ const EditExpenseDialog = ({
           </Grid>
         </Box>
 
-       {/* ===== Handlingsknapper ===== */}
-        <Box sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}>
+        {/* ===== Handlingsknapper ===== */}
+        <Box
+          sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}
+        >
           <Button variant="contained" onClick={handleClose}>
-          Avbryt
+            Avbryt
           </Button>
-          <Button variant="contained" type="submit" disabled={loading || !isFormValid}>
+          <Button
+            variant="contained"
+            type="submit"
+            disabled={loading || !isFormValid}
+          >
             {loading ? <CircularProgress size={24} /> : "Lagre endringer"}
           </Button>
         </Box>
