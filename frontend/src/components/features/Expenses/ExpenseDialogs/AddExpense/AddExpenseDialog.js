@@ -7,7 +7,7 @@ import { getSelectStyles } from "../../../../../theme/selectStyles"
 import {
   Box,
   Button,
-  Grid,
+  Stack,
   InputAdornment,
   Checkbox,
   FormControlLabel,
@@ -305,10 +305,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     <BasicDialog open={open} onClose={handleClose} dialogTitle="Legg til ny utgift">
       <form onSubmit={handleSubmit}>
         <Box sx={{ p: 2 }}>
-          <Grid container spacing={2}>
+          <Stack spacing={2}>
 
             {/* PRODUCT SELECT */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <WindowedSelect
                 isClearable
                 options={productOptions}
@@ -326,10 +327,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 menuPortalTarget={document.body}
                 styles={selectStyles}
               />
-            </Grid>
+              </Box>
+          
 
             {/* BRAND SELECT */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1}>
               <WindowedSelect
                 isClearable
                 options={brandOptions}
@@ -346,10 +348,12 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 isDisabled={!selectedProduct}
                 styles={selectStyles}
               />
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* SHOP SELECT */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <WindowedSelect
                 isClearable
                 options={safeShops.map((shop) => ({
@@ -368,19 +372,22 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 menuPortalTarget={document.body}
                 styles={selectStyles}
               />
-            </Grid>
+            </Box>
 
             {/* LOCATION */}
-            <Grid item xs={12} md={6}>
+            
+              <Box flex={1}>
               <ExpenseField
                 label="Sted"
                 value={expense.locationName}
                 InputProps={{ readOnly: true }}
               />
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* PRICE */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <ExpenseField
                 label="Pris"
                 type="number"
@@ -395,10 +402,11 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
                 }}
               />
-            </Grid>
+            </Box>
+              
 
             {/* VOLUME SELECT OR FIELD */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1}>
               {expense.measurementUnit &&
               selectedProduct &&
               selectedProduct.measures?.length > 0 ? (
@@ -435,30 +443,32 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                   }}
                 />
               )}
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* PRICE PER UNIT */}
-            <Grid item xs={12}>
+            <Box>
               <ExpenseField
                 label={`Pris per ${expense.measurementUnit || ""}`}
                 value={expense.pricePerUnit || 0}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
-            </Grid>
+            </Box>
 
             {/* QUANTITY */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+              <Box flex={1} width="100%">
               <ExpenseField
                 label="Antall"
                 type="number"
                 value={expense.quantity}
                 onChange={(e) => handleFieldChange("quantity", e.target.value)}
               />
-            </Grid>
+            </Box>
 
             {/* DISCOUNT TOGGLE */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1} width="100%">
               <FormControlLabel
                 control={
                   <Checkbox
@@ -469,12 +479,13 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 }
                 label="Rabatt?"
               />
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* DISCOUNT FIELDS */}
             {expense.hasDiscount && (
-              <>
-                <Grid item xs={12} md={6}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Box flex={1}>
                   <ExpenseField
                     label="Rabatt (%)"
                     type="number"
@@ -484,8 +495,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                       startAdornment: <InputAdornment position="start">%</InputAdornment>,
                     }}
                   />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                </Box>
+                <Box flex={1}>
                   <ExpenseField
                     label="Rabatt (kr)"
                     type="number"
@@ -495,22 +506,22 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                       startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
                     }}
                   />
-                </Grid>
-              </>
+                </Box>
+              </Stack>
             )}
 
             {/* FINAL PRICE */}
-            <Grid item xs={12}>
+            <Box>
               <ExpenseField
                 label="Sluttpris"
                 value={expense.finalPrice || 0}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
-            </Grid>
+            </Box>
 
             {/* PURCHASED / REGISTERED */}
-            <Grid item xs={12} md={6}>
+            <Box>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -531,10 +542,10 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 }
                 label="Registrert"
               />
-            </Grid>
+            </Box>
 
             {/* DATE */}
-            <Grid item xs={12} md={6}>
+            <Box>
               <DatePicker
                 label="Dato"
                 value={
@@ -547,13 +558,19 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
                 onChange={handleDateChange}
                 slotProps={{ textField: { fullWidth: true } }}
               />
-            </Grid>
-          </Grid>
+           </Box>
+
+          </Stack>
         </Box>
 
         {/* ACTION BUTTONS */}
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-          <Button onClick={handleClose} sx={{ mr: 1 }}>
+        <Stack 
+          direction="row" 
+          spacing={2} 
+          justifyContent="flex-end" 
+          sx={{ mt: 3 }}
+        >
+          <Button onClick={handleClose}>
             Avbryt
           </Button>
 
@@ -565,7 +582,7 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
           >
             {isLoadingCombined ? <CircularProgress size={24} /> : "Lagre"}
           </Button>
-        </Box>
+        </Stack>
       </form>
     </BasicDialog>
   );

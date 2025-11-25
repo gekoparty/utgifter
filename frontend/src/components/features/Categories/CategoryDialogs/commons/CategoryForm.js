@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import { Button, TextField, CircularProgress, Stack } from "@mui/material";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import useCategoryDialog from "../../UseCategory/UseCategoryDialog";
@@ -10,7 +10,7 @@ const CategoryForm = ({
   onClose,
   dialogTitle,
   initialCategory = null,
-  onSave, // callback to be executed on successful save (e.g. onAdd or onUpdateSuccess)
+  onSave,
 }) => {
   const {
     category,
@@ -25,7 +25,6 @@ const CategoryForm = ({
     resetFormAndErrors,
   } = useCategoryDialog(initialCategory);
 
-  // When the dialog opens, synchronize state with initialCategory (if provided)
   useEffect(() => {
     if (open && initialCategory) {
       setCategory({ ...initialCategory });
@@ -52,56 +51,51 @@ const CategoryForm = ({
       dialogTitle={dialogTitle}
     >
       <form onSubmit={handleSubmit}>
-        <Grid container direction="column" spacing={2}>
-          <Grid item>
-            <TextField
-              fullWidth
-              size="small"
-              label="Kategori"
-              sx={{ marginTop: 2 }}
-              value={category?.name || ""}
-              error={Boolean(validationError?.name)}
-              onChange={(e) => {
-                setCategory({ ...category, name: e.target.value });
-                resetValidationErrors();
-                resetServerError();
+        <Stack spacing={1.5} sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            size="small"
+            label="Kategori"
+            value={category?.name || ""}
+            error={Boolean(validationError?.name)}
+            onChange={(e) => {
+              setCategory({ ...category, name: e.target.value });
+              resetValidationErrors();
+              resetServerError();
+            }}
+          />
+
+          {(displayError || validationError) && (
+            <ErrorHandling resource="categories" field="name" loading={loading} />
+          )}
+
+          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+            <Button
+              type="submit"
+              disabled={loading || !isFormValid()}
+              sx={{ minWidth: 100 }}
+            >
+              {loading ? (
+                <CircularProgress size={24} sx={{ color: "inherit" }} />
+              ) : (
+                "Lagre"
+              )}
+            </Button>
+
+            <Button
+              onClick={() => {
+                resetFormAndErrors();
+                onClose();
               }}
-            />
-            {(displayError || validationError) && (
-              <ErrorHandling
-                resource="categories"
-                field="name"
-                loading={loading}
-              />
-            )}
-          </Grid>
-        </Grid>
-        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
-          <Button
-            type="submit"
-            disabled={loading || !isFormValid()}
-            sx={{ minWidth: 100 }}
-          >
-            {loading ? (
-              <CircularProgress size={24} sx={{ color: "inherit" }} />
-            ) : (
-              "Lagre"
-            )}
-          </Button>
-          <Button
-            onClick={() => {
-              resetFormAndErrors();
-              onClose();
-            }}
-            sx={{
-              ml: 2,
-              minWidth: 100,
-              color: (theme) => theme.palette.text.secondary,
-            }}
-          >
-            Avbryt
-          </Button>
-        </Grid>
+              sx={{
+                minWidth: 100,
+                color: (theme) => theme.palette.text.secondary,
+              }}
+            >
+              Avbryt
+            </Button>
+          </Stack>
+        </Stack>
       </form>
     </BasicDialog>
   );
