@@ -6,7 +6,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { Button, CircularProgress, Grid } from "@mui/material";
+import { Button, CircularProgress, Stack } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import ProductForm from "../commons/ProductForm";
@@ -274,7 +274,12 @@ const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
           inputValue={brandSearch} // Controlled input value for filtering
           selectStyles={selectStyles} // Pass the defined styles
         />
-        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+        <Stack 
+                  direction="row" 
+                  justifyContent="flex-end" 
+                  spacing={2} 
+                  sx={{ mt: 2 }}
+                >
           <Button type="submit" disabled={loading || !isFormValid()}>
             {loading ? <CircularProgress size={24} /> : "Lagre"}
           </Button>
@@ -283,11 +288,11 @@ const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
               resetFormAndErrors();
               onClose();
             }}
-            sx={{ ml: 2 }}
+            
           >
             Avbryt
           </Button>
-        </Grid>
+        </Stack>
       </form>
     </BasicDialog>
   );

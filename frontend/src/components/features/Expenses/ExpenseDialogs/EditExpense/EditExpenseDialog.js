@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import {
   Box,
   Button,
-  Grid,
+  Stack,
   InputAdornment,
   FormControlLabel,
   CircularProgress,
@@ -290,9 +290,10 @@ const EditExpenseDialog = ({
         }}
       >
         <Box sx={{ p: 2 }}>
-          <Grid container spacing={2}>
+          <Stack spacing={2}>
             {/* ===== Produktvalg ===== */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <WindowedSelect
                 isClearable
                 options={productOptions}
@@ -305,10 +306,10 @@ const EditExpenseDialog = ({
                 styles={selectStyles}
                 isLoading={isLoadingProducts}
               />
-            </Grid>
+            </Box>
 
             {/* ===== Merkevalg ===== */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1}>
               <WindowedSelect
                 isClearable
                 options={computedBrandOptions}
@@ -322,10 +323,12 @@ const EditExpenseDialog = ({
                 styles={selectStyles}
                 isLoading={isLoadingBrands}
               />
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* ===== Butikkvalg ===== */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <WindowedSelect
                 isClearable
                 options={shopOptions}
@@ -339,19 +342,21 @@ const EditExpenseDialog = ({
                 styles={selectStyles}
                 isLoading={isLoadingShops}
               />
-            </Grid>
+            </Box>
 
             {/* ===== Sted ===== */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1}>
               <ExpenseField
                 label="Sted"
                 value={expense.locationName || ""}
                 InputProps={{ readOnly: true }}
               />
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* ===== Pris ===== */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <ExpenseField
                 label="Pris"
                 type="number"
@@ -365,10 +370,10 @@ const EditExpenseDialog = ({
                   ),
                 }}
               />
-            </Grid>
+            </Box>
 
             {/* ===== Volum/antall ===== */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1}>
               {expense.measurementUnit &&
               selectedProduct &&
               selectedProduct.measures?.length ? (
@@ -418,20 +423,21 @@ const EditExpenseDialog = ({
                   }}
                 />
               )}
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* ===== Pris per enhet ===== */}
-            <Grid item xs={12}>
+            <Box>
               <ExpenseField
                 label={`Pris per ${expense.measurementUnit || "enhet"}`}
                 value={expense.pricePerUnit}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
-            </Grid>
+            </Box>
 
             {/* ===== Rabatt ===== */}
-            <Grid item xs={12} md={6}>
+            <Box>
               <FormControlLabel
                 control={
                   <Checkbox
@@ -442,12 +448,12 @@ const EditExpenseDialog = ({
                 }
                 label="Rabatt?"
               />
-            </Grid>
+            </Box>
 
             {/* ===== Discount Fields ===== */}
             {expense.hasDiscount && (
-              <>
-                <Grid item xs={12} md={6}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Box flex={1}>
                   <ExpenseField
                     label="Rabatt (%)"
                     type="number"
@@ -459,8 +465,8 @@ const EditExpenseDialog = ({
                       ),
                     }}
                   />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                </Box>
+                <Box flex={1}>
                   <ExpenseField
                     label="Rabatt (kr)"
                     type="number"
@@ -473,12 +479,13 @@ const EditExpenseDialog = ({
                       ),
                     }}
                   />
-                </Grid>
-              </>
+                </Box>
+              </Stack>
             )}
 
             {/* ===== Sluttpris ===== */}
-            <Grid item xs={12} md={6}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
               <ExpenseField
                 label="Sluttpris"
                 type="number"
@@ -490,20 +497,21 @@ const EditExpenseDialog = ({
                   ),
                 }}
               />
-            </Grid>
+            </Box>
 
             {/* ===== Type ===== */}
-            <Grid item xs={12} md={6}>
+            <Box flex={1}>
               <ExpenseField
                 label="Type"
                 value={expense.type || ""}
                 InputProps={{ readOnly: true }}
                 InputLabelProps={{ shrink: true }}
               />
-            </Grid>
+            </Box>
+            </Stack>
 
             {/* ===== Transaksjonstype ===== */}
-            <Grid item xs={12}>
+            <Box>
               <RadioGroup
                 row
                 value={expense.purchased ? "kjøpt" : "registrert"}
@@ -520,10 +528,10 @@ const EditExpenseDialog = ({
                   label="Registrert"
                 />
               </RadioGroup>
-            </Grid>
+            </Box>
 
             {/* ===== Dato ===== */}
-            <Grid item xs={12} md={6}>
+            <Box>
               <DatePicker
                 label="Dato"
                 value={dayjs(
@@ -534,13 +542,17 @@ const EditExpenseDialog = ({
                 onChange={handleDateChange}
                 slotProps={{ textField: { fullWidth: true } }}
               />
-            </Grid>
-          </Grid>
+           </Box>
+
+          </Stack>
         </Box>
 
         {/* ===== Handlingsknapper ===== */}
-        <Box
-          sx={{ mt: 3, display: "flex", gap: 2, justifyContent: "flex-end" }}
+       <Stack 
+          direction="row" 
+          spacing={2} 
+          justifyContent="flex-end" 
+          sx={{ mt: 3 }}
         >
           <Button variant="contained" onClick={handleClose}>
             Avbryt
@@ -552,7 +564,7 @@ const EditExpenseDialog = ({
           >
             {loading ? <CircularProgress size={24} /> : "Lagre endringer"}
           </Button>
-        </Box>
+        </Stack>
       </form>
     </BasicDialog>
   );

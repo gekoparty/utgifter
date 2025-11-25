@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import { Button, TextField, CircularProgress, Stack} from "@mui/material";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import useLocationDialog from "../../UseLocation/useLocationDialog";
 
@@ -44,8 +44,8 @@ const LocationForm = ({
 
   return (
     <form onSubmit={handleSubmit}>
-      <Grid container direction="column" spacing={2}>
-        <Grid item>
+      <Stack spacing={2}>
+        <div>
           <TextField
             fullWidth
             size="small"
@@ -62,9 +62,14 @@ const LocationForm = ({
           {(displayError || validationError) && (
             <ErrorHandling resource="locations" field="name" loading={loading} />
           )}
-        </Grid>
-      </Grid>
-      <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+        </div>
+      </Stack>
+      <Stack 
+        direction="row" 
+        spacing={2} 
+        justifyContent="flex-end" 
+        sx={{ mt: 2 }}
+      >
         <Button type="submit" disabled={loading || !isFormValid()}>
           {loading ? <CircularProgress size={24} /> : submitLabel}
         </Button>
@@ -73,11 +78,11 @@ const LocationForm = ({
             resetFormAndErrors();
             onCancel();
           }}
-          sx={{ ml: 2 }}
+        
         >
           Cancel
         </Button>
-      </Grid>
+      </Stack>
     </form>
   );
 };

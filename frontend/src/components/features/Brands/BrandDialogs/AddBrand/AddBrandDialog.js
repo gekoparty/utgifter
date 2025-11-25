@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, TextField, CircularProgress, Grid } from "@mui/material";
+import { Button, TextField, CircularProgress, Stack } from "@mui/material";
 import PropTypes from "prop-types";
 import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
@@ -19,15 +19,13 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
     resetFormAndErrors,
   } = useBrandDialog();
 
-  // Consolidate submission in a handleSubmit function
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault();
 
-    // Call the handleSaveLocation function to save the new location
     if (isFormValid()) {
       const success = await handleSaveBrand(onClose);
       if (success) {
-        onAdd({ name: brand.name }); // Trigger onAdd for success notification
+        onAdd({ name: brand.name });
       }
     }
   };
@@ -42,11 +40,11 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
       dialogTitle="Nytt Merke"
     >
       <form onSubmit={handleSubmit}>
-        <Grid container direction="column" spacing={2}>
-          <Grid item>
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          {/* Input + error */}
+          <Stack spacing={0.5}>
             <TextField
               size="small"
-              sx={{ marginTop: 2 }}
               label="Merke"
               value={brand.name}
               error={Boolean(validationError)}
@@ -56,32 +54,31 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
                 resetServerError();
               }}
             />
-            {displayError || validationError ? (
-              <ErrorHandling
-                resource="brands"
-                field="name"
-                loading={loading}
-              />
-            ) : null}
-          </Grid>
-          <Grid item container justifyContent="flex-end" spacing={2}>
-            <Grid item>
-              <Button
-                onClick={() => {
-                  resetFormAndErrors();
-                  onClose();
-                }}
-              >
-                Avbryt
-              </Button>
-            </Grid>
-            <Grid item>
-              <Button type="submit" disabled={loading || !isFormValid()}>
-                {loading ? <CircularProgress size={24} /> : "Lagre"}
-              </Button>
-            </Grid>
-          </Grid>
-        </Grid>
+            {(displayError || validationError) && (
+              <ErrorHandling resource="brands" field="name" loading={loading} />
+            )}
+          </Stack>
+
+          {/* Buttons (Styled same as EditBrandDialog) */}
+          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+            <Button
+              onClick={() => {
+                resetFormAndErrors();
+                onClose();
+              }}
+            >
+              Avbryt
+            </Button>
+
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={loading || !isFormValid()}
+            >
+              {loading ? <CircularProgress size={24} /> : "Lagre"}
+            </Button>
+          </Stack>
+        </Stack>
       </form>
     </BasicDialog>
   );

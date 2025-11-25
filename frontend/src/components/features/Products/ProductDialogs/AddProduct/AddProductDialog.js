@@ -7,7 +7,7 @@ import React, {
   useMemo
 } from "react";
 import {
-  Grid,
+  Stack,
   Box,
   Button,
   Fade,
@@ -226,7 +226,12 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                   onInputChange={handleInputChange}
                   onMenuScrollToBottom={handleMenuScrollToBottom}
                 />
-                <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+                <Stack 
+                  direction="row" 
+                  justifyContent="flex-end" 
+                  spacing={2} 
+                  sx={{ mt: 2 }}
+                >
                   <Button
                     type="submit"
                     disabled={loading || !isFormValid()}
@@ -249,11 +254,11 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
                       resetFormAndErrors();
                       onClose();
                     }}
-                    sx={{ ml: 2 }}
+                    
                   >
                     Avbryt
                   </Button>
-                </Grid>
+                </Stack>
               </form>
             </>
           )}

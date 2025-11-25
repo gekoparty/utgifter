@@ -1,12 +1,11 @@
-import React, {useMemo} from "react";
-import { Grid, TextField, CircularProgress, Button } from "@mui/material";
+import React, { useMemo } from "react";
+import { TextField, CircularProgress, Button, Stack } from "@mui/material";
 import PropTypes from "prop-types";
 import CreatableSelect from "react-select/creatable";
 import LinearProgress from "@mui/material/LinearProgress";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import { useTheme } from "@mui/material/styles";
 import { getSelectStyles } from "../../../../../theme/selectStyles";
-
 
 const ShopForm = ({
   shop,
@@ -28,70 +27,62 @@ const ShopForm = ({
 }) => {
   const theme = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
-  // Handler for shop name change.
+
   const handleNameChange = (e) => {
     setShop((prev) => ({ ...prev, name: e.target.value }));
     resetValidationErrors();
     resetServerError();
   };
 
-  // Handler for location select change.
-  const handleLocationChange = (selectedOption) => {
-    const value = selectedOption?.value || "";
-    const label = selectedOption ? selectedOption.label : "";
+  const handleLocationChange = (selected) => {
     setShop((prev) => ({
       ...prev,
-      location: value,
-      locationName: label,
+      location: selected?.value || "",
+      locationName: selected?.label || "",
     }));
     resetValidationErrors();
     resetServerError();
   };
 
-  // Handler for creating a new location option.
-  const handleLocationCreate = (inputValue) => {
-    const value = inputValue.trim();
+  const handleLocationCreate = (input) => {
+    const trimmed = input.trim();
     setShop((prev) => ({
       ...prev,
-      location: `temp-${value}`,
-      locationName: value,
+      location: `temp-${trimmed}`,
+      locationName: trimmed,
     }));
     resetValidationErrors();
     resetServerError();
   };
 
-  // Handler for category select change.
-  const handleCategoryChange = (selectedOption) => {
-    const value = selectedOption?.value || "";
-    const label = selectedOption ? selectedOption.label : "";
+  const handleCategoryChange = (selected) => {
     setShop((prev) => ({
       ...prev,
-      category: value,
-      categoryName: label,
+      category: selected?.value || "",
+      categoryName: selected?.label || "",
     }));
     resetValidationErrors();
     resetServerError();
   };
 
-  // Handler for creating a new category option.
-  const handleCategoryCreate = (inputValue) => {
-    const value = inputValue.trim();
+  const handleCategoryCreate = (input) => {
+    const trimmed = input.trim();
     setShop((prev) => ({
       ...prev,
-      category: `temp-${value}`,
-      categoryName: value,
+      category: `temp-${trimmed}`,
+      categoryName: trimmed,
     }));
     resetValidationErrors();
     resetServerError();
   };
 
-  // Compute current values for selects.
   const currentLocationValue =
     shop?.location &&
     (locationOptions.find((o) => o.value === shop.location) || {
       value: shop.location,
       label: shop.locationName,
     });
+
   const currentCategoryValue =
     shop?.category &&
     (categoryOptions.find((o) => o.value === shop.category) || {
@@ -101,11 +92,10 @@ const ShopForm = ({
 
   return (
     <form onSubmit={onSubmit}>
-      <Grid container direction="column" spacing={2}>
+      <Stack spacing={2} sx={{ mt: 2 }}>
         {/* Shop Name */}
-        <Grid item>
+        <Stack spacing={0.5}>
           <TextField
-            sx={{ mt: 2 }}
             size="small"
             label="Butikk"
             value={shop?.name || ""}
@@ -115,10 +105,10 @@ const ShopForm = ({
           {(displayError || validationError) && (
             <ErrorHandling resource="shops" field="name" loading={loading} />
           )}
-        </Grid>
+        </Stack>
 
         {/* Location Select */}
-        <Grid item>
+        <Stack spacing={0.5}>
           <CreatableSelect
             styles={selectStyles}
             options={locationOptions}
@@ -128,19 +118,19 @@ const ShopForm = ({
             placeholder="Velg Lokasjon..."
             isClearable
             isLoading={locationLoading}
-            isValidNewOption={(inputValue) =>
-              !!inputValue.trim() &&
-              !locationOptions.find((o) => o.value === inputValue.trim())
+            isValidNewOption={(input) =>
+              !!input.trim() &&
+              !locationOptions.find((o) => o.value === input.trim())
             }
             formatCreateLabel={(input) => `Ny Lokasjon: ${input}`}
             menuPortalTarget={document.body}
           />
-          {locationLoading && <LinearProgress sx={{ mt: 1 }} />}
+          {locationLoading && <LinearProgress />}
           {locationError && <div>Error loading Locations</div>}
-        </Grid>
+        </Stack>
 
         {/* Category Select */}
-        <Grid item>
+        <Stack spacing={0.5}>
           <CreatableSelect
             styles={selectStyles}
             options={categoryOptions}
@@ -150,29 +140,25 @@ const ShopForm = ({
             placeholder="Velg Kategori..."
             isClearable
             isLoading={categoryLoading}
-            isValidNewOption={(inputValue) =>
-              !!inputValue.trim() &&
-              !categoryOptions.find((o) => o.value === inputValue.trim())
+            isValidNewOption={(input) =>
+              !!input.trim() &&
+              !categoryOptions.find((o) => o.value === input.trim())
             }
             formatCreateLabel={(input) => `Ny Kategori: ${input}`}
             menuPortalTarget={document.body}
-            menuPosition="fixed" // <-- added prop
-  
           />
-          {categoryLoading && <LinearProgress sx={{ mt: 1 }} />}
+          {categoryLoading && <LinearProgress />}
           {categoryError && <div>Error loading Categories</div>}
-        </Grid>
+        </Stack>
 
-        {/* Action Buttons */}
-        <Grid container justifyContent="flex-end" sx={{ mt: 2 }}>
+        {/* Buttons */}
+        <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 1 }}>
           <Button type="submit" disabled={loading}>
             {loading ? <CircularProgress size={24} /> : submitLabel}
           </Button>
-          <Button onClick={onCancel} sx={{ ml: 2 }}>
-            Avbryt
-          </Button>
-        </Grid>
-      </Grid>
+          <Button onClick={onCancel}>Avbryt</Button>
+        </Stack>
+      </Stack>
     </form>
   );
 };
