@@ -1,5 +1,5 @@
-import React, { useState, useMemo, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
+import React, { useState, useMemo, lazy, Suspense, useCallback } from "react";
+import { Button, Snackbar, Alert, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -7,28 +7,15 @@ import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy-loaded Dialogstest
-const AddShopDialog = lazy(() =>
-  import("../components/features/Shops/ShopDialogs/AddShop/AddShopDialog")
-);
-const DeleteShopDialog = lazy(() =>
-  import("../components/features/Shops/ShopDialogs/DeleteShop/DeleteShopDialog")
-);
-const EditShopDialog = lazy(() =>
-  import("../components/features/Shops/ShopDialogs/EditShop/EditShopDialog")
-);
+// Lazy-loaded dialogs
+const AddShopDialog = lazy(() => import("../components/features/Shops/ShopDialogs/AddShop/AddShopDialog"));
+const DeleteShopDialog = lazy(() => import("../components/features/Shops/ShopDialogs/DeleteShop/DeleteShopDialog"));
+const EditShopDialog = lazy(() => import("../components/features/Shops/ShopDialogs/EditShop/EditShopDialog"));
 
 // Constants
-const INITIAL_PAGINATION = {
-  pageIndex: 0,
-  pageSize: 10,
-};
+const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const INITIAL_SELECTED_SHOP = {
-  _id: "",
-  name: "",
-};
-
+const INITIAL_SELECTED_SHOP = { _id: "", name: "", location: "", category: "" };
 
 const ShopScreen = () => {
   const [columnFilters, setColumnFilters] = useState([]);
@@ -36,304 +23,207 @@ const ShopScreen = () => {
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
   const [selectedShop, setSelectedShop] = useState(INITIAL_SELECTED_SHOP);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [addShopDialogOpen, setAddShopDialogOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
+  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
 
   const baseQueryKey = useMemo(() => ["shops", "paginated"], []);
-  const memoizedSelectedShop = useMemo(() => selectedShop, [selectedShop]);
 
-  // Custom URL builder for shops.
-  const shopUrlBuilder = (
-    endpoint,
-    { pageIndex, pageSize, sorting, filters, globalFilter }
-  ) => {
-    const fetchURL = new URL(endpoint, API_URL);
-    fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
-    fetchURL.searchParams.set("size", `${pageSize}`);
-    fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    // Modify filters for location/category if needed.
-    const modifiedFilters = filters.map((filter) => {
-      if (filter.id === "location" || filter.id === "category") {
-        return { id: filter.id, value: "" };
-      }
-      return filter;
-    });
-    fetchURL.searchParams.set(
-      "columnFilters",
-      JSON.stringify(modifiedFilters ?? [])
-    );
-    fetchURL.searchParams.set("globalFilter", globalFilter ?? "");
-    return fetchURL;
-  };
+  // -------------------------
+  // URL builder
+  // -------------------------
+  const shopUrlBuilder = useCallback((endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
+    const url = new URL(endpoint, API_URL);
+    url.searchParams.set("start", pageIndex * pageSize);
+    url.searchParams.set("size", pageSize);
+    url.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    url.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
+    url.searchParams.set("globalFilter", globalFilter ?? "");
+    return url;
+  }, []);
 
-  // Transform function for shops data.
-  const transformShopsData = async (json, signal) => {
-    try {
-      const { meta } = json;
-      const shopsWithAssociatedData = await Promise.all(
-        json.shops.map(async (shop) => {
-          try {
-            const [locationResponse, categoryResponse] = await Promise.all([
-              fetch(`${API_URL}/api/locations/${shop.location}`, { signal }),
-              fetch(`${API_URL}/api/categories/${shop.category}`, { signal }),
-            ]);
+  // -------------------------
+  // Transform shops data with location/category
+  // -------------------------
+  // ---------------------------------------------
+  const transformShopsData = useCallback(async (json) => {
+    const shops = json.shops || [];
 
-            const locationData = locationResponse.ok
-              ? await locationResponse.json()
-              : { name: "N/A" };
+    // 1. Collect all unique IDs for batch fetching
+    const locationIds = [...new Set(shops.map(shop => shop.location).filter(Boolean))];
+    const categoryIds = [...new Set(shops.map(shop => shop.category).filter(Boolean))];
 
-            const categoryData = categoryResponse.ok
-              ? await categoryResponse.json()
-              : { name: "N/A" };
+    // Helper to fetch and create ID -> Name map
+    const fetchAndCreateMap = async (endpoint, ids) => {
+      if (ids.length === 0) return {};
+      try {
+        // Assuming API supports fetching multiple IDs via 'ids' query parameter
+        const res = await fetch(`${API_URL}/api/${endpoint}?ids=${ids.join(',')}`);
+        if (!res.ok) throw new Error(`Failed to fetch ${endpoint}`);
+        const data = await res.json();
+        
+        // Create lookup map: { '_id': 'name', ... }
+        // We handle the case where the JSON might be an array or an object containing an array.
+        const items = Array.isArray(data) ? data : data[endpoint] || [];
+        
+        return items.reduce((map, item) => {
+          if (item._id && item.name) {
+            map[item._id] = item.name;
+          }
+          return map;
+        }, {});
 
-            return {
-              ...shop,
-              location: locationData,
-              category: categoryData,
-            };
-          } catch (error) {
-            console.error("Error fetching associated data:", error);
-            return {
-              ...shop,
-              location: { name: "N/A" },
-              category: { name: "N/A" },
-            };
-          }
-        })
-      );
+      } catch (error) {
+        console.error(`Batch fetch error for ${endpoint}:`, error);
+        return {};
+      }
+    };
 
-      return {
-        shops: shopsWithAssociatedData.map((shop) => ({
-          _id: shop._id,
-          name: shop.name,
-          location: shop.location?.name || "N/A",
-          category: shop.category?.name || "N/A",
-        })),
-        meta,
-      };
-    } catch (error) {
-      console.error("Error transforming shops data:", error);
-      return { shops: [], meta: {} };
-    }
-  };
+    // 2. Batch Fetch: Execute the two large requests in parallel
+    const [locationMap, categoryMap] = await Promise.all([
+      fetchAndCreateMap("locations", locationIds),
+      fetchAndCreateMap("categories", categoryIds),
+    ]);
 
-  const fetchParams = useMemo(
-    () => ({
-      pageIndex: pagination.pageIndex,
-      pageSize: pagination.pageSize,
-      sorting,
-      filters: columnFilters,
-      globalFilter,
-    }),
-    [pagination, sorting, columnFilters, globalFilter]
-  );
+    // 3. Transform shops using the maps
+    const transformed = shops.map((shop) => ({
+      _id: shop._id,
+      name: shop.name,
+      location: locationMap[shop.location] || "N/A",
+      category: categoryMap[shop.category] || "N/A",
+    }));
 
-  // Use the generic hook to fetch shop data.
-  const {
-    data: shopsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = usePaginatedData({
-    endpoint: "/api/shops",
-    params: fetchParams,
-    urlBuilder: shopUrlBuilder,
-    baseQueryKey,
-    transformFn: transformShopsData,
-  });
+    return {
+      shops: transformed,
+      meta: json.meta || {},
+    };
+  }, []);
 
-  const tableData = useMemo(() => shopsData?.shops || [], [shopsData]);
-  const metaData = useMemo(() => shopsData?.meta || {}, [shopsData]);
+  const fetchParams = useMemo(() => ({
+    pageIndex: pagination.pageIndex,
+    pageSize: pagination.pageSize,
+    sorting,
+    filters: columnFilters,
+    globalFilter,
+  }), [pagination, sorting, columnFilters, globalFilter]);
 
-  // Table columns configuration.
-  const tableColumns = useMemo(
-    () => [
-      {
-        accessorKey: "name",
-        header: "Butikk",
-        size: 150,
-        grow: 2,
-        minSize: 150,
-        maxSize: 400,
-      },
-      {
-        accessorKey: "location",
-        header: "Lokasjon",
-        size: 150,
-        grow: 1,
-        minSize: 150,
-        maxSize: 300,
-      },
-      {
-        accessorKey: "category",
-        header: "Kategori",
-        size: 100,
-        grow: 1,
-        minSize: 100,
-        maxSize: 250,
-      },
-    ],
-    []
-  );
+  const { data, isLoading, isFetching, isError, refetch } = usePaginatedData({
+    endpoint: "/api/shops",
+    params: fetchParams,
+    urlBuilder: shopUrlBuilder,
+    baseQueryKey,
+    transformFn: transformShopsData,
+  });
 
-  // Handlers for shop actions.
-  const addShopHandler = (newShop) => {
-    showSnackbar(`Butikk ${newShop.name} er lagt til`);
-  };
+  const tableData = useMemo(() => data?.shops || [], [data]);
+  const metaData = useMemo(() => data?.meta || {}, [data]);
 
-  const deleteFailureHandler = (failedShop) => {
-    showSnackbar(`Failed to delete shop ${failedShop.name}`);
-  };
+  // -------------------------
+  // Columns
+  // -------------------------
+  const tableColumns = useMemo(() => [
+    { accessorKey: "name", header: "Butikk" },
+    { accessorKey: "location", header: "Lokasjon" },
+    { accessorKey: "category", header: "Kategori" },
+  ], []);
 
-  const deleteSuccessHandler = (deletedShop) => {
-    showSnackbar(`Shop ${deletedShop.name} deleted successfully`);
-  };
+  // -------------------------
+  // Handlers
+  // -------------------------
+  const handleAddSuccess = useCallback((shop) => {
+    showSnackbar(`Butikk ${shop.name} lagt til`);
+    setAddDialogOpen(false);
+  }, [showSnackbar]);
 
-  const editFailureHandler = () => {
-    showSnackbar("Failed to update shop");
-  };
+  const handleEditSuccess = useCallback((shop) => {
+    showSnackbar(`Butikk ${shop.name} oppdatert`);
+    setEditDialogOpen(false);
+  }, [showSnackbar]);
 
-  const editSuccessHandler = (updatedShop) => {
-    showSnackbar(`Shop ${updatedShop.name} updated successfully`);
-  };
+  const handleDeleteSuccess = useCallback((shop) => {
+    showSnackbar(`Butikk ${shop.name} slettet`);
+    setDeleteDialogOpen(false);
+  }, [showSnackbar]);
 
+  const handleDialogClose = useCallback((setter) => {
+    setter(false);
+    setSelectedShop(INITIAL_SELECTED_SHOP);
+  }, []);
+
+  // -------------------------
+  // Render
+  // -------------------------
   return (
     <TableLayout>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          width: "100%",
-          minHeight: "100%",
-        }}
-      >
-        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setAddShopDialogOpen(true)}
-          >
-            Ny Butikk
-          </Button>
-        </Box>
+      <Button variant="contained" onClick={() => setAddDialogOpen(true)} sx={{ mb: 2 }}>
+        Ny Butikk
+      </Button>
 
-        <Box
-          sx={{
-            flexGrow: 1,
-            display: "flex",
-            flexDirection: "column",
-            width: "100%",
-            minWidth: 600,
-          }}
-        >
-          {tableData && (
-            <ReactTable
-              data={tableData}
-              columns={tableColumns}
-              setColumnFilters={setColumnFilters}
-              setGlobalFilter={setGlobalFilter}
-              setSorting={setSorting}
-              setPagination={setPagination}
-              refetch={refetch}
-              isError={isError}
-              isFetching={isFetching}
-              isLoading={isLoading}
-              columnFilters={columnFilters}
-              globalFilter={globalFilter}
-              pagination={pagination}
-              sorting={sorting}
-              meta={metaData}
-              setSelectedShop={setSelectedShop}
-              handleEdit={(shop) => {
-                setSelectedShop(shop);
-                setEditModalOpen(true);
-              }}
-              handleDelete={(shop) => {
-                setSelectedShop(shop);
-                setDeleteModalOpen(true);
-              }}
-              editModalOpen={editModalOpen}
-              setDeleteModalOpen={setDeleteModalOpen}
-              sx={{ flexGrow: 1, width: "100%" }}
-            />
-          )}
-        </Box>
-      </Box>
+      <ReactTable
+        data={tableData}
+        columns={tableColumns}
+        columnFilters={columnFilters}
+        globalFilter={globalFilter}
+        sorting={sorting}
+        pagination={pagination}
+        setColumnFilters={setColumnFilters}
+        setGlobalFilter={setGlobalFilter}
+        setSorting={setSorting}
+        setPagination={setPagination}
+        refetch={refetch}
+        isError={isError}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        meta={metaData}
+        handleEdit={(shop) => { setSelectedShop(shop); setEditDialogOpen(true); }}
+        handleDelete={(shop) => { setSelectedShop(shop); setDeleteDialogOpen(true); }}
+      />
 
-      <Suspense fallback={<div>Laster Dialog...</div>}>
+      {/* Dialogs */}
+      <Suspense fallback={<div>Laster...</div>}>
         <AddShopDialog
-          open={addShopDialogOpen}
-          onClose={() => setAddShopDialogOpen(false)}
-          onAdd={addShopHandler}
+          open={addDialogOpen}
+          onClose={() => handleDialogClose(setAddDialogOpen)}
+          onAdd={handleAddSuccess}
         />
       </Suspense>
+
+      <Suspense fallback={<div>Laster...</div>}>
+        <EditShopDialog
+          open={editDialogOpen && selectedShop._id}
+          onClose={() => handleDialogClose(setEditDialogOpen)}
+          selectedShop={selectedShop}
+          onUpdateSuccess={handleEditSuccess}
+        />
+      </Suspense>
+
       <Suspense fallback={<div>Laster...</div>}>
         <DeleteShopDialog
-          open={deleteModalOpen}
-          onClose={() => setDeleteModalOpen(false)}
-          dialogTitle="Confirm Deletion"
-          cancelButton={
-            <Button onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
-          }
+          open={deleteDialogOpen}
+          onClose={() => handleDialogClose(setDeleteDialogOpen)}
           selectedShop={selectedShop}
-          onDeleteSuccess={deleteSuccessHandler}
-          onDeleteFailure={deleteFailureHandler}
+          onDeleteSuccess={handleDeleteSuccess}
         />
       </Suspense>
-      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
-        {memoizedSelectedShop._id && editModalOpen && (
-          <EditShopDialog
-            open={editModalOpen}
-            onClose={() => setEditModalOpen(false)}
-            cancelButton={
-              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
-            }
-            dialogTitle="Edit Shop"
-            selectedShop={selectedShop}
-            onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={editFailureHandler}
-          />
-        )}
-      </Suspense>
 
+      {/* Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        sx={{
-          width: "auto", // <-- Change this from 100% to auto
-          maxWidth: 400, // <-- Optional: Limit the maximum width
-        }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
-          variant="filled" // Add variant for better visual consistency
+          variant="filled"
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{
-            width: "100%",
-            "& .MuiAlert-message": { flexGrow: 1 }, // Ensure proper message alignment
-          }}
         >
           {snackbarMessage}
         </Alert>

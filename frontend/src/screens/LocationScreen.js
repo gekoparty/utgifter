@@ -1,13 +1,17 @@
 import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert } from "@mui/material";
+import { Button, Snackbar, Alert, Box, LinearProgress, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import ReactTable from "../components/commons/React-Table/react-table";
+
 import TableLayout from "../components/commons/TableLayout/TableLayout";
-import useSnackBar from "../hooks/useSnackBar";
-import { useDeepCompareMemo } from "use-deep-compare";
+import ReactTable from "../components/commons/React-Table/react-table";
+
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { useDeepCompareMemo } from "use-deep-compare";
+import useSnackBar from "../hooks/useSnackBar";
+
 import { API_URL } from "../components/commons/Consts/constants";
 
+// Lazy dialogs
 const AddLocationDialog = lazy(() =>
   import("../components/features/Locations/LocationDialogs/AddLocation/AddLocationDialog")
 );
@@ -20,19 +24,17 @@ const DeleteLocationDialog = lazy(() =>
 
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const INITIAL_SELECTED_LOCATION = { _id: "", name: "" };
+const EMPTY_LOCATION = { _id: "", name: "" };
 
-
+// URL builder
 const locationUrlBuilder = (endpoint, params) => {
-  const fetchURL = new URL(endpoint, API_URL);
-  Object.entries({
-    start: params.pageIndex * params.pageSize,
-    size: params.pageSize,
-    sorting: JSON.stringify(params.sorting ?? []),
-    columnFilters: JSON.stringify(params.filters ?? []),
-    globalFilter: params.globalFilter ?? "",
-  }).forEach(([key, value]) => fetchURL.searchParams.set(key, value));
-  return fetchURL;
+  const url = new URL(endpoint, API_URL);
+  url.searchParams.set("start", params.pageIndex * params.pageSize);
+  url.searchParams.set("size", params.pageSize);
+  url.searchParams.set("sorting", JSON.stringify(params.sorting || []));
+  url.searchParams.set("columnFilters", JSON.stringify(params.filters || []));
+  url.searchParams.set("globalFilter", params.globalFilter || "");
+  return url;
 };
 
 const LocationScreen = () => {
@@ -40,11 +42,14 @@ const LocationScreen = () => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedLocation, setSelectedLocation] = useState(INITIAL_SELECTED_LOCATION);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [addLocationDialogOpen, setAddLocationDialogOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
 
+  const [selectedLocation, setSelectedLocation] = useState(EMPTY_LOCATION);
+
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // Snackbar
   const {
     snackbarOpen,
     snackbarMessage,
@@ -53,9 +58,7 @@ const LocationScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Define a stable query key for paginated data or not working
-  const baseQueryKey = useMemo(() => ["locations", "paginated"], []);
-
+  // Query params (memoized)
   const fetchParams = useDeepCompareMemo(
     () => ({
       pageIndex: pagination.pageIndex,
@@ -67,8 +70,9 @@ const LocationScreen = () => {
     [pagination, sorting, columnFilters, globalFilter]
   );
 
+  // Data hook
   const {
-    data: locationsData,
+    data,
     isError,
     isFetching,
     isLoading,
@@ -77,159 +81,132 @@ const LocationScreen = () => {
     endpoint: "/api/locations",
     params: fetchParams,
     urlBuilder: locationUrlBuilder,
-    baseQueryKey,
+    baseQueryKey: ["locations", "paginated"],
   });
 
-  const tableData = useMemo(() => locationsData?.locations || [], [locationsData]);
-  const metaData = useMemo(() => locationsData?.meta || {}, [locationsData]);
+  const tableData = data?.locations || [];
+  const meta = data?.meta || {};
 
+  // Columns (simple)
   const tableColumns = useMemo(
     () => [
       {
         accessorKey: "name",
         header: "Steder",
-        size: 600,
-        grow: 2,
-        minWidth: 400,
-        maxSize: 600,
       },
     ],
     []
   );
 
-  const handleDialogClose = useCallback((closeDialogFn) => {
-    closeDialogFn(false);
-    setSelectedLocation(INITIAL_SELECTED_LOCATION);
+  // Dialog close helper
+  const closeDialog = useCallback((fn) => {
+    fn(false);
+    setSelectedLocation(EMPTY_LOCATION);
   }, []);
 
-  const handleSortingChange = useCallback((newSorting) => setSorting(newSorting), []);
-  const handleGlobalFilterChange = useCallback((newGlobalFilter) => setGlobalFilter(newGlobalFilter), []);
-
-  // Success handlers now only show snackbar messages.
-  // Cache invalidation and refetching are handled by the useLocationDialog hook.
-  const addLocationHandler = useCallback(
-    (newLocation) => {
-      showSnackbar(`Sted "${newLocation.name}" ble lagt til`);
-    },
-    [showSnackbar]
-  );
-
-  const deleteSuccessHandler = useCallback(
-    (deletedLocation) => {
-      showSnackbar(`Sted "${deletedLocation.name}" ble slettet`);
-    },
-    [showSnackbar]
-  );
-
-  const editSuccessHandler = useCallback(
-    (updatedLocation) => {
-      showSnackbar(`Sted "${updatedLocation.name}" ble oppdatert`);
-    },
-    [showSnackbar]
-  );
-
-  const handleEdit = useCallback((location) => {
-    setSelectedLocation(location);
-    setEditModalOpen(true);
+  // Handlers
+  const handleEdit = useCallback((loc) => {
+    setSelectedLocation(loc);
+    setEditDialogOpen(true);
   }, []);
 
-  const handleDelete = useCallback((location) => {
-    setSelectedLocation(location);
-    setDeleteModalOpen(true);
+  const handleDelete = useCallback((loc) => {
+    setSelectedLocation(loc);
+    setDeleteDialogOpen(true);
   }, []);
 
   return (
     <TableLayout>
-      <Box sx={{ display: "flex", flexDirection: "column", flexGrow: 1, width: "100%" }}>
-        <Box sx={{ mb: 2 }}>
-          <Button variant="contained" onClick={() => setAddLocationDialogOpen(true)}>
-            Nytt Sted
-          </Button>
-        </Box>
-        {tableData && (
-          <ReactTable
-            getRowId={(row) => row._id}
-            data={tableData}
-            columns={tableColumns}
-            setColumnFilters={setColumnFilters}
-            setGlobalFilter={handleGlobalFilterChange}
-            setSorting={handleSortingChange}
-            setPagination={setPagination}
-            isError={isError}
-            refetch={refetch}
-            isFetching={isFetching}
-            isLoading={isLoading}
-            columnFilters={columnFilters}
-            globalFilter={globalFilter}
-            pagination={pagination}
-            sorting={sorting}
-            meta={metaData}
-            handleEdit={handleEdit}
-            handleDelete={handleDelete}
-            sx={{ flexGrow: 1, width: "100%", minWidth: 600 }}
-          />
-        )}
-      </Box>
+      <Button
+        variant="contained"
+        sx={{ mb: 2 }}
+        onClick={() => setAddDialogOpen(true)}
+      >
+        Nytt sted
+      </Button>
 
-      <Suspense fallback={<div>Laster Dialog...</div>}>
+      {isLoading ? (
+        <Box sx={{ p: 4, textAlign: "center" }}>
+          <LinearProgress sx={{ mb: 1 }} />
+          Laster steder...
+        </Box>
+      ) : (
+        <ReactTable
+          data={tableData}
+          columns={tableColumns}
+          columnFilters={columnFilters}
+          globalFilter={globalFilter}
+          sorting={sorting}
+          pagination={pagination}
+          meta={meta}
+          isError={isError}
+          isFetching={isFetching}
+          refetch={refetch}
+          setColumnFilters={setColumnFilters}
+          setGlobalFilter={setGlobalFilter}
+          setSorting={setSorting}
+          setPagination={setPagination}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+        />
+      )}
+
+      {/* Add */}
+      <Suspense fallback={<div>Laster...</div>}>
         <AddLocationDialog
-          open={addLocationDialogOpen}
-          onClose={() => handleDialogClose(setAddLocationDialogOpen)}
-          onAdd={addLocationHandler}
+          open={addDialogOpen}
+          onClose={() => closeDialog(setAddDialogOpen)}
+          onAdd={(loc) => showSnackbar(`Sted "${loc.name}" ble lagt til`)}
         />
       </Suspense>
 
+      {/* Delete */}
       <Suspense fallback={<div>Laster...</div>}>
         <DeleteLocationDialog
-          open={deleteModalOpen}
-          onClose={() => handleDialogClose(setDeleteModalOpen)}
-          dialogTitle="Bekreft sletting"
-          cancelButton={<Button onClick={() => setDeleteModalOpen(false)}>Avbryt</Button>}
+          open={deleteDialogOpen}
           selectedLocation={selectedLocation}
-          onDeleteSuccess={deleteSuccessHandler}
-          onDeleteFailure={(failedLocation) =>
-            showSnackbar(`Kunne ikke slette sted "${failedLocation.name}"`)
+          onClose={() => closeDialog(setDeleteDialogOpen)}
+          onDeleteSuccess={(loc) =>
+            showSnackbar(`Sted "${loc.name}" ble slettet`)
+          }
+          onDeleteFailure={(loc) =>
+            showSnackbar(`Kunne ikke slette "${loc.name}"`, "error")
           }
         />
       </Suspense>
 
-      <Suspense fallback={<div>Laster redigeringsdialog...</div>}>
+      {/* Edit */}
+      <Suspense fallback={<div>Laster...</div>}>
         {selectedLocation._id && (
           <EditLocationDialog
-            open={editModalOpen}
-            onClose={() => handleDialogClose(setEditModalOpen)}
-            cancelButton={<Button onClick={() => setEditModalOpen(false)}>Avbryt</Button>}
-            dialogTitle="Rediger sted"
+            open={editDialogOpen}
             selectedLocation={selectedLocation}
-            onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={() => showSnackbar("Kunne ikke lagre endringer av sted")}
+            onClose={() => closeDialog(setEditDialogOpen)}
+            onUpdateSuccess={(loc) =>
+              showSnackbar(`Sted "${loc.name}" ble oppdatert`)
+            }
+            onUpdateFailure={() =>
+              showSnackbar("Kunne ikke lagre endringer", "error")
+            }
           />
         )}
       </Suspense>
 
       <Snackbar
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         onClose={handleSnackbarClose}
-        sx={{
-          width: "auto",
-          maxWidth: 400,
-        }}
       >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton size="small" onClick={handleSnackbarClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }
-          sx={{
-            width: "100%",
-            "& .MuiAlert-message": { flexGrow: 1 },
-          }}
         >
           {snackbarMessage}
         </Alert>
