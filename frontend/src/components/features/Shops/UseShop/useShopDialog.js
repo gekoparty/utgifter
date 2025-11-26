@@ -6,97 +6,87 @@ import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../../Store/Store";
 import { addShopValidationSchema } from "../../../../validation/validationSchema";
 
-const useShopDialog = (initialShop = null) => {
-  // Memoize the initial shop state to prevent unnecessary recalculations.
-  const initialShopState = useMemo(() => ({
-    name: "",
-    location: "",      // Store ID for saving
-    locationName: "",  // Store name for validation/display
-    category: "",      // Store ID for saving
-    categoryName: ""   // Store name for validation/display
-  }), []);
+const INITIAL_SHOP_STATE = {
+  name: "",
+  location: "",     // Store ID for saving
+  locationName: "", // Store name for validation/display
+  category: "",     // Store ID for saving
+  categoryName: ""  // Store name for validation/display
+};
 
-  // Initialize the shop state using the initial shop passed in (if any)
+const useShopDialog = (initialShop = null) => {
+  // --- Context & Setup ---
+  const { sendRequest, loading } = useCustomHttp("/api/shops");
+  const { dispatch, state } = useContext(StoreContext);
+  const queryClient = useQueryClient();
+  
+  // --- State ---
+  // Initialize state based on initialShop (if editing) or the clean default state.
   const [shop, setShop] = useState(
-    initialShop ? initialShop : { ...initialShopState }
+    initialShop 
+      ? { ...INITIAL_SHOP_STATE, ...initialShop }
+      : { ...INITIAL_SHOP_STATE }
   );
 
-  // Custom HTTP hook for shops.
-  const { sendRequest, loading } = useCustomHttp("/api/shops");
+  // --- Utility Handlers (Memoized) ---
 
-  // Global store context.
-  const { dispatch, state } = useContext(StoreContext);
-
-  // React Query client
-  const queryClient = useQueryClient();
-
-  // Reset server error for shops.
   const resetServerError = useCallback(() => {
-    dispatch({
-      type: "RESET_ERROR",
-      resource: "shops",
-    });
+    dispatch({ type: "RESET_ERROR", resource: "shops" });
   }, [dispatch]);
 
-  // Reset validation errors for shops.
   const resetValidationErrors = useCallback(() => {
-    dispatch({
-      type: "RESET_VALIDATION_ERRORS",
-      resource: "shops",
-    });
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "shops" });
   }, [dispatch]);
 
-  // Reset the form and clear all errors.
+  // Use a stable reference for the initial state when resetting.
   const resetFormAndErrors = useCallback(() => {
-    setShop(initialShop ? initialShop : { ...initialShopState });
+    setShop(initialShop ? { ...INITIAL_SHOP_STATE, ...initialShop } : { ...INITIAL_SHOP_STATE });
     resetServerError();
     resetValidationErrors();
-  }, [initialShop, initialShopState, resetServerError, resetValidationErrors]);
+  }, [initialShop, resetServerError, resetValidationErrors]);
 
-  // Initialize or reset the form when initialShop changes.
+  // --- Effects ---
+
+  // Initialize or reset the form when initialShop changes (simplified initialization).
   useEffect(() => {
     if (initialShop) {
-      console.log("Initial shop in useShopDialog:", initialShop);
-      setShop((prevShop) => ({
-        ...prevShop,
+      setShop({
+        ...INITIAL_SHOP_STATE,
         ...initialShop,
+        // Ensure locationName/categoryName always reflect the display value
         locationName: initialShop.locationName || initialShop.location || "",
         categoryName: initialShop.categoryName || initialShop.category || "",
-      }));
+      });
     } else {
-      resetFormAndErrors();
+      setShop({ ...INITIAL_SHOP_STATE });
     }
+    
+    // Cleanup: Clear unused resource data in the global store when component unmounts
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "categories" });
       dispatch({ type: "CLEAR_RESOURCE", resource: "locations" });
     };
-  }, [initialShop, resetFormAndErrors, dispatch]);
+  }, [initialShop, dispatch]);
 
-  // -------------------------------
-  // Mutation for saving a shop
-  // -------------------------------
+  // --- Mutations ---
+
+  // 1. Save (Add/Edit) Mutation
   const saveShopMutation = useMutation({
-    mutationFn: async (formattedShop) => {
+    mutationFn: async (savePayload) => {
       const url = initialShop ? `/api/shops/${initialShop._id}` : "/api/shops";
       const method = initialShop ? "PUT" : "POST";
-      const { data, error: addDataError } = await sendRequest(url, method, formattedShop);
-      if (addDataError) {
-        throw new Error(data?.error || addDataError);
+      const { data, error: apiError } = await sendRequest(url, method, savePayload);
+      if (apiError) {
+        // Use the actual error message from the API response if available
+        throw new Error(apiError.message || "Failed to save shop.");
       }
       return data;
     },
-    onMutate: async (formattedShop) => {
-      // Cancel any outgoing queries
+    onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["shops", "paginated"] });
-      // Snapshot previous value
-      const previousShops = queryClient.getQueryData(["shops", "paginated"]);
-      // Optionally update the cache optimistically here.
-      return { previousShops };
     },
-    onError: (error, formattedShop, context) => {
-      if (context?.previousShops) {
-        queryClient.setQueryData(["shops", "paginated"], context.previousShops);
-      }
+    onError: (error) => {
+      // Handle server error display using the global dispatch
       dispatch({
         type: "SET_ERROR",
         error: error.message,
@@ -104,52 +94,65 @@ const useShopDialog = (initialShop = null) => {
         showError: true,
       });
     },
-    onSuccess: () => {
-      dispatch({ type: "RESET_ERROR", resource: "shops" });
-      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "shops" });
-      // Invalidate the shops paginated query so the list refreshes
+    onSuccess: (data, variables, context) => {
+      resetServerError();
+      resetValidationErrors();
+      // Invalidate the shops paginated query to force a fresh fetch
       queryClient.invalidateQueries({ queryKey: ["shops", "paginated"] });
     },
   });
 
-  // -------------------------------
-  // Save the shop using mutation.
-  // -------------------------------
+  // 2. Delete Mutation (New structure for consistency)
+  const deleteShopMutation = useMutation({
+    mutationFn: (shopId) => sendRequest(`/api/shops/${shopId}`, "DELETE"),
+    onSuccess: (data, shopId, context) => {
+      // Invalidate the shops paginated query to force a fresh fetch
+      queryClient.invalidateQueries({ queryKey: ["shops", "paginated"] });
+    },
+    // Optional: Add optimistic updates here if needed, similar to the original saveShopMutation logic.
+  });
+
+  // --- Business Logic Handlers ---
+
   const handleSaveShop = async (onClose) => {
+    resetServerError();
+    resetValidationErrors();
     let validationErrors = {};
-  
+    
     try {
-      // 1. Format and validate display names only.
+      // 1. Format display fields for validation
       const formattedData = {
         name: formatComponentFields(shop.name, "shop", "name"),
         locationName: formatComponentFields(shop.locationName, "shop", "location"),
         categoryName: formatComponentFields(shop.categoryName, "shop", "category")
       };
-  
-      // 2. Validate formatted display names.
+
+      // 2. Validate formatted display names
       await addShopValidationSchema.validate(formattedData, { abortEarly: false });
-  
-      // 3. Prepare final payload with IDs/names.
+
+      // 3. Prepare final payload
       const savePayload = {
         name: formattedData.name,
-        // If the shop.location starts with 'temp-', send the formatted name, otherwise the ID.
+        // Send the ID if it's a real ID, otherwise send the name for the backend to handle creation/lookup
         location: shop.location.startsWith('temp-') ? formattedData.locationName : shop.location,
         category: shop.category.startsWith('temp-') ? formattedData.categoryName : shop.category
       };
-  
-      // 4. Execute the mutation.
+
+      // 4. Execute the mutation (handles loading, success, and error state internally)
       await saveShopMutation.mutateAsync(savePayload);
-  
-      // 5. Reset state and close dialog on success.
-      setShop({ ...initialShopState });
-      onClose();
-      return true;
+      
+      // 5. Close dialog only on success
+      setShop({ ...INITIAL_SHOP_STATE });
+      return true; // Indicate success
+      
     } catch (validationError) {
       if (validationError.inner) {
         validationError.inner.forEach((err) => {
           validationErrors[err.path] = { show: true, message: err.message };
         });
       }
+      
+      // Handle validation error display
       dispatch({
         type: "SET_VALIDATION_ERRORS",
         resource: "shops",
@@ -159,56 +162,44 @@ const useShopDialog = (initialShop = null) => {
         },
         showError: true,
       });
-      return;
+      return false; // Indicate failure
     }
   };
 
-  // -------------------------------
-  // Delete a shop.
-  // -------------------------------
+  // Simplified Delete Handler using deleteShopMutation
   const handleDeleteShop = async (selectedShop, onDeleteSuccess, onDeleteFailure) => {
     try {
-      const response = await sendRequest(`/api/shops/${selectedShop?._id}`, "DELETE");
-      if (response.error) {
+        await deleteShopMutation.mutateAsync(selectedShop._id);
+        onDeleteSuccess(selectedShop);
+        return true;
+    } catch (error) {
         onDeleteFailure(selectedShop);
         return false;
-      } else {
-        onDeleteSuccess(selectedShop);
-        dispatch({
-          type: "DELETE_ITEM",
-          resource: "shops",
-          payload: selectedShop._id,
-        });
-        queryClient.invalidateQueries({ queryKey: ["shops", "paginated"] });
-        return true;
-      }
-    } catch (error) {
-      onDeleteFailure(selectedShop);
-      return false;
     }
   };
 
-  // -------------------------------
-  // Error and validation state.
-  // -------------------------------
+  // --- Exposed State and Helpers ---
+
   const displayError = state.error?.shops;
   const validationError = state.validationErrors?.shops;
 
-  // Check if the form is valid.
+  // Simplified form validation check
   const isFormValid = () => {
-    return (
-      !validationError?.name &&
-      !validationError?.locationName &&
-      !validationError?.categoryName &&
-      shop?.name?.trim().length > 0 &&
-      shop?.locationName?.trim().length > 0 &&
-      shop?.categoryName?.trim().length > 0
-    );
+    const requiredFields = [shop?.name, shop?.locationName, shop?.categoryName];
+    // Check if all required fields are present (non-empty after trimming)
+    const allFieldsPopulated = requiredFields.every(field => field?.trim().length > 0);
+    
+    // Check if there are any active validation errors
+    const hasActiveValidationError = 
+      (validationError?.name?.show || validationError?.locationName?.show || validationError?.categoryName?.show);
+      
+    return allFieldsPopulated && !hasActiveValidationError;
   };
 
   return {
     isFormValid,
-    loading: loading || saveShopMutation.isLoading,
+    // Combine loading states from HTTP hook and save mutation
+    loading: loading || saveShopMutation.isPending || deleteShopMutation.isPending,
     handleSaveShop,
     handleDeleteShop,
     displayError,
