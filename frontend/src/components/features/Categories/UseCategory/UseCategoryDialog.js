@@ -6,87 +6,80 @@ import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { addCategoryValidationSchema } from "../../../../validation/validationSchema";
 import { StoreContext } from "../../../../Store/Store";
 
+const INITIAL_CATEGORY_STATE = { name: "" };
+
 const useCategoryDialog = (initialCategory = null) => {
-  // Memoize initial state
-  const initialCategoryState = useMemo(() => ({ name: "" }), []);
-
-  // Initialize state
-  const [category, setCategory] = useState(
-    initialCategory ? initialCategory : { ...initialCategoryState }
-  );
-
-  // Custom HTTP hook
+  const queryClient = useQueryClient();
   const { sendRequest, loading } = useCustomHttp("/api/categories");
-
-  // Global store context
   const { dispatch, state } = useContext(StoreContext);
 
-  // React Query client
-  const queryClient = useQueryClient();
+  // --------------------------------------------------------------------------
+  // State Management
+  // --------------------------------------------------------------------------
+  const [category, setCategory] = useState(
+    initialCategory
+      ? { ...INITIAL_CATEGORY_STATE, ...initialCategory }
+      : { ...INITIAL_CATEGORY_STATE }
+  );
 
-  // Error and validation reset functions
+  // --------------------------------------------------------------------------
+  // Helpers
+  // --------------------------------------------------------------------------
   const resetServerError = useCallback(() => {
-    dispatch({
-      type: "RESET_ERROR",
-      resource: "categories",
-    });
+    dispatch({ type: "RESET_ERROR", resource: "categories" });
   }, [dispatch]);
 
   const resetValidationErrors = useCallback(() => {
-    dispatch({
-      type: "RESET_VALIDATION_ERRORS",
-      resource: "categories",
-    });
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "categories" });
   }, [dispatch]);
 
-  // Form reset: resets the state and errors
   const resetFormAndErrors = useCallback(() => {
-    setCategory(initialCategory ? initialCategory : { ...initialCategoryState });
+    setCategory(
+      initialCategory
+        ? { ...INITIAL_CATEGORY_STATE, ...initialCategory }
+        : { ...INITIAL_CATEGORY_STATE }
+    );
     resetServerError();
     resetValidationErrors();
-  }, [initialCategory, initialCategoryState, resetServerError, resetValidationErrors]);
+  }, [initialCategory, resetServerError, resetValidationErrors]);
 
-  // Effect to update state when initialCategory changes and cleanup on unmount
+  // --------------------------------------------------------------------------
+  // Effects
+  // --------------------------------------------------------------------------
   useEffect(() => {
     if (initialCategory) {
-      setCategory((prevCategory) => ({
-        ...prevCategory,
-        ...initialCategory,
-      }));
+      setCategory({ ...INITIAL_CATEGORY_STATE, ...initialCategory });
     } else {
-      resetFormAndErrors();
+      setCategory({ ...INITIAL_CATEGORY_STATE });
     }
 
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "categories" });
     };
-  }, [initialCategory, resetFormAndErrors, dispatch]);
+  }, [initialCategory, dispatch]);
 
-  // Mutation for saving category with optimistic update and cache invalidation
+  // --------------------------------------------------------------------------
+  // Mutation: Save (Create/Update)
+  // --------------------------------------------------------------------------
   const saveCategoryMutation = useMutation({
     mutationFn: async (formattedCategory) => {
       const url = initialCategory
         ? `/api/categories/${initialCategory._id}`
         : "/api/categories";
       const method = initialCategory ? "PUT" : "POST";
-      const { data, error: apiError } = await sendRequest(url, method, formattedCategory);
-      if (apiError) {
-        throw new Error(data?.error || apiError);
-      }
+      
+      const { data, error } = await sendRequest(url, method, formattedCategory);
+      if (error) throw new Error(data?.error || error);
       return data;
     },
-    onMutate: async (formattedCategory) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["categories"] });
-      // Snapshot previous value
-      const previousCategories = queryClient.getQueryData(["categories"]);
-      // Optionally update the cache optimistically here (for add or update)
-      return { previousCategories };
+    onSuccess: (savedData) => {
+      resetServerError();
+      resetValidationErrors();
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      // Return data for handleSaveCategory to use
+      return savedData;
     },
-    onError: (error, formattedCategory, context) => {
-      if (context?.previousCategories) {
-        queryClient.setQueryData(["categories"], context.previousCategories);
-      }
+    onError: (error) => {
       dispatch({
         type: "SET_ERROR",
         error: error.message,
@@ -94,75 +87,84 @@ const useCategoryDialog = (initialCategory = null) => {
         showError: true,
       });
     },
-    onSuccess: () => {
-      // Reset errors and validation
-      dispatch({ type: "RESET_ERROR", resource: "categories" });
-      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "categories" });
-      // Invalidate queries so the list can refresh
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-    },
   });
 
-  // Save handler: validates, triggers the mutation, and resets the form
-  const handleSaveCategory = async (onClose) => {
-    if (!category.name.trim()) return;
-
-    let formattedCategory = { ...category };
-    let validationErrors = {};
-
-    try {
-      // Format the field and validate the category object
-      formattedCategory.name = formatComponentFields(category.name, "category", "name");
-      await addCategoryValidationSchema.validate(formattedCategory, { abortEarly: false });
-    } catch (validationError) {
-      if (validationError.inner) {
-        validationError.inner.forEach((err) => {
-          validationErrors[err.path] = { show: true, message: err.message };
-        });
-      }
-      dispatch({
-        type: "SET_VALIDATION_ERRORS",
-        resource: "categories",
-        validationErrors: {
-          ...state.validationErrors?.categories,
-          ...validationErrors,
-        },
-        showError: true,
-      });
-      return;
-    }
-
-    try {
-      await saveCategoryMutation.mutateAsync(formattedCategory);
-      // Reset the form and close on success
-      setCategory({ ...initialCategoryState });
-      onClose();
-      return true;
-    } catch (fetchError) {
-      dispatch({
-        type: "SET_ERROR",
-        error: fetchError.message,
-        resource: "categories",
-        showError: true,
-      });
-    }
-  };
-
-  // Delete handler (unchanged)
-  const handleDeleteCategory = async (selectedCategory, onDeleteSuccess, onDeleteFailure) => {
-    try {
-      const response = await sendRequest(`/api/categories/${selectedCategory?._id}`, "DELETE");
-      if (response.error) {
-        onDeleteFailure(selectedCategory);
-        return false;
-      }
-      onDeleteSuccess(selectedCategory);
+  // --------------------------------------------------------------------------
+  // Mutation: Delete (New implementation)
+  // --------------------------------------------------------------------------
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (categoryId) => {
+      const { error } = await sendRequest(`/api/categories/${categoryId}`, "DELETE");
+      if (error) throw new Error("Could not delete category");
+      return categoryId;
+    },
+    onSuccess: (deletedId) => {
       dispatch({
         type: "DELETE_ITEM",
         resource: "categories",
-        payload: selectedCategory._id,
+        payload: deletedId,
       });
-      queryClient.invalidateQueries({ queryKey: ["categories", "paginated"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+    onError: () => {
+      // Error handling is often done in the UI callback, but global state can be set here too
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Handlers
+  // --------------------------------------------------------------------------
+  const handleSaveCategory = async (onClose) => {
+    if (!category.name.trim()) return false;
+
+    resetServerError();
+    resetValidationErrors();
+
+    try {
+      // 1. Format
+      const formattedCategory = {
+        ...category,
+        name: formatComponentFields(category.name, "category", "name"),
+      };
+
+      // 2. Validate
+      await addCategoryValidationSchema.validate(formattedCategory, { abortEarly: false });
+
+      // 3. Mutate
+      const data = await saveCategoryMutation.mutateAsync(formattedCategory);
+      
+      // 4. Cleanup
+      setCategory({ ...INITIAL_CATEGORY_STATE });
+      onClose && onClose();
+      
+      // Return the saved data so the calling component can use it (e.g. updating a list immediately)
+      return data;
+
+    } catch (error) {
+      if (error.name === "ValidationError") {
+        const errors = {};
+        error.inner.forEach((err) => {
+          errors[err.path] = { show: true, message: err.message };
+        });
+
+        dispatch({
+          type: "SET_VALIDATION_ERRORS",
+          resource: "categories",
+          validationErrors: {
+            ...state.validationErrors?.categories,
+            ...errors,
+          },
+          showError: true,
+        });
+      }
+      return false;
+    }
+  };
+
+  const handleDeleteCategory = async (selectedCategory, onDeleteSuccess, onDeleteFailure) => {
+    try {
+      await deleteCategoryMutation.mutateAsync(selectedCategory._id);
+      onDeleteSuccess(selectedCategory);
       return true;
     } catch (error) {
       onDeleteFailure(selectedCategory);
@@ -170,17 +172,23 @@ const useCategoryDialog = (initialCategory = null) => {
     }
   };
 
-  // Expose error and validation states
+  // --------------------------------------------------------------------------
+  // Return
+  // --------------------------------------------------------------------------
   const displayError = state.error?.categories;
   const validationError = state.validationErrors?.categories;
 
   const isFormValid = () => {
-    return category?.name?.trim().length > 0 && !validationError?.name;
+    const hasRequired = category?.name?.trim().length > 0;
+    const hasNoErrors = !validationError?.name;
+    return hasRequired && hasNoErrors;
   };
+
+  const isLoading = loading || saveCategoryMutation.isPending || deleteCategoryMutation.isPending;
 
   return {
     isFormValid,
-    loading: loading || saveCategoryMutation.isLoading,
+    loading: isLoading,
     handleSaveCategory,
     handleDeleteCategory,
     displayError,

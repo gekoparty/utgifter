@@ -6,81 +6,77 @@ import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../../Store/Store";
 import { addProductValidationSchema } from "../../../../validation/validationSchema";
 
+const INITIAL_PRODUCT_STATE = {
+  name: "",
+  brands: [],
+  measures: [],
+  measurementUnit: "",
+  type: "",
+};
+
 const useProductDialog = (initialProduct = null) => {
-  // Initialize product state with memoization to prevent unnecessary recalculations
-  const initialProductState = useMemo(
-    () => ({
-      name: "",
-      brands: [], // Initialize brands as an empty array
-      measures: [], // Ensure measures is an array
-      measurementUnit: "",
-      type: "",
-    }),
-    []
-  );
-
   const queryClient = useQueryClient();
-
-  // Local state to manage the product form
-  const [product, setProduct] = useState(
-    initialProduct ? initialProduct : { ...initialProductState }
-  );
-
-  // Custom hook for HTTP requests
   const { sendRequest, loading } = useCustomHttp("/api/products");
-
-  // Context for global store management
   const { dispatch, state } = useContext(StoreContext);
 
-  // Reset server errors in the global store
+  // --------------------------------------------------------------------------
+  // State Management
+  // --------------------------------------------------------------------------
+  // Initialize state merging default structure with passed initial data
+  const [product, setProduct] = useState(
+    initialProduct
+      ? { ...INITIAL_PRODUCT_STATE, ...initialProduct }
+      : { ...INITIAL_PRODUCT_STATE }
+  );
+
+  // --------------------------------------------------------------------------
+  // Helpers
+  // --------------------------------------------------------------------------
   const resetServerError = useCallback(() => {
-    dispatch({
-      type: "RESET_ERROR",
-      resource: "products",
-    });
+    dispatch({ type: "RESET_ERROR", resource: "products" });
   }, [dispatch]);
 
-  // Reset validation errors in the global store
   const resetValidationErrors = useCallback(() => {
-    dispatch({
-      type: "RESET_VALIDATION_ERRORS",
-      resource: "products",
-    });
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
   }, [dispatch]);
 
-  // Reset the form and clear all errors
   const resetFormAndErrors = useCallback(() => {
-    setProduct(initialProduct ? initialProduct : initialProductState);
+    setProduct(
+      initialProduct
+        ? { ...INITIAL_PRODUCT_STATE, ...initialProduct }
+        : { ...INITIAL_PRODUCT_STATE }
+    );
     resetServerError();
     resetValidationErrors();
-  }, [
-    initialProduct,
-    initialProductState,
-    resetServerError,
-    resetValidationErrors,
-  ]);
+  }, [initialProduct, resetServerError, resetValidationErrors]);
 
+  // --------------------------------------------------------------------------
+  // Effects
+  // --------------------------------------------------------------------------
+  // Sync state when initialProduct changes
   useEffect(() => {
     if (initialProduct) {
-      setProduct((prevProduct) => ({
-        ...prevProduct,
+      setProduct({
+        ...INITIAL_PRODUCT_STATE,
         ...initialProduct,
         measurementUnit: initialProduct.measurementUnit || "",
         measures: initialProduct.measures || [],
-      }));
+      });
     } else {
-      resetFormAndErrors();
+      setProduct({ ...INITIAL_PRODUCT_STATE });
     }
 
-    // Cleanup: clear products and brands resources and remove the brands cache
+    // Cleanup resources on unmount
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "products" });
       dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
       queryClient.removeQueries({ queryKey: ["brands"] });
     };
-  }, [initialProduct, resetFormAndErrors, dispatch, queryClient]);
+  }, [initialProduct, dispatch, queryClient]);
 
-  // Define the mutation function for saving (create/update) a product.
+  // --------------------------------------------------------------------------
+  // Mutation: Save (Create/Update)
+  // --------------------------------------------------------------------------
   const saveProductMutation = useMutation({
     mutationFn: async (formattedProduct) => {
       const url = initialProduct
@@ -88,41 +84,18 @@ const useProductDialog = (initialProduct = null) => {
         : "/api/products";
       const method = initialProduct ? "PUT" : "POST";
 
-      const { data, error: addDataError } = await sendRequest(
-        url,
-        method,
-        formattedProduct
-      );
-      if (addDataError) {
-        throw new Error(data.error || addDataError);
-      }
+      const { data, error } = await sendRequest(url, method, formattedProduct);
+      if (error) throw new Error(data?.error || error);
       return data;
     },
-    onMutate: async (formattedProduct) => {
-      await queryClient.cancelQueries(["products"]);
-      const previousProducts = queryClient.getQueryData(["products"]);
-
-      if (initialProduct) {
-        queryClient.setQueryData(["products"], (oldProducts = []) =>
-          oldProducts.map((p) =>
-            p._id === initialProduct._id ? { ...p, ...formattedProduct } : p
-          )
-        );
-      } else {
-        queryClient.setQueryData(["products"], (oldProducts = []) => [
-          ...oldProducts,
-          {
-            ...formattedProduct,
-            _id: Math.random().toString(36).substr(2, 9),
-          },
-        ]);
-      }
-      return { previousProducts };
+    onSuccess: () => {
+      resetServerError();
+      resetValidationErrors();
+      // Invalidate to fetch fresh data
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
     },
-    onError: (error, formattedProduct, context) => {
-      if (context?.previousProducts) {
-        queryClient.setQueryData(["products"], context.previousProducts);
-      }
+    onError: (error) => {
       dispatch({
         type: "SET_ERROR",
         error: error.message,
@@ -130,126 +103,124 @@ const useProductDialog = (initialProduct = null) => {
         showError: true,
       });
     },
-    onSuccess: (data) => {
-      dispatch({ type: "RESET_ERROR", resource: "products" });
-      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "products" });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["brands"] });
-    },
   });
 
-  // Validate and handle product save (create/update)
+  // --------------------------------------------------------------------------
+  // Mutation: Delete (New implementation)
+  // --------------------------------------------------------------------------
+  const deleteProductMutation = useMutation({
+    mutationFn: async (productId) => {
+      const { error } = await sendRequest(`/api/products/${productId}`, "DELETE");
+      if (error) throw new Error("Could not delete product");
+      return productId;
+    },
+    onSuccess: (deletedId) => {
+      dispatch({
+        type: "DELETE_ITEM",
+        resource: "products",
+        payload: deletedId,
+      });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+    },
+    onError: () => {
+        // Error handling handled by the failure callback in component usually,
+        // but we can set global error here too if desired.
+    }
+  });
+
+  // --------------------------------------------------------------------------
+  // Handlers
+  // --------------------------------------------------------------------------
   const handleSaveProduct = async (onClose) => {
     if (!product.name.trim() || product.brands.length === 0) {
-      return false; // or throw an error if required
-    }
-
-    let formattedProduct = { ...product };
-    let validationErrors = {};
-
-    try {
-      // Format fields for consistency
-      formattedProduct.name = formatComponentFields(
-        product.name,
-        "product",
-        "name"
-      );
-      formattedProduct.brands = product.brands.map((brand) =>
-        formatComponentFields(brand, "product", "brands")
-      );
-      formattedProduct.type = formatComponentFields(
-        product.type,
-        "product",
-        "type"
-      );
-
-      // Validate the product using the schema
-      await addProductValidationSchema.validate(formattedProduct, {
-        abortEarly: false,
-      });
-    } catch (validationError) {
-      if (validationError.inner) {
-        validationError.inner.forEach((err) => {
-          validationErrors[err.path] = { show: true, message: err.message };
-        });
-      }
-      dispatch({
-        type: "SET_VALIDATION_ERRORS",
-        resource: "products",
-        validationErrors: {
-          ...state.validationErrors?.products,
-          ...validationErrors,
-        },
-        showError: true,
-      });
       return false;
     }
 
+    resetServerError();
+    resetValidationErrors();
+
     try {
-      // Use mutateAsync so we get a promise back and can check the result.
+      // 1. Format
+      const formattedProduct = {
+        ...product,
+        name: formatComponentFields(product.name, "product", "name"),
+        brands: product.brands.map((brand) =>
+          formatComponentFields(brand, "product", "brands")
+        ),
+        type: formatComponentFields(product.type, "product", "type"),
+      };
+
+      // 2. Validate
+      await addProductValidationSchema.validate(formattedProduct, {
+        abortEarly: false,
+      });
+
+      // 3. Mutate
       const data = await saveProductMutation.mutateAsync(formattedProduct);
       setProduct(data);
       onClose && onClose();
       return true;
+
     } catch (error) {
-      // Optionally, log or handle error here
+      if (error.name === "ValidationError") {
+        const errors = {};
+        error.inner.forEach((err) => {
+          errors[err.path] = { show: true, message: err.message };
+        });
+
+        dispatch({
+          type: "SET_VALIDATION_ERRORS",
+          resource: "products",
+          validationErrors: {
+            ...state.validationErrors?.products,
+            ...errors,
+          },
+          showError: true,
+        });
+      }
       return false;
     }
   };
 
-  // Delete a product
-  const handleDeleteProduct = async (
-    selectedProduct,
-    onDeleteSuccess,
-    onDeleteFailure
-  ) => {
+  const handleDeleteProduct = async (selectedProduct, onDeleteSuccess, onDeleteFailure) => {
     try {
-      const response = await sendRequest(
-        `/api/products/${selectedProduct?._id}`,
-        "DELETE"
-      );
-      if (response.error) {
-        onDeleteFailure(selectedProduct);
-        return false;
-      } else {
-        onDeleteSuccess(selectedProduct);
-        dispatch({
-          type: "DELETE_ITEM",
-          resource: "products",
-          payload: selectedProduct._id,
-        });
-        queryClient.invalidateQueries({ queryKey: ["products"] });
-        return true;
-      }
+      await deleteProductMutation.mutateAsync(selectedProduct._id);
+      onDeleteSuccess(selectedProduct);
+      return true;
     } catch (error) {
       onDeleteFailure(selectedProduct);
       return false;
     }
   };
 
-  // Error and validation state from the global store
+  // --------------------------------------------------------------------------
+  // Validation Check & Return
+  // --------------------------------------------------------------------------
   const displayError = state.error?.products;
   const validationError = state.validationErrors?.products;
 
-  // Check if the form is valid
   const isFormValid = () => {
-    return (
-      !validationError?.name &&
-      !validationError?.brands &&
-      !validationError?.measurementUnit &&
-      !validationError?.type &&
-      product?.name?.trim().length > 0 &&
-      product?.brands?.length > 0 &&
-      product?.measurementUnit?.trim().length > 0 &&
-      product?.type?.length > 0
-    );
+    const hasRequiredFields = 
+        product?.name?.trim().length > 0 &&
+        product?.brands?.length > 0 &&
+        product?.measurementUnit?.trim().length > 0 &&
+        product?.type?.length > 0;
+    
+    const hasNoValidationErrors = 
+        !validationError?.name &&
+        !validationError?.brands &&
+        !validationError?.measurementUnit &&
+        !validationError?.type;
+
+    return hasRequiredFields && hasNoValidationErrors;
   };
+
+  // Combine loading states
+  const isLoading = loading || saveProductMutation.isPending || deleteProductMutation.isPending;
 
   return {
     isFormValid,
-    loading: loading || saveProductMutation.isPending,
+    loading: isLoading,
     handleSaveProduct,
     handleDeleteProduct,
     displayError,
@@ -263,7 +234,7 @@ const useProductDialog = (initialProduct = null) => {
 };
 
 useProductDialog.propTypes = {
-  initialProduct: PropTypes.object, // Optional prop for initializing the product
+  initialProduct: PropTypes.object,
 };
 
 export default useProductDialog;
