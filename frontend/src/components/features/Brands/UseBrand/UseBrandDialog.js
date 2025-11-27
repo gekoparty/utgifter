@@ -6,87 +6,81 @@ import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../../validation/validationSchema";
 import { StoreContext } from "../../../../Store/Store";
 
+const INITIAL_BRAND_STATE = { name: "" };
+
 const useBrandDialog = (initialBrand = null) => {
-  // Memoize initial state
-  const initialBrandState = useMemo(() => ({ name: "" }), []);
-
-  // Initialize state
-  const [brand, setBrand] = useState(
-    initialBrand ? initialBrand : { ...initialBrandState }
-  );
-
-  // Custom HTTP hook
+  const queryClient = useQueryClient();
   const { sendRequest, loading } = useCustomHttp("/api/brands");
-
-  // Global store context
   const { dispatch, state } = useContext(StoreContext);
 
-  // React Query client
-  const queryClient = useQueryClient();
+  // --------------------------------------------------------------------------
+  // State Management
+  // --------------------------------------------------------------------------
+  const [brand, setBrand] = useState(
+    initialBrand
+      ? { ...INITIAL_BRAND_STATE, ...initialBrand }
+      : { ...INITIAL_BRAND_STATE }
+  );
 
-  // Error and validation reset functions
+  // --------------------------------------------------------------------------
+  // Helpers
+  // --------------------------------------------------------------------------
   const resetServerError = useCallback(() => {
-    dispatch({
-      type: "RESET_ERROR",
-      resource: "brands",
-    });
+    dispatch({ type: "RESET_ERROR", resource: "brands" });
   }, [dispatch]);
 
   const resetValidationErrors = useCallback(() => {
-    dispatch({
-      type: "RESET_VALIDATION_ERRORS",
-      resource: "brands",
-    });
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
   }, [dispatch]);
 
-  // Form reset: resets the state and errors
   const resetFormAndErrors = useCallback(() => {
-    setBrand(initialBrand ? initialBrand : { ...initialBrandState });
+    setBrand(
+      initialBrand
+        ? { ...INITIAL_BRAND_STATE, ...initialBrand }
+        : { ...INITIAL_BRAND_STATE }
+    );
     resetServerError();
     resetValidationErrors();
-  }, [initialBrand, initialBrandState, resetServerError, resetValidationErrors]);
+  }, [initialBrand, resetServerError, resetValidationErrors]);
 
-  // Effect to update state when initialBrand changes and cleanup on unmount
+  // --------------------------------------------------------------------------
+  // Effects
+  // --------------------------------------------------------------------------
   useEffect(() => {
     if (initialBrand) {
-      setBrand((prevBrand) => ({
-        ...prevBrand,
-        ...initialBrand,
-      }));
+      setBrand({ ...INITIAL_BRAND_STATE, ...initialBrand });
     } else {
-      resetFormAndErrors();
+      setBrand({ ...INITIAL_BRAND_STATE });
     }
 
     return () => {
       dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
     };
-  }, [initialBrand, resetFormAndErrors, dispatch]);
+  }, [initialBrand, dispatch]);
 
-  // Mutation for saving brand with optimistic update and cache invalidation
+  // --------------------------------------------------------------------------
+  // Mutation: Save (Create/Update)
+  // --------------------------------------------------------------------------
   const saveBrandMutation = useMutation({
     mutationFn: async (formattedBrand) => {
       const url = initialBrand
         ? `/api/brands/${initialBrand._id}`
         : "/api/brands";
       const method = initialBrand ? "PUT" : "POST";
-      const { data, error: apiError } = await sendRequest(url, method, formattedBrand);
-      if (apiError) {
-        throw new Error(data?.error || apiError);
-      }
+
+      const { data, error } = await sendRequest(url, method, formattedBrand);
+      if (error) throw new Error(data?.error || error);
       return data;
     },
-    onMutate: async (formattedBrand) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["brands"] });
-      // Snapshot previous value
-      const previousBrands = queryClient.getQueryData(["brands"]);
-      // Optionally update the cache optimistically here (for add or update)
-      return { previousBrands };
+    onSuccess: (savedData) => {
+      resetServerError();
+      resetValidationErrors();
+      // Invalidate queries so the list can refresh
+      queryClient.invalidateQueries({ queryKey: ["brands"] });
+      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
+      return savedData;
     },
-    onError: (error, formattedBrand, context) => {
-      if (context?.previousBrands) {
-        queryClient.setQueryData(["brands"], context.previousBrands);
-      }
+    onError: (error) => {
       dispatch({
         type: "SET_ERROR",
         error: error.message,
@@ -94,77 +88,81 @@ const useBrandDialog = (initialBrand = null) => {
         showError: true,
       });
     },
-    onSuccess: () => {
-      // Reset errors and validation
-      dispatch({ type: "RESET_ERROR", resource: "brands" });
-      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
-      // Invalidate queries so the list can refresh
-      queryClient.invalidateQueries({ queryKey: ["brands"] });
-    },
   });
 
-  // Save handler: validates, triggers the mutation, and resets the form
-  const handleSaveBrand = async (onClose) => {
-    if (!brand.name.trim()) return;
-
-    let formattedBrand = { ...brand };
-    let validationErrors = {};
-
-    try {
-      // Format the field and validate the brand object
-      formattedBrand.name = formatComponentFields(brand.name, "brand", "name");
-      await addBrandValidationSchema.validate(formattedBrand, { abortEarly: false });
-    } catch (validationError) {
-      if (validationError.inner) {
-        validationError.inner.forEach((err) => {
-          validationErrors[err.path] = { show: true, message: err.message };
-        });
-      }
-      dispatch({
-        type: "SET_VALIDATION_ERRORS",
-        resource: "brands",
-        validationErrors: {
-          ...state.validationErrors?.brands,
-          ...validationErrors,
-        },
-        showError: true,
-      });
-      return;
-    }
-
-    try {
-      await saveBrandMutation.mutateAsync(formattedBrand);
-      // Reset the form and close on success
-      setBrand({ ...initialBrandState });
-      onClose();
-      return true;
-    } catch (fetchError) {
-      dispatch({
-        type: "SET_ERROR",
-        error: fetchError.message,
-        resource: "brands",
-        showError: true,
-      });
-    }
-  };
-
-  // Delete handler with cache invalidation
-  const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
-    try {
-      const response = await sendRequest(`/api/brands/${selectedBrand?._id}`, "DELETE");
-      if (response.error) {
-        onDeleteFailure(selectedBrand);
-        return false;
-      }
-      onDeleteSuccess(selectedBrand);
+  // --------------------------------------------------------------------------
+  // ✅ NEW Mutation: Delete
+  // --------------------------------------------------------------------------
+  const deleteBrandMutation = useMutation({
+    mutationFn: async (brandId) => {
+      const { error } = await sendRequest(`/api/brands/${brandId}`, "DELETE");
+      if (error) throw new Error("Could not delete brand");
+      return brandId;
+    },
+    onSuccess: (deletedId) => {
       dispatch({
         type: "DELETE_ITEM",
         resource: "brands",
-        payload: selectedBrand._id,
+        payload: deletedId,
       });
-      // Invalidate the brands queries to refresh the data
-      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
       queryClient.invalidateQueries({ queryKey: ["brands"] });
+      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
+    },
+  });
+
+  // --------------------------------------------------------------------------
+  // Handlers
+  // --------------------------------------------------------------------------
+  const handleSaveBrand = async (onClose) => {
+    if (!brand.name.trim()) return false;
+
+    resetServerError();
+    resetValidationErrors();
+
+    try {
+      // 1. Format
+      const formattedBrand = {
+        ...brand,
+        name: formatComponentFields(brand.name, "brand", "name"),
+      };
+
+      // 2. Validate
+      await addBrandValidationSchema.validate(formattedBrand, { abortEarly: false });
+
+      // 3. Mutate
+      const data = await saveBrandMutation.mutateAsync(formattedBrand);
+
+      // 4. Cleanup
+      setBrand({ ...INITIAL_BRAND_STATE });
+      onClose && onClose();
+
+      return data;
+
+    } catch (error) {
+      if (error.name === "ValidationError") {
+        const errors = {};
+        error.inner.forEach((err) => {
+          errors[err.path] = { show: true, message: err.message };
+        });
+
+        dispatch({
+          type: "SET_VALIDATION_ERRORS",
+          resource: "brands",
+          validationErrors: {
+            ...state.validationErrors?.brands,
+            ...errors,
+          },
+          showError: true,
+        });
+      }
+      return false;
+    }
+  };
+
+  const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
+    try {
+      await deleteBrandMutation.mutateAsync(selectedBrand._id);
+      onDeleteSuccess(selectedBrand);
       return true;
     } catch (error) {
       onDeleteFailure(selectedBrand);
@@ -172,7 +170,9 @@ const useBrandDialog = (initialBrand = null) => {
     }
   };
 
-  // Expose error and validation states
+  // --------------------------------------------------------------------------
+  // Return
+  // --------------------------------------------------------------------------
   const displayError = state.error?.brands;
   const validationError = state.validationErrors?.brands;
 
@@ -180,9 +180,11 @@ const useBrandDialog = (initialBrand = null) => {
     return brand?.name?.trim().length > 0 && !validationError?.name;
   };
 
+  const isLoading = loading || saveBrandMutation.isPending || deleteBrandMutation.isPending;
+
   return {
     isFormValid,
-    loading: loading || saveBrandMutation.isLoading,
+    loading: isLoading,
     handleSaveBrand,
     handleDeleteBrand,
     displayError,
