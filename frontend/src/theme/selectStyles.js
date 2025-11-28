@@ -20,19 +20,19 @@ export const getSelectStyles = (theme) => {
 
     control: (base, state) => ({
       ...base,
-      backgroundColor: isDark
-        ? theme.palette.background.default
-        : "#fff",
+      width: "100%",
+      backgroundColor: isDark ? theme.palette.background.default : "#fff",
       color: isDark ? "#fff" : "#000",
-      borderColor: state.isFocused
-        ? theme.palette.primary.main
-        : theme.palette.divider,
-      boxShadow: state.isFocused
-        ? `0 0 0 1px ${theme.palette.primary.main}`
-        : "none",
+      borderColor: state.isFocused ? theme.palette.primary.main : theme.palette.divider,
+      boxShadow: state.isFocused ? `0 0 0 1px ${theme.palette.primary.main}` : "none",
       "&:hover": {
         borderColor: theme.palette.primary.main,
       },
+    }),
+
+    container: (base) => ({
+      ...base,
+      width: "100%",
     }),
 
     singleValue: (base) => ({

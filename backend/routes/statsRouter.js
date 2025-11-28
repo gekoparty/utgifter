@@ -108,9 +108,11 @@ router.get('/price-history', async (req, res, next) => {
 
   try {
     const data = await Expense.aggregate([
+      // 1. Match Product
       {
         $match: { productName: new mongoose.Types.ObjectId(productId) }
       },
+      // 2. Join Product (to get name/unit)
       {
         $lookup: {
           from: 'products',
@@ -120,6 +122,7 @@ router.get('/price-history', async (req, res, next) => {
         }
       },
       { $unwind: '$product' },
+      // 3. Join Shop (to get shop name)
       {
         $lookup: {
           from: 'shops',
@@ -129,14 +132,29 @@ router.get('/price-history', async (req, res, next) => {
         }
       },
       { $unwind: '$shop' },
+      // 4. NEW: Join Brand (to get brand name for stats)
+      {
+        $lookup: {
+          from: 'brands',
+          localField: 'brandName',
+          foreignField: '_id',
+          as: 'brand'
+        }
+      },
+      { $unwind: '$brand' },
+      // 5. Project
       {
         $project: {
           _id: 0,
           date: { $ifNull: ['$purchaseDate', '$registeredDate'] },
           pricePerUnit: 1,
+          finalPrice: 1, // Useful for reference
           productName: '$product.name',
           measurementUnit: '$product.measurementUnit',
-          shopName: '$shop.name'
+          shopName: '$shop.name',
+          brandName: '$brand.name', // NEW
+          hasDiscount: 1,           // NEW
+          discountValue: 1          // NEW (Optional, if you want to show how much %)
         }
       },
       { $sort: { date: 1 } }
@@ -148,5 +166,4 @@ router.get('/price-history', async (req, res, next) => {
     next(err);
   }
 });
-
 export default router;

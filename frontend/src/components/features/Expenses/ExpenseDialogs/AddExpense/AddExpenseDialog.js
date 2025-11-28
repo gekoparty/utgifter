@@ -386,65 +386,65 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
             </Stack>
 
             {/* PRICE */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <Box flex={1}>
-              <ExpenseField
-                label="Pris"
-                type="number"
-                value={expense.price}
-                onChange={(e) =>
-                  setExpense((prev) => ({
-                    ...prev,
-                    price: parseFloat(e.target.value),
-                  }))
-                }
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
-                }}
-              />
-            </Box>
-              
-
-            {/* VOLUME SELECT OR FIELD */}
-            <Box flex={1}>
-              {expense.measurementUnit &&
-              selectedProduct &&
-              selectedProduct.measures?.length > 0 ? (
-                <WindowedSelect
-                  isClearable
-                  options={selectedProduct.measures.map((m) => ({
-                    label: m.toString(),
-                    value: m,
-                  }))}
-                  value={
-                    expense.volume
-                      ? { label: expense.volume.toString(), value: expense.volume }
-                      : null
-                  }
-                  onChange={handleVolumeChange}
-                  placeholder="Velg volum"
-                  menuPortalTarget={document.body}
-                  styles={selectStyles}
-                />
-              ) : (
-                <ExpenseField
-                  label="Volum (manuelt)"
-                  type="number"
-                  value={expense.volume || ""}
-                  onChange={(e) =>
-                    handleFieldChange("volume", parseFloat(e.target.value) || 0)
-                  }
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        {expense.measurementUnit}
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              )}
-            </Box>
-            </Stack>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+  <Box sx={{ flex: 1, width: '100%' }}>
+    <ExpenseField
+      label="Pris"
+      type="number"
+      value={expense.price}
+      onChange={(e) =>
+        setExpense((prev) => ({
+          ...prev,
+          price: parseFloat(e.target.value),
+        }))
+      }
+      InputProps={{
+        startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+      }}
+      fullWidth
+    />
+  </Box>
+  
+  <Box sx={{ flex: 1, width: '100%', minWidth: '200px' }}>
+    {expense.measurementUnit &&
+    selectedProduct &&
+    selectedProduct.measures?.length > 0 ? (
+      <WindowedSelect
+        isClearable
+        options={selectedProduct.measures.map((m) => ({
+          label: m.toString(),
+          value: m,
+        }))}
+        value={
+          expense.volume
+            ? { label: expense.volume.toString(), value: expense.volume }
+            : null
+        }
+        onChange={handleVolumeChange}
+        placeholder="Velg volum"
+        menuPortalTarget={document.body}
+        styles={selectStyles}
+      />
+    ) : (
+      <ExpenseField
+        label="Volum (manuelt)"
+        type="number"
+        value={expense.volume || ""}
+        onChange={(e) =>
+          handleFieldChange("volume", parseFloat(e.target.value) || 0)
+        }
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              {expense.measurementUnit}
+            </InputAdornment>
+          ),
+        }}
+        fullWidth
+      />
+    )}
+  </Box>
+</Stack>
 
             {/* PRICE PER UNIT */}
             <Box>
