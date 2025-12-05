@@ -1,6 +1,7 @@
 
 import { useState, useMemo, lazy, Suspense, useCallback } from "react";
-import { Box, Button, Snackbar, Alert, IconButton } from "@mui/material";
+import { Popover,Typography,TextField, Box, Button, Snackbar, Alert, IconButton } from "@mui/material";
+import FilterListIcon from '@mui/icons-material/FilterList';
 import CloseIcon from "@mui/icons-material/Close";
 import { useTheme } from "@mui/material/styles";
 import ReactTable from "../components/commons/React-Table/react-table";
@@ -43,6 +44,77 @@ const INITIAL_SELECTED_EXPENSE = {
   type: "",
   measurementUnit: "",
   pricePerUnit: 0,
+};
+
+const DateRangeFilter = ({ column }) => {
+  const filterValue = column.getFilterValue() || ["", ""];
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const open = Boolean(anchorEl);
+
+  const handleDateChange = (index, newValue) => {
+    const newFilter = [...filterValue];
+    newFilter[index] = newValue;
+
+    // If both are empty, clear filter. If one is set, set filter.
+    if (!newFilter[0] && !newFilter[1]) {
+      column.setFilterValue(undefined);
+    } else {
+      column.setFilterValue(newFilter);
+    }
+  };
+
+  return (
+    <>
+      <IconButton onClick={handleClick} size="small" color={filterValue[0] || filterValue[1] ? "primary" : "default"}>
+        <FilterListIcon fontSize="small" />
+      </IconButton>
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="subtitle2">Velg periode</Typography>
+          <TextField
+            label="Fra"
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={filterValue[0] || ""}
+            onChange={(e) => handleDateChange(0, e.target.value)}
+          />
+          <TextField
+            label="Til"
+            type="date"
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={filterValue[1] || ""}
+            onChange={(e) => handleDateChange(1, e.target.value)}
+          />
+          <Button size="small" onClick={() => { column.setFilterValue(undefined); handleClose(); }}>
+            Nullstill
+          </Button>
+        </Box>
+      </Popover>
+    </>
+  );
 };
 
 const ExpenseScreen = () => {
@@ -220,9 +292,14 @@ const ExpenseScreen = () => {
         },
       },
       { accessorKey: "shopName", header: "Butikk" },
-      {
+     {
         accessorKey: "purchaseDate",
         header: "Kjøpsdato",
+        // 1. Add the Custom Filter UI
+        Filter: ({ column }) => <DateRangeFilter column={column} />, 
+        // 2. Enable filtering
+        enableColumnFilter: true, 
+        // 3. Keep your existing cell formatter
         Cell: ({ cell }) =>
           cell.getValue() ? new Date(cell.getValue()).toLocaleDateString() : "Ugyldig dato",
       },
