@@ -19,12 +19,41 @@ const getReferenceIds = async (model, field, value) =>
 
 const filterByDate = (query, id, value) => {
   const timeZone = "Europe/Oslo";
-  const date = new Date(value);
-  if (!isNaN(date.getTime())) {
+
+  // Helper to process a single date string into start/end of day
+  const getDayRange = (dateStr) => {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+
     const zonedDate = toZonedTime(date, timeZone);
-    const startOfDay = fromZonedTime(new Date(zonedDate.setHours(0, 0, 0, 0)), timeZone);
-    const endOfDay = fromZonedTime(new Date(zonedDate.setHours(23, 59, 59, 999)), timeZone);
-    query.where(id).gte(startOfDay).lte(endOfDay);
+    return {
+      start: fromZonedTime(
+        new Date(zonedDate.setHours(0, 0, 0, 0)),
+        timeZone
+      ),
+      end: fromZonedTime(
+        new Date(zonedDate.setHours(23, 59, 59, 999)),
+        timeZone
+      ),
+    };
+  };
+
+  if (Array.isArray(value) && value.length === 2) {
+    // Handle Range: [Start, End]
+    const from = getDayRange(value[0]);
+    const to = getDayRange(value[1]);
+
+    if (from && to) {
+      // Greater than or equal to Start of From-Date
+      // Less than or equal to End of To-Date
+      query.where(id).gte(from.start).lte(to.end);
+    }
+  } else {
+    // Handle Single Date (Existing logic)
+    const range = getDayRange(value);
+    if (range) {
+      query.where(id).gte(range.start).lte(range.end);
+    }
   }
 };
 
