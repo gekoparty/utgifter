@@ -1,80 +1,119 @@
 import express from "express";
-import slugify from "slugify";
 import Expense from "../models/expenseSchema.js";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
-import Location from "../models/locationScema.js";
+import Location from "../models/locationScema.js"; // Typo in filename preserved
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
-import { format, parse, isValid, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 const expensesRouter = express.Router();
+const TIME_ZONE = "Europe/Oslo";
 
-// Utility Functions
+// --- Utility Functions ---
+
 const formatDate = (date) =>
   date ? format(new Date(date), "dd MMMM yyyy") : "";
 
-const getReferenceIds = async (model, field, value) =>
-  value ? model.find({ [field]: new RegExp(value, "i") }).distinct("_id") : [];
+// Parallelized Reference Lookup
+const getReferenceIds = async (model, field, value) => {
+  if (!value) return [];
+  // Use regex to find matching IDs
+  return model.find({ [field]: new RegExp(value, "i") }).distinct("_id");
+};
 
 const filterByDate = (query, id, value) => {
-  const timeZone = "Europe/Oslo";
-
-  // Helper to process a single date string into start/end of day
-  const getDayRange = (dateStr) => {
+  // Helper: Converts YYYY-MM-DD string to UTC Date Object representing Start/End of that day in Oslo
+  const getDateBoundary = (dateStr, type) => {
+    if (!dateStr) return null;
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return null;
 
-    const zonedDate = toZonedTime(date, timeZone);
-    return {
-      start: fromZonedTime(
-        new Date(zonedDate.setHours(0, 0, 0, 0)),
-        timeZone
-      ),
-      end: fromZonedTime(
-        new Date(zonedDate.setHours(23, 59, 59, 999)),
-        timeZone
-      ),
-    };
+    // 1. Interpret the date as existing in Oslo time
+    const zonedDate = toZonedTime(date, TIME_ZONE);
+    
+    // 2. Set hours based on start or end of day
+    if (type === 'start') {
+      zonedDate.setHours(0, 0, 0, 0);
+    } else {
+      zonedDate.setHours(23, 59, 59, 999);
+    }
+
+    // 3. Convert back to UTC for MongoDB comparison
+    return fromZonedTime(zonedDate, TIME_ZONE);
   };
 
-  if (Array.isArray(value) && value.length === 2) {
-    // Handle Range: [Start, End]
-    const from = getDayRange(value[0]);
-    const to = getDayRange(value[1]);
+  if (Array.isArray(value)) {
+    // Handle Range: [Start, End] - Supports partial ranges
+    const startStr = value[0];
+    const endStr = value[1];
 
-    if (from && to) {
-      // Greater than or equal to Start of From-Date
-      // Less than or equal to End of To-Date
-      query.where(id).gte(from.start).lte(to.end);
+    const startDate = getDateBoundary(startStr, 'start');
+    const endDate = getDateBoundary(endStr, 'end');
+
+    if (startDate && endDate) {
+      query.where(id).gte(startDate).lte(endDate);
+    } else if (startDate) {
+      query.where(id).gte(startDate); // Open ended: From X onwards
+    } else if (endDate) {
+      query.where(id).lte(endDate);   // Open ended: Until X
     }
   } else {
-    // Handle Single Date (Existing logic)
-    const range = getDayRange(value);
-    if (range) {
-      query.where(id).gte(range.start).lte(range.end);
+    // Handle Single Date (Specific Day)
+    const start = getDateBoundary(value, 'start');
+    const end = getDateBoundary(value, 'end');
+    if (start && end) {
+      query.where(id).gte(start).lte(end);
     }
   }
 };
 
 const applyFilters = async (query, filters) => {
+  // 1. Separate filters into "Simple" (Regex) and "Complex" (Date/Relations)
+  const referenceFilters = [];
+  const dateFilters = [];
+  const regexFilters = [];
+
   for (const { id, value } of filters) {
-    if (!id || !value) continue;
+    if (!id || (!value && value !== 0)) continue; // Skip empty filters
 
     if (["purchaseDate", "registeredDate"].includes(id)) {
-      filterByDate(query, id, value);
+      dateFilters.push({ id, value });
     } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
-      const modelMap = {
-        productName: Product,
-        brandName: Brand,
-        shopName: Shop,
-        locationName: Location,
-      };
-      const matchingIds = await getReferenceIds(modelMap[id], "name", value);
-      query.where(id).in(matchingIds);
+      referenceFilters.push({ id, value });
     } else {
-      query.where(id).regex(new RegExp(value, "i"));
+      regexFilters.push({ id, value });
     }
+  }
+
+  // 2. Apply Date Filters
+  dateFilters.forEach(({ id, value }) => filterByDate(query, id, value));
+
+  // 3. Apply Regex Filters
+  regexFilters.forEach(({ id, value }) => {
+    query.where(id).regex(new RegExp(value, "i"));
+  });
+
+  // 4. Resolve Reference Filters in PARALLEL (Faster)
+  if (referenceFilters.length > 0) {
+    const modelMap = {
+      productName: Product,
+      brandName: Brand,
+      shopName: Shop,
+      locationName: Location,
+    };
+
+    const promises = referenceFilters.map(async ({ id, value }) => {
+      const ids = await getReferenceIds(modelMap[id], "name", value);
+      return { id, ids };
+    });
+
+    const results = await Promise.all(promises);
+    
+    // Apply the resolved IDs to the query
+    results.forEach(({ id, ids }) => {
+      query.where(id).in(ids);
+    });
   }
 };
 
@@ -85,36 +124,59 @@ const applySorting = (query, sorting) => {
       return acc;
     }, {});
     query.sort(sortObj);
+  } else {
+    // Default Sort (Newest first)
+    query.sort({ purchaseDate: -1 });
   }
 };
 
 const applyPagination = async (query, start, size) => {
-  const total = await Expense.countDocuments(query.getFilter());
-  const startIndex = Math.max(0, Math.min(parseInt(start, 10) || 0, total));
+  // Clone query to count total documents without skipping/limiting
+  const countQuery = query.model.find(query.getFilter()); 
+  const total = await countQuery.countDocuments();
+  
+  const startIndex = Math.max(0, parseInt(start, 10) || 0);
   const pageSize = parseInt(size, 10) || 10;
-  return { query: query.skip(startIndex).limit(pageSize), total, startIndex };
+  
+  return { 
+    query: query.skip(startIndex).limit(pageSize), 
+    total, 
+    startIndex 
+  };
 };
+
+// --- Routes ---
 
 // GET Expenses
 expensesRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
     let query = Expense.find();
+
+    // Apply Logic
     if (columnFilters) await applyFilters(query, JSON.parse(columnFilters));
-    if (globalFilter) query.or([{ productName: new RegExp(globalFilter, "i") }]);
-    if (sorting) applySorting(query, JSON.parse(sorting));
+    if (globalFilter) {
+      // Global filter typically only checks product name for simplicity, 
+      // but can be expanded.
+      const productIds = await getReferenceIds(Product, "name", globalFilter);
+      query.or([{ productName: { $in: productIds } }]);
+    }
+    
+    applySorting(query, sorting ? JSON.parse(sorting) : []);
 
     const { query: paginatedQuery, total, startIndex } = await applyPagination(query, start, size);
+    
     const expenses = await paginatedQuery
       .populate("productName", "name measures measurementUnit")
       .populate("brandName", "name")
       .populate("shopName", "name")
       .populate("locationName", "name")
+      .lean() // Optimization: Returns Plain JS objects instead of Mongoose Docs
       .exec();
 
     res.json({
       expenses: expenses.map((expense) => ({
-        ...expense.toObject(),
+        ...expense,
         productName: expense.productName?.name || "",
         brandName: expense.brandName?.name || "",
         shopName: expense.shopName?.name || "",
@@ -138,12 +200,13 @@ expensesRouter.get("/:id", async (req, res) => {
       .populate("productName", "name measures")
       .populate("brandName", "name")
       .populate("shopName", "name")
-      .populate("locationName", "name");
+      .populate("locationName", "name")
+      .lean();
 
     if (!expense) return res.status(404).json({ error: "Expense not found" });
 
     res.json({
-      ...expense.toObject(),
+      ...expense,
       productName: expense.productName?.name,
       brandName: expense.brandName?.name,
       shopName: expense.shopName?.name,
@@ -156,32 +219,45 @@ expensesRouter.get("/:id", async (req, res) => {
   }
 });
 
-
-
 // POST Expense
 expensesRouter.post("/", async (req, res) => {
   try {
     const { productName, brandName, shopName, locationName, quantity, ...expenseData } = req.body;
 
-    const product = await Product.findOne({ name: productName });
-    const brand = await Brand.findOne({ name: brandName });
-    const shop = await Shop.findOne({ name: shopName });
-    const location = locationName ? await Location.findOne({ name: locationName }) : null;
+    const [product, brand, shop, location] = await Promise.all([
+      Product.findOne({ name: productName }),
+      Brand.findOne({ name: brandName }),
+      Shop.findOne({ name: shopName }),
+      locationName ? Location.findOne({ name: locationName }) : null
+    ]);
 
-    if (!product || !brand || !shop) return res.status(400).json({ message: "Invalid product, brand, or shop." });
+    if (!product || !brand || !shop) {
+      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+    }
 
-    const expenses = Array.from({ length: parseInt(quantity, 10) || 1 }).map(
-      () => new Expense({ productName: product._id, brandName: brand._id, shopName: shop._id, locationName: location?._id, ...expenseData })
-    );
+    // Validation: Ensure quantity is a valid number
+    const qty = parseInt(quantity, 10);
+    if (isNaN(qty) || qty < 1) {
+       return res.status(400).json({ message: "Quantity must be at least 1" });
+    }
 
-    const savedExpenses = await Expense.insertMany(expenses);
+    const expensesToInsert = Array.from({ length: qty }).map(() => ({
+      productName: product._id,
+      brandName: brand._id,
+      shopName: shop._id,
+      locationName: location?._id,
+      ...expenseData
+    }));
 
-    // Populate the response to include the names instead of just IDs
+    const savedExpenses = await Expense.insertMany(expensesToInsert);
+
+    // Populate the response
     const populatedExpenses = await Expense.find({ _id: { $in: savedExpenses.map(exp => exp._id) } })
       .populate("productName", "name")
       .populate("brandName", "name")
       .populate("shopName", "name")
-      .populate("locationName", "name");
+      .populate("locationName", "name")
+      .lean();
 
     res.status(201).json({
       message: "Expense saved!",
@@ -199,28 +275,38 @@ expensesRouter.post("/", async (req, res) => {
   }
 });
 
-
 // PUT Expense
-// PUT Expense (Update)
 expensesRouter.put("/:id", async (req, res) => {
   try {
     const { productName, brandName, shopName, locationName, ...updateData } = req.body;
 
-    const product = await Product.findOne({ name: productName });
-    const brand = await Brand.findOne({ name: brandName });
-    const shop = await Shop.findOne({ name: shopName });
-    const location = locationName ? await Location.findOne({ name: locationName }) : null;
+    const [product, brand, shop, location] = await Promise.all([
+      Product.findOne({ name: productName }),
+      Brand.findOne({ name: brandName }),
+      Shop.findOne({ name: shopName }),
+      locationName ? Location.findOne({ name: locationName }) : null
+    ]);
 
-    if (!product || !brand || !shop) return res.status(400).json({ message: "Invalid product, brand, or shop." });
+    if (!product || !brand || !shop) {
+      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+    }
 
     const updatedExpense = await Expense.findByIdAndUpdate(
       req.params.id,
-      { productName: product._id, brandName: brand._id, shopName: shop._id, locationName: location?._id, ...updateData },
+      { 
+        productName: product._id, 
+        brandName: brand._id, 
+        shopName: shop._id, 
+        locationName: location?._id, 
+        ...updateData 
+      },
       { new: true }
-    ).populate("productName", "name")
-      .populate("brandName", "name")
-      .populate("shopName", "name")
-      .populate("locationName", "name");
+    )
+    .populate("productName", "name")
+    .populate("brandName", "name")
+    .populate("shopName", "name")
+    .populate("locationName", "name")
+    .lean();
 
     if (!updatedExpense) return res.status(404).json({ message: "Expense not found." });
 
