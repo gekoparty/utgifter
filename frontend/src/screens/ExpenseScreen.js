@@ -1,6 +1,6 @@
 
 import { useState, useMemo, lazy, Suspense, useCallback } from "react";
-import { Popover,Typography,TextField, Box, Button, Snackbar, Alert, IconButton } from "@mui/material";
+import { Popover,Typography,TextField, Box, Button, Snackbar, Alert, IconButton, Stack } from "@mui/material";
 import FilterListIcon from '@mui/icons-material/FilterList';
 import CloseIcon from "@mui/icons-material/Close";
 import { useTheme } from "@mui/material/styles";
@@ -47,11 +47,17 @@ const INITIAL_SELECTED_EXPENSE = {
 };
 
 const DateRangeFilter = ({ column }) => {
-  const filterValue = column.getFilterValue() || ["", ""];
+  // Read current filter from table to initialize, default to empty strings
+  const initialValue = column.getFilterValue() || ["", ""];
+  
+  // Local state for the inputs (prevents API triggering while typing)
+  const [localDateRange, setLocalDateRange] = useState(initialValue);
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
+    // Sync local state with actual column filter when opening
+    setLocalDateRange(column.getFilterValue() || ["", ""]);
   };
 
   const handleClose = () => {
@@ -60,57 +66,75 @@ const DateRangeFilter = ({ column }) => {
 
   const open = Boolean(anchorEl);
 
-  const handleDateChange = (index, newValue) => {
-    const newFilter = [...filterValue];
-    newFilter[index] = newValue;
+  // Updates only the local input state
+  const handleLocalChange = (index, newValue) => {
+    const newRange = [...localDateRange];
+    newRange[index] = newValue;
+    setLocalDateRange(newRange);
+  };
 
-    // If both are empty, clear filter. If one is set, set filter.
-    if (!newFilter[0] && !newFilter[1]) {
+  // Commits the filter to the table (Triggers API)
+  const applyFilter = () => {
+    // Check if at least one date is set
+    if (!localDateRange[0] && !localDateRange[1]) {
       column.setFilterValue(undefined);
     } else {
-      column.setFilterValue(newFilter);
+      column.setFilterValue(localDateRange);
     }
+    handleClose();
   };
+
+  const clearFilter = () => {
+    setLocalDateRange(["", ""]);
+    column.setFilterValue(undefined);
+    handleClose();
+  };
+
+  // Visual indicator: Active if filter has values
+  const isActive = initialValue[0] || initialValue[1];
 
   return (
     <>
-      <IconButton onClick={handleClick} size="small" color={filterValue[0] || filterValue[1] ? "primary" : "default"}>
+      <IconButton onClick={handleClick} size="small" color={isActive ? "primary" : "default"}>
         <FilterListIcon fontSize="small" />
       </IconButton>
       <Popover
         open={open}
         anchorEl={anchorEl}
         onClose={handleClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'center',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'center',
-        }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="subtitle2">Velg periode</Typography>
-          <TextField
-            label="Fra"
-            type="date"
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            value={filterValue[0] || ""}
-            onChange={(e) => handleDateChange(0, e.target.value)}
-          />
-          <TextField
-            label="Til"
-            type="date"
-            size="small"
-            InputLabelProps={{ shrink: true }}
-            value={filterValue[1] || ""}
-            onChange={(e) => handleDateChange(1, e.target.value)}
-          />
-          <Button size="small" onClick={() => { column.setFilterValue(undefined); handleClose(); }}>
-            Nullstill
-          </Button>
+        <Box sx={{ p: 2, width: 220 }}>
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>Velg periode</Typography>
+          <Stack spacing={2}>
+            <TextField
+              label="Fra dato"
+              type="date"
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              value={localDateRange[0] || ""}
+              onChange={(e) => handleLocalChange(0, e.target.value)}
+            />
+            <TextField
+              label="Til dato"
+              type="date"
+              size="small"
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              value={localDateRange[1] || ""}
+              onChange={(e) => handleLocalChange(1, e.target.value)}
+            />
+            <Stack direction="row" spacing={1} justifyContent="space-between">
+              <Button size="small" color="inherit" onClick={clearFilter}>
+                Nullstill
+              </Button>
+              <Button size="small" variant="contained" onClick={applyFilter}>
+                Bruk
+              </Button>
+            </Stack>
+          </Stack>
         </Box>
       </Popover>
     </>
@@ -292,16 +316,17 @@ const ExpenseScreen = () => {
         },
       },
       { accessorKey: "shopName", header: "Butikk" },
-     {
+    {
         accessorKey: "purchaseDate",
         header: "Kjøpsdato",
-        // 1. Add the Custom Filter UI
-        Filter: ({ column }) => <DateRangeFilter column={column} />, 
-        // 2. Enable filtering
+        // Connect the Filter component
+        Filter: ({ column }) => <DateRangeFilter column={column} />,
         enableColumnFilter: true, 
-        // 3. Keep your existing cell formatter
         Cell: ({ cell }) =>
-          cell.getValue() ? new Date(cell.getValue()).toLocaleDateString() : "Ugyldig dato",
+          // FIX: Use Norwegian locale for consistency
+          cell.getValue() 
+            ? new Date(cell.getValue()).toLocaleDateString("nb-NO") 
+            : "Ugyldig dato",
       },
     ],
     [priceStatsByType, theme]
