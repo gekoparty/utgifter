@@ -1,11 +1,11 @@
-import PeopleIcon from '@mui/icons-material/People';
-import ImageIcon from '@mui/icons-material/Image';
-import PublicIcon from '@mui/icons-material/Public';
 import HomeIcon from '@mui/icons-material/Home';
-import SettingsEthernetIcon from '@mui/icons-material/SettingsEthernet';
-import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent';
-import DnsIcon from '@mui/icons-material/Dns';
-
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'; // For Utgifter (Expenses)
+import CategoryIcon from '@mui/icons-material/Category';       // For Kategorier
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';   // For Merker (Brands)
+import StoreIcon from '@mui/icons-material/Store';             // For Butikker (Shops)
+import LocationOnIcon from '@mui/icons-material/LocationOn';   // For Steder (Locations)
+import Inventory2Icon from '@mui/icons-material/Inventory2';   // For Produkter (Products)
+import BarChartIcon from '@mui/icons-material/BarChart';
 export const mainNavbarItems = [
     {
         id: 0,
@@ -15,43 +15,43 @@ export const mainNavbarItems = [
     },
     {
         id: 1,
-        icon: <PeopleIcon />,
+        icon: <ReceiptLongIcon />,
         label: 'Utgifter',
         route: 'expenses',
     },
     {
         id: 2,
-        icon: <DnsIcon />,
+        icon: <CategoryIcon />, // Replaced DnsIcon
         label: 'Kategorier',
         route: 'categories',
     },
     {
         id: 3,
-        icon: <ImageIcon />,
+        icon: <LocalOfferIcon />, // Replaced ImageIcon
         label: 'Merker',
         route: 'brands',
     },
     {
         id: 4,
-        icon: <PublicIcon />,
+        icon: <StoreIcon />, // Replaced PublicIcon
         label: 'Butikker',
         route: 'shops',
     },
     {
         id: 5,
-        icon: <SettingsEthernetIcon />,
+        icon: <LocationOnIcon />, // Replaced SettingsEthernetIcon
         label: 'Steder',
         route: 'locations',
     },
     {
         id: 6,
-        icon: <SettingsInputComponentIcon />,
+        icon: <Inventory2Icon />, // Replaced SettingsInputComponentIcon
         label: 'Produkter',
         route: 'products',
     },
     {
         id: 6,
-        icon: <SettingsInputComponentIcon />,
+        icon: <BarChartIcon />, // Replaced SettingsInputComponentIcon
         label: 'Stats',
         route: 'stats',
     },
