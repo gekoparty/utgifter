@@ -1,5 +1,4 @@
 // src/screens/StatsScreen.jsx
-import React from "react";
 import { useOutletContext } from "react-router-dom";
 import MonthlyExpensesChart from "../components/Charts/MonthlyExpensesChart";
 import ProductPriceChart from "../components/Charts/ProductPriceChart";
