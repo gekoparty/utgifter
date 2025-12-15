@@ -252,14 +252,14 @@ const EditExpenseDialog = ({
   /* =====================================================
      Overall Loading State & Early Return
   ====================================================== */
-  const isLoadingCombined = useMemo(
-    () => isLoadingProducts || isLoadingBrands || isLoadingShops,
-    [isLoadingProducts, isLoadingBrands, isLoadingShops]
+ const isLoadingInitial = useMemo(
+    () => isLoadingBrands || isLoadingShops,
+    [isLoadingBrands, isLoadingShops]
   );
 
   if (!open) return null;
 
-  if (isLoadingCombined) {
+  if (isLoadingInitial) {
     return (
       <BasicDialog
         open={open}

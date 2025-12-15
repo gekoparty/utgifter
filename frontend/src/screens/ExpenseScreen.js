@@ -64,6 +64,7 @@ const DateRangeFilter = ({ column }) => {
     setAnchorEl(null);
   };
 
+
   const open = Boolean(anchorEl);
 
   // Updates only the local input state
