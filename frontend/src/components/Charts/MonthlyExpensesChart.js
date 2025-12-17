@@ -21,11 +21,11 @@ import dayjs from 'dayjs';
 
 // Helper for nice currency formatting (Kr = NOK)
 const currencyFormatter = (value) =>
-  new Intl.NumberFormat('no-NO', {
-    style: 'currency',
-    currency: 'NOK',
-    maximumFractionDigits: 0,
-  }).format(value);
+new Intl.NumberFormat('no-NO', {
+ style: 'currency',
+ currency: 'NOK',
+ maximumFractionDigits: 0,
+ }).format(value);
 
 export default function MonthlyExpensesChart() {
     const theme = useTheme();
