@@ -3,22 +3,22 @@ import slugify from "slugify";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 
-
 const productsRouter = express.Router();
 
 // Helper function for consistent slug generation
-const createSlug = (name) => slugify(name, { 
-  lower: true, 
-  strict: true, 
-  remove: /[*+~.()'"!:@]/g 
-});
+const createSlug = (name) =>
+  slugify(name, {
+    lower: true,
+    strict: true,
+    remove: /[*+~.()'"!:@]/g,
+  });
 
 // Helper function for brand resolution (used in both POST and PUT)
 const resolveBrandIds = async (brandNames) => {
   if (!Array.isArray(brandNames)) {
     throw new Error("Brands must be an array");
   }
-  
+
   return Promise.all(
     brandNames.map(async (name) => {
       const trimmedName = name.trim();
@@ -44,7 +44,31 @@ productsRouter.get("/", async (req, res) => {
     // Apply column filters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
-      filters.forEach(({ id, value }) => {
+
+      for (const { id, value } of filters) {
+        if (id && value) {
+          if (id === "name") {
+            query = query.where("name").regex(new RegExp(value, "i"));
+          } else if (id === "brand") {
+            const matchingBrands = await Brand.find({
+              name: { $regex: new RegExp(value, "i") },
+            }).select("_id");
+
+            const brandIds = matchingBrands.map((b) => b._id);
+
+            if (brandIds.length > 0) {
+              query = query.where("brands").in(brandIds);
+            } else {
+              query = query.where("brands").in([]);
+            }
+          } else if (id === "type") {
+            query = query.where("type").regex(new RegExp(value, "i"));
+          }
+        }
+      }
+    }
+
+    /* filters.forEach(({ id, value }) => {
         if (id && value) {
           if (id === "name") {
             query = query.where("name").regex(new RegExp(value, "i"));
@@ -54,8 +78,7 @@ productsRouter.get("/", async (req, res) => {
             query = query.where("type").regex(new RegExp(value, "i"));
           }
         }
-      });
-    }
+      }); */
 
     // Apply global filter
     if (globalFilter) {
@@ -80,16 +103,20 @@ productsRouter.get("/", async (req, res) => {
     let startIndex = Number(start) || 0;
     let pageSize = Number(size) || 10;
 
-    if (startIndex >= 0 && pageSize > 0) {
-      totalRowCount = await Product.countDocuments(query);
+   if (startIndex >= 0 && pageSize > 0) {
+      totalRowCount = await Product.countDocuments(query.clone()); // .clone() is important in Mongoose 6+ to not execute the query yet
       query = query.skip(startIndex).limit(pageSize);
     }
 
     // Execute the query
-    const products = await query.select("name brands type measures measurementUnit").lean();
+    const products = await query
+      .select("name brands type measures measurementUnit")
+      .lean();
 
     // Collect unique brand IDs
-    const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands))].filter(Boolean);
+    const uniqueBrandIds = [
+      ...new Set(products.flatMap((p) => p.brands)),
+    ].filter(Boolean);
 
     // Fetch all brands in a single query
     const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
@@ -102,24 +129,25 @@ productsRouter.get("/", async (req, res) => {
     const enrichedProducts = products.map((product) => {
       console.log(`[DEBUG] Product: ${product.name}`);
       console.log(`[DEBUG] Brand IDs:`, product.brands);
-      
-      const resolvedBrands = product.brands.map((id) => brandIdToNameMap[id.toString()] || "N/A");
-      
+
+      const resolvedBrands = product.brands.map(
+        (id) => brandIdToNameMap[id.toString()] || "N/A"
+      );
+
       console.log(`[DEBUG] Resolved Brands:`, resolvedBrands);
-    
+
       return {
         ...product,
         brand: resolvedBrands.join(", "),
       };
     });
-    
+
     res.json({ products: enrichedProducts, meta: { totalRowCount } });
   } catch (err) {
     console.error("Error in /api/products:", err.message, err.stack);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-
 
 productsRouter.post("/", async (req, res) => {
   try {
@@ -156,13 +184,13 @@ productsRouter.post("/", async (req, res) => {
     });
 
     const savedProduct = await product.save();
-    
+
     // Return populated result
     const populatedProduct = await Product.findById(savedProduct._id)
       .populate("brands", "name _id")
       .lean();
 
-      console.log("[POST] Response body:", populatedProduct); // Log the response before sending
+    console.log("[POST] Response body:", populatedProduct); // Log the response before sending
 
     res.status(201).json(populatedProduct);
   } catch (error) {
@@ -176,7 +204,7 @@ productsRouter.post("/", async (req, res) => {
 
 productsRouter.delete("/:id", async (req, res) => {
   const { id } = req.params;
-  
+
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) {
@@ -193,7 +221,7 @@ productsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { name, brands, measurementUnit, type, measures } = req.body;
-    
+
     // Log the incoming request body
     console.log("[PUT] Incoming request body:", req.body);
 
