@@ -31,9 +31,9 @@ const filterByDate = (query, id, value) => {
 
     // 1. Interpret the date as existing in Oslo time
     const zonedDate = toZonedTime(date, TIME_ZONE);
-    
+
     // 2. Set hours based on start or end of day
-    if (type === 'start') {
+    if (type === "start") {
       zonedDate.setHours(0, 0, 0, 0);
     } else {
       zonedDate.setHours(23, 59, 59, 999);
@@ -48,23 +48,77 @@ const filterByDate = (query, id, value) => {
     const startStr = value[0];
     const endStr = value[1];
 
-    const startDate = getDateBoundary(startStr, 'start');
-    const endDate = getDateBoundary(endStr, 'end');
+    const startDate = getDateBoundary(startStr, "start");
+    const endDate = getDateBoundary(endStr, "end");
 
     if (startDate && endDate) {
       query.where(id).gte(startDate).lte(endDate);
     } else if (startDate) {
       query.where(id).gte(startDate); // Open ended: From X onwards
     } else if (endDate) {
-      query.where(id).lte(endDate);   // Open ended: Until X
+      query.where(id).lte(endDate); // Open ended: Until X
     }
   } else {
     // Handle Single Date (Specific Day)
-    const start = getDateBoundary(value, 'start');
-    const end = getDateBoundary(value, 'end');
+    const start = getDateBoundary(value, "start");
+    const end = getDateBoundary(value, "end");
     if (start && end) {
       query.where(id).gte(start).lte(end);
     }
+  }
+};
+
+const filterByRange = (query, defaultField, value) => {
+  let min = null;
+  let max = null;
+  let targetFields = [defaultField]; // Default to the column ID (e.g. pricePerUnit)
+
+  // 1. Parse Input
+  if (Array.isArray(value)) {
+    // Handle Legacy (Simple Array)
+    min = value[0] !== "" ? Number(value[0]) : null;
+    max = value[1] !== "" ? Number(value[1]) : null;
+  } else if (typeof value === "object" && value !== null) {
+    // Handle New Object Format
+    min = value.min !== "" ? Number(value.min) : null;
+    max = value.max !== "" ? Number(value.max) : null;
+
+    // Determine which field(s) to search based on 'mode'
+    if (value.mode === "finalPrice") {
+      targetFields = ["finalPrice"]; // Actual price paid
+    } else if (value.mode === "price") {
+      targetFields = ["price"]; // Registered price
+    } else if (value.mode === "all") {
+      // Search ALL price fields
+      targetFields = ["pricePerUnit", "finalPrice", "price"];
+    } else {
+      targetFields = ["pricePerUnit"];
+    }
+  } else {
+    // Single value exact match
+    query.where(defaultField).equals(Number(value));
+    return;
+  }
+
+  // 2. Build Query Logic
+  if (min === null && max === null) return;
+
+  const buildRangeQuery = (field) => {
+    const criteria = {};
+    if (min !== null) criteria.$gte = min;
+    if (max !== null) criteria.$lte = max;
+    return { [field]: criteria };
+  };
+
+  if (targetFields.length === 1) {
+    // Simple filter on one field
+    const field = targetFields[0];
+    if (min !== null) query.where(field).gte(min);
+    if (max !== null) query.where(field).lte(max);
+  } else {
+    // OR filter across multiple fields (for "All" mode)
+    const orConditions = targetFields.map((field) => buildRangeQuery(field));
+    query.or(orConditions);
   }
 };
 
@@ -73,13 +127,19 @@ const applyFilters = async (query, filters) => {
   const referenceFilters = [];
   const dateFilters = [];
   const regexFilters = [];
+  const rangeFilters = [];
 
   for (const { id, value } of filters) {
     if (!id || (!value && value !== 0)) continue; // Skip empty filters
 
     if (["purchaseDate", "registeredDate"].includes(id)) {
       dateFilters.push({ id, value });
-    } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
+    } else if (["price", "pricePerUnit", "finalPrice", "volume"].includes(id)) {
+      // This now passes the complex object 'value' to the updated helper
+      filterByRange(query, id, value);
+    } else if (
+      ["productName", "brandName", "shopName", "locationName"].includes(id)
+    ) {
       referenceFilters.push({ id, value });
     } else {
       regexFilters.push({ id, value });
@@ -88,6 +148,8 @@ const applyFilters = async (query, filters) => {
 
   // 2. Apply Date Filters
   dateFilters.forEach(({ id, value }) => filterByDate(query, id, value));
+
+  rangeFilters.forEach(({ id, value }) => filterByRange(query, id, value));
 
   // 3. Apply Regex Filters
   regexFilters.forEach(({ id, value }) => {
@@ -109,7 +171,7 @@ const applyFilters = async (query, filters) => {
     });
 
     const results = await Promise.all(promises);
-    
+
     // Apply the resolved IDs to the query
     results.forEach(({ id, ids }) => {
       query.where(id).in(ids);
@@ -132,16 +194,16 @@ const applySorting = (query, sorting) => {
 
 const applyPagination = async (query, start, size) => {
   // Clone query to count total documents without skipping/limiting
-  const countQuery = query.model.find(query.getFilter()); 
+  const countQuery = query.model.find(query.getFilter());
   const total = await countQuery.countDocuments();
-  
+
   const startIndex = Math.max(0, parseInt(start, 10) || 0);
   const pageSize = parseInt(size, 10) || 10;
-  
-  return { 
-    query: query.skip(startIndex).limit(pageSize), 
-    total, 
-    startIndex 
+
+  return {
+    query: query.skip(startIndex).limit(pageSize),
+    total,
+    startIndex,
   };
 };
 
@@ -156,16 +218,20 @@ expensesRouter.get("/", async (req, res) => {
     // Apply Logic
     if (columnFilters) await applyFilters(query, JSON.parse(columnFilters));
     if (globalFilter) {
-      // Global filter typically only checks product name for simplicity, 
+      // Global filter typically only checks product name for simplicity,
       // but can be expanded.
       const productIds = await getReferenceIds(Product, "name", globalFilter);
       query.or([{ productName: { $in: productIds } }]);
     }
-    
+
     applySorting(query, sorting ? JSON.parse(sorting) : []);
 
-    const { query: paginatedQuery, total, startIndex } = await applyPagination(query, start, size);
-    
+    const {
+      query: paginatedQuery,
+      total,
+      startIndex,
+    } = await applyPagination(query, start, size);
+
     const expenses = await paginatedQuery
       .populate("productName", "name measures measurementUnit")
       .populate("brandName", "name")
@@ -222,23 +288,32 @@ expensesRouter.get("/:id", async (req, res) => {
 // POST Expense
 expensesRouter.post("/", async (req, res) => {
   try {
-    const { productName, brandName, shopName, locationName, quantity, ...expenseData } = req.body;
+    const {
+      productName,
+      brandName,
+      shopName,
+      locationName,
+      quantity,
+      ...expenseData
+    } = req.body;
 
     const [product, brand, shop, location] = await Promise.all([
       Product.findOne({ name: productName }),
       Brand.findOne({ name: brandName }),
       Shop.findOne({ name: shopName }),
-      locationName ? Location.findOne({ name: locationName }) : null
+      locationName ? Location.findOne({ name: locationName }) : null,
     ]);
 
     if (!product || !brand || !shop) {
-      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+      return res
+        .status(400)
+        .json({ message: "Invalid product, brand, or shop." });
     }
 
     // Validation: Ensure quantity is a valid number
     const qty = parseInt(quantity, 10);
     if (isNaN(qty) || qty < 1) {
-       return res.status(400).json({ message: "Quantity must be at least 1" });
+      return res.status(400).json({ message: "Quantity must be at least 1" });
     }
 
     const expensesToInsert = Array.from({ length: qty }).map(() => ({
@@ -246,13 +321,15 @@ expensesRouter.post("/", async (req, res) => {
       brandName: brand._id,
       shopName: shop._id,
       locationName: location?._id,
-      ...expenseData
+      ...expenseData,
     }));
 
     const savedExpenses = await Expense.insertMany(expensesToInsert);
 
     // Populate the response
-    const populatedExpenses = await Expense.find({ _id: { $in: savedExpenses.map(exp => exp._id) } })
+    const populatedExpenses = await Expense.find({
+      _id: { $in: savedExpenses.map((exp) => exp._id) },
+    })
       .populate("productName", "name")
       .populate("brandName", "name")
       .populate("shopName", "name")
@@ -261,13 +338,13 @@ expensesRouter.post("/", async (req, res) => {
 
     res.status(201).json({
       message: "Expense saved!",
-      data: populatedExpenses.map(exp => ({
+      data: populatedExpenses.map((exp) => ({
         _id: exp._id,
         productName: exp.productName?.name,
         brandName: exp.brandName?.name,
         shopName: exp.shopName?.name,
-        locationName: exp.locationName?.name
-      }))
+        locationName: exp.locationName?.name,
+      })),
     });
   } catch (error) {
     console.error(error);
@@ -278,37 +355,41 @@ expensesRouter.post("/", async (req, res) => {
 // PUT Expense
 expensesRouter.put("/:id", async (req, res) => {
   try {
-    const { productName, brandName, shopName, locationName, ...updateData } = req.body;
+    const { productName, brandName, shopName, locationName, ...updateData } =
+      req.body;
 
     const [product, brand, shop, location] = await Promise.all([
       Product.findOne({ name: productName }),
       Brand.findOne({ name: brandName }),
       Shop.findOne({ name: shopName }),
-      locationName ? Location.findOne({ name: locationName }) : null
+      locationName ? Location.findOne({ name: locationName }) : null,
     ]);
 
     if (!product || !brand || !shop) {
-      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+      return res
+        .status(400)
+        .json({ message: "Invalid product, brand, or shop." });
     }
 
     const updatedExpense = await Expense.findByIdAndUpdate(
       req.params.id,
-      { 
-        productName: product._id, 
-        brandName: brand._id, 
-        shopName: shop._id, 
-        locationName: location?._id, 
-        ...updateData 
+      {
+        productName: product._id,
+        brandName: brand._id,
+        shopName: shop._id,
+        locationName: location?._id,
+        ...updateData,
       },
       { new: true }
     )
-    .populate("productName", "name")
-    .populate("brandName", "name")
-    .populate("shopName", "name")
-    .populate("locationName", "name")
-    .lean();
+      .populate("productName", "name")
+      .populate("brandName", "name")
+      .populate("shopName", "name")
+      .populate("locationName", "name")
+      .lean();
 
-    if (!updatedExpense) return res.status(404).json({ message: "Expense not found." });
+    if (!updatedExpense)
+      return res.status(404).json({ message: "Expense not found." });
 
     res.json({
       message: "Expense updated successfully!",
@@ -317,8 +398,8 @@ expensesRouter.put("/:id", async (req, res) => {
         productName: updatedExpense.productName?.name,
         brandName: updatedExpense.brandName?.name,
         shopName: updatedExpense.shopName?.name,
-        locationName: updatedExpense.locationName?.name
-      }
+        locationName: updatedExpense.locationName?.name,
+      },
     });
   } catch (error) {
     console.error(error);
