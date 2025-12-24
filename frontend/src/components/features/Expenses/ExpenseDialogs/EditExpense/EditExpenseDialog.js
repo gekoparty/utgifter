@@ -15,7 +15,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { debounce } from "lodash";
 import WindowedSelect from "react-windowed-select";
-import { useQueryClient } from "@tanstack/react-query";
 import useExpenseForm from "../../UseExpense/useExpenseForm";
 import useHandleFieldChange from "../../../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../../../hooks/useFetchData";
@@ -52,7 +51,7 @@ const EditExpenseDialog = ({
     isFormValid,
   } = useExpenseForm(selectedExpense, selectedExpense?._id, onClose);
 
-  const queryClient = useQueryClient();
+  
   const { handleFieldChange } = useHandleFieldChange(expense, setExpense);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -244,10 +243,9 @@ const EditExpenseDialog = ({
 
   // Close handler with query reset
   const handleClose = useCallback(() => {
-    queryClient.resetQueries(["products", "brands", "shops"]);
     resetForm();
     onClose();
-  }, [queryClient, resetForm, onClose]);
+  }, [ resetForm, onClose]);
 
   /* =====================================================
      Overall Loading State & Early Return
