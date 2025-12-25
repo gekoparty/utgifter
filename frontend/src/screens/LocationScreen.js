@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
+import { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { Button, Snackbar, Alert, Box, LinearProgress, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -172,6 +172,7 @@ const LocationScreen = () => {
           onDeleteFailure={(loc) =>
             showSnackbar(`Kunne ikke slette "${loc.name}"`, "error")
           }
+          dialogTitle="Slett sted"
         />
       </Suspense>
 

@@ -1,6 +1,6 @@
 // src/commons/ProductForm/ProductForm.js
 import React from "react";
-import { Grid } from "@mui/material";
+import { Stack } from "@mui/material"; // 1. Changed Grid to Stack
 import ProductNameInput from "./ProductNameInput";
 import BrandSelect from "./BrandSelect";
 import ProductTypeSelect from "./ProductTypeSelect";
@@ -40,9 +40,9 @@ const ProductForm = ({
   }) || [];
 
   return (
-    <Grid container direction="column" spacing={2}>
+    <Stack spacing={2}>
       {/* Product Name Input */}
-      <Grid item>
+      <div>
         <ProductNameInput
           value={product?.name || ""}
           onChange={onNameChange}
@@ -51,10 +51,10 @@ const ProductForm = ({
         {(displayError || validationError) && (
           <ErrorHandling resource="products" field="name" loading={loading} />
         )}
-      </Grid>
+      </div>
 
       {/* Brand Selector */}
-      <Grid item>
+      <div>
         <BrandSelect
           options={formattedBrandOptions}
           value={formattedSelectedBrands}
@@ -70,10 +70,10 @@ const ProductForm = ({
         {(displayError || validationError) && (
           <ErrorHandling resource="products" field="brand" loading={loading} />
         )}
-      </Grid>
+      </div>
 
       {/* Product Type Selector */}
-      <Grid item>
+      <div>
         <ProductTypeSelect
           options={predefinedTypes.map((type) => ({
             value: type,
@@ -83,10 +83,10 @@ const ProductForm = ({
           onChange={onProductTypeChange}
           selectStyles={selectStyles}
         />
-      </Grid>
+      </div>
 
       {/* Measurement Unit Selector */}
-      <Grid item>
+      <div>
         <MeasurementUnitSelect
           options={measurementUnitOptions}
           value={ measurementUnitOptions.find((option) => option.value === product?.measurementUnit) || null }
@@ -96,10 +96,10 @@ const ProductForm = ({
         {(displayError || validationError) && (
           <ErrorHandling resource="products" field="measurementUnit" loading={loading} />
         )}
-      </Grid>
+      </div>
 
       {/* Measures Input */}
-      <Grid item>
+      <div>
         <MeasuresInput
           options={[]} // Pass any predefined measures if needed
           value={ product?.measures?.map((measure) => ({ value: measure, label: measure })) || [] }
@@ -107,8 +107,8 @@ const ProductForm = ({
           onCreateOption={onMeasureCreate}
           selectStyles={selectStyles}
         />
-      </Grid>
-    </Grid>
+      </div>
+    </Stack>
   );
 };
 

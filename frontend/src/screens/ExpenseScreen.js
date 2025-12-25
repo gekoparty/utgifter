@@ -11,7 +11,7 @@ import {
   Stack,
   ToggleButton,
   ToggleButtonGroup,
-  Divider
+  Divider,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import CloseIcon from "@mui/icons-material/Close";
@@ -168,7 +168,7 @@ const DateRangeFilter = ({ column }) => {
 const PriceRangeFilter = ({ column, onModeChange }) => {
   // Default state: filtering on Unit Price (standard behavior)
   const defaultState = { min: "", max: "", mode: "pricePerUnit" };
-  
+
   // Initialize from existing filter value or default
   const filterValue = column.getFilterValue() || defaultState;
 
@@ -181,8 +181,6 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
     setLocalState(column.getFilterValue() || defaultState);
   };
 
-  
-
   const handleClose = () => setAnchorEl(null);
 
   const open = Boolean(anchorEl);
@@ -191,7 +189,7 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
     if (newMode !== null) {
       setLocalState((prev) => ({ ...prev, mode: newMode }));
       // NEW: Call the handler passed from the parent
-      onModeChange(newMode); 
+      onModeChange(newMode);
     }
   };
 
@@ -221,7 +219,11 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
 
   return (
     <>
-      <IconButton onClick={handleClick} size="small" color={isActive ? "primary" : "default"}>
+      <IconButton
+        onClick={handleClick}
+        size="small"
+        color={isActive ? "primary" : "default"}
+      >
         <FilterListIcon fontSize="small" />
       </IconButton>
       <Popover
@@ -409,12 +411,12 @@ const ExpenseScreen = () => {
   const handlePriceFilterModeChange = useCallback((newMode) => {
     // We only care about the display mode if it's one of the three price fields
     if (["pricePerUnit", "finalPrice", "price"].includes(newMode)) {
-        setPriceDisplayMode(newMode);
+      setPriceDisplayMode(newMode);
     } else {
-        // If mode is "all", default the display back to unit price
-        setPriceDisplayMode("pricePerUnit");
+      // If mode is "all", default the display back to unit price
+      setPriceDisplayMode("pricePerUnit");
     }
-}, []);
+  }, []);
 
   // Handlers
   const addExpenseHandler = useCallback(
@@ -447,6 +449,16 @@ const ExpenseScreen = () => {
     [showSnackbar]
   );
 
+  const editFailureHandler = useCallback(() => {
+    showSnackbar("Klarte ikke å oppdatere utgiften. Prøv igjen.", "error");
+    setEditModalOpen(false);
+  }, [showSnackbar]);
+
+  const deleteFailureHandler = useCallback(() => {
+    showSnackbar("Klarte ikke å slette utgiften. Prøv igjen.", "error"); // Use 'error' severity
+    setDeleteModalOpen(false);
+  }, [showSnackbar]);
+
   const handleDialogClose = useCallback((setState) => {
     setState(false);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
@@ -456,94 +468,97 @@ const ExpenseScreen = () => {
   const tableColumns = useMemo(() => {
     // 1. Determine the accessor key and header based on the selected display mode
     const priceColumnConfig = {
-        accessorKey: "pricePerUnit", // Keep this fixed for filter/sorting continuity
-        header: "Pris per enhet", // Default
-        dataAccessor: "pricePerUnit", // Default field for Cell content
+      accessorKey: "pricePerUnit", // Keep this fixed for filter/sorting continuity
+      header: "Pris per enhet", // Default
+      dataAccessor: "pricePerUnit", // Default field for Cell content
     };
 
     if (priceDisplayMode === "finalPrice") {
-        priceColumnConfig.header = "Totalpris";
-        priceColumnConfig.dataAccessor = "finalPrice";
+      priceColumnConfig.header = "Totalpris";
+      priceColumnConfig.dataAccessor = "finalPrice";
     } else if (priceDisplayMode === "price") {
-        priceColumnConfig.header = "Registrert Pris";
-        priceColumnConfig.dataAccessor = "price";
+      priceColumnConfig.header = "Registrert Pris";
+      priceColumnConfig.dataAccessor = "price";
     }
 
     return [
-        { accessorKey: "productName", header: "Produktnavn" },
-        {
-            accessorKey: priceColumnConfig.accessorKey, // 'pricePerUnit'
-            header: priceColumnConfig.header, // Changes dynamically
-            
-            // Pass the mode change handler to the filter
-            Filter: ({ column }) => (
-                <PriceRangeFilter 
-                    column={column} 
-                    onModeChange={handlePriceFilterModeChange} 
-                />
-            ),
-            enableColumnFilter: true,
-            
-            // Cell logic now uses the dynamic dataAccessor
-            Cell: ({ row }) => {
-                // Get the value from the dynamically chosen field (pricePerUnit, finalPrice, or price)
-                const price = row.original[priceColumnConfig.dataAccessor]; 
-                const type = row.original.type;
-                const stats = priceStatsByType[type] || {};
+      { accessorKey: "productName", header: "Produktnavn" },
+      {
+        accessorKey: priceColumnConfig.accessorKey, // 'pricePerUnit'
+        header: priceColumnConfig.header, // Changes dynamically
 
-                let bg = theme.palette.warning.main;
-                let fg = theme.palette.warning.contrastText;
+        // Pass the mode change handler to the filter
+        Filter: ({ column }) => (
+          <PriceRangeFilter
+            column={column}
+            onModeChange={handlePriceFilterModeChange}
+          />
+        ),
+        enableColumnFilter: true,
 
-                // Only apply colors/stats to the Price Per Unit column
-                if (priceColumnConfig.dataAccessor === "pricePerUnit" && stats.median) {
-                    if (price <= stats.min + (stats.median - stats.min) / 2) {
-                        bg = theme.palette.success.main;
-                        fg = theme.palette.success.contrastText;
-                    } else if (price >= stats.max - (stats.max - stats.median) / 2) {
-                        bg = theme.palette.error.main;
-                        fg = theme.palette.error.contrastText;
-                    } else {
-                        bg = theme.palette.warning.main;
-                        fg = theme.palette.warning.contrastText;
-                    }
-                } else {
-                    // Reset styling for Total/Registered Price
-                    bg = 'transparent';
-                    fg = theme.palette.text.primary;
-                }
+        // Cell logic now uses the dynamic dataAccessor
+        Cell: ({ row }) => {
+          // Get the value from the dynamically chosen field (pricePerUnit, finalPrice, or price)
+          const price = row.original[priceColumnConfig.dataAccessor];
+          const type = row.original.type;
+          const stats = priceStatsByType[type] || {};
 
-                return (
-                    <Box
-                        sx={{
-                            backgroundColor: bg,
-                            color: fg,
-                            px: 0.5,
-                            py: 0.25,
-                            borderRadius: 1,
-                            display: 'inline-block',
-                        }}
-                    >
-                        {price.toLocaleString("nb-NO", {
-                            style: "currency",
-                            currency: "NOK",
-                        })}
-                    </Box>
-                );
-            },
+          let bg = theme.palette.warning.main;
+          let fg = theme.palette.warning.contrastText;
+
+          // Only apply colors/stats to the Price Per Unit column
+          if (
+            priceColumnConfig.dataAccessor === "pricePerUnit" &&
+            stats.median
+          ) {
+            if (price <= stats.min + (stats.median - stats.min) / 2) {
+              bg = theme.palette.success.main;
+              fg = theme.palette.success.contrastText;
+            } else if (price >= stats.max - (stats.max - stats.median) / 2) {
+              bg = theme.palette.error.main;
+              fg = theme.palette.error.contrastText;
+            } else {
+              bg = theme.palette.warning.main;
+              fg = theme.palette.warning.contrastText;
+            }
+          } else {
+            // Reset styling for Total/Registered Price
+            bg = "transparent";
+            fg = theme.palette.text.primary;
+          }
+
+          return (
+            <Box
+              sx={{
+                backgroundColor: bg,
+                color: fg,
+                px: 0.5,
+                py: 0.25,
+                borderRadius: 1,
+                display: "inline-block",
+              }}
+            >
+              {price.toLocaleString("nb-NO", {
+                style: "currency",
+                currency: "NOK",
+              })}
+            </Box>
+          );
         },
-        { accessorKey: "shopName", header: "Butikk" },
-        {
-            accessorKey: "purchaseDate",
-            header: "Kjøpsdato",
-            Filter: ({ column }) => <DateRangeFilter column={column} />,
-            enableColumnFilter: true,
-            Cell: ({ cell }) =>
-                cell.getValue()
-                    ? new Date(cell.getValue()).toLocaleDateString("nb-NO")
-                    : "Ugyldig dato",
-        },
+      },
+      { accessorKey: "shopName", header: "Butikk" },
+      {
+        accessorKey: "purchaseDate",
+        header: "Kjøpsdato",
+        Filter: ({ column }) => <DateRangeFilter column={column} />,
+        enableColumnFilter: true,
+        Cell: ({ cell }) =>
+          cell.getValue()
+            ? new Date(cell.getValue()).toLocaleDateString("nb-NO")
+            : "Ugyldig dato",
+      },
     ];
-}, [priceStatsByType, theme, priceDisplayMode, handlePriceFilterModeChange]);
+  }, [priceStatsByType, theme, priceDisplayMode, handlePriceFilterModeChange]);
 
   return (
     <TableLayout>
@@ -590,6 +605,7 @@ const ExpenseScreen = () => {
             onClose={() => handleDialogClose(setEditModalOpen)}
             selectedExpense={selectedExpense}
             onUpdateSuccess={editSuccessHandler}
+            onUpdateFailure={editFailureHandler}
           />
         )}
       </Suspense>
@@ -600,6 +616,8 @@ const ExpenseScreen = () => {
           onClose={() => handleDialogClose(setDeleteModalOpen)}
           selectedExpense={selectedExpense}
           onDeleteSuccess={deleteSuccessHandler}
+          dialogTitle="Slett Utgift"
+          onDeleteFailure={deleteFailureHandler}
         />
       </Suspense>
 

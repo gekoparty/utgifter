@@ -47,7 +47,7 @@ const AddBrandDialog = ({ open, onClose, onAdd }) => {
               size="small"
               label="Merke"
               value={brand.name}
-              error={Boolean(validationError)}
+              error={Boolean(validationError?.name)}
               onChange={(e) => {
                 setBrand({ ...brand, name: e.target.value });
                 resetValidationErrors();
