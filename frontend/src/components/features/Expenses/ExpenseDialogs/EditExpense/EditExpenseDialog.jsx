@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import PropTypes from "prop-types";
 import {
   Box,
@@ -14,7 +14,7 @@ import {
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import { debounce } from "lodash";
-import WindowedSelect from "react-windowed-select";
+import VirtualizedSelect from "../../../../commons/VirtualizedSelect/VirtualizedSelect";
 import useExpenseForm from "../../UseExpense/useExpenseForm";
 import useHandleFieldChange from "../../../../../hooks/useHandleFieldChange";
 import useFetchData from "../../../../../hooks/useFetchData";
@@ -24,8 +24,6 @@ import BasicDialog from "../../../../commons/BasicDialog/BasicDialog";
 import { useTheme } from "@mui/material/styles";
 import { getSelectStyles } from "../../../../../theme/selectStyles";
 
-
-
 const EditExpenseDialog = ({
   open,
   onClose,
@@ -33,14 +31,12 @@ const EditExpenseDialog = ({
   onUpdateSuccess,
   onUpdateFailure,
 }) => {
-  /** ------------------------------------------------------
-   *  THEME + SELECT STYLES
-   * ----------------------------------------------------- */
+  // R19 OPT: Removed useMemo for simple style computation
   const theme = useTheme();
-  const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
+  const selectStyles = getSelectStyles(theme);
 
   /* =====================================================
-     Expense Form Hooks & State Initialization
+      Expense Form Hooks & State Initialization
   ====================================================== */
   const {
     expense,
@@ -51,15 +47,14 @@ const EditExpenseDialog = ({
     isFormValid,
   } = useExpenseForm(selectedExpense, selectedExpense?._id, onClose);
 
-  
   const { handleFieldChange } = useHandleFieldChange(expense, setExpense);
   const [productSearch, setProductSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   // Initialize form state when dialog opens
   useEffect(() => {
-    if (open) {
-      if (selectedExpense) setExpense(selectedExpense);
+    if (open && selectedExpense) {
+      setExpense(selectedExpense);
       setSelectedProduct(
         selectedExpense?.productName
           ? { label: selectedExpense.productName, ...selectedExpense }
@@ -69,18 +64,15 @@ const EditExpenseDialog = ({
   }, [open, selectedExpense, setExpense]);
 
   /* =====================================================
-     Date Handling
+      Date Handling (R19 OPT: Removed useCallback)
   ====================================================== */
-  const handleDateChange = useCallback(
-    (date) => {
-      const key = expense.purchased ? "purchaseDate" : "registeredDate";
-      handleFieldChange(key, date);
-    },
-    [expense.purchased, handleFieldChange]
-  );
+  const handleDateChange = (date) => {
+    const key = expense.purchased ? "purchaseDate" : "registeredDate";
+    handleFieldChange(key, date);
+  };
 
   /* =====================================================
-     Product Search & Options
+      Product Search & Options
   ====================================================== */
   const {
     data: infiniteData,
@@ -101,14 +93,20 @@ const EditExpenseDialog = ({
     [infiniteData]
   );
 
-  // Debounce product search input to minimize API calls
+  // Debounce product search input to minimize API calls (Retained useMemo for stability)
   const debouncedSearch = useMemo(
     () => debounce((value) => setProductSearch(value), 250),
     []
   );
 
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => debouncedSearch.cancel();
+  }, [debouncedSearch]);
+
+
   /* =====================================================
-     Brand Options Computation
+      Brand Options Computation
   ====================================================== */
   const { data: brandOptions, isLoading: isLoadingBrands } = useFetchData(
     "brands",
@@ -125,7 +123,7 @@ const EditExpenseDialog = ({
   }, [selectedProduct, brandOptions]);
 
   /* =====================================================
-     Shop Options Computation
+      Shop Options Computation
   ====================================================== */
   const { data: shops, isLoading: isLoadingShops } = useFetchData(
     "shops",
@@ -147,7 +145,8 @@ const EditExpenseDialog = ({
     { enabled: open }
   );
 
-  const safeShops = useMemo(() => (Array.isArray(shops) ? shops : []), [shops]);
+  // R19 OPT: Removed useMemo for simple array safety check
+  const safeShops = Array.isArray(shops) ? shops : [];
 
   const shopOptions = useMemo(
     () =>
@@ -168,92 +167,75 @@ const EditExpenseDialog = ({
   );
 
   /* =====================================================
-     Event Handlers
+      Event Handlers (R19 OPT: Removed all remaining useCallbacks)
   ====================================================== */
-  // Handle product selection.
-  const handleProductSelect = useCallback(
-    (option) => {
-      setSelectedProduct(option);
-      setExpense((prev) => ({
-        ...prev,
-        productName: option?.label || "",
-        brandName: "",
-        type: option?.type || "",
-        measurementUnit: option?.measurementUnit || "",
-        volume: option?.measures?.[0] || 0,
-      }));
-    },
-    [setExpense]
-  );
+  
+  // R19 OPT: Removed useCallback
+  const handleProductSelect = (option) => {
+    setSelectedProduct(option);
+    setExpense((prev) => ({
+      ...prev,
+      productName: option?.label || "",
+      brandName: "",
+      type: option?.type || "",
+      measurementUnit: option?.measurementUnit || "",
+      volume: option?.measures?.[0] || 0,
+    }));
+  };
 
-  // Handle brand selection inline in the select onChange callback
+  // R19 OPT: Removed useCallback
+  const handleDiscountChange = (e) => {
+    const checked = e.target.checked;
+    handleFieldChange("hasDiscount", checked);
+    if (!checked) {
+      handleFieldChange("discountValue", 0);
+      handleFieldChange("discountAmount", 0);
+    }
+  };
 
-  // Handle shop selection inline in the select onChange callback
+  // R19 OPT: Removed useCallback
+  const handleDiscountValueChange = (e) => {
+    const value = parseFloat(e.target.value);
+    handleFieldChange("discountValue", value);
+    // Recalculate discount amount based on new percentage
+    const price = expense.price || 0;
+    const newAmount = (price * (value / 100)).toFixed(2);
+    handleFieldChange("discountAmount", parseFloat(newAmount));
+  };
 
-  // Handle discount changes
-  const handleDiscountChange = useCallback(
-    (e) => {
-      const checked = e.target.checked;
-      handleFieldChange("hasDiscount", checked);
-      if (!checked) {
-        handleFieldChange("discountValue", 0);
-        handleFieldChange("discountAmount", 0);
-      }
-    },
-    [handleFieldChange]
-  );
+  // R19 OPT: Removed useCallback
+  const handleDiscountAmountChange = (e) => {
+    const amount = parseFloat(e.target.value);
+    handleFieldChange("discountAmount", amount);
+    // Recalculate discount percentage based on new amount
+    const price = expense.price || 0;
+    const newValue = price > 0 ? ((amount / price) * 100).toFixed(2) : 0;
+    handleFieldChange("discountValue", parseFloat(newValue));
+  };
 
-  const handleDiscountValueChange = useCallback(
-    (e) => {
-      const value = parseFloat(e.target.value);
-      handleFieldChange("discountValue", value);
-      handleFieldChange(
-        "discountAmount",
-        (expense.price * (value / 100)).toFixed(2)
-      );
-    },
-    [expense.price, handleFieldChange]
-  );
+  // R19 OPT: Removed useCallback
+  const handleTransactionType = (e) => {
+    const isPurchased = e.target.value === "kjøpt"; // Use actual value from RadioGroup
+    setExpense((prev) => ({
+      ...prev,
+      purchased: isPurchased,
+      // Only one of these should be active at a time.
+      registeredDate: isPurchased ? null : prev.registeredDate,
+      purchaseDate: isPurchased ? prev.purchaseDate : null,
+    }));
+  };
 
-  const handleDiscountAmountChange = useCallback(
-    (e) => {
-      const amount = parseFloat(e.target.value);
-      handleFieldChange("discountAmount", amount);
-      handleFieldChange(
-        "discountValue",
-        ((amount / expense.price) * 100).toFixed(2)
-      );
-    },
-    [expense.price, handleFieldChange]
-  );
-
-  // Handle transaction type (purchased vs. registered)
-  const handleTransactionType = useCallback(
-    (e) => {
-      const isPurchased = e.target.value === "purchased";
-      setExpense((prev) => ({
-        ...prev,
-        purchased: isPurchased,
-        registeredDate: isPurchased ? null : prev.registeredDate,
-        purchaseDate: isPurchased ? prev.purchaseDate : null,
-      }));
-    },
-    [setExpense]
-  );
-
-  // Close handler with query reset
-  const handleClose = useCallback(() => {
+  // R19 OPT: Removed useCallback
+  const handleClose = () => {
     resetForm();
     onClose();
-  }, [ resetForm, onClose]);
+  };
 
   /* =====================================================
-     Overall Loading State & Early Return
+      Overall Loading State & Early Return
   ====================================================== */
- const isLoadingInitial = useMemo(
-    () => isLoadingBrands || isLoadingShops,
-    [isLoadingBrands, isLoadingShops]
-  );
+  // R19 OPT: Removed useMemo for simple boolean computation
+  const isLoadingInitial = isLoadingBrands || isLoadingShops;
 
   if (!open) return null;
 
@@ -273,155 +255,163 @@ const EditExpenseDialog = ({
   }
 
   /* =====================================================
-     Render Markup
+      Render Markup
   ====================================================== */
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle="Rediger utgift">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          isFormValid &&
+          if (isFormValid) {
             handleSaveExpense()
               .then(onUpdateSuccess)
               .catch(onUpdateFailure)
               .finally(handleClose);
+          }
         }}
       >
         <Box sx={{ p: 2 }}>
           <Stack spacing={2}>
-            {/* ===== Produktvalg ===== */}
+            {/* ===== Produktvalg & Merkevalg ===== */}
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <Box flex={1}>
-              <WindowedSelect
-                isClearable
-                options={productOptions}
-                value={selectedProduct}
-                onChange={handleProductSelect}
-                onInputChange={debouncedSearch}
-                onMenuScrollToBottom={() => hasNextPage && fetchNextPage()}
-                placeholder="Velg produkt"
-                menuPortalTarget={document.body}
-                styles={selectStyles}
-                isLoading={isLoadingProducts}
-              />
-            </Box>
-
-            {/* ===== Merkevalg ===== */}
-            <Box flex={1}>
-              <WindowedSelect
-                isClearable
-                options={computedBrandOptions}
-                value={{ label: expense.brandName, value: expense.brandName }}
-                onChange={(option) =>
-                  handleFieldChange("brandName", option?.value || "")
-                }
-                placeholder="Velg merke"
-                menuPortalTarget={document.body}
-                isDisabled={!selectedProduct}
-                styles={selectStyles}
-                isLoading={isLoadingBrands}
-              />
-            </Box>
-            </Stack>
-
-            {/* ===== Butikkvalg ===== */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <Box flex={1}>
-              <WindowedSelect
-                isClearable
-                options={shopOptions}
-                value={selectedShopOption}
-                onChange={(option) => {
-                  handleFieldChange("shopName", option?.value || "");
-                  handleFieldChange("locationName", option?.locationName || "");
-                }}
-                placeholder="Velg butikk"
-                menuPortalTarget={document.body}
-                styles={selectStyles}
-                isLoading={isLoadingShops}
-              />
-            </Box>
-
-            {/* ===== Sted ===== */}
-            <Box flex={1}>
-              <ExpenseField
-                label="Sted"
-                value={expense.locationName || ""}
-                InputProps={{ readOnly: true }}
-              />
-            </Box>
-            </Stack>
-
-            {/* ===== Pris ===== */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <Box flex={1}>
-              <ExpenseField
-                label="Pris"
-                type="number"
-                value={expense.price}
-                onChange={(e) =>
-                  handleFieldChange("price", parseFloat(e.target.value))
-                }
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">Kr</InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
-
-            {/* ===== Volum/antall ===== */}
-            <Box flex={1}>
-              {expense.measurementUnit &&
-              selectedProduct &&
-              selectedProduct.measures?.length ? (
-                <WindowedSelect
+                <VirtualizedSelect
                   isClearable
-                  options={selectedProduct.measures.map((measure) => ({
-                    label: measure.toString(),
-                    value: measure,
-                  }))}
+                  options={productOptions}
+                  value={selectedProduct}
+                  onChange={handleProductSelect}
+                  onInputChange={debouncedSearch}
+                  hasNextPage={hasNextPage}
+                  fetchNextPage={fetchNextPage}
+                  placeholder="Velg produkt"
+                  menuPortalTarget={document.body}
+                  styles={selectStyles}
+                  isLoading={isLoadingProducts}
+                />
+              </Box>
+
+              <Box flex={1}>
+                <VirtualizedSelect
+                  isClearable
+                  options={computedBrandOptions}
                   value={
-                    expense.volume != null
-                      ? {
-                          label: expense.volume.toString(),
-                          value: expense.volume,
-                        }
+                    expense.brandName
+                      ? { label: expense.brandName, value: expense.brandName }
                       : null
                   }
                   onChange={(option) =>
-                    setExpense((prev) => ({
-                      ...prev,
-                      volume: option ? parseFloat(option.label) : 0,
-                    }))
+                    // Inline simple field change
+                    handleFieldChange("brandName", option?.value || "")
                   }
-                  placeholder="Velg volum"
+                  placeholder="Velg merke"
+                  menuPortalTarget={document.body}
+                  isDisabled={!selectedProduct}
+                  styles={selectStyles}
+                  isLoading={isLoadingBrands}
+                />
+              </Box>
+            </Stack>
+
+            {/* ===== Butikkvalg & Sted ===== */}
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
+                <VirtualizedSelect
+                  isClearable
+                  options={shopOptions}
+                  value={selectedShopOption}
+                  onChange={(option) => {
+                    // Inline multiple field changes
+                    handleFieldChange("shopName", option?.value || "");
+                    handleFieldChange("locationName", option?.locationName || "");
+                  }}
+                  placeholder="Velg butikk"
                   menuPortalTarget={document.body}
                   styles={selectStyles}
+                  isLoading={isLoadingShops}
                 />
-              ) : (
+              </Box>
+
+              <Box flex={1}>
                 <ExpenseField
-                  label="Volum/antall (manuelt)"
+                  label="Sted"
+                  value={expense.locationName || ""}
+                  InputProps={{ readOnly: true }}
+                />
+              </Box>
+            </Stack>
+
+            {/* ===== Pris & Volum/antall ===== */}
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Box flex={1}>
+                <ExpenseField
+                  label="Pris"
                   type="number"
-                  value={
-                    expense.volume != null ? expense.volume.toString() : ""
-                  }
+                  value={expense.price}
                   onChange={(e) =>
-                    setExpense((prev) => ({
-                      ...prev,
-                      volume: parseFloat(e.target.value),
-                    }))
+                    // Inline simple field change
+                    handleFieldChange("price", parseFloat(e.target.value) || 0)
                   }
                   InputProps={{
                     startAdornment: (
-                      <InputAdornment position="start">
-                        {expense.measurementUnit}
-                      </InputAdornment>
+                      <InputAdornment position="start">Kr</InputAdornment>
                     ),
                   }}
                 />
-              )}
-            </Box>
+              </Box>
+
+              <Box flex={1}>
+                {expense.measurementUnit &&
+                selectedProduct &&
+                selectedProduct.measures?.length ? (
+                  <VirtualizedSelect
+                    isClearable
+                    options={selectedProduct.measures.map((measure) => ({
+                      label: measure.toString(),
+                      value: measure,
+                    }))}
+                    value={
+                      expense.volume != null
+                        ? {
+                            label: expense.volume.toString(),
+                            value: expense.volume,
+                          }
+                        : null
+                    }
+                    onChange={(option) =>
+                      // Inline simple volume update
+                      setExpense((prev) => ({
+                        ...prev,
+                        volume: option ? parseFloat(option.label) : 0,
+                      }))
+                    }
+                    placeholder="Velg volum"
+                    menuPortalTarget={document.body}
+                    styles={selectStyles}
+                  />
+                ) : (
+                  <ExpenseField
+                    label="Volum/antall (manuelt)"
+                    type="number"
+                    value={
+                      expense.volume != null ? expense.volume.toString() : ""
+                    }
+                    onChange={(e) =>
+                      // Inline simple volume update
+                      setExpense((prev) => ({
+                        ...prev,
+                        volume: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          {expense.measurementUnit}
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+              </Box>
             </Stack>
 
             {/* ===== Pris per enhet ===== */}
@@ -434,7 +424,7 @@ const EditExpenseDialog = ({
               />
             </Box>
 
-            {/* ===== Rabatt ===== */}
+            {/* ===== Rabatt Toggle ===== */}
             <Box>
               <FormControlLabel
                 control={
@@ -448,7 +438,7 @@ const EditExpenseDialog = ({
               />
             </Box>
 
-            {/* ===== Discount Fields ===== */}
+            {/* ===== Discount Fields (Percentage & Amount) ===== */}
             {expense.hasDiscount && (
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                 <Box flex={1}>
@@ -481,34 +471,33 @@ const EditExpenseDialog = ({
               </Stack>
             )}
 
-            {/* ===== Sluttpris ===== */}
+            {/* ===== Sluttpris & Type ===== */}
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
               <Box flex={1}>
-              <ExpenseField
-                label="Sluttpris"
-                type="number"
-                value={expense.finalPrice || ""}
-                InputProps={{
-                  readOnly: true,
-                  startAdornment: (
-                    <InputAdornment position="start">Kr</InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
+                <ExpenseField
+                  label="Sluttpris"
+                  type="number"
+                  value={expense.finalPrice || ""}
+                  InputProps={{
+                    readOnly: true,
+                    startAdornment: (
+                      <InputAdornment position="start">Kr</InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
 
-            {/* ===== Type ===== */}
-            <Box flex={1}>
-              <ExpenseField
-                label="Type"
-                value={expense.type || ""}
-                InputProps={{ readOnly: true }}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Box>
+              <Box flex={1}>
+                <ExpenseField
+                  label="Type"
+                  value={expense.type || ""}
+                  InputProps={{ readOnly: true }}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
             </Stack>
 
-            {/* ===== Transaksjonstype ===== */}
+            {/* ===== Transaksjonstype (RadioGroup) ===== */}
             <Box>
               <RadioGroup
                 row
@@ -540,16 +529,15 @@ const EditExpenseDialog = ({
                 onChange={handleDateChange}
                 slotProps={{ textField: { fullWidth: true } }}
               />
-           </Box>
-
+            </Box>
           </Stack>
         </Box>
 
         {/* ===== Handlingsknapper ===== */}
-       <Stack 
-          direction="row" 
-          spacing={2} 
-          justifyContent="flex-end" 
+        <Stack
+          direction="row"
+          spacing={2}
+          justifyContent="flex-end"
           sx={{ mt: 3 }}
         >
           <Button variant="contained" onClick={handleClose}>

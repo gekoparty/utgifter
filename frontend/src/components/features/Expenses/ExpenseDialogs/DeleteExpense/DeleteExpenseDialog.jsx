@@ -15,30 +15,42 @@ const DeleteExpenseDialog = ({
   // Get deletion handler and loading state from the expense hook.
   const { handleDeleteExpense, loading } = useExpenseForm();
 
-  // Define a delete handler that calls the deletion function from the hook.
+  /**
+   * R19 OPT: The handleDelete function is clean and simple. 
+   * It relies only on stable props/hooks. In React 19's optimized compiler (React Forget),
+   * defining it directly as an arrow function or a standard function 
+   * is sufficient, and manual wrapping with useCallback is unnecessary.
+   */
   const handleDelete = async () => {
-    // Pass the expense _id, not the full object.
+    // Expense _id is safe to access directly.
     const expenseId = selectedExpense._id;
+
+    // Execute deletion logic from the hook
     const success = await handleDeleteExpense(expenseId);
+    
     if (success) {
+      // Call success callback and close the dialog
       onDeleteSuccess(selectedExpense);
       onClose();
     } else {
+      // Call failure callback
       onDeleteFailure(selectedExpense);
     }
+    // Note: The logic is already sequential and robust.
   };
+
   return (
     <BasicDialog 
       open={open}
       onClose={onClose}
       dialogTitle={dialogTitle}
-      // (Optional) onConfirm prop can be passed if BasicDialog uses it internally.
-      onConfirm={handleDeleteExpense}
+      // Passing handleDelete to the confirmButton prop for simplicity and clarity.
       cancelButton={
         <Button onClick={onClose} disabled={loading}>Avbryt</Button>
       }
       confirmButton={
-        <Button onClick={handleDelete} disabled={loading}>Slett</Button>
+        // The event handler is the simple, non-memoized function
+        <Button onClick={handleDelete} disabled={loading} color="error" variant="contained">Slett</Button>
       }
     >
       {selectedExpense && (
@@ -64,6 +76,3 @@ DeleteExpenseDialog.propTypes = {
 };
 
 export default DeleteExpenseDialog;
-
-
-  

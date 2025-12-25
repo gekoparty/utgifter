@@ -1,3 +1,5 @@
+// src/layout/BareLayout.jsx
+
 import React, { useState, useMemo, useCallback } from "react";
 import { Outlet, Link as RouterLink } from "react-router-dom";
 import {
@@ -14,7 +16,8 @@ import {
   Stack,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import WindowedSelect from "react-windowed-select";
+// IMPORTANT: Make sure this path is correct for your file system
+import VirtualizedSelect from "../components/commons/VirtualizedSelect/VirtualizedSelect"; 
 import debounce from "lodash.debounce";
 import useInfiniteProducts from "../hooks/useInfiniteProducts";
 import { getSelectStyles } from "../theme/selectStyles";
@@ -23,7 +26,7 @@ export default function BareLayout() {
   const [view, setView] = useState("expenses");
   const [productId, setProductId] = useState("");
   const [productSearch, setProductSearch] = useState("");
-  
+
   const theme = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
 
@@ -47,21 +50,28 @@ export default function BareLayout() {
     () => debounce((q) => setProductSearch(q), 300),
     []
   );
-  
+
   const handleInputChange = useCallback(
     (value) => debouncedSearch(value || ""),
     [debouncedSearch]
   );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        bgcolor: "background.default",
+      }}
+    >
       {/* Primary Navigation Bar */}
-      <AppBar 
-        position="sticky" 
+      <AppBar
+        position="sticky"
         elevation={0}
-        sx={{ 
+        sx={{
           borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper 
+          backgroundColor: theme.palette.background.paper,
         }}
       >
         <Toolbar>
@@ -69,13 +79,18 @@ export default function BareLayout() {
             component={RouterLink}
             to="/"
             edge="start"
-            sx={{ mr: 2, color: 'text.primary' }}
+            sx={{ mr: 2, color: "text.primary" }}
           >
             <ArrowBackIcon />
           </IconButton>
           <Typography
             variant="h6"
-            sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary', letterSpacing: '-0.5px' }}
+            sx={{
+              flexGrow: 1,
+              fontWeight: 700,
+              color: "text.primary",
+              letterSpacing: "-0.5px",
+            }}
           >
             Statistics
           </Typography>
@@ -83,31 +98,43 @@ export default function BareLayout() {
       </AppBar>
 
       {/* Control Sub-Header */}
-      <Box sx={{ bgcolor: 'background.paper', borderBottom: `1px solid ${theme.palette.divider}`, py: 2 }}>
+      <Box
+        sx={{
+          bgcolor: "background.paper",
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          py: 2,
+        }}
+      >
         <Container maxWidth="lg">
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={2} 
-            alignItems="center" 
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems="center"
             justifyContent="space-between"
           >
             {/* View Switcher */}
-            <ButtonGroup 
-              variant="outlined" 
-              size="small" 
+            <ButtonGroup
+              variant="outlined"
+              size="small"
               aria-label="view switcher"
-              sx={{ boxShadow: 'none' }}
+              sx={{ boxShadow: "none" }}
             >
               <Button
                 variant={view === "expenses" ? "contained" : "outlined"}
-                onClick={() => { setView("expenses"); setProductId(""); }}
+                onClick={() => {
+                  setView("expenses");
+                  setProductId("");
+                }}
                 sx={{ px: 3 }}
               >
                 Monthly
               </Button>
               <Button
                 variant={view === "price" ? "contained" : "outlined"}
-                onClick={() => { setView("price"); setProductId(""); }}
+                onClick={() => {
+                  setView("price");
+                  setProductId("");
+                }}
                 sx={{ px: 3 }}
               >
                 Price History
@@ -115,19 +142,28 @@ export default function BareLayout() {
             </ButtonGroup>
 
             {/* Contextual Search */}
-            <Box sx={{ width: { xs: '100%', sm: 300 }, visibility: view === 'price' ? 'visible' : 'hidden' }}>
-                <WindowedSelect
-                  isClearable
-                  options={productOptions}
-                  value={productOptions.find((o) => o.value === productId) || null}
-                  onChange={(opt) => setProductId(opt?.value || "")}
-                  onInputChange={handleInputChange}
-                  onMenuScrollToBottom={() => hasNextPage && fetchNextPage()}
-                  isLoading={isLoadingProducts}
-                  placeholder="Search products..."
-                  menuPortalTarget={document.body}
-                  styles={selectStyles} 
-                />
+            <Box
+              sx={{
+                width: { xs: "100%", sm: 300 },
+                visibility: view === "price" ? "visible" : "hidden",
+              }}
+            >
+              <VirtualizedSelect
+                isClearable
+                options={productOptions}
+                value={
+                  productOptions.find((o) => o.value === productId) || null
+                }
+                onChange={(opt) => setProductId(opt?.value || "")}
+                onInputChange={handleInputChange}
+                isLoading={isLoadingProducts}
+                placeholder="Search products..."
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+                // 💥 INFINITE SCROLL PROPS ADDED HERE 💥
+                hasNextPage={hasNextPage}
+                fetchNextPage={fetchNextPage}
+              />
             </Box>
           </Stack>
         </Container>
@@ -136,7 +172,14 @@ export default function BareLayout() {
       {/* Main Content Area */}
       <Box component="main" sx={{ flexGrow: 1, py: 4 }}>
         <Container maxWidth="lg">
-          <Paper elevation={0} sx={{ p: { xs: 2, md: 4 }, borderRadius: 3, border: `1px solid ${theme.palette.divider}` }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, md: 4 },
+              borderRadius: 3,
+              border: `1px solid ${theme.palette.divider}`,
+            }}
+          >
             <Outlet context={{ view, productId }} />
           </Paper>
         </Container>

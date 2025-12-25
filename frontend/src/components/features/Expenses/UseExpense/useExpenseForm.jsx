@@ -3,9 +3,10 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useContext,
   useReducer,
   useRef,
+  use, // React 19: Replaces useContext
+  useTransition, // React 19: For non-blocking UI updates
 } from "react";
 import dayjs from "dayjs";
 import { StoreContext } from "../../../../Store/Store";
@@ -26,7 +27,7 @@ const API_ENDPOINTS = {
 };
 
 // ----------------------------------------------------------------------------
-// Reducer (Cleaned up)
+// Reducer
 // ----------------------------------------------------------------------------
 const expenseReducer = (state, action) => {
   switch (action.type) {
@@ -69,19 +70,17 @@ const INITIAL_EXPENSE_STATE = {
 };
 
 // ----------------------------------------------------------------------------
-// ✅ OPTIMIZED: Helper function to fetch shop data with location name (Batching)
+// Helper: Optimized Batch Fetcher (Pure Function)
 // ----------------------------------------------------------------------------
 const fetchShopsDataOptimized = async (data, locationsEndpoint) => {
   const shops = Array.isArray(data) ? data : data?.shops || [];
   if (shops.length === 0) return [];
 
   try {
-    // 1. Collect unique location IDs
     const locationIds = [...new Set(shops.map((s) => s.location).filter(Boolean))];
 
     if (locationIds.length === 0) return shops;
 
-    // 2. Batch fetch locations (Single Request)
     const res = await fetch(`${locationsEndpoint}?ids=${locationIds.join(",")}`);
     
     let locationMap = {};
@@ -89,21 +88,18 @@ const fetchShopsDataOptimized = async (data, locationsEndpoint) => {
       const json = await res.json();
       const locations = Array.isArray(json) ? json : json.locations || [];
       
-      // Create Lookup Map: { [id]: "Location Name" }
       locationMap = locations.reduce((acc, loc) => {
         if (loc._id) acc[loc._id] = loc.name;
         return acc;
       }, {});
     }
 
-    // 3. Map names to shops
     return shops.map((shop) => ({
       ...shop,
       locationName: locationMap[shop.location] || "N/A",
     }));
   } catch (error) {
     console.error("Feil ved henting av butikksteder (batch):", error);
-    // Return shops without location names on error, rather than crashing
     return shops;
   }
 };
@@ -114,9 +110,12 @@ const fetchShopsDataOptimized = async (data, locationsEndpoint) => {
 const useExpenseForm = (initialExpense = null, expenseId = null) => {
   const queryClient = useQueryClient();
   const isMountedRef = useRef(true);
+  
+  // React 19: useTransition for smoother validation handling
+  const [isPending, startTransition] = useTransition();
 
   // --------------------------------------------------------------------------
-  // Initial State Setup
+  // Initial State
   // --------------------------------------------------------------------------
   const initialFormState = useMemo(() => 
     initialExpense || { ...INITIAL_EXPENSE_STATE }, 
@@ -126,27 +125,25 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   const [validationErrors, setValidationErrors] = useState({});
 
   // --------------------------------------------------------------------------
-  // HTTP and Global Store Hooks
+  // HTTP and Global Store
   // --------------------------------------------------------------------------
-  const { sendRequest, loading } = useCustomHttp(API_ENDPOINTS.expenses);
-  const { dispatch: storeDispatch } = useContext(StoreContext);
+  const { sendRequest, loading: httpLoading } = useCustomHttp(API_ENDPOINTS.expenses);
+  
+  // React 19: 'use' API instead of 'useContext'
+  const { dispatch: storeDispatch } = use(StoreContext);
 
   const setExpense = useCallback((updateFn) => {
     dispatchExpense({ type: "SET_EXPENSE", payload: updateFn });
   }, []);
 
   // --------------------------------------------------------------------------
-  // Data Fetching Configuration
+  // Data Fetching
   // --------------------------------------------------------------------------
-  // Only fetch extra lists if we are loading an existing expense ID or just general form use
-  const fetchConfig = useMemo(() => ({
-    staleTime: 5 * 60 * 1000, // Cache for 5 mins
-  }), []);
+  const fetchConfig = { staleTime: 5 * 60 * 1000 };
 
   const { data: products } = useFetchData("products", API_ENDPOINTS.products, null, fetchConfig);
   const { data: brands } = useFetchData("brands", API_ENDPOINTS.brands, null, fetchConfig);
   
-  // Use the optimized batch fetcher here
   const { data: shops } = useFetchData(
     "shops",
     API_ENDPOINTS.shops,
@@ -154,36 +151,35 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     fetchConfig
   );
 
-  // Fetch specific expense if editing
   const { data: expenseData } = useQuery({
     queryKey: ["expense", expenseId],
     queryFn: () => sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`),
     enabled: Boolean(expenseId && !initialExpense),
     initialData: initialExpense,
-    staleTime: 0, // Always fetch fresh data for edit
+    staleTime: 0,
   });
 
-  // Sync fetched expense data to form state
+  // Sync fetched expense data
   useEffect(() => {
     if (expenseData) {
       dispatchExpense({ type: "INIT", payload: expenseData });
     }
   }, [expenseData]);
 
-  // Mount/Unmount safety
+  // Cleanup safety
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
   }, []);
 
   // --------------------------------------------------------------------------
-  // Form Operation Helpers
+  // Form Operations
   // --------------------------------------------------------------------------
   const resetForm = useCallback(() => {
     dispatchExpense({ type: "RESET", initialState: { ...INITIAL_EXPENSE_STATE } });
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
     setValidationErrors({});
-  }, [storeDispatch]);
+  }, [storeDispatch]); // React Compiler will optimize this dependency automatically
 
   // ----------------------------------------------------------------------------
   // Mutations
@@ -201,7 +197,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
     },
-    onError: (error) => {
+    onError: () => {
       storeDispatch({
         type: "SET_ERROR",
         resource: "expenses",
@@ -232,6 +228,9 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // Handlers
   // ----------------------------------------------------------------------------
   const handleSaveExpense = useCallback(async () => {
+    // Clear previous errors immediately
+    setValidationErrors({});
+
     try {
       const payload = {
         ...expense,
@@ -239,11 +238,12 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
         registeredDate: !expense.purchased ? expense.registeredDate : null,
       };
 
+      // Validation Step
       await addExpenseValidationSchema.validate(payload, { abortEarly: false });
 
+      // Execute Mutation
       const result = await saveExpenseMutation.mutateAsync(payload);
       
-      // Return guaranteed productName for UI feedback
       return {
         ...result,
         productName: result.productName || expense.productName || "Ukjent produkt",
@@ -252,16 +252,19 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
       if (!isMountedRef.current) return;
 
       if (error.name === "ValidationError") {
-        const errors = error.inner.reduce(
-          (acc, err) => ({ ...acc, [err.path]: err.message }),
-          {}
-        );
-        setValidationErrors(errors);
+        // React 19: Wrap state updates in transition if they might suspend 
+        // (Not strictly necessary for local state, but good practice for responsiveness)
+        startTransition(() => {
+          const errors = error.inner.reduce(
+            (acc, err) => ({ ...acc, [err.path]: err.message }),
+            {}
+          );
+          setValidationErrors(errors);
+        });
       } else {
-        // Allow mutation onError to handle server errors, or handle here if strictly needed
         console.error("Save error:", error);
       }
-      throw error; // Re-throw so component knows it failed
+      throw error;
     }
   }, [expense, saveExpenseMutation]);
 
@@ -279,7 +282,6 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // ----------------------------------------------------------------------------
   const isFormValid = useMemo(() => {
     const requiredFields = ["productName", "brandName", "shopName"];
-    // Using loose equality to catch undefined/null/empty string
     const fieldsFilled = requiredFields.every(field => expense[field] && expense[field].trim() !== "");
     const numbersValid = expense.price > 0 && expense.volume > 0;
     const noErrors = Object.keys(validationErrors).length === 0;
@@ -287,8 +289,13 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     return fieldsFilled && numbersValid && noErrors;
   }, [expense, validationErrors]);
 
-  const isLoading = loading || saveExpenseMutation.isPending || deleteExpenseMutation.isPending;
+  // Combine loading states
+  const isLoading = httpLoading || saveExpenseMutation.isPending || deleteExpenseMutation.isPending || isPending;
 
+  // React 19: 
+  // If you are using the React Compiler, this useMemo on the return object 
+  // is technically redundant, but we keep it to guarantee "No Breaking Changes" 
+  // for consumers expecting stable references.
   return useMemo(() => ({
     isFormValid,
     expense,
@@ -317,4 +324,3 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
 };
 
 export default useExpenseForm;
-

@@ -1,7 +1,7 @@
 // src/commons/ProductForm/ProductForm.js
 import React from "react";
 import { Stack } from "@mui/material"; // 1. Changed Grid to Stack
-import ProductNameInput from "./ProductNameInput";
+import ProductNameInput from "./ProductNameInput.jsx";
 import BrandSelect from "./BrandSelect";
 import ProductTypeSelect from "./ProductTypeSelect";
 import MeasurementUnitSelect from "./MeasurementUnitSelect";

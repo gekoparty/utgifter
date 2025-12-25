@@ -20,7 +20,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import { styled } from "@mui/material/styles";
-import { mainNavbarItems } from "./Consts/NavBarListItems";
+import { mainNavbarItems } from './Consts/NavBarListItems.jsx';
 import { Link, useLocation } from "react-router-dom";
 
 const openedWidth = 240;

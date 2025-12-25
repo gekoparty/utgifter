@@ -7,17 +7,25 @@ import {
   Stack,
 } from "@mui/material";
 
-const BasicDialog = ({ open, onClose, children, cancelButton, confirmButton, dialogTitle }) => {
+const BasicDialog = ({
+  open,
+  onClose,
+  children,
+  cancelButton,
+  confirmButton,
+  dialogTitle,
+}) => {
   const handleClose = () => {
     onClose();
   };
 
   return (
-    <Dialog open={open} onClose={handleClose}>
+    <Dialog open={open} onClose={handleClose}
+    disableEnforceFocus={true} disableAutoFocus={true}>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
-      <Stack spacing={2} sx={{ mt: 1 }}>
-        {children}
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {children}
         </Stack>
       </DialogContent>
       <DialogActions>
