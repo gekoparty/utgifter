@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert, LinearProgress } from "@mui/material";
+import { Box, Button, IconButton, Snackbar, Alert, LinearProgress} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -78,6 +78,8 @@ const BrandScreen = () => {
     ],
     []
   );
+
+  
 
   const handleDialogClose = useCallback((closeFn) => {
     closeFn(false);
@@ -192,7 +194,12 @@ const BrandScreen = () => {
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-      >
+        slotProps={{
+            // This targets the inner 'div' that wraps your Alert content
+            // By passing an empty object, we ensure no extra props bleed into the Alert.
+            // If this doesn't work, try wrapping Alert in <Box>
+            root: { ownerState: undefined },
+      }}>
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
@@ -205,6 +212,7 @@ const BrandScreen = () => {
         >
           {snackbarMessage}
         </Alert>
+        
       </Snackbar>
     </TableLayout>
   );
