@@ -60,7 +60,7 @@ const EditBrandDialog = ({
               fullWidth
               label="Merkenavn"
               value={brand?.name || ""}
-              error={Boolean(validationError)}
+              error={Boolean(validationError?.name)}
               onChange={(e) => {
                 setBrand({ ...brand, name: e.target.value });
                 resetValidationErrors();

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState, useEffect, useMemo } from "react";
+import { useCallback, useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
@@ -122,16 +122,16 @@ const useProductDialog = (initialProduct = null) => {
       });
       queryClient.invalidateQueries({ queryKey: ["products"] });
     },
-    onError: () => {
-        // Error handling handled by the failure callback in component usually,
-        // but we can set global error here too if desired.
+    onError: (error) => { // <-- ADDED for consistency
+         console.error("Delete product failed:", error);
+         
     }
   });
 
   // --------------------------------------------------------------------------
   // Handlers
   // --------------------------------------------------------------------------
-  const handleSaveProduct = async (onClose) => {
+  const handleSaveProduct = async (onClose, onSuccessCallback) => {
     if (!product.name.trim() || product.brands.length === 0) {
       return false;
     }
@@ -157,9 +157,11 @@ const useProductDialog = (initialProduct = null) => {
 
       // 3. Mutate
       const data = await saveProductMutation.mutateAsync(formattedProduct);
-      setProduct(data);
-      onClose && onClose();
-      return true;
+      
+      onSuccessCallback && onSuccessCallback(data); // <-- ADDED: Execute success callback
+        setProduct({ ...INITIAL_PRODUCT_STATE }); // <-- CLEANUP: Reset product state 
+        onClose && onClose();
+        return true;
 
     } catch (error) {
       if (error.name === "ValidationError") {

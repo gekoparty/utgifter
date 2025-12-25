@@ -176,7 +176,6 @@ const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
   // Fetch the next page when scrolling to the bottom.
   const handleMenuScrollToBottom = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
-      console.log("Fetching next page");
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -227,7 +226,6 @@ const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
   // Submit handler for saving the updated product.
   const handleSubmit = async (event) => {
     event.preventDefault();
-    console.log("Submitting product:", product);
     if (isFormValid()) {
       const updatedProduct = {
         ...product,

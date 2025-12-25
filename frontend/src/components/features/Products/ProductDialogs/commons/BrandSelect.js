@@ -99,8 +99,6 @@ const BrandSelect = ({
   inputValue,
   isLoading,
 }) => {
-  const theme = useTheme();
-
   return (
     <CreatableSelect
       styles={{
@@ -154,5 +152,3 @@ BrandSelect.propTypes = {
 };
 
 export default React.memo(BrandSelect);
-
-

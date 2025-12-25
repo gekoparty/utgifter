@@ -50,7 +50,7 @@ export const mainNavbarItems = [
         route: 'products',
     },
     {
-        id: 6,
+        id: 7,
         icon: <BarChartIcon />, // Replaced SettingsInputComponentIcon
         label: 'Stats',
         route: 'stats',

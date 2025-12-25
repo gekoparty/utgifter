@@ -134,6 +134,7 @@ const BrandScreen = () => {
         </Box>
       ) : (
         <ReactTable
+         refetch={refetch}
           data={tableData}
           columns={tableColumns}
           setColumnFilters={setColumnFilters}
@@ -167,6 +168,7 @@ const BrandScreen = () => {
           open={deleteModalOpen}
           onClose={() => handleDialogClose(setDeleteModalOpen)}
           selectedBrand={selectedBrand}
+          dialogTitle="Bekreft Sletting" 
           onDeleteSuccess={deleteSuccessHandler}
           onDeleteFailure={deleteFailureHandler}
         />

@@ -1,11 +1,10 @@
-import React from "react";
 import PropTypes from "prop-types";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid
+  Stack,
 } from "@mui/material";
 
 const BasicDialog = ({ open, onClose, children, cancelButton, confirmButton, dialogTitle }) => {
@@ -17,9 +16,9 @@ const BasicDialog = ({ open, onClose, children, cancelButton, confirmButton, dia
     <Dialog open={open} onClose={handleClose}>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
-      <Grid container direction="column" spacing={1}>
+      <Stack spacing={2} sx={{ mt: 1 }}>
         {children}
-        </Grid>
+        </Stack>
       </DialogContent>
       <DialogActions>
         {cancelButton}

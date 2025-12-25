@@ -74,10 +74,6 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
     infiniteData && infiniteData.pages
       ? infiniteData.pages.flatMap((page) => page.brands)
       : prevBrandOptionsRef.current;
-  // Log fetched brand options for debugging:
-  useEffect(() => {
-    console.log("Fetched brand options:", brandOptions);
-  }, [brandOptions]);
 
   // Handlers
   const handleSubmit = async (event) => {
@@ -181,7 +177,6 @@ const AddProductDialog = ({ open, onClose, onAdd }) => {
   // When the menu is scrolled to the bottom, fetch the next page.
   const handleMenuScrollToBottom = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
-      console.log("Fetching next page");
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
