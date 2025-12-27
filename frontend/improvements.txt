@@ -1,0 +1,35 @@
+1 right now, the useExpense fetches all shops and enrice them with locations,
+need to find a way to only enrich the ones actually needed on 1st and 2nd page to optimeze http loads
+The Compromise: Batching + Hydrating the Cache
+
+2 The fetchShopsDataOptimized inside useExpense hook that enrices shops with locations can be extracted to make a generic 
+enericer function to work also with useProduct screen and possibly other
+🌟 Refactoring: Creating a Generic Batch Merger
+
+3 need to search for a useFetchData call with only three arguments (queryKey, url, transformData):
+
+4 fetchconfig can be adressed inside useFetchData instead and removed in useExpense and other 
+
+6 in useFetchData we are getting all brands, all shop, this is overfetching since we only fetch 10 expenses
+
+6 check the use of errorboundary in useFetchdata, and use of options
+const queryResult = useQuery({
+
+    queryKey: stableQueryKey,
+
+    queryFn: fetchData,
+
+    enabled: options.enabled !== false,
+
+    retry: options.retry ?? 3,
+
+    staleTime: options.staleTime ?? 5 * 60 * 1000,
+
+    cacheTime: options.cacheTime ?? 10 * 60 * 1000,
+
+    useErrorBoundary: options.useErrorBoundary ?? true, // ✅ Supports Suspense
+
+    ...options,
+
+  });
+
