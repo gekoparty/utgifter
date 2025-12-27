@@ -1,5 +1,5 @@
-import React, { useState, useMemo, lazy, Suspense, useCallback } from "react";
-import { Button, Snackbar, Alert, IconButton } from "@mui/material";
+import React, { useState, lazy, Suspense } from "react";
+import { Button, Snackbar, Alert, IconButton, Box } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -24,69 +24,43 @@ const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_SHOP = { _id: "", name: "", location: "", category: "" };
 
 const ShopScreen = () => {
+  // --- State Management ---
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  
+  // Consolidated Dialog State
   const [selectedShop, setSelectedShop] = useState(INITIAL_SELECTED_SHOP);
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
+  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
 
-  const baseQueryKey = useMemo(() => ["shops", "paginated"], []);
+  // --- API Functions (Plain functions are stable in R19) ---
+  
+  const shopUrlBuilder = (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
+    const url = new URL(endpoint, API_URL);
+    url.searchParams.set("start", pageIndex * pageSize);
+    url.searchParams.set("size", pageSize);
+    url.searchParams.set("sorting", JSON.stringify(sorting ?? []));
+    url.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
+    url.searchParams.set("globalFilter", globalFilter ?? "");
+    return url;
+  };
 
-  // -------------------------
-  // URL builder
-  // -------------------------
-  const shopUrlBuilder = useCallback(
-    (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
-      const url = new URL(endpoint, API_URL);
-      url.searchParams.set("start", pageIndex * pageSize);
-      url.searchParams.set("size", pageSize);
-      url.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-      url.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
-      url.searchParams.set("globalFilter", globalFilter ?? "");
-      return url;
-    },
-    []
-  );
-
-  // -------------------------
-  // Transform shops data with location/category
-  // -------------------------
-  // ---------------------------------------------
-  const transformShopsData = useCallback(async (json) => {
+  const transformShopsData = async (json) => {
     const shops = json.shops || [];
 
     // 1. Collect all unique IDs for batch fetching
-    const locationIds = [
-      ...new Set(shops.map((shop) => shop.location).filter(Boolean)),
-    ];
-    const categoryIds = [
-      ...new Set(shops.map((shop) => shop.category).filter(Boolean)),
-    ];
+    const locationIds = [ ...new Set(shops.map((shop) => shop.location).filter(Boolean)) ];
+    const categoryIds = [ ...new Set(shops.map((shop) => shop.category).filter(Boolean)) ];
 
-    // Helper to fetch and create ID -> Name map
     const fetchAndCreateMap = async (endpoint, ids) => {
       if (ids.length === 0) return {};
       try {
-        // Assuming API supports fetching multiple IDs via 'ids' query parameter
-        const res = await fetch(
-          `${API_URL}/api/${endpoint}?ids=${ids.join(",")}`
-        );
+        const res = await fetch(`${API_URL}/api/${endpoint}?ids=${ids.join(",")}`);
         if (!res.ok) throw new Error(`Failed to fetch ${endpoint}`);
         const data = await res.json();
-
-        // Create lookup map: { '_id': 'name', ... }
-        // We handle the case where the JSON might be an array or an object containing an array.
         const items = Array.isArray(data) ? data : data[endpoint] || [];
 
         return items.reduce((map, item) => {
@@ -119,86 +93,76 @@ const ShopScreen = () => {
       shops: transformed,
       meta: json.meta || {},
     };
-  }, []);
+  };
 
-  const fetchParams = useMemo(
-    () => ({
-      pageIndex: pagination.pageIndex,
-      pageSize: pagination.pageSize,
-      sorting,
-      filters: columnFilters,
-      globalFilter,
-    }),
-    [pagination, sorting, columnFilters, globalFilter]
-  );
+  // --- Data Hook ---
+  // No useMemo or useDeepCompareMemo needed for fetchParams object
+  const fetchParams = {
+    pageIndex: pagination.pageIndex,
+    pageSize: pagination.pageSize,
+    sorting,
+    filters: columnFilters,
+    globalFilter,
+  };
 
   const { data, isLoading, isFetching, isError, refetch } = usePaginatedData({
     endpoint: "/api/shops",
     params: fetchParams,
     urlBuilder: shopUrlBuilder,
-    baseQueryKey,
+    baseQueryKey: ["shops", "paginated"],
     transformFn: transformShopsData,
   });
 
-  const tableData = useMemo(() => data?.shops || [], [data]);
-  const metaData = useMemo(() => data?.meta || {}, [data]);
+  const tableData = data?.shops || [];
+  const metaData = data?.meta || {};
 
-  // -------------------------
-  // Columns
-  // -------------------------
-  const tableColumns = useMemo(
-    () => [
-      { accessorKey: "name", header: "Butikk" },
-      { accessorKey: "location", header: "Lokasjon" },
-      { accessorKey: "category", header: "Kategori" },
-    ],
-    []
-  );
-
-  // -------------------------
-  // Handlers
-  // -------------------------
-  const handleAddSuccess = useCallback(
-    (shop) => {
-      showSnackbar(`Butikk ${shop.name} lagt til`);
-      setAddDialogOpen(false);
-    },
-    [showSnackbar]
-  );
-
-  const handleEditSuccess = useCallback(
-    (shop) => {
-      showSnackbar(`Butikk ${shop.name} oppdatert`);
-      setEditDialogOpen(false);
-    },
-    [showSnackbar]
-  );
-
-  const handleDeleteSuccess = useCallback(
-    (shop) => {
-      showSnackbar(`Butikk ${shop.name} slettet`);
-      setDeleteDialogOpen(false);
-    },
-    [showSnackbar]
-  );
-
-  const handleDialogClose = useCallback((setter) => {
-    setter(false);
+  // --- Handlers (No useCallback needed in R19) ---
+  
+  const handleCloseDialog = () => {
+    setActiveModal(null);
     setSelectedShop(INITIAL_SELECTED_SHOP);
-  }, []);
+  };
+
+  const handleEdit = (shop) => {
+    setSelectedShop(shop);
+    setActiveModal("EDIT");
+  };
+
+  const handleDelete = (shop) => {
+    setSelectedShop(shop);
+    setActiveModal("DELETE");
+  };
+
+  // Centralized Action Feedback
+  const handleSuccess = (action, shopName) => {
+    showSnackbar(`Butikk ${shopName} ${action}`);
+    handleCloseDialog();
+  };
+
+  const handleError = (message) => {
+    showSnackbar(message, "error");
+  };
+
+  // --- Table Configuration (No useMemo needed in R19) ---
+  const tableColumns = [
+    { accessorKey: "name", header: "Butikk" },
+    { accessorKey: "location", header: "Lokasjon" },
+    { accessorKey: "category", header: "Kategori" },
+  ];
 
   // -------------------------
   // Render
   // -------------------------
   return (
     <TableLayout>
-      <Button
-        variant="contained"
-        onClick={() => setAddDialogOpen(true)}
-        sx={{ mb: 2 }}
-      >
-        Ny Butikk
-      </Button>
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={() => setActiveModal("ADD")}
+        >
+          Ny Butikk
+        </Button>
+      </Box>
 
       <ReactTable
         data={tableData}
@@ -216,54 +180,40 @@ const ShopScreen = () => {
         isLoading={isLoading}
         isFetching={isFetching}
         meta={metaData}
-        handleEdit={(shop) => {
-          setSelectedShop(shop);
-          setEditDialogOpen(true);
-        }}
-        handleDelete={(shop) => {
-          setSelectedShop(shop);
-          setDeleteDialogOpen(true);
-        }}
+        handleEdit={handleEdit}
+        handleDelete={handleDelete}
       />
 
-      {/* Dialogs */}
-      <Suspense fallback={<div>Laster...</div>}>
-        <AddShopDialog
-          open={addDialogOpen}
-          onClose={() => handleDialogClose(setAddDialogOpen)}
-          onAdd={handleAddSuccess}
-        />
-      </Suspense>
+      {/* Dialogs - Grouped Suspense */}
+      <Suspense fallback={null}>
+        {activeModal === "ADD" && (
+          <AddShopDialog
+            open={true}
+            onClose={handleCloseDialog}
+            onAdd={(shop) => handleSuccess("lagt til", shop.name)}
+          />
+        )}
 
-      <Suspense fallback={<div>Laster...</div>}>
-        <EditShopDialog
-          open={editDialogOpen && selectedShop._id}
-          onClose={() => handleDialogClose(setEditDialogOpen)}
-          selectedShop={selectedShop}
-          onUpdateSuccess={handleEditSuccess}
-          onUpdateFailure={() =>
-            showSnackbar(
-              `Kunne ikke oppdatere Butikk ${selectedShop.name}`,
-              "error"
-            )
-          }
-        />
-      </Suspense>
+        {activeModal === "EDIT" && (
+          <EditShopDialog
+            open={true}
+            onClose={handleCloseDialog}
+            selectedShop={selectedShop}
+            onUpdateSuccess={(shop) => handleSuccess("oppdatert", shop.name)}
+            onUpdateFailure={() => handleError(`Kunne ikke oppdatere Butikk ${selectedShop.name}`)}
+          />
+        )}
 
-      <Suspense fallback={<div>Laster...</div>}>
-        <DeleteShopDialog
-          open={deleteDialogOpen}
-          onClose={() => handleDialogClose(setDeleteDialogOpen)}
-          selectedShop={selectedShop}
-          dialogTitle="Bekreft Sletting"
-          onDeleteSuccess={handleDeleteSuccess}
-          onDeleteFailure={() =>
-            showSnackbar(
-              `Kunne ikke slette Butikk ${selectedShop.name}`,
-              "error"
-            )
-          }
-        />
+        {activeModal === "DELETE" && (
+          <DeleteShopDialog
+            open={true}
+            onClose={handleCloseDialog}
+            selectedShop={selectedShop}
+            dialogTitle="Bekreft Sletting"
+            onDeleteSuccess={(shop) => handleSuccess("slettet", shop.name)}
+            onDeleteFailure={() => handleError(`Kunne ikke slette Butikk ${selectedShop.name}`)}
+          />
+        )}
       </Suspense>
 
       {/* Snackbar */}

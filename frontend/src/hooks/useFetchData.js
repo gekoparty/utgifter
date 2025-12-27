@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { API_URL } from "../components/commons/Consts/constants";
 
 const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
+  
   const transformData = transformDataProp || ((data) => data);
 
   const stableQueryKey = useMemo(
@@ -15,6 +16,7 @@ const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
       url.startsWith("/") ? url.slice(1) : url,
       API_URL.endsWith("/") ? API_URL : `${API_URL}/`
     );
+    
 
     const response = await fetch(fullUrl.toString(), { signal });
     if (!response.ok) {
@@ -27,6 +29,7 @@ const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
 
     try {
       const data = await response.json();
+      console.log("Fetched Data:", data);
       return transformData(data);
     } catch (jsonError) {
       console.error("JSON Parsing Error:", jsonError);

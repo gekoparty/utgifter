@@ -1,23 +1,22 @@
-import React, { useState, useMemo, useCallback, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert, LinearProgress} from "@mui/material";
+import React, { useState, lazy, Suspense } from "react";
+import { Box, Button, IconButton, Snackbar, Alert, LinearProgress } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import { useDeepCompareMemo } from "use-deep-compare";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy dialogs
+// Lazy Load Dialogs
 const AddBrandDialog = lazy(() => import("../components/features/Brands/BrandDialogs/AddBrand/AddBrandDialog"));
 const DeleteBrandDialog = lazy(() => import("../components/features/Brands/BrandDialogs/DeleteBrand/DeleteBrandDialog"));
 const EditBrandDialog = lazy(() => import("../components/features/Brands/BrandDialogs/EditBrand/EditBrandDialog"));
 
+// Constants
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
 
-// URL builder
 const brandUrlBuilder = (endpoint, params) => {
   const url = new URL(endpoint, API_URL);
   url.searchParams.set("start", params.pageIndex * params.pageSize);
@@ -29,114 +28,92 @@ const brandUrlBuilder = (endpoint, params) => {
 };
 
 const BrandScreen = () => {
-  // Table state
+  // --- State Management ---
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-
-  // Dialog state
+  
+  // Consolidated Dialog State (Cleaner than multiple booleans)
+  const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
   const [selectedBrand, setSelectedBrand] = useState(INITIAL_SELECTED_BRAND);
-  const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // Snackbar
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } =
-    useSnackBar();
+  // Snackbar Hook
+  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
 
-  const baseQueryKey = useMemo(() => ["brands", "paginated"], []);
-
-  const fetchParams = useDeepCompareMemo(
-    () => ({
-      pageIndex: pagination.pageIndex,
-      pageSize: pagination.pageSize,
-      sorting,
-      filters: columnFilters,
-      globalFilter,
-    }),
-    [pagination, sorting, columnFilters, globalFilter]
-  );
+  // --- Data Fetching ---
+  // Note: With React 19 Compiler, we don't need useDeepCompareMemo here. 
+  // Pass the object directly; the compiler handles equality checks.
+  const fetchParams = {
+    pageIndex: pagination.pageIndex,
+    pageSize: pagination.pageSize,
+    sorting,
+    filters: columnFilters,
+    globalFilter,
+  };
 
   const { data: brandsData, isError, isFetching, isLoading, refetch } = usePaginatedData({
     endpoint: "/api/brands",
     params: fetchParams,
     urlBuilder: brandUrlBuilder,
-    baseQueryKey,
+    baseQueryKey: ["brands", "paginated"], // Array literal is fine in R19
   });
 
   const tableData = brandsData?.brands || [];
   const metaData = brandsData?.meta || {};
 
-  // Table columns (clean)
-  const tableColumns = useMemo(
-    () => [
-      {
-        accessorKey: "name",
-        header: "Merkenavn",
-      },
-    ],
-    []
-  );
-
+  // --- Handlers ---
+  // No useCallback needed with React Compiler
   
-
-  const handleDialogClose = useCallback((closeFn) => {
-    closeFn(false);
+  const handleCloseDialog = () => {
+    setActiveModal(null);
     setSelectedBrand(INITIAL_SELECTED_BRAND);
-  }, []);
+  };
 
-  // Success handlers
-  const addBrandHandler = useCallback(
-    (brand) => showSnackbar(`Merke "${brand.name}" ble lagt til`),
-    [showSnackbar]
-  );
-
-  const deleteSuccessHandler = useCallback(
-    (brand) => showSnackbar(`Merke "${brand.name}" ble slettet`),
-    [showSnackbar]
-  );
-
-  const deleteFailureHandler = useCallback(
-    (brand) => showSnackbar(`Kunne ikke slette merke "${brand.name}"`, "error"),
-    [showSnackbar]
-  );
-
-  const editSuccessHandler = useCallback(
-    (brand) => showSnackbar(`Merke "${brand.name}" ble oppdatert`),
-    [showSnackbar]
-  );
-
-  const editFailureHandler = useCallback(
-    () => showSnackbar("Kunne ikke oppdatere merke", "error"),
-    [showSnackbar]
-  );
-
-  // Row actions
-  const handleEdit = useCallback((brand) => {
+  const handleEdit = (brand) => {
     setSelectedBrand(brand);
-    setEditModalOpen(true);
-  }, []);
+    setActiveModal("EDIT");
+  };
 
-  const handleDelete = useCallback((brand) => {
+  const handleDelete = (brand) => {
     setSelectedBrand(brand);
-    setDeleteModalOpen(true);
-  }, []);
+    setActiveModal("DELETE");
+  };
+
+  // Action Feedback Wrappers
+  const handleSuccess = (action, brandName) => {
+    showSnackbar(`Merke "${brandName}" ble ${action}`);
+    if (action === "slettet") handleCloseDialog(); // Auto close on success for delete
+  };
+
+  const handleError = (action) => {
+    showSnackbar(`Kunne ikke ${action}`, "error");
+  };
+
+  // --- Table Configuration ---
+  const tableColumns = [
+    {
+      accessorKey: "name",
+      header: "Merkenavn",
+    },
+  ];
 
   return (
     <TableLayout>
-      <Button variant="contained" onClick={() => setAddBrandDialogOpen(true)} sx={{ mb: 2 }}>
-        Nytt Merke
-      </Button>
+      <Box sx={{ mb: 2 }}>
+        <Button variant="contained" onClick={() => setActiveModal("ADD")}>
+          Nytt Merke
+        </Button>
+      </Box>
 
       {isLoading ? (
         <Box sx={{ p: 4, textAlign: "center" }}>
-          <LinearProgress sx={{ mb: 2 }} />
+          <LinearProgress sx={{ mb: 2, maxWidth: 400, mx: "auto" }} />
           Laster merker...
         </Box>
       ) : (
         <ReactTable
-         refetch={refetch}
+          refetch={refetch}
           data={tableData}
           columns={tableColumns}
           setColumnFilters={setColumnFilters}
@@ -156,50 +133,46 @@ const BrandScreen = () => {
         />
       )}
 
-      {/* Dialogs */}
-      <Suspense fallback={<div>Laster dialog...</div>}>
-        <AddBrandDialog
-          open={addBrandDialogOpen}
-          onClose={() => handleDialogClose(setAddBrandDialogOpen)}
-          onAdd={addBrandHandler}
-        />
-      </Suspense>
+      {/* --- Lazy Loaded Dialogs --- */}
+      {/* Grouping Suspense is more efficient in React 19 */}
+      <Suspense fallback={null}>
+        {activeModal === "ADD" && (
+          <AddBrandDialog
+            open={true}
+            onClose={handleCloseDialog}
+            onAdd={(brand) => handleSuccess("lagt til", brand.name)}
+          />
+        )}
 
-      <Suspense fallback={<div>Laster...</div>}>
-        <DeleteBrandDialog
-          open={deleteModalOpen}
-          onClose={() => handleDialogClose(setDeleteModalOpen)}
-          selectedBrand={selectedBrand}
-          dialogTitle="Bekreft Sletting" 
-          onDeleteSuccess={deleteSuccessHandler}
-          onDeleteFailure={deleteFailureHandler}
-        />
-      </Suspense>
-
-      <Suspense fallback={<div>Laster...</div>}>
-        {selectedBrand._id && editModalOpen && (
-          <EditBrandDialog
-            open={editModalOpen}
-            onClose={() => handleDialogClose(setEditModalOpen)}
+        {activeModal === "DELETE" && (
+          <DeleteBrandDialog
+            open={true}
+            onClose={handleCloseDialog}
             selectedBrand={selectedBrand}
-            onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={editFailureHandler}
+            dialogTitle="Bekreft Sletting"
+            onDeleteSuccess={(brand) => handleSuccess("slettet", brand.name)}
+            onDeleteFailure={() => handleError("slette merke")}
+          />
+        )}
+
+        {activeModal === "EDIT" && (
+          <EditBrandDialog
+            open={true}
+            onClose={handleCloseDialog}
+            selectedBrand={selectedBrand}
+            onUpdateSuccess={(brand) => handleSuccess("oppdatert", brand.name)}
+            onUpdateFailure={() => handleError("oppdatere merke")}
           />
         )}
       </Suspense>
 
-      {/* Snackbar */}
+      {/* --- Feedback --- */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
         autoHideDuration={3000}
         onClose={handleSnackbarClose}
-        slotProps={{
-            // This targets the inner 'div' that wraps your Alert content
-            // By passing an empty object, we ensure no extra props bleed into the Alert.
-            // If this doesn't work, try wrapping Alert in <Box>
-            root: { ownerState: undefined },
-      }}>
+      >
         <Alert
           severity={snackbarSeverity}
           onClose={handleSnackbarClose}
@@ -212,7 +185,6 @@ const BrandScreen = () => {
         >
           {snackbarMessage}
         </Alert>
-        
       </Snackbar>
     </TableLayout>
   );

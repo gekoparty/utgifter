@@ -1,10 +1,8 @@
-import { 
+import React, { 
   useState, 
-  useMemo, 
   lazy, 
   Suspense, 
-  useCallback, 
-  useTransition // React 19: For non-blocking state updates
+  useTransition 
 } from "react";
 import {
   Popover,
@@ -57,7 +55,7 @@ const INITIAL_SELECTED_EXPENSE = {
   finalPrice: 0,
   quantity: 1,
   hasDiscount: false,
-  purchased: true,
+  purchased: false,
   registeredDate: null,
   purchaseDate: null,
   type: "",
@@ -65,7 +63,7 @@ const INITIAL_SELECTED_EXPENSE = {
   pricePerUnit: 0,
 };
 
-// --- PURE FUNCTIONS (Moved outside component to avoid recreation) ---
+// --- PURE FUNCTIONS (Stable in R19) ---
 const expenseUrlBuilder = (endpoint, params) => {
   const url = new URL(
     `${API_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`
@@ -105,14 +103,14 @@ const transformExpenseData = (json) => {
   };
 };
 
-// --- FILTERS ---
+// --- FILTERS (Kept useTransition for non-blocking updates) ---
 
 const DateRangeFilter = ({ column }) => {
   const initialValue = column.getFilterValue() || ["", ""];
   const [localDateRange, setLocalDateRange] = useState(initialValue);
   const [anchorEl, setAnchorEl] = useState(null);
   
-  // React 19: Handle filter application without blocking UI
+  // React 19: For non-blocking state updates
   const [isPending, startTransition] = useTransition();
 
   const handleClick = (event) => {
@@ -333,12 +331,8 @@ const ExpenseScreen = () => {
   const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
   const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
-  // --- DIALOG STATE ---
-  const [dialogs, setDialogs] = useState({
-    add: false,
-    edit: false,
-    delete: false,
-  });
+  // Consolidated Dialog State: 'ADD', 'EDIT', 'DELETE', or null
+  const [activeModal, setActiveModal] = useState(null); 
 
   const {
     snackbarOpen,
@@ -350,16 +344,14 @@ const ExpenseScreen = () => {
 
   // --- DATA FETCHING ---
   
-  // Memoized params to prevent infinite query loops
-  const fetchParams = useMemo(() => ({
+  // R19: No useMemo needed for fetchParams object
+  const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
     sorting,
     filters: columnFilters,
     globalFilter,
-  }), [pagination, sorting, columnFilters, globalFilter]);
-
-  const baseQueryKey = ["expenses", "paginated"];
+  };
 
   const {
     data: expensesData,
@@ -370,16 +362,16 @@ const ExpenseScreen = () => {
   } = usePaginatedData({
     endpoint: "/api/expenses",
     params: fetchParams,
-    urlBuilder: expenseUrlBuilder, // No need for useCallback, it's a pure function now
-    baseQueryKey,
-    transformFn: transformExpenseData, // No need for useCallback
+    urlBuilder: expenseUrlBuilder,
+    baseQueryKey: ["expenses", "paginated"],
+    transformFn: transformExpenseData,
   });
 
   const tableData = expensesData?.expenses || [];
   const metaData = expensesData?.meta || {};
 
-  // --- STATS CALCULATION (Keep useMemo: Heavy Calculation) ---
-  const priceStatsByType = useMemo(() => {
+  // --- STATS CALCULATION (Kept useMemo due to heavy/complex calculation) ---
+  const priceStatsByType = React.useMemo(() => {
     if (!expensesData?.expenses) return {};
     const grouped = expensesData.expenses.reduce((acc, item) => {
       (acc[item.type] = acc[item.type] || []).push(item.pricePerUnit);
@@ -400,13 +392,13 @@ const ExpenseScreen = () => {
 
   // --- HANDLERS ---
 
-  const handleDialogClose = (dialogKey) => {
-    setDialogs((prev) => ({ ...prev, [dialogKey]: false }));
+  const handleDialogClose = () => {
+    setActiveModal(null);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
   };
 
-  // Keep useCallback: This is passed to child component (PriceRangeFilter)
-  const handlePriceFilterModeChange = useCallback((newMode) => {
+  // R19: useCallback not strictly needed, but kept as it's passed as a prop to PriceRangeFilter
+  const handlePriceFilterModeChange = React.useCallback((newMode) => {
     if (["pricePerUnit", "finalPrice", "price"].includes(newMode)) {
       setPriceDisplayMode(newMode);
     } else {
@@ -414,36 +406,19 @@ const ExpenseScreen = () => {
     }
   }, []);
 
-  const addExpenseHandler = () => {
-    showSnackbar(`Utgift registrert`);
-    setDialogs((prev) => ({ ...prev, add: false }));
+  const handleSuccess = (action, expenseName) => {
+    showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
+    handleDialogClose();
     refetch();
   };
 
-  const deleteSuccessHandler = (deletedExpense) => {
-    showSnackbar(`Utgift for "${deletedExpense.productName}" slettet`);
-    setDialogs((prev) => ({ ...prev, delete: false }));
-    refetch();
+  const handleError = (action) => {
+    showSnackbar(`Klarte ikke å ${action} utgiften. Prøv igjen.`, "error");
+    handleDialogClose();
   };
 
-  const editSuccessHandler = (updatedExpense) => {
-    showSnackbar(`Utgift for "${updatedExpense.productName || "Ukjent produkt"}" oppdatert`);
-    setDialogs((prev) => ({ ...prev, edit: false }));
-    refetch();
-  };
-
-  const editFailureHandler = () => {
-    showSnackbar("Klarte ikke å oppdatere utgiften. Prøv igjen.", "error");
-    setDialogs((prev) => ({ ...prev, edit: false }));
-  };
-
-  const deleteFailureHandler = () => {
-    showSnackbar("Klarte ikke å slette utgiften. Prøv igjen.", "error");
-    setDialogs((prev) => ({ ...prev, delete: false }));
-  };
-  
-  // --- COLUMNS (Keep useMemo: Complex Object Stability for React Table) ---
-  const tableColumns = useMemo(() => {
+  // --- COLUMNS (Kept useMemo for complex object stability required by React Table) ---
+  const tableColumns = React.useMemo(() => {
     const priceColumnConfig = {
       accessorKey: "pricePerUnit",
       header: "Pris per enhet",
@@ -485,6 +460,7 @@ const ExpenseScreen = () => {
             const rangeLow = stats.min + (stats.median - stats.min) / 2;
             const rangeHigh = stats.max - (stats.max - stats.median) / 2;
             
+            // Simplified color logic based on price comparison to median/range
             if (price <= rangeLow) {
               bg = theme.palette.success.main;
               fg = theme.palette.success.contrastText;
@@ -533,13 +509,14 @@ const ExpenseScreen = () => {
   // --- RENDER ---
   return (
     <TableLayout>
-      <Button
-        variant="contained"
-        sx={{ mb: 2 }}
-        onClick={() => setDialogs((prev) => ({ ...prev, add: true }))}
-      >
-        Legg til ny utgift
-      </Button>
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          onClick={() => setActiveModal("ADD")}
+        >
+          Legg til ny utgift
+        </Button>
+      </Box>
 
       <ReactTable
         data={tableData}
@@ -560,39 +537,42 @@ const ExpenseScreen = () => {
         renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
         handleEdit={(exp) => {
           setSelectedExpense(exp);
-          setDialogs((prev) => ({ ...prev, edit: true }));
+          setActiveModal("EDIT");
         }}
         handleDelete={(exp) => {
           setSelectedExpense(exp);
-          setDialogs((prev) => ({ ...prev, delete: true }));
+          setActiveModal("DELETE");
         }}
       />
 
+      {/* Dialogs - Consolidated rendering based on activeModal state */}
       <Suspense fallback={<div>Laster dialoger...</div>}>
-        <AddExpenseDialog
-          open={dialogs.add}
-          onClose={() => handleDialogClose("add")}
-          onAdd={addExpenseHandler}
-        />
-
-        {selectedExpense._id && (
-          <EditExpenseDialog
-            open={dialogs.edit}
-            onClose={() => handleDialogClose("edit")}
-            selectedExpense={selectedExpense}
-            onUpdateSuccess={editSuccessHandler}
-            onUpdateFailure={editFailureHandler}
+        {activeModal === "ADD" && (
+          <AddExpenseDialog
+            open={true}
+            onClose={handleDialogClose}
+            onAdd={() => handleSuccess("registrert", "Ny utgift")}
           />
         )}
 
-        {selectedExpense._id && (
-          <DeleteExpenseDialog
-            open={dialogs.delete}
-            onClose={() => handleDialogClose("delete")}
+        {activeModal === "EDIT" && selectedExpense._id && (
+          <EditExpenseDialog
+            open={true}
+            onClose={handleDialogClose}
             selectedExpense={selectedExpense}
-            onDeleteSuccess={deleteSuccessHandler}
+            onUpdateSuccess={(exp) => handleSuccess("oppdatert", exp.productName)}
+            onUpdateFailure={() => handleError("oppdatere")}
+          />
+        )}
+
+        {activeModal === "DELETE" && selectedExpense._id && (
+          <DeleteExpenseDialog
+            open={true}
+            onClose={handleDialogClose}
+            selectedExpense={selectedExpense}
             dialogTitle="Slett Utgift"
-            onDeleteFailure={deleteFailureHandler}
+            onDeleteSuccess={(exp) => handleSuccess("slettet", exp.productName)}
+            onDeleteFailure={() => handleError("slette")}
           />
         )}
       </Suspense>

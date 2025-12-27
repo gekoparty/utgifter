@@ -75,17 +75,19 @@ const INITIAL_EXPENSE_STATE = {
 const fetchShopsDataOptimized = async (data, locationsEndpoint) => {
   const shops = Array.isArray(data) ? data : data?.shops || [];
   if (shops.length === 0) return [];
-
+console.log (shops)
   try {
     const locationIds = [...new Set(shops.map((s) => s.location).filter(Boolean))];
 
     if (locationIds.length === 0) return shops;
 
     const res = await fetch(`${locationsEndpoint}?ids=${locationIds.join(",")}`);
+    console.log (res)
     
     let locationMap = {};
     if (res.ok) {
       const json = await res.json();
+      console.log (json)
       const locations = Array.isArray(json) ? json : json.locations || [];
       
       locationMap = locations.reduce((acc, loc) => {
@@ -93,6 +95,8 @@ const fetchShopsDataOptimized = async (data, locationsEndpoint) => {
         return acc;
       }, {});
     }
+
+    
 
     return shops.map((shop) => ({
       ...shop,
@@ -150,6 +154,7 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     (data) => fetchShopsDataOptimized(data, API_ENDPOINTS.locations),
     fetchConfig
   );
+
 
   const { data: expenseData } = useQuery({
     queryKey: ["expense", expenseId],

@@ -71,6 +71,8 @@ const AddExpenseDialog = ({ open, onClose, onAdd }) => {
     Array.isArray(data.brands) ? data.brands : []
   );
 
+  
+
   const {
     data: productBrands,
     isLoading: isLoadingProductBrands,
