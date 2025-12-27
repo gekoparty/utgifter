@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
@@ -10,7 +10,7 @@ const INITIAL_BRAND_STATE = { name: "" };
 
 const useBrandDialog = (initialBrand = null) => {
   const queryClient = useQueryClient();
-  const { sendRequest, loading } = useCustomHttp("/api/brands");
+  const { sendRequest, loading: httpLoading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
 
   // --------------------------------------------------------------------------
@@ -23,17 +23,17 @@ const useBrandDialog = (initialBrand = null) => {
   );
 
   // --------------------------------------------------------------------------
-  // Helpers
+  // Helpers (R19: Removed unnecessary useCallback)
   // --------------------------------------------------------------------------
-  const resetServerError = useCallback(() => {
+  const resetServerError = () => {
     dispatch({ type: "RESET_ERROR", resource: "brands" });
-  }, [dispatch]);
+  };
 
-  const resetValidationErrors = useCallback(() => {
+  const resetValidationErrors = () => {
     dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "brands" });
-  }, [dispatch]);
+  };
 
-  const resetFormAndErrors = useCallback(() => {
+  const resetFormAndErrors = () => {
     setBrand(
       initialBrand
         ? { ...INITIAL_BRAND_STATE, ...initialBrand }
@@ -41,7 +41,7 @@ const useBrandDialog = (initialBrand = null) => {
     );
     resetServerError();
     resetValidationErrors();
-  }, [initialBrand, resetServerError, resetValidationErrors]);
+  };
 
   // --------------------------------------------------------------------------
   // Effects
@@ -91,7 +91,7 @@ const useBrandDialog = (initialBrand = null) => {
   });
 
   // --------------------------------------------------------------------------
-  // ✅ NEW Mutation: Delete
+  // Mutation: Delete
   // --------------------------------------------------------------------------
   const deleteBrandMutation = useMutation({
     mutationFn: async (brandId) => {
@@ -111,8 +111,10 @@ const useBrandDialog = (initialBrand = null) => {
   });
 
   // --------------------------------------------------------------------------
-  // Handlers
+  // Handlers (Refactored to use saveBrandMutation.mutateAsync directly)
   // --------------------------------------------------------------------------
+  
+  // This function is now clean and reliable
   const handleSaveBrand = async (onClose) => {
     if (!brand.name.trim()) return false;
 
@@ -129,12 +131,12 @@ const useBrandDialog = (initialBrand = null) => {
       // 2. Validate
       await addBrandValidationSchema.validate(formattedBrand, { abortEarly: false });
 
-      // 3. Mutate
+      // 3. Mutate (TanStack Query handles loading/error state)
       const data = await saveBrandMutation.mutateAsync(formattedBrand);
 
       // 4. Cleanup
       setBrand({ ...INITIAL_BRAND_STATE });
-      onClose && onClose();
+      onClose && onClose(data); // Pass data back to caller
 
       return data;
 
@@ -155,10 +157,13 @@ const useBrandDialog = (initialBrand = null) => {
           showError: true,
         });
       }
+      // TanStack Query's onError handler already captures server errors.
+      // We re-throw or return false to stop execution.
       return false;
     }
   };
 
+  // R19: No useCallback needed
   const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
     try {
       await deleteBrandMutation.mutateAsync(selectedBrand._id);
@@ -180,7 +185,7 @@ const useBrandDialog = (initialBrand = null) => {
     return brand?.name?.trim().length > 0 && !validationError?.name;
   };
 
-  const isLoading = loading || saveBrandMutation.isPending || deleteBrandMutation.isPending;
+  const isLoading = httpLoading || saveBrandMutation.isPending || deleteBrandMutation.isPending;
 
   return {
     isFormValid,
