@@ -1,49 +1,79 @@
 import React, { useState, lazy, Suspense } from "react";
-import { Box, Button, IconButton, Snackbar, Alert, LinearProgress } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  Alert,
+  LinearProgress,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy Load Dialogs
-const AddBrandDialog = lazy(() => import("../components/features/Brands/BrandDialogs/AddBrand/AddBrandDialog"));
-const DeleteBrandDialog = lazy(() => import("../components/features/Brands/BrandDialogs/DeleteBrand/DeleteBrandDialog"));
-const EditBrandDialog = lazy(() => import("../components/features/Brands/BrandDialogs/EditBrand/EditBrandDialog"));
+// ------------------------------------------------------
+// Lazy-loaded consolidated dialog (ADD / EDIT / DELETE)
+// ------------------------------------------------------
+const BrandDialog = lazy(() =>
+  import("../components/features/Brands/BrandDialogs/BrandDialog")
+);
 
+// ------------------------------------------------------
 // Constants
+// ------------------------------------------------------
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
 
+// ------------------------------------------------------
+// URL builder
+// ------------------------------------------------------
 const brandUrlBuilder = (endpoint, params) => {
   const url = new URL(endpoint, API_URL);
   url.searchParams.set("start", params.pageIndex * params.pageSize);
   url.searchParams.set("size", params.pageSize);
   url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  url.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  url.searchParams.set(
+    "columnFilters",
+    JSON.stringify(params.filters ?? [])
+  );
   url.searchParams.set("globalFilter", params.globalFilter ?? "");
   return url;
 };
 
 const BrandScreen = () => {
-  // --- State Management ---
+  // ------------------------------------------------------
+  // Table State
+  // ------------------------------------------------------
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  
-  // Consolidated Dialog State (Cleaner than multiple booleans)
-  const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
+
+  // ------------------------------------------------------
+  // Dialog State
+  // ------------------------------------------------------
+  const [activeModal, setActiveModal] = useState(null); // ADD | EDIT | DELETE | null
   const [selectedBrand, setSelectedBrand] = useState(INITIAL_SELECTED_BRAND);
 
-  // Snackbar Hook
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
+  // ------------------------------------------------------
+  // Snackbar
+  // ------------------------------------------------------
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
-  // --- Data Fetching ---
-  // Note: With React 19 Compiler, we don't need useDeepCompareMemo here. 
-  // Pass the object directly; the compiler handles equality checks.
+  // ------------------------------------------------------
+  // Data fetching
+  // ------------------------------------------------------
   const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
@@ -52,19 +82,25 @@ const BrandScreen = () => {
     globalFilter,
   };
 
-  const { data: brandsData, isError, isFetching, isLoading, refetch } = usePaginatedData({
+  const {
+    data: brandsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
     endpoint: "/api/brands",
     params: fetchParams,
     urlBuilder: brandUrlBuilder,
-    baseQueryKey: ["brands", "paginated"], // Array literal is fine in R19
+    baseQueryKey: ["brands", "paginated"],
   });
 
-  const tableData = brandsData?.brands || [];
-  const metaData = brandsData?.meta || {};
+  const tableData = brandsData?.brands ?? [];
+  const metaData = brandsData?.meta ?? {};
 
-  // --- Handlers ---
-  // No useCallback needed with React Compiler
-  
+  // ------------------------------------------------------
+  // Dialog handlers
+  // ------------------------------------------------------
   const handleCloseDialog = () => {
     setActiveModal(null);
     setSelectedBrand(INITIAL_SELECTED_BRAND);
@@ -80,17 +116,22 @@ const BrandScreen = () => {
     setActiveModal("DELETE");
   };
 
-  // Action Feedback Wrappers
+  // ------------------------------------------------------
+  // Feedback helpers
+  // ------------------------------------------------------
   const handleSuccess = (action, brandName) => {
     showSnackbar(`Merke "${brandName}" ble ${action}`);
-    if (action === "slettet") handleCloseDialog(); // Auto close on success for delete
+    handleCloseDialog();
+    refetch();
   };
 
   const handleError = (action) => {
     showSnackbar(`Kunne ikke ${action}`, "error");
   };
 
-  // --- Table Configuration ---
+  // ------------------------------------------------------
+  // Table columns
+  // ------------------------------------------------------
   const tableColumns = [
     {
       accessorKey: "name",
@@ -100,15 +141,26 @@ const BrandScreen = () => {
 
   return (
     <TableLayout>
+      {/* ------------------------------------------------ */}
+      {/* Header */}
+      {/* ------------------------------------------------ */}
       <Box sx={{ mb: 2 }}>
-        <Button variant="contained" onClick={() => setActiveModal("ADD")}>
+        <Button
+          variant="contained"
+          onClick={() => setActiveModal("ADD")}
+        >
           Nytt Merke
         </Button>
       </Box>
 
+      {/* ------------------------------------------------ */}
+      {/* Table */}
+      {/* ------------------------------------------------ */}
       {isLoading ? (
         <Box sx={{ p: 4, textAlign: "center" }}>
-          <LinearProgress sx={{ mb: 2, maxWidth: 400, mx: "auto" }} />
+          <LinearProgress
+            sx={{ mb: 2, maxWidth: 400, mx: "auto" }}
+          />
           Laster merker...
         </Box>
       ) : (
@@ -116,57 +168,53 @@ const BrandScreen = () => {
           refetch={refetch}
           data={tableData}
           columns={tableColumns}
-          setColumnFilters={setColumnFilters}
-          setGlobalFilter={setGlobalFilter}
-          setSorting={setSorting}
-          setPagination={setPagination}
+          meta={metaData}
           isError={isError}
           isFetching={isFetching}
           isLoading={isLoading}
           columnFilters={columnFilters}
           globalFilter={globalFilter}
-          pagination={pagination}
           sorting={sorting}
-          meta={metaData}
+          pagination={pagination}
+          setColumnFilters={setColumnFilters}
+          setGlobalFilter={setGlobalFilter}
+          setSorting={setSorting}
+          setPagination={setPagination}
           handleEdit={handleEdit}
           handleDelete={handleDelete}
         />
       )}
 
-      {/* --- Lazy Loaded Dialogs --- */}
-      {/* Grouping Suspense is more efficient in React 19 */}
+      {/* ------------------------------------------------ */}
+      {/* Dialog */}
+      {/* ------------------------------------------------ */}
       <Suspense fallback={null}>
-        {activeModal === "ADD" && (
-          <AddBrandDialog
-            open={true}
+        {activeModal && (
+          <BrandDialog
+            open
+            mode={activeModal}
+            brandToEdit={selectedBrand}
             onClose={handleCloseDialog}
-            onAdd={(brand) => handleSuccess("lagt til", brand.name)}
-          />
-        )}
+            onSuccess={(brand) => {
+              const action =
+                activeModal === "DELETE"
+                  ? "slettet"
+                  : activeModal === "EDIT"
+                  ? "oppdatert"
+                  : "lagt til";
 
-        {activeModal === "DELETE" && (
-          <DeleteBrandDialog
-            open={true}
-            onClose={handleCloseDialog}
-            selectedBrand={selectedBrand}
-            dialogTitle="Bekreft Sletting"
-            onDeleteSuccess={(brand) => handleSuccess("slettet", brand.name)}
-            onDeleteFailure={() => handleError("slette merke")}
-          />
-        )}
-
-        {activeModal === "EDIT" && (
-          <EditBrandDialog
-            open={true}
-            onClose={handleCloseDialog}
-            selectedBrand={selectedBrand}
-            onUpdateSuccess={(brand) => handleSuccess("oppdatert", brand.name)}
-            onUpdateFailure={() => handleError("oppdatere merke")}
+              handleSuccess(action, brand.name);
+            }}
+            onError={() =>
+              handleError("utføre handling")
+            }
           />
         )}
       </Suspense>
 
-      {/* --- Feedback --- */}
+      {/* ------------------------------------------------ */}
+      {/* Snackbar */}
+      {/* ------------------------------------------------ */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -178,7 +226,11 @@ const BrandScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon fontSize="small" />
             </IconButton>
           }
