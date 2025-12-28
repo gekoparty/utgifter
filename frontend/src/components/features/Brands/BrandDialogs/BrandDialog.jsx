@@ -23,10 +23,14 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
+  // Simplify effect: always compute initial state
   useEffect(() => {
     if (!open) return;
-    if (isEdit && brandToEdit) setBrand(brandToEdit);
-    if (mode === "ADD") setBrand({ name: "" });
+    setBrand(
+      isEdit && brandToEdit
+        ? brandToEdit
+        : { name: "" } // ADD mode or fallback
+    );
   }, [open, mode, brandToEdit]);
 
   const handleClose = () => {
@@ -52,62 +56,59 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
     }
   };
 
+  // --- Compute dialog texts & button props ---
+  const dialogTitle = isDelete
+    ? "Bekreft sletting"
+    : isEdit
+    ? "Rediger merke"
+    : "Nytt merke";
+
+  const confirmButtonLabel = isDelete ? "Slett" : "Lagre";
+  const confirmButtonColor = isDelete ? "error" : "primary";
+
+  const renderBody = () =>
+    isDelete ? (
+      <Typography>
+        Er du sikker på at du vil slette <strong>"{brandToEdit?.name}"</strong>?
+      </Typography>
+    ) : (
+      <>
+        <TextField
+          autoFocus
+          fullWidth
+          size="small"
+          label="Merkenavn"
+          value={brand?.name || ""}
+          error={Boolean(validationError?.name)}
+          disabled={loading}
+          onChange={(e) => {
+            setBrand({ ...brand, name: e.target.value });
+            resetValidationErrors();
+            resetServerError();
+          }}
+        />
+        {(displayError || validationError) && (
+          <ErrorHandling resource="brands" field="name" loading={loading} />
+        )}
+      </>
+    );
+
   return (
-    <BasicDialog
-      open={open}
-      onClose={handleClose}
-      dialogTitle={
-        isDelete ? "Bekreft sletting" : isEdit ? "Rediger merke" : "Nytt merke"
-      }
-    >
+    <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 2 }}>
-          {isDelete ? (
-            <Typography>
-              Er du sikker på at du vil slette{" "}
-              <strong>"{brandToEdit?.name}"</strong>?
-            </Typography>
-          ) : (
-            <>
-              <TextField
-                autoFocus
-                fullWidth
-                size="small"
-                label="Merkenavn"
-                value={brand?.name || ""}
-                error={Boolean(validationError?.name)}
-                disabled={loading}
-                onChange={(e) => {
-                  setBrand({ ...brand, name: e.target.value });
-                  resetValidationErrors();
-                  resetServerError();
-                }}
-              />
-
-              {(displayError || validationError) && (
-                <ErrorHandling resource="brands" field="name" loading={loading} />
-              )}
-            </>
-          )}
-
+          {renderBody()}
           <Stack direction="row" justifyContent="flex-end" spacing={2}>
             <Button onClick={handleClose} disabled={loading}>
               Avbryt
             </Button>
-
             <Button
               type="submit"
               variant="contained"
-              color={isDelete ? "error" : "primary"}
+              color={confirmButtonColor}
               disabled={loading || (!isDelete && !isFormValid())}
             >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : isDelete ? (
-                "Slett"
-              ) : (
-                "Lagre"
-              )}
+              {loading ? <CircularProgress size={24} color="inherit" /> : confirmButtonLabel}
             </Button>
           </Stack>
         </Stack>

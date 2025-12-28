@@ -33,3 +33,5 @@ const queryResult = useQuery({
 
   });
 
+  reduce useBrand hook and reduced boilerplate for the add/edit/delete into one component, possible to make one useEntityDialog
+
