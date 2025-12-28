@@ -1,5 +1,4 @@
 import { useContext, useState, useEffect } from "react";
-import PropTypes from "prop-types";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
@@ -13,17 +12,26 @@ const useBrandDialog = (initialBrand = null) => {
   const { sendRequest, loading: httpLoading } = useCustomHttp("/api/brands");
   const { dispatch, state } = useContext(StoreContext);
 
-  // --------------------------------------------------------------------------
-  // State Management
-  // --------------------------------------------------------------------------
-  const [brand, setBrand] = useState(
-    initialBrand
-      ? { ...INITIAL_BRAND_STATE, ...initialBrand }
-      : { ...INITIAL_BRAND_STATE }
-  );
+  const isEditMode = Boolean(initialBrand && initialBrand._id);
 
   // --------------------------------------------------------------------------
-  // Helpers (R19: Removed unnecessary useCallback)
+  // State
+  // --------------------------------------------------------------------------
+  const [brand, setBrand] = useState(INITIAL_BRAND_STATE);
+
+  // --------------------------------------------------------------------------
+  // Sync when mode changes
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    if (isEditMode) {
+      setBrand({ ...INITIAL_BRAND_STATE, ...initialBrand });
+    } else {
+      setBrand({ ...INITIAL_BRAND_STATE });
+    }
+  }, [initialBrand?._id]);
+
+  // --------------------------------------------------------------------------
+  // Helpers
   // --------------------------------------------------------------------------
   const resetServerError = () => {
     dispatch({ type: "RESET_ERROR", resource: "brands" });
@@ -34,51 +42,28 @@ const useBrandDialog = (initialBrand = null) => {
   };
 
   const resetFormAndErrors = () => {
-    setBrand(
-      initialBrand
-        ? { ...INITIAL_BRAND_STATE, ...initialBrand }
-        : { ...INITIAL_BRAND_STATE }
-    );
+    setBrand(isEditMode ? { ...initialBrand } : { ...INITIAL_BRAND_STATE });
     resetServerError();
     resetValidationErrors();
   };
 
   // --------------------------------------------------------------------------
-  // Effects
-  // --------------------------------------------------------------------------
-  useEffect(() => {
-    if (initialBrand) {
-      setBrand({ ...INITIAL_BRAND_STATE, ...initialBrand });
-    } else {
-      setBrand({ ...INITIAL_BRAND_STATE });
-    }
-
-    return () => {
-      dispatch({ type: "CLEAR_RESOURCE", resource: "brands" });
-    };
-  }, [initialBrand, dispatch]);
-
-  // --------------------------------------------------------------------------
-  // Mutation: Save (Create/Update)
+  // Mutations
   // --------------------------------------------------------------------------
   const saveBrandMutation = useMutation({
     mutationFn: async (formattedBrand) => {
-      const url = initialBrand
+      const url = isEditMode
         ? `/api/brands/${initialBrand._id}`
         : "/api/brands";
-      const method = initialBrand ? "PUT" : "POST";
+
+      const method = isEditMode ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, formattedBrand);
       if (error) throw new Error(data?.error || error);
       return data;
     },
-    onSuccess: (savedData) => {
-      resetServerError();
-      resetValidationErrors();
-      // Invalidate queries so the list can refresh
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brands"] });
-      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
-      return savedData;
     },
     onError: (error) => {
       dispatch({
@@ -90,56 +75,41 @@ const useBrandDialog = (initialBrand = null) => {
     },
   });
 
-  // --------------------------------------------------------------------------
-  // Mutation: Delete
-  // --------------------------------------------------------------------------
   const deleteBrandMutation = useMutation({
     mutationFn: async (brandId) => {
       const { error } = await sendRequest(`/api/brands/${brandId}`, "DELETE");
       if (error) throw new Error("Could not delete brand");
       return brandId;
     },
-    onSuccess: (deletedId) => {
-      dispatch({
-        type: "DELETE_ITEM",
-        resource: "brands",
-        payload: deletedId,
-      });
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["brands"] });
-      queryClient.invalidateQueries({ queryKey: ["brands", "paginated"] });
     },
   });
 
   // --------------------------------------------------------------------------
-  // Handlers (Refactored to use saveBrandMutation.mutateAsync directly)
+  // Handlers
   // --------------------------------------------------------------------------
-  
-  // This function is now clean and reliable
-  const handleSaveBrand = async (onClose) => {
+  const handleSaveBrand = async () => {
     if (!brand.name.trim()) return false;
 
     resetServerError();
     resetValidationErrors();
 
     try {
-      // 1. Format
       const formattedBrand = {
         ...brand,
         name: formatComponentFields(brand.name, "brand", "name"),
       };
 
-      // 2. Validate
       await addBrandValidationSchema.validate(formattedBrand, { abortEarly: false });
 
-      // 3. Mutate (TanStack Query handles loading/error state)
       const data = await saveBrandMutation.mutateAsync(formattedBrand);
 
-      // 4. Cleanup
-      setBrand({ ...INITIAL_BRAND_STATE });
-      onClose && onClose(data); // Pass data back to caller
+      if (!isEditMode) {
+        setBrand({ ...INITIAL_BRAND_STATE });
+      }
 
       return data;
-
     } catch (error) {
       if (error.name === "ValidationError") {
         const errors = {};
@@ -157,53 +127,46 @@ const useBrandDialog = (initialBrand = null) => {
           showError: true,
         });
       }
-      // TanStack Query's onError handler already captures server errors.
-      // We re-throw or return false to stop execution.
       return false;
     }
   };
 
-  // R19: No useCallback needed
-  const handleDeleteBrand = async (selectedBrand, onDeleteSuccess, onDeleteFailure) => {
+  const handleDeleteBrand = async (brandToDelete) => {
     try {
-      await deleteBrandMutation.mutateAsync(selectedBrand._id);
-      onDeleteSuccess(selectedBrand);
+      await deleteBrandMutation.mutateAsync(brandToDelete._id);
       return true;
-    } catch (error) {
-      onDeleteFailure(selectedBrand);
+    } catch {
       return false;
     }
   };
 
   // --------------------------------------------------------------------------
-  // Return
+  // State selectors
   // --------------------------------------------------------------------------
   const displayError = state.error?.brands;
   const validationError = state.validationErrors?.brands;
 
-  const isFormValid = () => {
-    return brand?.name?.trim().length > 0 && !validationError?.name;
-  };
+  const isFormValid = () =>
+    brand?.name?.trim().length > 0 && !validationError?.name;
 
-  const isLoading = httpLoading || saveBrandMutation.isPending || deleteBrandMutation.isPending;
+  const loading =
+    httpLoading ||
+    saveBrandMutation.isPending ||
+    deleteBrandMutation.isPending;
 
   return {
-    isFormValid,
-    loading: isLoading,
-    handleSaveBrand,
-    handleDeleteBrand,
-    displayError,
-    validationError,
     brand,
     setBrand,
+    isFormValid,
+    loading,
+    displayError,
+    validationError,
+    handleSaveBrand,
+    handleDeleteBrand,
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
   };
-};
-
-useBrandDialog.propTypes = {
-  initialBrand: PropTypes.object,
 };
 
 export default useBrandDialog;
