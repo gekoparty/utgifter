@@ -75,28 +75,29 @@ const INITIAL_EXPENSE_STATE = {
 const fetchShopsDataOptimized = async (data, locationsEndpoint) => {
   const shops = Array.isArray(data) ? data : data?.shops || [];
   if (shops.length === 0) return [];
-console.log (shops)
+
   try {
-    const locationIds = [...new Set(shops.map((s) => s.location).filter(Boolean))];
+    const locationIds = [
+      ...new Set(shops.map((s) => s.location).filter(Boolean)),
+    ];
 
     if (locationIds.length === 0) return shops;
 
-    const res = await fetch(`${locationsEndpoint}?ids=${locationIds.join(",")}`);
-    console.log (res)
-    
+    const res = await fetch(
+      `${locationsEndpoint}?ids=${locationIds.join(",")}`
+    );
+
     let locationMap = {};
     if (res.ok) {
       const json = await res.json();
-      console.log (json)
+
       const locations = Array.isArray(json) ? json : json.locations || [];
-      
+
       locationMap = locations.reduce((acc, loc) => {
         if (loc._id) acc[loc._id] = loc.name;
         return acc;
       }, {});
     }
-
-    
 
     return shops.map((shop) => ({
       ...shop,
@@ -114,25 +115,29 @@ console.log (shops)
 const useExpenseForm = (initialExpense = null, expenseId = null) => {
   const queryClient = useQueryClient();
   const isMountedRef = useRef(true);
-  
+
   // React 19: useTransition for smoother validation handling
   const [isPending, startTransition] = useTransition();
 
   // --------------------------------------------------------------------------
   // Initial State
   // --------------------------------------------------------------------------
-  const initialFormState = useMemo(() => 
-    initialExpense || { ...INITIAL_EXPENSE_STATE }, 
-  [initialExpense]);
+  const initialFormState = useMemo(
+    () => initialExpense || { ...INITIAL_EXPENSE_STATE },
+    [initialExpense]
+  );
 
-  const [expense, dispatchExpense] = useReducer(expenseReducer, initialFormState);
+  const [expense, dispatchExpense] = useReducer(
+    expenseReducer,
+    initialFormState
+  );
   const [validationErrors, setValidationErrors] = useState({});
 
   // --------------------------------------------------------------------------
   // HTTP and Global Store
   // --------------------------------------------------------------------------
-  const { sendRequest, loading: httpLoading } = useCustomHttp(API_ENDPOINTS.expenses);
-  
+  const { sendRequest, loading: httpLoading } = useCustomHttp(API_ENDPOINTS.expenses, { auto: false })
+
   // React 19: 'use' API instead of 'useContext'
   const { dispatch: storeDispatch } = use(StoreContext);
 
@@ -145,24 +150,43 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // --------------------------------------------------------------------------
   const fetchConfig = { staleTime: 5 * 60 * 1000 };
 
-  const { data: products } = useFetchData("products", API_ENDPOINTS.products, null, fetchConfig);
-  const { data: brands } = useFetchData("brands", API_ENDPOINTS.brands, null, fetchConfig);
-  
+  const { data: products } = useFetchData(
+    ["products"],
+    API_ENDPOINTS.products,
+    null,
+    fetchConfig
+  );
+  const { data: brands } = useFetchData(
+    ["brands"],
+    API_ENDPOINTS.brands,
+    null,
+    fetchConfig
+  );
+
   const { data: shops } = useFetchData(
-    "shops",
+    ["shops"],
     API_ENDPOINTS.shops,
     (data) => fetchShopsDataOptimized(data, API_ENDPOINTS.locations),
     fetchConfig
   );
 
-
   const { data: expenseData } = useQuery({
-    queryKey: ["expense", expenseId],
-    queryFn: () => sendRequest(`${API_ENDPOINTS.expenses}/${expenseId}`),
-    enabled: Boolean(expenseId && !initialExpense),
-    initialData: initialExpense,
-    staleTime: 0,
-  });
+  queryKey: ["expense", expenseId],
+  queryFn: async ({ signal }) => {
+    const { data, error } = await sendRequest(
+      `${API_ENDPOINTS.expenses}/${expenseId}`,
+      "GET",
+      null,
+      { signal }
+    );
+    if (error) throw new Error(error.message || "Kunne ikke hente utgift");
+    return data;
+  },
+  enabled: Boolean(expenseId && !initialExpense),
+
+ initialData: initialExpense ?? undefined,
+  staleTime: 0,
+});
 
   // Sync fetched expense data
   useEffect(() => {
@@ -174,14 +198,19 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
   // Cleanup safety
   useEffect(() => {
     isMountedRef.current = true;
-    return () => { isMountedRef.current = false; };
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   // --------------------------------------------------------------------------
   // Form Operations
   // --------------------------------------------------------------------------
   const resetForm = useCallback(() => {
-    dispatchExpense({ type: "RESET", initialState: { ...INITIAL_EXPENSE_STATE } });
+    dispatchExpense({
+      type: "RESET",
+      initialState: { ...INITIAL_EXPENSE_STATE },
+    });
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
     setValidationErrors({});
   }, [storeDispatch]); // React Compiler will optimize this dependency automatically
@@ -213,7 +242,10 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
 
   const deleteExpenseMutation = useMutation({
     mutationFn: async (id) => {
-      const { error } = await sendRequest(`${API_ENDPOINTS.expenses}/${id}`, "DELETE");
+      const { error } = await sendRequest(
+        `${API_ENDPOINTS.expenses}/${id}`,
+        "DELETE"
+      );
       if (error) throw new Error("Sletting feilet");
       return id;
     },
@@ -248,16 +280,17 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
 
       // Execute Mutation
       const result = await saveExpenseMutation.mutateAsync(payload);
-      
+
       return {
         ...result,
-        productName: result.productName || expense.productName || "Ukjent produkt",
+        productName:
+          result.productName || expense.productName || "Ukjent produkt",
       };
     } catch (error) {
       if (!isMountedRef.current) return;
 
       if (error.name === "ValidationError") {
-        // React 19: Wrap state updates in transition if they might suspend 
+        // React 19: Wrap state updates in transition if they might suspend
         // (Not strictly necessary for local state, but good practice for responsiveness)
         startTransition(() => {
           const errors = error.inner.reduce(
@@ -273,59 +306,71 @@ const useExpenseForm = (initialExpense = null, expenseId = null) => {
     }
   }, [expense, saveExpenseMutation]);
 
-  const handleDeleteExpense = useCallback(async (id) => {
-    try {
-      await deleteExpenseMutation.mutateAsync(id);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }, [deleteExpenseMutation]);
+  const handleDeleteExpense = useCallback(
+    async (id) => {
+      try {
+        await deleteExpenseMutation.mutateAsync(id);
+        return true;
+      } catch (error) {
+        return false;
+      }
+    },
+    [deleteExpenseMutation]
+  );
 
   // ----------------------------------------------------------------------------
   // Validation Check
   // ----------------------------------------------------------------------------
   const isFormValid = useMemo(() => {
     const requiredFields = ["productName", "brandName", "shopName"];
-    const fieldsFilled = requiredFields.every(field => expense[field] && expense[field].trim() !== "");
+    const fieldsFilled = requiredFields.every(
+      (field) => expense[field] && expense[field].trim() !== ""
+    );
     const numbersValid = expense.price > 0 && expense.volume > 0;
     const noErrors = Object.keys(validationErrors).length === 0;
-    
+
     return fieldsFilled && numbersValid && noErrors;
   }, [expense, validationErrors]);
 
   // Combine loading states
-  const isLoading = httpLoading || saveExpenseMutation.isPending || deleteExpenseMutation.isPending || isPending;
+  const isLoading =
+    httpLoading ||
+    saveExpenseMutation.isPending ||
+    deleteExpenseMutation.isPending ||
+    isPending;
 
-  // React 19: 
-  // If you are using the React Compiler, this useMemo on the return object 
-  // is technically redundant, but we keep it to guarantee "No Breaking Changes" 
+  // React 19:
+  // If you are using the React Compiler, this useMemo on the return object
+  // is technically redundant, but we keep it to guarantee "No Breaking Changes"
   // for consumers expecting stable references.
-  return useMemo(() => ({
-    isFormValid,
-    expense,
-    loading: isLoading,
-    products,
-    brands,
-    shops,
-    validationErrors,
-    handleDeleteExpense,
-    handleSaveExpense,
-    resetForm,
-    setExpense,
-  }), [
-    isFormValid,
-    expense,
-    isLoading,
-    products,
-    brands,
-    shops,
-    validationErrors,
-    handleDeleteExpense,
-    handleSaveExpense,
-    resetForm,
-    setExpense,
-  ]);
+  return useMemo(
+    () => ({
+      isFormValid,
+      expense,
+      loading: isLoading,
+      products,
+      brands,
+      shops,
+      validationErrors,
+      handleDeleteExpense,
+      handleSaveExpense,
+      resetForm,
+      setExpense,
+    }),
+    [
+      isFormValid,
+      expense,
+      isLoading,
+      products,
+      brands,
+      shops,
+      validationErrors,
+      handleDeleteExpense,
+      handleSaveExpense,
+      resetForm,
+      setExpense,
+    ]
+  );
 };
 
 export default useExpenseForm;

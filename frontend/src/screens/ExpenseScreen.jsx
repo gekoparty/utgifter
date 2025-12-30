@@ -1,9 +1,6 @@
-import React, { 
-  useState, 
-  lazy, 
-  Suspense, 
-  useTransition 
-} from "react";
+// ExpenseScreen.jsx
+// React 19 + MUI 7 + React Query v5 + MRT v3.2.1 optimized version
+import React, { useMemo, useState, lazy, Suspense, useTransition, useDeferredValue } from "react";
 import {
   Popover,
   Typography,
@@ -21,6 +18,7 @@ import {
 import FilterListIcon from "@mui/icons-material/FilterList";
 import CloseIcon from "@mui/icons-material/Close";
 import { useTheme } from "@mui/material/styles";
+
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
@@ -28,18 +26,25 @@ import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// --- LAZY IMPORTS ---
-const AddExpenseDialog = lazy(() =>
-  import("../components/features/Expenses/ExpenseDialogs/AddExpense/AddExpenseDialog")
-);
-const DeleteExpenseDialog = lazy(() =>
-  import("../components/features/Expenses/ExpenseDialogs/DeleteExpense/DeleteExpenseDialog")
-);
-const EditExpenseDialog = lazy(() =>
-  import("../components/features/Expenses/ExpenseDialogs/EditExpense/EditExpenseDialog")
-);
+// ------------------------------------------------------
+// Lazy dialogs + preloading
+// ------------------------------------------------------
+const loadAddExpenseDialog = () =>
+  import("../components/features/Expenses/ExpenseDialogs/AddExpense/AddExpenseDialog");
+const loadEditExpenseDialog = () =>
+  import("../components/features/Expenses/ExpenseDialogs/EditExpense/EditExpenseDialog");
+const loadDeleteExpenseDialog = () =>
+  import("../components/features/Expenses/ExpenseDialogs/DeleteExpense/DeleteExpenseDialog");
 
-// --- STATIC CONSTANTS ---
+const AddExpenseDialog = lazy(loadAddExpenseDialog);
+const EditExpenseDialog = lazy(loadEditExpenseDialog);
+const DeleteExpenseDialog = lazy(loadDeleteExpenseDialog);
+
+// ------------------------------------------------------
+// Constants
+// ------------------------------------------------------
+const EXPENSES_QUERY_KEY = ["expenses", "paginated"];
+
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "purchaseDate", desc: true }];
 const INITIAL_SELECTED_EXPENSE = {
@@ -63,11 +68,14 @@ const INITIAL_SELECTED_EXPENSE = {
   pricePerUnit: 0,
 };
 
-// --- PURE FUNCTIONS (Stable in R19) ---
+// Currency formatter (avoid toLocaleString per cell)
+const NOK = new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK" });
+
+// ------------------------------------------------------
+// URL builder
+// ------------------------------------------------------
 const expenseUrlBuilder = (endpoint, params) => {
-  const url = new URL(
-    `${API_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`
-  );
+  const url = new URL(`${API_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`);
   url.searchParams.set("start", params.pageIndex * params.pageSize);
   url.searchParams.set("size", params.pageSize);
   url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
@@ -76,6 +84,9 @@ const expenseUrlBuilder = (endpoint, params) => {
   return url;
 };
 
+// ------------------------------------------------------
+// Transform (keep stable shape for table)
+// ------------------------------------------------------
 const transformExpenseData = (json) => {
   const list = json.expenses || json.data || [];
   return {
@@ -103,14 +114,13 @@ const transformExpenseData = (json) => {
   };
 };
 
-// --- FILTERS (Kept useTransition for non-blocking updates) ---
-
+// ------------------------------------------------------
+// Filters
+// ------------------------------------------------------
 const DateRangeFilter = ({ column }) => {
   const initialValue = column.getFilterValue() || ["", ""];
   const [localDateRange, setLocalDateRange] = useState(initialValue);
   const [anchorEl, setAnchorEl] = useState(null);
-  
-  // React 19: For non-blocking state updates
   const [isPending, startTransition] = useTransition();
 
   const handleClick = (event) => {
@@ -127,11 +137,9 @@ const DateRangeFilter = ({ column }) => {
   };
 
   const applyFilter = () => {
-    const valueToSet = (!localDateRange[0] && !localDateRange[1])
-      ? undefined
-      : localDateRange;
-    
-    // Transition: Close popover immediately, update table data in background
+    const valueToSet =
+      !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
+
     startTransition(() => {
       column.setFilterValue(valueToSet);
     });
@@ -150,11 +158,7 @@ const DateRangeFilter = ({ column }) => {
 
   return (
     <>
-      <IconButton
-        onClick={handleClick}
-        size="small"
-        color={isActive ? "primary" : "default"}
-      >
+      <IconButton onClick={handleClick} size="small" color={isActive ? "primary" : "default"}>
         <FilterListIcon fontSize="small" />
       </IconButton>
       <Popover
@@ -207,8 +211,6 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
   const filterValue = column.getFilterValue() || defaultState;
   const [localState, setLocalState] = useState(filterValue);
   const [anchorEl, setAnchorEl] = useState(null);
-  
-  // React 19: Non-blocking UI
   const [isPending, startTransition] = useTransition();
 
   const handleClick = (event) => {
@@ -230,9 +232,7 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
   };
 
   const applyFilter = () => {
-    const valueToSet = (!localState.min && !localState.max)
-      ? undefined
-      : localState;
+    const valueToSet = !localState.min && !localState.max ? undefined : localState;
 
     startTransition(() => {
       column.setFilterValue(valueToSet);
@@ -252,11 +252,7 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
 
   return (
     <>
-      <IconButton
-        onClick={handleClick}
-        size="small"
-        color={isActive ? "primary" : "default"}
-      >
+      <IconButton onClick={handleClick} size="small" color={isActive ? "primary" : "default"}>
         <FilterListIcon fontSize="small" />
       </IconButton>
       <Popover
@@ -318,21 +314,45 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
   );
 };
 
-// --- MAIN SCREEN ---
+// ------------------------------------------------------
+// Memoized badge for price cell
+// ------------------------------------------------------
+const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
+  return (
+    <Box
+      sx={{
+        backgroundColor: bg,
+        color: fg,
+        px: 0.5,
+        py: 0.25,
+        borderRadius: 1,
+        display: "inline-block",
+      }}
+    >
+      {NOK.format(value)}
+    </Box>
+  );
+});
 
+// ------------------------------------------------------
+// MAIN SCREEN
+// ------------------------------------------------------
 const ExpenseScreen = () => {
   const theme = useTheme();
 
-  // --- STATE ---
+  // Table state
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const deferredGlobalFilter = useDeferredValue(globalFilter); // smooth typing
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
-  const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
-  // Consolidated Dialog State: 'ADD', 'EDIT', 'DELETE', or null
-  const [activeModal, setActiveModal] = useState(null); 
+  // Dialog state
+  const [activeModal, setActiveModal] = useState(null); // ADD | EDIT | DELETE | null
+  const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
+
+  // View state
+  const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
   const {
     snackbarOpen,
@@ -342,64 +362,57 @@ const ExpenseScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // --- DATA FETCHING ---
-  
-  // R19: No useMemo needed for fetchParams object
+  // Fetch params (deferred global filter)
   const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
     sorting,
     filters: columnFilters,
-    globalFilter,
+    globalFilter: deferredGlobalFilter,
   };
 
-  const {
-    data: expensesData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = usePaginatedData({
+  const { data: expensesData, isError, isFetching, isLoading, refetch } = usePaginatedData({
     endpoint: "/api/expenses",
     params: fetchParams,
     urlBuilder: expenseUrlBuilder,
-    baseQueryKey: ["expenses", "paginated"],
+    baseQueryKey: EXPENSES_QUERY_KEY,
     transformFn: transformExpenseData,
   });
 
-  const tableData = expensesData?.expenses || [];
-  const metaData = expensesData?.meta || {};
+  const tableData = expensesData?.expenses ?? [];
+  const metaData = expensesData?.meta ?? {};
 
-  // --- STATS CALCULATION (Kept useMemo due to heavy/complex calculation) ---
-  const priceStatsByType = React.useMemo(() => {
-    if (!expensesData?.expenses) return {};
-    const grouped = expensesData.expenses.reduce((acc, item) => {
+  // Compute stats (avoid mutating arrays; still memoized)
+  const priceStatsByType = useMemo(() => {
+    const list = expensesData?.expenses;
+    if (!list?.length) return {};
+
+    const grouped = list.reduce((acc, item) => {
+      if (typeof item.pricePerUnit !== "number") return acc;
       (acc[item.type] = acc[item.type] || []).push(item.pricePerUnit);
       return acc;
     }, {});
 
     const stats = {};
-    Object.entries(grouped).forEach(([type, prices]) => {
-      prices.sort((a, b) => a - b);
+    for (const [type, prices] of Object.entries(grouped)) {
+      const sorted = [...prices].sort((a, b) => a - b);
       stats[type] = {
-        min: prices[0],
-        max: prices[prices.length - 1],
-        median: prices[Math.floor(prices.length / 2)],
+        min: sorted[0],
+        max: sorted[sorted.length - 1],
+        median: sorted[Math.floor(sorted.length / 2)],
       };
-    });
+    }
     return stats;
-  }, [expensesData]);
-
-  // --- HANDLERS ---
+  }, [expensesData?.expenses]);
 
   const handleDialogClose = () => {
     setActiveModal(null);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
   };
 
-  // R19: useCallback not strictly needed, but kept as it's passed as a prop to PriceRangeFilter
+  // Keep stable for filter component
   const handlePriceFilterModeChange = React.useCallback((newMode) => {
-    if (["pricePerUnit", "finalPrice", "price"].includes(newMode)) {
+    if (["pricePerUnit", "finalPrice", "price", "all"].includes(newMode)) {
       setPriceDisplayMode(newMode);
     } else {
       setPriceDisplayMode("pricePerUnit");
@@ -409,7 +422,7 @@ const ExpenseScreen = () => {
   const handleSuccess = (action, expenseName) => {
     showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
     handleDialogClose();
-    refetch();
+    // ✅ Prefer invalidate in mutations; keep refetch only for manual refresh
   };
 
   const handleError = (action) => {
@@ -417,54 +430,40 @@ const ExpenseScreen = () => {
     handleDialogClose();
   };
 
-  // --- COLUMNS (Kept useMemo for complex object stability required by React Table) ---
-  const tableColumns = React.useMemo(() => {
-    const priceColumnConfig = {
-      accessorKey: "pricePerUnit",
-      header: "Pris per enhet",
-      dataAccessor: "pricePerUnit",
-    };
-
-    if (priceDisplayMode === "finalPrice") {
-      priceColumnConfig.header = "Totalpris";
-      priceColumnConfig.dataAccessor = "finalPrice";
-    } else if (priceDisplayMode === "price") {
-      priceColumnConfig.header = "Registrert Pris";
-      priceColumnConfig.dataAccessor = "price";
-    }
+  // Column definition (stable + uses cached formatter + memoized badge)
+  const tableColumns = useMemo(() => {
+    const resolvedAccessor =
+      priceDisplayMode === "finalPrice"
+        ? { header: "Totalpris", key: "finalPrice" }
+        : priceDisplayMode === "price"
+        ? { header: "Registrert Pris", key: "price" }
+        : { header: "Pris per enhet", key: "pricePerUnit" };
 
     return [
       { accessorKey: "productName", header: "Produktnavn" },
       {
-        accessorKey: priceColumnConfig.accessorKey,
-        header: priceColumnConfig.header,
+        accessorKey: resolvedAccessor.key,
+        header: resolvedAccessor.header,
         Filter: ({ column }) => (
-          <PriceRangeFilter
-            column={column}
-            onModeChange={handlePriceFilterModeChange}
-          />
+          <PriceRangeFilter column={column} onModeChange={handlePriceFilterModeChange} />
         ),
         enableColumnFilter: true,
         Cell: ({ row }) => {
-          const price = row.original[priceColumnConfig.dataAccessor];
+          const value = row.original[resolvedAccessor.key];
           const type = row.original.type;
           const stats = priceStatsByType[type] || {};
 
           let bg = "transparent";
           let fg = theme.palette.text.primary;
-          
-          if (
-            priceColumnConfig.dataAccessor === "pricePerUnit" &&
-            stats.median
-          ) {
+
+          if (resolvedAccessor.key === "pricePerUnit" && stats.median != null) {
             const rangeLow = stats.min + (stats.median - stats.min) / 2;
             const rangeHigh = stats.max - (stats.max - stats.median) / 2;
-            
-            // Simplified color logic based on price comparison to median/range
-            if (price <= rangeLow) {
+
+            if (value <= rangeLow) {
               bg = theme.palette.success.main;
               fg = theme.palette.success.contrastText;
-            } else if (price >= rangeHigh) {
+            } else if (value >= rangeHigh) {
               bg = theme.palette.error.main;
               fg = theme.palette.error.contrastText;
             } else {
@@ -473,23 +472,7 @@ const ExpenseScreen = () => {
             }
           }
 
-          return (
-            <Box
-              sx={{
-                backgroundColor: bg,
-                color: fg,
-                px: 0.5,
-                py: 0.25,
-                borderRadius: 1,
-                display: "inline-block",
-              }}
-            >
-              {price.toLocaleString("nb-NO", {
-                style: "currency",
-                currency: "NOK",
-              })}
-            </Box>
-          );
+          return <PriceBadge value={value} bg={bg} fg={fg} />;
         },
       },
       { accessorKey: "shopName", header: "Butikk" },
@@ -499,19 +482,18 @@ const ExpenseScreen = () => {
         Filter: ({ column }) => <DateRangeFilter column={column} />,
         enableColumnFilter: true,
         Cell: ({ cell }) =>
-          cell.getValue()
-            ? new Date(cell.getValue()).toLocaleDateString("nb-NO")
-            : "Ugyldig dato",
+          cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("nb-NO") : "—",
       },
     ];
-  }, [priceStatsByType, theme, priceDisplayMode, handlePriceFilterModeChange]);
+  }, [priceDisplayMode, handlePriceFilterModeChange, priceStatsByType, theme]);
 
-  // --- RENDER ---
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
         <Button
           variant="contained"
+          onMouseEnter={loadAddExpenseDialog}
+          onFocus={loadAddExpenseDialog}
           onClick={() => setActiveModal("ADD")}
         >
           Legg til ny utgift
@@ -521,12 +503,12 @@ const ExpenseScreen = () => {
       <ReactTable
         data={tableData}
         columns={tableColumns}
+        meta={metaData}
         isError={isError}
         isLoading={isLoading}
-        isFetching={isFetching}
-        meta={metaData}
+        isFetching={!activeModal && isFetching} // avoid progress bars behind modal
         columnFilters={columnFilters}
-        globalFilter={globalFilter}
+        globalFilter={globalFilter} // keep input responsive; fetch uses deferred
         pagination={pagination}
         sorting={sorting}
         setColumnFilters={setColumnFilters}
@@ -536,28 +518,30 @@ const ExpenseScreen = () => {
         refetch={refetch}
         renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
         handleEdit={(exp) => {
+          loadEditExpenseDialog();
           setSelectedExpense(exp);
           setActiveModal("EDIT");
         }}
         handleDelete={(exp) => {
+          loadDeleteExpenseDialog();
           setSelectedExpense(exp);
           setActiveModal("DELETE");
         }}
       />
 
-      {/* Dialogs - Consolidated rendering based on activeModal state */}
-      <Suspense fallback={<div>Laster dialoger...</div>}>
+      <Suspense fallback={null}>
         {activeModal === "ADD" && (
           <AddExpenseDialog
-            open={true}
+            open
             onClose={handleDialogClose}
-            onAdd={() => handleSuccess("registrert", "Ny utgift")}
+            onAdd={(created) => handleSuccess("registrert", created?.productName || "Ny utgift")}
+            onError={() => handleError("registrere")}
           />
         )}
 
         {activeModal === "EDIT" && selectedExpense._id && (
           <EditExpenseDialog
-            open={true}
+            open
             onClose={handleDialogClose}
             selectedExpense={selectedExpense}
             onUpdateSuccess={(exp) => handleSuccess("oppdatert", exp.productName)}
@@ -567,7 +551,7 @@ const ExpenseScreen = () => {
 
         {activeModal === "DELETE" && selectedExpense._id && (
           <DeleteExpenseDialog
-            open={true}
+            open
             onClose={handleDialogClose}
             selectedExpense={selectedExpense}
             dialogTitle="Slett Utgift"
@@ -588,11 +572,7 @@ const ExpenseScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }

@@ -6,10 +6,13 @@ import { addBrandValidationSchema } from "../../../../validation/validationSchem
 import { StoreContext } from "../../../../Store/Store";
 
 const INITIAL_BRAND_STATE = { name: "" };
+const BRANDS_QUERY_KEY = ["brands", "paginated"];
 
 const useBrandDialog = (initialBrand = null) => {
   const queryClient = useQueryClient();
-  const { sendRequest, loading: httpLoading } = useCustomHttp("/api/brands");
+  const { sendRequest, loading: httpLoading } = useCustomHttp("/api/brands", {
+    auto: false,
+  });
   const { dispatch, state } = useContext(StoreContext);
 
   const isEditMode = Boolean(initialBrand && initialBrand._id);
@@ -23,12 +26,12 @@ const useBrandDialog = (initialBrand = null) => {
   // Sync when mode changes
   // --------------------------------------------------------------------------
   useEffect(() => {
-    if (isEditMode) {
-      setBrand({ ...INITIAL_BRAND_STATE, ...initialBrand });
-    } else {
-      setBrand({ ...INITIAL_BRAND_STATE });
-    }
-  }, [initialBrand?._id]);
+    setBrand(
+      isEditMode
+        ? { ...INITIAL_BRAND_STATE, ...initialBrand }
+        : { ...INITIAL_BRAND_STATE }
+    );
+  }, [isEditMode, initialBrand?._id]);
 
   // --------------------------------------------------------------------------
   // Helpers
@@ -42,7 +45,11 @@ const useBrandDialog = (initialBrand = null) => {
   };
 
   const resetFormAndErrors = () => {
-    setBrand(isEditMode ? { ...initialBrand } : { ...INITIAL_BRAND_STATE });
+    setBrand(
+      isEditMode
+        ? { ...INITIAL_BRAND_STATE, ...initialBrand }
+        : { ...INITIAL_BRAND_STATE }
+    );
     resetServerError();
     resetValidationErrors();
   };
@@ -63,7 +70,7 @@ const useBrandDialog = (initialBrand = null) => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["brands"] });
+      queryClient.invalidateQueries({ queryKey: BRANDS_QUERY_KEY });
     },
     onError: (error) => {
       dispatch({
@@ -82,7 +89,15 @@ const useBrandDialog = (initialBrand = null) => {
       return brandId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["brands"] });
+      queryClient.invalidateQueries({ queryKey: BRANDS_QUERY_KEY });
+    },
+    onError: (error) => {
+      dispatch({
+        type: "SET_ERROR",
+        error: error.message,
+        resource: "brands",
+        showError: true,
+      });
     },
   });
 
@@ -101,7 +116,9 @@ const useBrandDialog = (initialBrand = null) => {
         name: formatComponentFields(brand.name, "brand", "name"),
       };
 
-      await addBrandValidationSchema.validate(formattedBrand, { abortEarly: false });
+      await addBrandValidationSchema.validate(formattedBrand, {
+        abortEarly: false,
+      });
 
       const data = await saveBrandMutation.mutateAsync(formattedBrand);
 
@@ -150,9 +167,7 @@ const useBrandDialog = (initialBrand = null) => {
     brand?.name?.trim().length > 0 && !validationError?.name;
 
   const loading =
-    httpLoading ||
-    saveBrandMutation.isPending ||
-    deleteBrandMutation.isPending;
+    httpLoading || saveBrandMutation.isPending || deleteBrandMutation.isPending;
 
   return {
     brand,
