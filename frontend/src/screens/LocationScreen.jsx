@@ -9,42 +9,48 @@ import { usePaginatedData } from "../hooks/usePaginatedData";
 import useSnackBar from "../hooks/useSnackBar";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy Loaded Dialogs
-const AddLocationDialog = lazy(() => import("../components/features/Locations/LocationDialogs/AddLocation/AddLocationDialog"));
-const EditLocationDialog = lazy(() => import("../components/features/Locations/LocationDialogs/EditLocation/EditLocationDialog"));
-const DeleteLocationDialog = lazy(() => import("../components/features/Locations/LocationDialogs/DeleteLocation/DeleteLocationDialog"));
+// ------------------------------------------------------
+// Lazy-loaded consolidated dialog (ADD / EDIT / DELETE)
+// ------------------------------------------------------
+const loadLocationDialog = () =>
+  import("../components/features/Locations/LocationDialogs/LocationDialog");
+const LocationDialog = lazy(loadLocationDialog);
 
 // Constants
+const LOCATIONS_QUERY_KEY = ["locations", "paginated"];
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const EMPTY_LOCATION = { _id: "", name: "" };
+const INITIAL_SELECTED_LOCATION = { _id: "", name: "" };
+const TABLE_COLUMNS = [{ accessorKey: "name", header: "Steder" }];
 
 // URL Builder
 const locationUrlBuilder = (endpoint, params) => {
   const url = new URL(endpoint, API_URL);
   url.searchParams.set("start", params.pageIndex * params.pageSize);
   url.searchParams.set("size", params.pageSize);
-  url.searchParams.set("sorting", JSON.stringify(params.sorting || []));
-  url.searchParams.set("columnFilters", JSON.stringify(params.filters || []));
-  url.searchParams.set("globalFilter", params.globalFilter || "");
+  url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
+  url.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  url.searchParams.set("globalFilter", params.globalFilter ?? "");
   return url;
 };
 
 const LocationScreen = () => {
-  // --- State Management ---
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
-  // Consolidated Dialog State
-  const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
-  const [selectedLocation, setSelectedLocation] = useState(EMPTY_LOCATION);
+  const [activeModal, setActiveModal] = useState(null); // ADD | EDIT | DELETE | null
+  const [selectedLocation, setSelectedLocation] = useState(INITIAL_SELECTED_LOCATION);
 
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
-  // --- Data Fetching ---
-  // React 19 Compiler handles object stability; no manual memoization needed
   const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
@@ -57,56 +63,56 @@ const LocationScreen = () => {
     endpoint: "/api/locations",
     params: fetchParams,
     urlBuilder: locationUrlBuilder,
-    baseQueryKey: ["locations", "paginated"],
+    baseQueryKey: LOCATIONS_QUERY_KEY,
   });
 
-  const tableData = data?.locations || [];
-  const meta = data?.meta || {};
+  const tableData = data?.locations ?? [];
+  const meta = data?.meta ?? {};
 
-  // --- Handlers ---
   const handleCloseDialog = () => {
     setActiveModal(null);
-    setSelectedLocation(EMPTY_LOCATION);
+    setSelectedLocation(INITIAL_SELECTED_LOCATION);
   };
 
   const handleEdit = (loc) => {
+    loadLocationDialog();
     setSelectedLocation(loc);
     setActiveModal("EDIT");
   };
 
   const handleDelete = (loc) => {
+    loadLocationDialog();
     setSelectedLocation(loc);
     setActiveModal("DELETE");
   };
 
-  // Centralized Feedback
   const handleSuccess = (action, locationName) => {
     showSnackbar(`Sted "${locationName}" ble ${action}`);
-    if (action === "slettet") handleCloseDialog();
+    handleCloseDialog();
+    // ✅ no refetch here if mutations invalidate LOCATIONS_QUERY_KEY
   };
 
   const handleError = (action) => {
     showSnackbar(`Kunne ikke ${action}`, "error");
   };
 
-  // --- Configuration ---
-  const tableColumns = [
-    {
-      accessorKey: "name",
-      header: "Steder",
-    },
-  ];
+  
 
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
         <Button
           variant="contained"
+          onMouseEnter={loadLocationDialog}
+          onFocus={loadLocationDialog}
           onClick={() => setActiveModal("ADD")}
         >
           Nytt sted
         </Button>
       </Box>
+
+      
+      
 
       {isLoading ? (
         <Box sx={{ p: 4, textAlign: "center" }}>
@@ -116,15 +122,16 @@ const LocationScreen = () => {
       ) : (
         <ReactTable
           data={tableData}
-          columns={tableColumns}
+          columns={TABLE_COLUMNS}  
           columnFilters={columnFilters}
           globalFilter={globalFilter}
           sorting={sorting}
           pagination={pagination}
           meta={meta}
+          refetch={refetch}
           isError={isError}
           isFetching={isFetching}
-          refetch={refetch}
+          isLoading={isLoading}
           setColumnFilters={setColumnFilters}
           setGlobalFilter={setGlobalFilter}
           setSorting={setSorting}
@@ -134,39 +141,28 @@ const LocationScreen = () => {
         />
       )}
 
-      {/* --- Lazy Loaded Dialogs --- */}
       <Suspense fallback={null}>
-        {activeModal === "ADD" && (
-          <AddLocationDialog
-            open={true}
+        {activeModal && (
+          <LocationDialog
+            open
+            mode={activeModal}
+            locationToEdit={selectedLocation}
             onClose={handleCloseDialog}
-            onAdd={(loc) => handleSuccess("lagt til", loc.name)}
-          />
-        )}
+            onSuccess={(loc) => {
+              const action =
+                activeModal === "DELETE"
+                  ? "slettet"
+                  : activeModal === "EDIT"
+                  ? "oppdatert"
+                  : "lagt til";
 
-        {activeModal === "DELETE" && (
-          <DeleteLocationDialog
-            open={true}
-            selectedLocation={selectedLocation}
-            onClose={handleCloseDialog}
-            dialogTitle="Slett sted"
-            onDeleteSuccess={(loc) => handleSuccess("slettet", loc.name)}
-            onDeleteFailure={(loc) => handleError(`slette "${loc.name}"`)}
-          />
-        )}
-
-        {activeModal === "EDIT" && (
-          <EditLocationDialog
-            open={true}
-            selectedLocation={selectedLocation}
-            onClose={handleCloseDialog}
-            onUpdateSuccess={(loc) => handleSuccess("oppdatert", loc.name)}
-            onUpdateFailure={() => handleError("lagre endringer")}
+              handleSuccess(action, loc.name);
+            }}
+            onError={() => handleError("utføre handling")}
           />
         )}
       </Suspense>
 
-      {/* --- Feedback --- */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
@@ -191,3 +187,4 @@ const LocationScreen = () => {
 };
 
 export default LocationScreen;
+

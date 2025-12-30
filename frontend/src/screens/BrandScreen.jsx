@@ -18,9 +18,9 @@ import { API_URL } from "../components/commons/Consts/constants";
 // ------------------------------------------------------
 // Lazy-loaded consolidated dialog (ADD / EDIT / DELETE)
 // ------------------------------------------------------
-const BrandDialog = lazy(() =>
-  import("../components/features/Brands/BrandDialogs/BrandDialog")
-);
+const loadBrandDialog = () =>
+  import("../components/features/Brands/BrandDialogs/BrandDialog");
+const BrandDialog = lazy(loadBrandDialog);
 
 // ------------------------------------------------------
 // Constants
@@ -28,6 +28,13 @@ const BrandDialog = lazy(() =>
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_BRAND = { _id: "", name: "" };
+const BRANDS_QUERY_KEY = ["brands", "paginated"];
+const tableColumns = [
+  {
+    accessorKey: "name",
+    header: "Merkenavn",
+  },
+];
 
 // ------------------------------------------------------
 // URL builder
@@ -37,10 +44,7 @@ const brandUrlBuilder = (endpoint, params) => {
   url.searchParams.set("start", params.pageIndex * params.pageSize);
   url.searchParams.set("size", params.pageSize);
   url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  url.searchParams.set(
-    "columnFilters",
-    JSON.stringify(params.filters ?? [])
-  );
+  url.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
   url.searchParams.set("globalFilter", params.globalFilter ?? "");
   return url;
 };
@@ -92,7 +96,7 @@ const BrandScreen = () => {
     endpoint: "/api/brands",
     params: fetchParams,
     urlBuilder: brandUrlBuilder,
-    baseQueryKey: ["brands", "paginated"],
+    baseQueryKey: BRANDS_QUERY_KEY,
   });
 
   const tableData = brandsData?.brands ?? [];
@@ -107,11 +111,13 @@ const BrandScreen = () => {
   };
 
   const handleEdit = (brand) => {
+    loadBrandDialog();
     setSelectedBrand(brand);
     setActiveModal("EDIT");
   };
 
   const handleDelete = (brand) => {
+    loadBrandDialog();
     setSelectedBrand(brand);
     setActiveModal("DELETE");
   };
@@ -122,30 +128,20 @@ const BrandScreen = () => {
   const handleSuccess = (action, brandName) => {
     showSnackbar(`Merke "${brandName}" ble ${action}`);
     handleCloseDialog();
-    refetch();
   };
 
   const handleError = (action) => {
     showSnackbar(`Kunne ikke ${action}`, "error");
   };
 
-  // ------------------------------------------------------
-  // Table columns
-  // ------------------------------------------------------
-  const tableColumns = [
-    {
-      accessorKey: "name",
-      header: "Merkenavn",
-    },
-  ];
+  
 
   return (
     <TableLayout>
-      {/* ------------------------------------------------ */}
-      {/* Header */}
-      {/* ------------------------------------------------ */}
       <Box sx={{ mb: 2 }}>
         <Button
+          onMouseEnter={loadBrandDialog}
+          onFocus={loadBrandDialog}
           variant="contained"
           onClick={() => setActiveModal("ADD")}
         >
@@ -153,25 +149,20 @@ const BrandScreen = () => {
         </Button>
       </Box>
 
-      {/* ------------------------------------------------ */}
-      {/* Table */}
-      {/* ------------------------------------------------ */}
       {isLoading ? (
         <Box sx={{ p: 4, textAlign: "center" }}>
-          <LinearProgress
-            sx={{ mb: 2, maxWidth: 400, mx: "auto" }}
-          />
+          <LinearProgress sx={{ mb: 2, maxWidth: 400, mx: "auto" }} />
           Laster merker...
         </Box>
       ) : (
         <ReactTable
-          refetch={refetch}
           data={tableData}
           columns={tableColumns}
           meta={metaData}
           isError={isError}
           isFetching={isFetching}
           isLoading={isLoading}
+          refetch={refetch}
           columnFilters={columnFilters}
           globalFilter={globalFilter}
           sorting={sorting}
@@ -185,9 +176,6 @@ const BrandScreen = () => {
         />
       )}
 
-      {/* ------------------------------------------------ */}
-      {/* Dialog */}
-      {/* ------------------------------------------------ */}
       <Suspense fallback={null}>
         {activeModal && (
           <BrandDialog
@@ -205,9 +193,7 @@ const BrandScreen = () => {
 
               handleSuccess(action, brand.name);
             }}
-            onError={() =>
-              handleError("utføre handling")
-            }
+            onError={() => handleError("utføre handling")}
           />
         )}
       </Suspense>

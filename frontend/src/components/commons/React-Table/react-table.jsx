@@ -31,7 +31,7 @@ const ReactTable = ({
   const refreshButton = useCallback(
     () => (
       <Tooltip title="Oppdater">
-        <IconButton onClick={() => refetch({ stale: true })}>
+        <IconButton onClick={() => refetch()}>
           <RefreshIcon />
         </IconButton>
       </Tooltip>

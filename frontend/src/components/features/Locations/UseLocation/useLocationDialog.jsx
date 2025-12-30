@@ -1,5 +1,4 @@
-import { useCallback, useContext, useState, useEffect } from "react";
-import PropTypes from "prop-types";
+import { useContext, useState, useEffect } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
@@ -7,77 +6,54 @@ import { addLocationValidationSchema } from "../../../../validation/validationSc
 import { StoreContext } from "../../../../Store/Store";
 
 const INITIAL_LOCATION_STATE = { name: "" };
+const LOCATIONS_QUERY_KEY = ["locations", "paginated"];
 
 const useLocationDialog = (initialLocation = null) => {
   const queryClient = useQueryClient();
-  const { sendRequest, loading } = useCustomHttp("/api/locations");
+  const { sendRequest, loading: httpLoading } = useCustomHttp("/api/locations", { auto: false });
   const { dispatch, state } = useContext(StoreContext);
 
-  // --------------------------------------------------------------------------
-  // State Management
-  // --------------------------------------------------------------------------
-  const [location, setLocation] = useState(
-    initialLocation
-      ? { ...INITIAL_LOCATION_STATE, ...initialLocation }
-      : { ...INITIAL_LOCATION_STATE }
-  );
+  const isEditMode = Boolean(initialLocation && initialLocation._id);
 
-  // --------------------------------------------------------------------------
-  // Helpers
-  // --------------------------------------------------------------------------
-  const resetServerError = useCallback(() => {
-    dispatch({ type: "RESET_ERROR", resource: "locations" });
-  }, [dispatch]);
+  const [location, setLocation] = useState(INITIAL_LOCATION_STATE);
 
-  const resetValidationErrors = useCallback(() => {
-    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "locations" });
-  }, [dispatch]);
-
-  const resetFormAndErrors = useCallback(() => {
-    setLocation(
-      initialLocation
-        ? { ...INITIAL_LOCATION_STATE, ...initialLocation }
-        : { ...INITIAL_LOCATION_STATE }
-    );
-    resetServerError();
-    resetValidationErrors();
-  }, [initialLocation, resetServerError, resetValidationErrors]);
-
-  // --------------------------------------------------------------------------
-  // Effects
-  // --------------------------------------------------------------------------
+  // Keep in sync when selected record changes
   useEffect(() => {
-    if (initialLocation) {
+    if (isEditMode) {
       setLocation({ ...INITIAL_LOCATION_STATE, ...initialLocation });
     } else {
       setLocation({ ...INITIAL_LOCATION_STATE });
     }
+  }, [isEditMode, initialLocation?._id]);
 
-    // Cleanup: clear resources when unmounting
-    return () => {
-      dispatch({ type: "CLEAR_RESOURCE", resource: "locations" });
-    };
-  }, [initialLocation, dispatch]);
+  const resetServerError = () => {
+    dispatch({ type: "RESET_ERROR", resource: "locations" });
+  };
 
-  // --------------------------------------------------------------------------
-  // Mutation: Save (Create/Update)
-  // --------------------------------------------------------------------------
+  const resetValidationErrors = () => {
+    dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "locations" });
+  };
+
+  const resetFormAndErrors = () => {
+    setLocation(isEditMode ? { ...INITIAL_LOCATION_STATE, ...initialLocation } : { ...INITIAL_LOCATION_STATE });
+    resetServerError();
+    resetValidationErrors();
+  };
+
   const saveLocationMutation = useMutation({
     mutationFn: async (formattedLocation) => {
-      const url = initialLocation
+      const url = isEditMode
         ? `/api/locations/${initialLocation._id}`
         : "/api/locations";
-      const method = initialLocation ? "PUT" : "POST";
+
+      const method = isEditMode ? "PUT" : "POST";
+
       const { data, error } = await sendRequest(url, method, formattedLocation);
       if (error) throw new Error(data?.error || error);
       return data;
     },
-    onSuccess: (savedData) => {
-      dispatch({ type: "RESET_ERROR", resource: "locations" });
-      dispatch({ type: "RESET_VALIDATION_ERRORS", resource: "locations" });
-      // Invalidate queries to refresh list
-      queryClient.invalidateQueries({ queryKey: ["locations"] });
-      return savedData;
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LOCATIONS_QUERY_KEY });
     },
     onError: (error) => {
       dispatch({
@@ -87,107 +63,107 @@ const useLocationDialog = (initialLocation = null) => {
         showError: true,
       });
     },
-    // ✅ REMOVED: onMutate logic for cache rollback is now removed.
   });
 
-  // --------------------------------------------------------------------------
-  // ✅ NEW Mutation: Delete
-  // --------------------------------------------------------------------------
   const deleteLocationMutation = useMutation({
     mutationFn: async (locationId) => {
       const { error } = await sendRequest(`/api/locations/${locationId}`, "DELETE");
       if (error) throw new Error("Could not delete location");
       return locationId;
     },
-    onSuccess: (deletedId) => {
-      dispatch({ type: "DELETE_ITEM", resource: "locations", payload: deletedId });
-      queryClient.invalidateQueries({ queryKey: ["locations"] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LOCATIONS_QUERY_KEY });
+    },
+    onError: (error) => {
+      dispatch({
+        type: "SET_ERROR",
+        error: error.message,
+        resource: "locations",
+        showError: true,
+      });
     },
   });
 
-  // --------------------------------------------------------------------------
-  // Handlers
-  // --------------------------------------------------------------------------
-  const handleSaveLocation = async (onClose) => {
+  const handleSaveLocation = async () => {
     if (!location.name.trim()) return false;
 
-    let formattedLocation = { ...location };
-    let validationErrors = {};
-    
+    resetServerError();
+    resetValidationErrors();
+
     try {
-      // 1. Format
-      formattedLocation.name = formatComponentFields(location.name, "location", "name");
-      
-      // 2. Validate
+      const formattedLocation = {
+        ...location,
+        name: formatComponentFields(location.name, "location", "name"),
+      };
+
       await addLocationValidationSchema.validate(formattedLocation, { abortEarly: false });
-      
-      // 3. Mutate
+
       const data = await saveLocationMutation.mutateAsync(formattedLocation);
-      
-      // 4. Cleanup
-      setLocation({ ...INITIAL_LOCATION_STATE });
-      onClose && onClose();
-      
+
+      if (!isEditMode) {
+        setLocation({ ...INITIAL_LOCATION_STATE });
+      }
+
       return data;
-      
     } catch (error) {
       if (error.name === "ValidationError") {
+        const errors = {};
         error.inner.forEach((err) => {
-          validationErrors[err.path] = { show: true, message: err.message };
+          errors[err.path] = { show: true, message: err.message };
         });
+
         dispatch({
           type: "SET_VALIDATION_ERRORS",
           resource: "locations",
-          validationErrors: { ...state.validationErrors?.locations, ...validationErrors },
+          validationErrors: {
+            ...state.validationErrors?.locations,
+            ...errors,
+          },
           showError: true,
         });
       }
-      // Server errors handled by mutation onError, but return false to stop UI flow
       return false;
     }
   };
 
-  const handleDeleteLocation = async (selectedLocation, onDeleteSuccess, onDeleteFailure) => {
+  const handleDeleteLocation = async (locationToDelete) => {
+    if (!locationToDelete?._id) return false;
+
+    resetServerError();
+    resetValidationErrors();
+
     try {
-      await deleteLocationMutation.mutateAsync(selectedLocation._id);
-      onDeleteSuccess(selectedLocation);
+      await deleteLocationMutation.mutateAsync(locationToDelete._id);
       return true;
-    } catch (error) {
-      onDeleteFailure(selectedLocation);
+    } catch {
       return false;
     }
   };
 
-  // --------------------------------------------------------------------------
-  // Return
-  // --------------------------------------------------------------------------
   const displayError = state.error?.locations;
   const validationError = state.validationErrors?.locations;
 
-  const isFormValid = () => {
-    return location?.name?.trim().length > 0 && !validationError?.name;
-  };
+  const isFormValid = () =>
+    location?.name?.trim().length > 0 && !validationError?.name;
 
-  // Combine loading states from all asynchronous sources
-  const isLoading = loading || saveLocationMutation.isPending || deleteLocationMutation.isPending;
+  const loading =
+    httpLoading ||
+    saveLocationMutation.isPending ||
+    deleteLocationMutation.isPending;
 
   return {
-    isFormValid,
-    loading: isLoading,
-    handleSaveLocation,
-    handleDeleteLocation,
-    displayError,
-    validationError,
     location,
     setLocation,
+    isFormValid,
+    loading,
+    displayError,
+    validationError,
+    handleSaveLocation,
+    handleDeleteLocation,
     resetServerError,
     resetValidationErrors,
     resetFormAndErrors,
   };
-};
-
-useLocationDialog.propTypes = {
-  initialLocation: PropTypes.object,
 };
 
 export default useLocationDialog;
