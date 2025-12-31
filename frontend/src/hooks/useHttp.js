@@ -9,7 +9,7 @@ const useCustomHttp = (initialUrl, options = {}) => {
 
   const [httpState, setHttpState] = useState({
     data: null,
-    loading: auto, // ✅ only start loading if auto fetch is enabled
+    loading: false,
     error: null,
     resource: null,
   });
@@ -55,7 +55,7 @@ const useCustomHttp = (initialUrl, options = {}) => {
       } catch (error) {
         const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
         const resource = getResourceFromUrl(url);
-        const errKey = error?.response?.data?.message || "server";
+        const errKey = error?.response?.data?.message || error?.message || "server";
 
         setHttpState({
           data: null,
@@ -65,7 +65,7 @@ const useCustomHttp = (initialUrl, options = {}) => {
             status: error?.response?.status,
             url: fullUrl,
           },
-          resource: url,
+          resource: fullUrl,
         });
 
         try {
@@ -96,21 +96,8 @@ const useCustomHttp = (initialUrl, options = {}) => {
   );
 
   useEffect(() => {
-    // ✅ do nothing if auto-fetch is disabled
     if (!auto || !initialUrl) return;
-
-    let isMounted = true;
-
-    const fetchDataFromInitialUrl = async () => {
-      if (!isMounted) return;
-      await sendRequest(initialUrl);
-    };
-
-    fetchDataFromInitialUrl();
-
-    return () => {
-      isMounted = false;
-    };
+    sendRequest(initialUrl);
   }, [auto, initialUrl, sendRequest]);
 
   return { ...httpState, sendRequest };
@@ -121,3 +108,4 @@ useCustomHttp.propTypes = {
 };
 
 export default useCustomHttp;
+
