@@ -1,13 +1,16 @@
 // src/commons/ProductForm/ProductForm.js
-import React from "react";
-import { Stack } from "@mui/material"; // 1. Changed Grid to Stack
+import React, { useMemo } from "react";
+import { Stack } from "@mui/material";
 import ProductNameInput from "./ProductNameInput.jsx";
 import BrandSelect from "./BrandSelect";
 import ProductTypeSelect from "./ProductTypeSelect";
 import MeasurementUnitSelect from "./MeasurementUnitSelect";
 import MeasuresInput from "./MeasuresInput";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
-import { predefinedTypes, measurementUnitOptions } from "../../../../commons/Consts/constants";
+import {
+  predefinedTypes,
+  measurementUnitOptions,
+} from "../../../../commons/Consts/constants";
 
 const ProductForm = ({
   product,
@@ -18,30 +21,38 @@ const ProductForm = ({
   onMeasurementUnitChange,
   onMeasuresChange,
   onMeasureCreate,
-  brandOptions, // Expected as an array of objects like { name: "BrandName" }
+  brandOptions,
   selectStyles,
   loading,
   validationError,
   displayError,
-  onInputChange,          // NEW: for filtering in BrandSelect
-  onMenuScrollToBottom,   // NEW: for infinite scrolling in BrandSelect
-  inputValue,             // NEW: the current search text
+  onInputChange,
+  onMenuScrollToBottom,
+  inputValue,
 }) => {
-  // Format the brand options for the BrandSelect component
-  const formattedBrandOptions = brandOptions.map((brand) => ({
-    label: brand.name,
-    value: brand.name,
-  }));
+  // options from API -> react-select shape
+  const formattedBrandOptions = useMemo(
+    () =>
+      (brandOptions ?? []).map((b) => ({
+        label: b.name,
+        value: b.name,
+      })),
+    [brandOptions]
+  );
 
-  // Format the product's brands (if any) into the expected shape
-  const formattedSelectedBrands = product?.brands?.map((brandId) => {
-    const found = brandOptions.find((b) => b._id === brandId || b.id === brandId);
-    return found ? { label: found.name, value: found.name } : { label: brandId, value: brandId };
-  }) || [];
+  // product.brandNames is array of strings (brand names)
+  const selectedBrandValues = useMemo(() => {
+    const names =
+      product?.brandNames ??
+      (Array.isArray(product?.brands) && typeof product.brands[0] === "string"
+        ? product.brands
+        : []);
+
+    return names.map((name) => ({ label: name, value: name }));
+  }, [product?.brandNames, product?.brands]);
 
   return (
     <Stack spacing={2}>
-      {/* Product Name Input */}
       <div>
         <ProductNameInput
           value={product?.name || ""}
@@ -53,63 +64,74 @@ const ProductForm = ({
         )}
       </div>
 
-      {/* Brand Selector */}
       <div>
         <BrandSelect
           options={formattedBrandOptions}
-          value={formattedSelectedBrands}
+          value={selectedBrandValues}
           onChange={onBrandChange}
           onCreateOption={onBrandCreate}
           isLoading={loading}
-          error={validationError?.brand}
           selectStyles={selectStyles}
-          onInputChange={onInputChange}          // pass filtering handler
-          onMenuScrollToBottom={onMenuScrollToBottom} // pass scroll handler
-          inputValue={inputValue}                // pass the controlled input value
+          onInputChange={onInputChange}
+          onMenuScrollToBottom={onMenuScrollToBottom}
+          inputValue={inputValue}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="brand" loading={loading} />
+          // ✅ MUST be "brands" (matches Yup schema path + your reducer storage)
+          <ErrorHandling resource="products" field="brands" loading={loading} />
         )}
       </div>
 
-      {/* Product Type Selector */}
       <div>
         <ProductTypeSelect
-          options={predefinedTypes.map((type) => ({
-            value: type,
-            label: type,
-          }))}
-          value={ product?.type ? { value: product.type, label: product.type } : null }
+          options={predefinedTypes.map((type) => ({ value: type, label: type }))}
+          value={
+            product?.type
+              ? { value: product.type, label: product.type }
+              : null
+          }
           onChange={onProductTypeChange}
           selectStyles={selectStyles}
         />
+        {(displayError || validationError) && (
+          <ErrorHandling resource="products" field="type" loading={loading} />
+        )}
       </div>
 
-      {/* Measurement Unit Selector */}
       <div>
         <MeasurementUnitSelect
           options={measurementUnitOptions}
-          value={ measurementUnitOptions.find((option) => option.value === product?.measurementUnit) || null }
+          value={
+            measurementUnitOptions.find(
+              (o) => o.value === product?.measurementUnit
+            ) || null
+          }
           onChange={onMeasurementUnitChange}
           selectStyles={selectStyles}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="measurementUnit" loading={loading} />
+          <ErrorHandling
+            resource="products"
+            field="measurementUnit"
+            loading={loading}
+          />
         )}
       </div>
 
-      {/* Measures Input */}
       <div>
         <MeasuresInput
-          options={[]} // Pass any predefined measures if needed
-          value={ product?.measures?.map((measure) => ({ value: measure, label: measure })) || [] }
+          value={(product?.measures ?? []).map((m) => ({ value: m, label: m }))}
           onChange={onMeasuresChange}
           onCreateOption={onMeasureCreate}
           selectStyles={selectStyles}
         />
+        {(displayError || validationError) && (
+          <ErrorHandling resource="products" field="measures" loading={loading} />
+        )}
       </div>
     </Stack>
   );
 };
 
-export default ProductForm;
+export default React.memo(ProductForm);
+

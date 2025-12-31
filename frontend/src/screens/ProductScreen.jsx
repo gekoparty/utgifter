@@ -15,15 +15,9 @@ import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
 // Lazy-loaded Dialogs
-const AddProductDialog = lazy(() =>
-  import("../components/features/Products/ProductDialogs/AddProduct/AddProductDialog")
-);
-const DeleteProductDialog = lazy(() =>
-  import("../components/features/Products/ProductDialogs/DeleteProduct/DeleteProductDialog")
-);
-const EditProductDialog = lazy(() =>
-  import("../components/features/Products/ProductDialogs/EditProduct/EditProductDialog")
-);
+const loadProductDialog = () =>
+  import("../components/features/Products/ProductDialogs/ProductDialog");
+const ProductDialog = lazy(loadProductDialog);
 
 // Constants
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
@@ -36,7 +30,10 @@ const productUrlBuilder = (endpoint, params) => {
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
   fetchURL.searchParams.set("size", `${params.pageSize}`);
   fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  fetchURL.searchParams.set(
+    "columnFilters",
+    JSON.stringify(params.filters ?? [])
+  );
   fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
   return fetchURL;
 };
@@ -47,12 +44,20 @@ const ProductScreen = () => {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  
+
   // --- Dialog State Consolidation ---
-  const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
+  const [selectedProduct, setSelectedProduct] = useState(
+    INITIAL_SELECTED_PRODUCT
+  );
   const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
 
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
   // --- Data Fetching ---
   // No useDeepCompareMemo needed in R19
@@ -64,7 +69,13 @@ const ProductScreen = () => {
     globalFilter,
   };
 
-  const { data: productsData, isError, isFetching, isLoading, refetch } = usePaginatedData({
+  const {
+    data: productsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
     endpoint: "/api/products",
     params: fetchParams,
     urlBuilder: productUrlBuilder,
@@ -90,7 +101,7 @@ const ProductScreen = () => {
     setSelectedProduct(product);
     setActiveModal("DELETE");
   };
-  
+
   // Centralized Action Feedback
   const handleSuccess = (action, productName) => {
     showSnackbar(`Produkt "${productName}" ${action}`);
@@ -101,7 +112,6 @@ const ProductScreen = () => {
     showSnackbar(message, "error");
   };
 
-
   // --- Table Configuration (No useMemo needed in R19) ---
   const tableColumns = [
     { accessorKey: "name", header: "Produkter" },
@@ -110,7 +120,7 @@ const ProductScreen = () => {
     {
       accessorKey: "measures",
       header: "Mål",
-      cell: ({ cell }) => {
+      CSPViolationReportBodyell: ({ cell }) => {
         const measures = cell.getValue();
         return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
       },
@@ -125,6 +135,8 @@ const ProductScreen = () => {
       <Box sx={{ mb: 2 }}>
         <Button
           variant="contained"
+          onMouseEnter={loadProductDialog}
+          onFocus={loadProductDialog}
           color="primary"
           onClick={() => setActiveModal("ADD")}
         >
@@ -133,7 +145,7 @@ const ProductScreen = () => {
       </Box>
 
       {isLoading ? (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Box sx={{ p: 4, textAlign: "center" }}>
           <LinearProgress sx={{ my: 1, maxWidth: 300, mx: "auto" }} />
           Laster Produkter...
         </Box>
@@ -143,53 +155,43 @@ const ProductScreen = () => {
           columns={tableColumns}
           refetch={refetch}
           meta={metaData}
-          
           setColumnFilters={setColumnFilters}
           setGlobalFilter={setGlobalFilter}
           setSorting={setSorting}
           setPagination={setPagination}
-          
           columnFilters={columnFilters}
           globalFilter={globalFilter}
           sorting={sorting}
           pagination={pagination}
-          
           isError={isError}
           isFetching={isFetching}
-          
           handleEdit={handleEdit}
           handleDelete={handleDelete}
         />
       )}
 
       {/* Dialogs - Grouped Suspense */}
-      <Suspense fallback={null}> 
-        {activeModal === "ADD" && (
-          <AddProductDialog
-            open={true}
+      <Suspense fallback={null}>
+        {activeModal && (
+          <ProductDialog
+            open
+            mode={activeModal}
+            productToEdit={selectedProduct}
             onClose={handleCloseDialog}
-            onAdd={(newProduct) => handleSuccess("er lagt til", newProduct.name)}
-          />
-        )}
+            onSuccess={(p) => {
+              const action =
+                activeModal === "DELETE"
+                  ? "slettet"
+                  : activeModal === "EDIT"
+                  ? "oppdatert"
+                  : "lagt til";
 
-        {activeModal === "DELETE" && (
-          <DeleteProductDialog
-            open={true}
-            dialogTitle="Bekreft Sletting"
-            onClose={handleCloseDialog}
-            selectedProduct={selectedProduct}
-            onDeleteSuccess={(deletedProduct) => handleSuccess("slettet", deletedProduct.name)}
-            onDeleteFailure={() => handleError(`Kunne ikke slette produktet ${selectedProduct.name}`)}
-          />
-        )}
-
-        {activeModal === "EDIT" && (
-          <EditProductDialog
-            open={true}
-            onClose={handleCloseDialog}
-            selectedProduct={selectedProduct}
-            onUpdateSuccess={(updatedProduct) => handleSuccess("oppdatert", updatedProduct.name)}
-            onUpdateFailure={() => handleError("Kunne ikke oppdatere produktet")}
+              showSnackbar(
+                `Produkt "${p?.name ?? selectedProduct?.name}" ble ${action}`
+              );
+              handleCloseDialog();
+            }}
+            onError={() => showSnackbar("Kunne ikke utføre handling", "error")}
           />
         )}
       </Suspense>
