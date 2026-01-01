@@ -1,3 +1,4 @@
+// src/components/NavBar/MiniVariantDrawer.jsx
 import * as React from "react";
 import {
   Box,
@@ -13,18 +14,17 @@ import {
   ListItemIcon,
   ListItemText,
   Container,
-  useTheme
 } from "@mui/material";
 import { styled, alpha } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import { mainNavbarItems } from "./Consts/NavBarListItems.jsx";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, matchPath } from "react-router-dom";
 
 const openedWidth = 240;
 const closedWidth = 70;
-
-/* ================= Drawer ================= */
+const ROW_HEIGHT = 48;
 
 const StyledDrawer = styled(Drawer, {
   shouldForwardProp: (prop) => prop !== "open",
@@ -51,11 +51,10 @@ const StyledDrawer = styled(Drawer, {
         ? theme.transitions.duration.enteringScreen
         : theme.transitions.duration.leavingScreen,
     }),
-    bgcolor: "background.paper",
+    backgroundColor:
+      theme.vars?.palette.background.paper || theme.palette.background.paper,
   },
 }));
-
-/* ================= Active bubble ================= */
 
 const ActiveBubble = styled("div")(({ theme }) => ({
   position: "absolute",
@@ -63,13 +62,12 @@ const ActiveBubble = styled("div")(({ theme }) => ({
   right: 8,
   height: 40,
   borderRadius: 12,
+  pointerEvents: "none",
   backgroundColor: theme.vars
     ? `rgba(${theme.vars.palette.primary.mainChannel} / 0.13)`
     : alpha(theme.palette.primary.main, 0.13),
   transition: "transform 0.25s ease, opacity 0.25s ease",
 }));
-
-/* ================= Main component ================= */
 
 export default function MiniVariantDrawer({
   children,
@@ -80,15 +78,25 @@ export default function MiniVariantDrawer({
   const theme = useTheme();
   const location = useLocation();
 
-  const handleToggle = () => setIsDrawerOpen((prev) => !prev);
+  const handleToggle = React.useCallback(() => {
+    setIsDrawerOpen((prev) => !prev);
+  }, [setIsDrawerOpen]);
 
-  const activeIndex = mainNavbarItems.findIndex(
-    (item) => item.route === location.pathname
-  );
+  const drawerWidth = isDrawerOpen ? openedWidth : closedWidth;
+
+  // Active index: supports nested routes like /products/123 -> /products
+  const activeIndex = React.useMemo(() => {
+    return mainNavbarItems.findIndex((item) =>
+      matchPath(
+        { path: item.route, end: item.route === "/" },
+        location.pathname
+      )
+    );
+  }, [location.pathname]);
 
   return (
     <Box sx={{ display: "flex" }}>
-      {/* ================= AppBar ================= */}
+      {/* AppBar */}
       <AppBar
         position="fixed"
         elevation={0}
@@ -97,13 +105,13 @@ export default function MiniVariantDrawer({
           backdropFilter: "blur(12px)",
           borderBottom: "1px solid",
           borderColor: "divider",
-          transition: (theme) =>
-            theme.transitions.create(["width", "margin"], {
-              duration: theme.transitions.duration.standard,
+          transition: (t) =>
+            t.transitions.create(["width", "margin"], {
+              duration: t.transitions.duration.standard,
             }),
-          width: `calc(100% - ${isDrawerOpen ? openedWidth : closedWidth}px)`,
-          ml: `${isDrawerOpen ? openedWidth : closedWidth}px`,
-          bgcolor: "background.paper",
+          width: `calc(100% - ${drawerWidth}px)`,
+          ml: `${drawerWidth}px`,
+          backgroundColor: "background.paper",
           opacity: 0.85,
         }}
       >
@@ -114,7 +122,7 @@ export default function MiniVariantDrawer({
         </Toolbar>
       </AppBar>
 
-      {/* ================= Drawer ================= */}
+      {/* Drawer */}
       <StyledDrawer variant="permanent" open={isDrawerOpen}>
         <Toolbar
           sx={{
@@ -122,7 +130,11 @@ export default function MiniVariantDrawer({
             justifyContent: isDrawerOpen ? "flex-end" : "center",
           }}
         >
-          <IconButton onClick={handleToggle} color="inherit">
+          <IconButton
+            onClick={handleToggle}
+            color="inherit"
+            aria-label="Toggle drawer"
+          >
             {isDrawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
         </Toolbar>
@@ -133,22 +145,24 @@ export default function MiniVariantDrawer({
           {activeIndex !== -1 && (
             <ActiveBubble
               sx={{
-                transform: `translateY(${activeIndex * 48}px)`,
+                transform: `translateY(${activeIndex * ROW_HEIGHT}px)`,
                 opacity: isDrawerOpen ? 1 : 0.5,
               }}
             />
           )}
 
           {mainNavbarItems.map(({ id, icon, label, route }) => {
-            const isActive = location.pathname === route;
+            const isActive = Boolean(
+              matchPath({ path: route, end: route === "/" }, location.pathname)
+            );
 
             return (
               <ListItem key={id} disablePadding sx={{ display: "block" }}>
                 <ListItemButton
                   component={Link}
-                  to={route}
+                  to={route} // ✅ absolute routes
                   sx={{
-                    minHeight: 48,
+                    minHeight: ROW_HEIGHT,
                     justifyContent: isDrawerOpen ? "initial" : "center",
                     px: 2.5,
                     position: "relative",
@@ -184,23 +198,23 @@ export default function MiniVariantDrawer({
         </List>
       </StyledDrawer>
 
-      {/* ================= Main Content ================= */}
+      {/* Main content */}
       <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          mt: 8,
-          display: "flex",
-          justifyContent: "center",
-          bgcolor: "background.default",
-          minHeight: "100vh",
-        }}
-      >
-        <Container maxWidth="lg" sx={{ width: "100%" }}>
-          {children}
-        </Container>
-      </Box>
+  component="main"
+  sx={(theme) => ({
+    flexGrow: 1,
+    minHeight: "100vh",
+    bgcolor: "background.default",
+    px: { xs: 2, md: 3 },
+    // push below fixed AppBar
+    pt: `calc(${theme.mixins.toolbar.minHeight}px + ${theme.spacing(2)})`,
+  })}
+>
+  <Container maxWidth="lg" sx={{ width: "100%" }}>
+    {children}
+  </Container>
+</Box>
+
     </Box>
   );
 }
