@@ -3,8 +3,11 @@ import slugify from "slugify";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationScema.js";
 import Category from "../models/categorySchema.js";
+import mongoose from "mongoose";
 
 const shopsRouter = express.Router();
+const isObjectIdString = (v) =>
+  typeof v === "string" && mongoose.Types.ObjectId.isValid(v);
 
 shopsRouter.get("/", async (req, res) => {
   try {
@@ -110,13 +113,17 @@ shopsRouter.get("/", async (req, res) => {
 });
 
 shopsRouter.post("/", async (req, res) => {
-
   try {
     const { name, location, category } = req.body;
+
     let locationId = location;
     let categoryId = category;
 
-    if (typeof category === "string") {
+    // ---------------------------
+    // CATEGORY: if string is ObjectId => keep as id
+    // else treat as name and upsert
+    // ---------------------------
+    if (typeof category === "string" && !isObjectIdString(category)) {
       const existingCategory = await Category.findOne({
         slug: slugify(category, { lower: true }),
       });
@@ -126,7 +133,6 @@ shopsRouter.post("/", async (req, res) => {
           name: category,
           slug: slugify(category, { lower: true }),
         });
-
         const savedCategory = await newCategory.save();
         categoryId = savedCategory._id;
       } else {
@@ -134,7 +140,11 @@ shopsRouter.post("/", async (req, res) => {
       }
     }
 
-    if (typeof location === "string") {
+    // ---------------------------
+    // LOCATION: if string is ObjectId => keep as id
+    // else treat as name and upsert
+    // ---------------------------
+    if (typeof location === "string" && !isObjectIdString(location)) {
       const existingLocation = await Location.findOne({
         slug: slugify(location, { lower: true }),
       });
@@ -144,7 +154,6 @@ shopsRouter.post("/", async (req, res) => {
           name: location,
           slug: slugify(location, { lower: true }),
         });
-
         const savedLocation = await newLocation.save();
         locationId = savedLocation._id;
       } else {
@@ -160,7 +169,9 @@ shopsRouter.post("/", async (req, res) => {
     });
 
     if (existingShop) {
-      return res.status(400).json({ message: "A shop with the same name and location already exists." });
+      return res.status(400).json({
+        message: "A shop with the same name and location already exists.",
+      });
     }
 
     const shop = new Shop({
@@ -170,25 +181,21 @@ shopsRouter.post("/", async (req, res) => {
       slugifiedName,
     });
 
-    try {
-      const savedShop = await shop.save();
-    
+    const savedShop = await shop.save();
 
-      const populatedShop = await Shop.findById(savedShop._id)
-        .populate("location")
-        .populate("category")
-        .exec();
+    // populate for response
+    const populatedShop = await Shop.findById(savedShop._id)
+      .populate("location")
+      .populate("category")
+      .exec();
 
-      res.status(201).json(populatedShop);
-    } catch (saveError) {
-      console.error("Error saving shop:", saveError);
-      res.status(500).json({ message: "Error saving shop" });
-    }
+    res.status(201).json(populatedShop);
   } catch (error) {
     console.error("Server error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
-})
+});
+
 
 
 
@@ -197,72 +204,75 @@ shopsRouter.put("/:id", async (req, res) => {
   const { name, location, category } = req.body;
 
   try {
-    // Find the existing shop
     const shop = await Shop.findById(shopId);
-    if (!shop) {
-      return res.status(404).json({ message: "Shop not found" });
-    }
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
 
-    // Handle the location logic
-    let locationObjectId;
-    if (location && typeof location === "string") {
-      // Try to find the location by name
-      const existingLocation = await Location.findOne({ name: location });
+    // ---------------------------
+    // LOCATION
+    // ---------------------------
+    let locationObjectId = shop.location;
 
-      if (!existingLocation) {
-        // Location does not exist, so create it
-        const newLocation = new Location({
-          name: location,
+    if (typeof location === "string") {
+      if (isObjectIdString(location)) {
+        // Treat as id
+        locationObjectId = location;
+      } else {
+        // Treat as name
+        const existingLocation = await Location.findOne({
           slug: slugify(location, { lower: true }),
         });
-        const savedLocation = await newLocation.save();
-        locationObjectId = savedLocation._id;
-      } else {
-        // Location exists, use its ObjectId
-        locationObjectId = existingLocation._id;
+
+        if (!existingLocation) {
+          const newLocation = new Location({
+            name: location,
+            slug: slugify(location, { lower: true }),
+          });
+          const savedLocation = await newLocation.save();
+          locationObjectId = savedLocation._id;
+        } else {
+          locationObjectId = existingLocation._id;
+        }
       }
-    } else {
-      // If location is not provided or not a string, keep the existing one
-      locationObjectId = shop.location;
     }
 
-    // Handle the category logic
-    let categoryObjectId;
-    if (category && typeof category === "string") {
-      const existingCategory = await Category.findOne({ name: category });
+    // ---------------------------
+    // CATEGORY
+    // ---------------------------
+    let categoryObjectId = shop.category;
 
-      if (!existingCategory) {
-        // Category does not exist, so create it
-        const newCategory = new Category({
-          name: category,
+    if (typeof category === "string") {
+      if (isObjectIdString(category)) {
+        categoryObjectId = category;
+      } else {
+        const existingCategory = await Category.findOne({
           slug: slugify(category, { lower: true }),
         });
-        const savedCategory = await newCategory.save();
-        categoryObjectId = savedCategory._id;
-      } else {
-        // Category exists, use its ObjectId
-        categoryObjectId = existingCategory._id;
+
+        if (!existingCategory) {
+          const newCategory = new Category({
+            name: category,
+            slug: slugify(category, { lower: true }),
+          });
+          const savedCategory = await newCategory.save();
+          categoryObjectId = savedCategory._id;
+        } else {
+          categoryObjectId = existingCategory._id;
+        }
       }
-    } else {
-      // If category is not provided or not a string, keep the existing one
-      categoryObjectId = shop.category;
     }
 
-    // Update the shop with the new data
     shop.name = name;
-    shop.location = locationObjectId; // Now we have the correct ObjectId
+    shop.location = locationObjectId;
     shop.category = categoryObjectId;
     shop.slugifiedName = slugify(name, { lower: true });
 
-    // Save the updated shop
     const updatedShop = await shop.save();
 
-    // Optionally, populate the updated shop with its references
     const populatedShop = await Shop.findById(updatedShop._id)
       .populate("location")
-      .populate("category");
+      .populate("category")
+      .exec();
 
-    // Send the updated shop back in the response
     res.status(200).json(populatedShop);
   } catch (error) {
     console.error("Server error:", error);

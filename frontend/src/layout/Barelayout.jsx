@@ -1,6 +1,5 @@
 // src/layout/BareLayout.jsx
-
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { Outlet, Link as RouterLink } from "react-router-dom";
 import {
   AppBar,
@@ -16,8 +15,7 @@ import {
   Stack,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-// IMPORTANT: Make sure this path is correct for your file system
-import VirtualizedSelect from "../components/commons/VirtualizedSelect/VirtualizedSelect"; 
+import VirtualizedSelect from "../components/commons/VirtualizedSelect/VirtualizedSelect";
 import debounce from "lodash.debounce";
 import useInfiniteProducts from "../hooks/useInfiniteProducts";
 import { getSelectStyles } from "../theme/selectStyles";
@@ -38,23 +36,34 @@ export default function BareLayout() {
   } = useInfiniteProducts(productSearch);
 
   const productOptions = useMemo(() => {
-    return (infiniteData?.pages || []).flatMap((page) =>
-      page.products.map((p) => ({
+    const pages = infiniteData?.pages ?? [];
+    return pages.flatMap((page) =>
+      (page.products ?? []).map((p) => ({
         label: p.name,
         value: p._id || p.id,
       }))
     );
   }, [infiniteData]);
 
-  const debouncedSearch = useMemo(
-    () => debounce((q) => setProductSearch(q), 300),
-    []
-  );
+  // ✅ React 19 / StrictMode friendly debounce (cancel on cleanup)
+  const debouncedSearch = useMemo(() => {
+    return debounce((q) => setProductSearch(q), 300);
+  }, []);
+
+  useEffect(() => {
+    return () => debouncedSearch.cancel();
+  }, [debouncedSearch]);
 
   const handleInputChange = useCallback(
-    (value) => debouncedSearch(value || ""),
+    (value) => {
+      debouncedSearch(value || "");
+    },
     [debouncedSearch]
   );
+
+  // ✅ prevent SSR/test crashes
+  const menuPortalTarget =
+    typeof document !== "undefined" ? document.body : undefined;
 
   return (
     <Box
@@ -65,7 +74,7 @@ export default function BareLayout() {
         bgcolor: "background.default",
       }}
     >
-      {/* Primary Navigation Bar */}
+      {/* Top bar */}
       <AppBar
         position="sticky"
         elevation={0}
@@ -80,9 +89,11 @@ export default function BareLayout() {
             to="/"
             edge="start"
             sx={{ mr: 2, color: "text.primary" }}
+            aria-label="Back"
           >
             <ArrowBackIcon />
           </IconButton>
+
           <Typography
             variant="h6"
             sx={{
@@ -97,7 +108,7 @@ export default function BareLayout() {
         </Toolbar>
       </AppBar>
 
-      {/* Control Sub-Header */}
+      {/* Controls */}
       <Box
         sx={{
           bgcolor: "background.paper",
@@ -112,7 +123,6 @@ export default function BareLayout() {
             alignItems="center"
             justifyContent="space-between"
           >
-            {/* View Switcher */}
             <ButtonGroup
               variant="outlined"
               size="small"
@@ -129,6 +139,7 @@ export default function BareLayout() {
               >
                 Monthly
               </Button>
+
               <Button
                 variant={view === "price" ? "contained" : "outlined"}
                 onClick={() => {
@@ -141,7 +152,6 @@ export default function BareLayout() {
               </Button>
             </ButtonGroup>
 
-            {/* Contextual Search */}
             <Box
               sx={{
                 width: { xs: "100%", sm: 300 },
@@ -151,16 +161,13 @@ export default function BareLayout() {
               <VirtualizedSelect
                 isClearable
                 options={productOptions}
-                value={
-                  productOptions.find((o) => o.value === productId) || null
-                }
+                value={productOptions.find((o) => o.value === productId) || null}
                 onChange={(opt) => setProductId(opt?.value || "")}
                 onInputChange={handleInputChange}
                 isLoading={isLoadingProducts}
                 placeholder="Search products..."
-                menuPortalTarget={document.body}
+                menuPortalTarget={menuPortalTarget}
                 styles={selectStyles}
-                // 💥 INFINITE SCROLL PROPS ADDED HERE 💥
                 hasNextPage={hasNextPage}
                 fetchNextPage={fetchNextPage}
               />
@@ -169,7 +176,7 @@ export default function BareLayout() {
         </Container>
       </Box>
 
-      {/* Main Content Area */}
+      {/* Content */}
       <Box component="main" sx={{ flexGrow: 1, py: 4 }}>
         <Container maxWidth="lg">
           <Paper

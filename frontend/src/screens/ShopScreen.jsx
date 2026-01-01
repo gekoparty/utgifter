@@ -1,102 +1,92 @@
 import React, { useState, lazy, Suspense } from "react";
-import { Button, Snackbar, Alert, IconButton, Box } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  Alert,
+  LinearProgress,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy-loaded dialogs
-const AddShopDialog = lazy(() =>
-  import("../components/features/Shops/ShopDialogs/AddShop/AddShopDialog")
-);
-const DeleteShopDialog = lazy(() =>
-  import("../components/features/Shops/ShopDialogs/DeleteShop/DeleteShopDialog")
-);
-const EditShopDialog = lazy(() =>
-  import("../components/features/Shops/ShopDialogs/EditShop/EditShopDialog")
-);
+// ------------------------------------------------------
+// Lazy-loaded consolidated dialog (ADD / EDIT / DELETE)
+// ------------------------------------------------------
+const loadShopDialog = () =>
+  import("../components/features/Shops/ShopDialogs/ShopDialog");
+const ShopDialog = lazy(loadShopDialog);
 
+// ------------------------------------------------------
 // Constants
+// ------------------------------------------------------
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
-const INITIAL_SELECTED_SHOP = { _id: "", name: "", location: "", category: "" };
+
+const INITIAL_SELECTED_SHOP = {
+  _id: "",
+  name: "",
+  location: "",
+  category: "",
+  locationName: "",
+  categoryName: "",
+};
+
+const SHOPS_QUERY_KEY = ["shops", "paginated"];
+
+const tableColumns = [
+  { accessorKey: "name", header: "Butikk" },
+  { accessorKey: "locationName", header: "Lokasjon" },
+  { accessorKey: "categoryName", header: "Kategori" },
+];
+
+// ------------------------------------------------------
+// URL builder
+// ------------------------------------------------------
+const shopUrlBuilder = (endpoint, params) => {
+  const url = new URL(endpoint, API_URL);
+  url.searchParams.set("start", params.pageIndex * params.pageSize);
+  url.searchParams.set("size", params.pageSize);
+  url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
+  url.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  url.searchParams.set("globalFilter", params.globalFilter ?? "");
+  return url;
+};
 
 const ShopScreen = () => {
-  // --- State Management ---
+  // ------------------------------------------------------
+  // Table State
+  // ------------------------------------------------------
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  
-  // Consolidated Dialog State
+
+  // ------------------------------------------------------
+  // Dialog State
+  // ------------------------------------------------------
+  const [activeModal, setActiveModal] = useState(null); // ADD | EDIT | DELETE | null
   const [selectedShop, setSelectedShop] = useState(INITIAL_SELECTED_SHOP);
-  const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
 
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } = useSnackBar();
+  // ------------------------------------------------------
+  // Snackbar
+  // ------------------------------------------------------
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
-  // --- API Functions (Plain functions are stable in R19) ---
-  
-  const shopUrlBuilder = (endpoint, { pageIndex, pageSize, sorting, filters, globalFilter }) => {
-    const url = new URL(endpoint, API_URL);
-    url.searchParams.set("start", pageIndex * pageSize);
-    url.searchParams.set("size", pageSize);
-    url.searchParams.set("sorting", JSON.stringify(sorting ?? []));
-    url.searchParams.set("columnFilters", JSON.stringify(filters ?? []));
-    url.searchParams.set("globalFilter", globalFilter ?? "");
-    return url;
-  };
-
-  const transformShopsData = async (json) => {
-    const shops = json.shops || [];
-
-    // 1. Collect all unique IDs for batch fetching
-    const locationIds = [ ...new Set(shops.map((shop) => shop.location).filter(Boolean)) ];
-    const categoryIds = [ ...new Set(shops.map((shop) => shop.category).filter(Boolean)) ];
-
-    const fetchAndCreateMap = async (endpoint, ids) => {
-      if (ids.length === 0) return {};
-      try {
-        const res = await fetch(`${API_URL}/api/${endpoint}?ids=${ids.join(",")}`);
-        if (!res.ok) throw new Error(`Failed to fetch ${endpoint}`);
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : data[endpoint] || [];
-
-        return items.reduce((map, item) => {
-          if (item._id && item.name) {
-            map[item._id] = item.name;
-          }
-          return map;
-        }, {});
-      } catch (error) {
-        console.error(`Batch fetch error for ${endpoint}:`, error);
-        return {};
-      }
-    };
-
-    // 2. Batch Fetch: Execute the two large requests in parallel
-    const [locationMap, categoryMap] = await Promise.all([
-      fetchAndCreateMap("locations", locationIds),
-      fetchAndCreateMap("categories", categoryIds),
-    ]);
-
-    // 3. Transform shops using the maps
-    const transformed = shops.map((shop) => ({
-      _id: shop._id,
-      name: shop.name,
-      location: locationMap[shop.location] || "N/A",
-      category: categoryMap[shop.category] || "N/A",
-    }));
-
-    return {
-      shops: transformed,
-      meta: json.meta || {},
-    };
-  };
-
-  // --- Data Hook ---
-  // No useMemo or useDeepCompareMemo needed for fetchParams object
+  // ------------------------------------------------------
+  // Data fetching
+  // ------------------------------------------------------
   const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
@@ -105,58 +95,63 @@ const ShopScreen = () => {
     globalFilter,
   };
 
-  const { data, isLoading, isFetching, isError, refetch } = usePaginatedData({
+  const {
+    data: shopsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
     endpoint: "/api/shops",
     params: fetchParams,
     urlBuilder: shopUrlBuilder,
-    baseQueryKey: ["shops", "paginated"],
-    transformFn: transformShopsData,
+    baseQueryKey: SHOPS_QUERY_KEY,
   });
 
-  const tableData = data?.shops || [];
-  const metaData = data?.meta || {};
+  const tableData = shopsData?.shops ?? [];
+  const metaData = shopsData?.meta ?? {};
 
-  // --- Handlers (No useCallback needed in R19) ---
-  
+  // ------------------------------------------------------
+  // Dialog handlers
+  // ------------------------------------------------------
   const handleCloseDialog = () => {
     setActiveModal(null);
     setSelectedShop(INITIAL_SELECTED_SHOP);
   };
 
   const handleEdit = (shop) => {
+    loadShopDialog();
     setSelectedShop(shop);
     setActiveModal("EDIT");
   };
 
   const handleDelete = (shop) => {
+    loadShopDialog();
     setSelectedShop(shop);
     setActiveModal("DELETE");
   };
 
-  // Centralized Action Feedback
+  // ------------------------------------------------------
+  // Feedback helpers
+  // ------------------------------------------------------
   const handleSuccess = (action, shopName) => {
-    showSnackbar(`Butikk ${shopName} ${action}`);
+    showSnackbar(`Butikk "${shopName}" ble ${action}`);
     handleCloseDialog();
   };
 
-  const handleError = (message) => {
-    showSnackbar(message, "error");
+  const handleError = (action) => {
+    showSnackbar(`Kunne ikke ${action}`, "error");
   };
 
-  // --- Table Configuration (No useMemo needed in R19) ---
-  const tableColumns = [
-    { accessorKey: "name", header: "Butikk" },
-    { accessorKey: "location", header: "Lokasjon" },
-    { accessorKey: "category", header: "Kategori" },
-  ];
-
-  // -------------------------
+  // ------------------------------------------------------
   // Render
-  // -------------------------
+  // ------------------------------------------------------
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
         <Button
+          onMouseEnter={loadShopDialog}
+          onFocus={loadShopDialog}
           variant="contained"
           onClick={() => setActiveModal("ADD")}
         >
@@ -164,54 +159,51 @@ const ShopScreen = () => {
         </Button>
       </Box>
 
-      <ReactTable
-        data={tableData}
-        columns={tableColumns}
-        columnFilters={columnFilters}
-        globalFilter={globalFilter}
-        sorting={sorting}
-        pagination={pagination}
-        setColumnFilters={setColumnFilters}
-        setGlobalFilter={setGlobalFilter}
-        setSorting={setSorting}
-        setPagination={setPagination}
-        refetch={refetch}
-        isError={isError}
-        isLoading={isLoading}
-        isFetching={isFetching}
-        meta={metaData}
-        handleEdit={handleEdit}
-        handleDelete={handleDelete}
-      />
+      {isLoading ? (
+        <Box sx={{ p: 4, textAlign: "center" }}>
+          <LinearProgress sx={{ mb: 2, maxWidth: 400, mx: "auto" }} />
+          Laster butikker...
+        </Box>
+      ) : (
+        <ReactTable
+          data={tableData}
+          columns={tableColumns}
+          meta={metaData}
+          isError={isError}
+          isFetching={isFetching}
+          isLoading={isLoading}
+          refetch={refetch}
+          columnFilters={columnFilters}
+          globalFilter={globalFilter}
+          sorting={sorting}
+          pagination={pagination}
+          setColumnFilters={setColumnFilters}
+          setGlobalFilter={setGlobalFilter}
+          setSorting={setSorting}
+          setPagination={setPagination}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+        />
+      )}
 
-      {/* Dialogs - Grouped Suspense */}
       <Suspense fallback={null}>
-        {activeModal === "ADD" && (
-          <AddShopDialog
-            open={true}
+        {activeModal && (
+          <ShopDialog
+            open
+            mode={activeModal}
+            shopToEdit={selectedShop}
             onClose={handleCloseDialog}
-            onAdd={(shop) => handleSuccess("lagt til", shop.name)}
-          />
-        )}
+            onSuccess={(shop) => {
+              const action =
+                activeModal === "DELETE"
+                  ? "slettet"
+                  : activeModal === "EDIT"
+                  ? "oppdatert"
+                  : "lagt til";
 
-        {activeModal === "EDIT" && (
-          <EditShopDialog
-            open={true}
-            onClose={handleCloseDialog}
-            selectedShop={selectedShop}
-            onUpdateSuccess={(shop) => handleSuccess("oppdatert", shop.name)}
-            onUpdateFailure={() => handleError(`Kunne ikke oppdatere Butikk ${selectedShop.name}`)}
-          />
-        )}
-
-        {activeModal === "DELETE" && (
-          <DeleteShopDialog
-            open={true}
-            onClose={handleCloseDialog}
-            selectedShop={selectedShop}
-            dialogTitle="Bekreft Sletting"
-            onDeleteSuccess={(shop) => handleSuccess("slettet", shop.name)}
-            onDeleteFailure={() => handleError(`Kunne ikke slette Butikk ${selectedShop.name}`)}
+              handleSuccess(action, shop?.name ?? selectedShop?.name ?? "");
+            }}
+            onError={() => handleError("utføre handling")}
           />
         )}
       </Suspense>
@@ -245,3 +237,4 @@ const ShopScreen = () => {
 };
 
 export default ShopScreen;
+
