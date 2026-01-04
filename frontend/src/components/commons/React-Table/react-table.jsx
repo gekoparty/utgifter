@@ -26,12 +26,44 @@ const ReactTable = ({
   handleDelete,
   renderDetailPanel,
 }) => {
+  // ✅ Memoize initialState so it doesn't "feel" like it changes
+  const initialState = useMemo(
+    () => ({
+      showColumnFilters: true,
+      density: "compact",
+    }),
+    []
+  );
 
-  /** Refresh button */
+  // ✅ Memoize MRT state object (reduces table recalcs)
+  const tableState = useMemo(
+    () => ({
+      columnFilters,
+      globalFilter,
+      sorting,
+      pagination,
+
+      isLoading,
+      showAlertBanner: isError,
+
+      // If you want *no* progress bars during modal, do it outside (like you already do)
+      showProgressBars: isFetching,
+    }),
+    [
+      columnFilters,
+      globalFilter,
+      sorting,
+      pagination,
+      isLoading,
+      isError,
+      isFetching,
+    ]
+  );
+
   const refreshButton = useCallback(
     () => (
       <Tooltip title="Oppdater">
-        <IconButton onClick={() => refetch()}>
+        <IconButton onClick={refetch}>
           <RefreshIcon />
         </IconButton>
       </Tooltip>
@@ -39,68 +71,75 @@ const ReactTable = ({
     [refetch]
   );
 
-  /** Row actions */
-  const rowActions = useCallback(
-    ({ row }) => [
-      <MenuItem key="edit" onClick={() => handleEdit(row.original)}>
+  const renderRowActionMenuItems = useCallback(
+    ({ row, closeMenu }) => [
+      <MenuItem
+        key="edit"
+        onClick={() => {
+          closeMenu?.();
+          handleEdit(row.original);
+        }}
+      >
         Rediger
       </MenuItem>,
-      <MenuItem key="delete" onClick={() => handleDelete(row.original)}>
+      <MenuItem
+        key="delete"
+        onClick={() => {
+          closeMenu?.();
+          handleDelete(row.original);
+        }}
+      >
         Slett
       </MenuItem>,
     ],
     [handleEdit, handleDelete]
   );
 
+  const rowCount = meta?.totalRowCount ?? 0;
+
   return (
     <MaterialReactTable
       columns={columns}
       data={data}
 
-      /** Manual server-side operations */
+      // ✅ Server-side
       manualPagination
       manualSorting
       manualFiltering
 
-      /** Initial behavior */
-      initialState={{
-        showColumnFilters: true,
-        density: "compact",
-      }}
+      // ✅ Don’t reapply initialState each render
+      initialState={initialState}
 
-      /** Localization */
       localization={MRT_Localization_NO}
 
-      /** Top toolbar */
+      // ✅ Top toolbar
       renderTopToolbarCustomActions={refreshButton}
 
-      /** Row actions */
+      // ✅ Row actions
       enableRowActions
       positionActionsColumn="left"
-      renderRowActionMenuItems={rowActions}
+      renderRowActionMenuItems={renderRowActionMenuItems}
 
-      /** Optional detail panel */
+      // ✅ Detail panel
       renderDetailPanel={renderDetailPanel}
 
-      /** Controlled state */
-      state={{
-        columnFilters,
-        globalFilter,
-        sorting,
-        pagination,
-        isLoading,
-        showAlertBanner: isError,
-        showProgressBars: isFetching,
-      }}
+      // ✅ Controlled state
+      state={tableState}
 
-      /** State updaters */
+      // ✅ Controlled updaters (these should already be stable from useState)
       onColumnFiltersChange={setColumnFilters}
       onGlobalFilterChange={setGlobalFilter}
       onSortingChange={setSorting}
       onPaginationChange={setPagination}
 
-      /** Total count for pagination */
-      rowCount={meta?.totalRowCount ?? 0}
+      // ✅ Total rows
+      rowCount={rowCount}
+
+      // Optional: small perf helpers
+      enableColumnResizing={false}
+      enableDensityToggle={false}
+      enableFullScreenToggle={false}
+      enableHiding={true}
     />
   );
 };

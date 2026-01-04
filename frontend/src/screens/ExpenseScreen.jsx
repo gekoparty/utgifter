@@ -1,6 +1,14 @@
 // ExpenseScreen.jsx
 // React 19 + MUI 7 + React Query v5 + MRT v3.2.1 (optimized, unified ExpenseDialog)
-import React, { useMemo, useState, lazy, Suspense, useDeferredValue } from "react";
+import React, {
+  useMemo,
+  useState,
+  lazy,
+  Suspense,
+  useDeferredValue,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   Popover,
   Typography,
@@ -29,7 +37,6 @@ import { API_URL } from "../components/commons/Consts/constants";
 // ------------------------------------------------------
 // Lazy unified dialog + preloading
 // ------------------------------------------------------
-// ✅ Adjust this path to where you put ExpenseDialog.jsx
 const loadExpenseDialog = () =>
   import("../components/features/Expenses/components/ExpenseDialog/ExpenseDialog");
 const ExpenseDialog = lazy(loadExpenseDialog);
@@ -110,40 +117,46 @@ const transformExpenseData = (json) => {
 };
 
 // ------------------------------------------------------
-// Filters
+// Filters (memoized for smooth UX)
 // ------------------------------------------------------
-const DateRangeFilter = ({ column }) => {
-  const initialValue = column.getFilterValue() || ["", ""];
-  const [localDateRange, setLocalDateRange] = useState(initialValue);
+const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
+  const filterValue = column.getFilterValue() || ["", ""];
+  const [localDateRange, setLocalDateRange] = useState(filterValue);
   const [anchorEl, setAnchorEl] = useState(null);
 
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-    setLocalDateRange(column.getFilterValue() || ["", ""]);
-  };
+  // Keep local state in sync when opening popover
+  const handleClick = useCallback(
+    (event) => {
+      setAnchorEl(event.currentTarget);
+      setLocalDateRange(column.getFilterValue() || ["", ""]);
+    },
+    [column]
+  );
 
-  const handleClose = () => setAnchorEl(null);
+  const handleClose = useCallback(() => setAnchorEl(null), []);
 
-  const handleLocalChange = (index, newValue) => {
-    const newRange = [...localDateRange];
-    newRange[index] = newValue;
-    setLocalDateRange(newRange);
-  };
+  const handleLocalChange = useCallback((index, newValue) => {
+    setLocalDateRange((prev) => {
+      const next = [...prev];
+      next[index] = newValue;
+      return next;
+    });
+  }, []);
 
-  const applyFilter = () => {
+  const applyFilter = useCallback(() => {
     const valueToSet =
       !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
     column.setFilterValue(valueToSet);
     handleClose();
-  };
+  }, [column, handleClose, localDateRange]);
 
-  const clearFilter = () => {
+  const clearFilter = useCallback(() => {
     setLocalDateRange(["", ""]);
     column.setFilterValue(undefined);
     handleClose();
-  };
+  }, [column, handleClose]);
 
-  const isActive = initialValue[0] || initialValue[1];
+  const isActive = Boolean(filterValue[0] || filterValue[1]);
 
   return (
     <>
@@ -193,46 +206,52 @@ const DateRangeFilter = ({ column }) => {
       </Popover>
     </>
   );
-};
+});
 
-const PriceRangeFilter = ({ column, onModeChange }) => {
-  const defaultState = { min: "", max: "", mode: "pricePerUnit" };
+const PriceRangeFilter = React.memo(function PriceRangeFilter({ column, onModeChange }) {
+  const defaultState = useMemo(() => ({ min: "", max: "", mode: "pricePerUnit" }), []);
   const filterValue = column.getFilterValue() || defaultState;
 
   const [localState, setLocalState] = useState(filterValue);
   const [anchorEl, setAnchorEl] = useState(null);
 
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-    setLocalState(column.getFilterValue() || defaultState);
-  };
+  const handleClick = useCallback(
+    (event) => {
+      setAnchorEl(event.currentTarget);
+      setLocalState(column.getFilterValue() || defaultState);
+    },
+    [column, defaultState]
+  );
 
-  const handleClose = () => setAnchorEl(null);
+  const handleClose = useCallback(() => setAnchorEl(null), []);
 
-  const handleModeChange = (event, newMode) => {
-    if (newMode !== null) {
-      setLocalState((prev) => ({ ...prev, mode: newMode }));
-      onModeChange(newMode);
-    }
-  };
+  const handleModeChange = useCallback(
+    (event, newMode) => {
+      if (newMode !== null) {
+        setLocalState((prev) => ({ ...prev, mode: newMode }));
+        onModeChange(newMode);
+      }
+    },
+    [onModeChange]
+  );
 
-  const handleRangeChange = (key, value) => {
+  const handleRangeChange = useCallback((key, value) => {
     setLocalState((prev) => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const applyFilter = () => {
+  const applyFilter = useCallback(() => {
     const valueToSet = !localState.min && !localState.max ? undefined : localState;
     column.setFilterValue(valueToSet);
     handleClose();
-  };
+  }, [column, handleClose, localState]);
 
-  const clearFilter = () => {
+  const clearFilter = useCallback(() => {
     setLocalState(defaultState);
     column.setFilterValue(undefined);
     handleClose();
-  };
+  }, [column, defaultState, handleClose]);
 
-  const isActive = filterValue.min || filterValue.max;
+  const isActive = Boolean(filterValue.min || filterValue.max);
 
   return (
     <>
@@ -296,7 +315,7 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
       </Popover>
     </>
   );
-};
+});
 
 // ------------------------------------------------------
 // Memoized badge for price cell
@@ -313,13 +332,13 @@ const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
         display: "inline-block",
       }}
     >
-      {NOK.format(value)}
+      {NOK.format(typeof value === "number" ? value : 0)}
     </Box>
   );
 });
 
 // ------------------------------------------------------
-// MAIN SCREEN
+// MAIN SCREEN (optimized)
 // ------------------------------------------------------
 const ExpenseScreen = () => {
   const theme = useTheme();
@@ -346,14 +365,23 @@ const ExpenseScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Fetch params
-  const fetchParams = {
-    pageIndex: pagination.pageIndex,
-    pageSize: pagination.pageSize,
-    sorting,
-    filters: columnFilters,
-    globalFilter: deferredGlobalFilter,
-  };
+  // ✅ Stable params object: prevents queryKey churn + unnecessary fetches
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      filters: columnFilters,
+      globalFilter: deferredGlobalFilter,
+    }),
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      deferredGlobalFilter,
+    ]
+  );
 
   const { data: expensesData, isError, isFetching, isLoading, refetch } = usePaginatedData({
     endpoint: "/api/expenses",
@@ -366,14 +394,18 @@ const ExpenseScreen = () => {
   const tableData = expensesData?.expenses ?? [];
   const metaData = expensesData?.meta ?? {};
 
+  // ✅ Defer stats computation a bit if data changes rapidly
+  const deferredExpenses = useDeferredValue(expensesData?.expenses);
+
   // Stats (per current page)
   const priceStatsByType = useMemo(() => {
-    const list = expensesData?.expenses;
+    const list = deferredExpenses;
     if (!list?.length) return {};
 
     const grouped = list.reduce((acc, item) => {
       if (typeof item.pricePerUnit !== "number") return acc;
-      (acc[item.type] = acc[item.type] || []).push(item.pricePerUnit);
+      const k = item.type || "Ukjent";
+      (acc[k] = acc[k] || []).push(item.pricePerUnit);
       return acc;
     }, {});
 
@@ -387,33 +419,42 @@ const ExpenseScreen = () => {
       };
     }
     return stats;
-  }, [expensesData?.expenses]);
+  }, [deferredExpenses]);
 
-  const handleDialogClose = () => {
+  const handleDialogClose = useCallback(() => {
     setActiveModal(null);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
-  };
+  }, []);
 
-  const handlePriceFilterModeChange = (newMode) => {
+  const handlePriceFilterModeChange = useCallback((newMode) => {
     if (["pricePerUnit", "finalPrice", "price", "all"].includes(newMode)) {
       setPriceDisplayMode(newMode);
     } else {
       setPriceDisplayMode("pricePerUnit");
     }
-  };
+  }, []);
 
-  const handleSuccess = (action, expenseName) => {
-    showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
-    handleDialogClose();
-    // ✅ Prefer invalidateQueries in mutations (inside ExpenseDialog/useExpenseForm)
-  };
+  const handleSuccess = useCallback(
+    (action, expenseName) => {
+      showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
+      handleDialogClose();
+    },
+    [showSnackbar, handleDialogClose]
+  );
 
-  const handleError = (action) => {
-    showSnackbar(`Klarte ikke å ${action} utgiften. Prøv igjen.`, "error");
-    handleDialogClose();
-  };
+  const handleError = useCallback(
+    (action) => {
+      showSnackbar(`Klarte ikke å ${action} utgiften. Prøv igjen.`, "error");
+      handleDialogClose();
+    },
+    [showSnackbar, handleDialogClose]
+  );
 
-  const tableColumns = useMemo(() => {
+  // ✅ Memoize theme palette values used in cells (avoid reaching deep per cell)
+  const palette = theme.palette;
+
+  // ✅ Stabilize price column separately to reduce columns churn
+  const priceColumn = useMemo(() => {
     const resolvedAccessor =
       priceDisplayMode === "finalPrice"
         ? { header: "Totalpris", key: "finalPrice" }
@@ -421,55 +462,85 @@ const ExpenseScreen = () => {
         ? { header: "Registrert Pris", key: "price" }
         : { header: "Pris per enhet", key: "pricePerUnit" };
 
-    return [
-      { accessorKey: "productName", header: "Produktnavn" },
-      {
-        accessorKey: resolvedAccessor.key,
-        header: resolvedAccessor.header,
-        Filter: ({ column }) => (
-          <PriceRangeFilter column={column} onModeChange={handlePriceFilterModeChange} />
-        ),
-        enableColumnFilter: true,
-        Cell: ({ row }) => {
-          const value = row.original[resolvedAccessor.key];
-          const type = row.original.type;
-          const stats = priceStatsByType[type] || {};
+    return {
+      accessorKey: resolvedAccessor.key,
+      header: resolvedAccessor.header,
+      Filter: ({ column }) => (
+        <PriceRangeFilter column={column} onModeChange={handlePriceFilterModeChange} />
+      ),
+      enableColumnFilter: true,
+      Cell: ({ row }) => {
+        const value = row.original[resolvedAccessor.key];
+        const type = row.original.type || "Ukjent";
+        const stats = priceStatsByType[type] || {};
 
-          let bg = "transparent";
-          let fg = theme.palette.text.primary;
+        let bg = "transparent";
+        let fg = palette.text.primary;
 
-          if (resolvedAccessor.key === "pricePerUnit" && stats.median != null) {
-            const rangeLow = stats.min + (stats.median - stats.min) / 2;
-            const rangeHigh = stats.max - (stats.max - stats.median) / 2;
+        if (resolvedAccessor.key === "pricePerUnit" && stats.median != null) {
+          const rangeLow = stats.min + (stats.median - stats.min) / 2;
+          const rangeHigh = stats.max - (stats.max - stats.median) / 2;
 
-            if (value <= rangeLow) {
-              bg = theme.palette.success.main;
-              fg = theme.palette.success.contrastText;
-            } else if (value >= rangeHigh) {
-              bg = theme.palette.error.main;
-              fg = theme.palette.error.contrastText;
-            } else {
-              bg = theme.palette.warning.main;
-              fg = theme.palette.warning.contrastText;
-            }
+          if (value <= rangeLow) {
+            bg = palette.success.main;
+            fg = palette.success.contrastText;
+          } else if (value >= rangeHigh) {
+            bg = palette.error.main;
+            fg = palette.error.contrastText;
+          } else {
+            bg = palette.warning.main;
+            fg = palette.warning.contrastText;
           }
+        }
 
-          return <PriceBadge value={value} bg={bg} fg={fg} />;
-        },
+        return <PriceBadge value={value} bg={bg} fg={fg} />;
       },
+    };
+  }, [priceDisplayMode, priceStatsByType, palette, handlePriceFilterModeChange]);
+
+  const dateColumn = useMemo(
+    () => ({
+      accessorKey: "purchaseDate",
+      header: "Kjøpsdato",
+      Filter: ({ column }) => <DateRangeFilter column={column} />,
+      enableColumnFilter: true,
+      Cell: ({ cell }) =>
+        cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("nb-NO") : "—",
+    }),
+    []
+  );
+
+  const tableColumns = useMemo(
+    () => [
+      { accessorKey: "productName", header: "Produktnavn" },
+      priceColumn,
       { accessorKey: "shopName", header: "Butikk" },
-      {
-        accessorKey: "purchaseDate",
-        header: "Kjøpsdato",
-        Filter: ({ column }) => <DateRangeFilter column={column} />,
-        enableColumnFilter: true,
-        Cell: ({ cell }) =>
-          cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("nb-NO") : "—",
-      },
-    ];
-  }, [priceDisplayMode, priceStatsByType, theme]);
+      dateColumn,
+    ],
+    [priceColumn, dateColumn]
+  );
 
   const canOpenEditOrDelete = Boolean(selectedExpense?._id);
+
+  // ✅ Preload dialog immediately after first interaction (optional, but smooth)
+  useEffect(() => {
+    // No-op; kept here if you want to auto-preload after first mount:
+    // loadExpenseDialog();
+  }, []);
+
+  const openAdd = useCallback(() => setActiveModal("ADD"), []);
+  const openEdit = useCallback((exp) => {
+    loadExpenseDialog();
+    setSelectedExpense(exp);
+    setActiveModal("EDIT");
+  }, []);
+  const openDelete = useCallback((exp) => {
+    loadExpenseDialog();
+    setSelectedExpense(exp);
+    setActiveModal("DELETE");
+  }, []);
+
+  const dialogOpen = Boolean(activeModal) && (activeModal === "ADD" || canOpenEditOrDelete);
 
   return (
     <TableLayout>
@@ -478,7 +549,7 @@ const ExpenseScreen = () => {
           variant="contained"
           onMouseEnter={loadExpenseDialog}
           onFocus={loadExpenseDialog}
-          onClick={() => setActiveModal("ADD")}
+          onClick={openAdd}
         >
           Legg til ny utgift
         </Button>
@@ -501,27 +572,18 @@ const ExpenseScreen = () => {
         setSorting={setSorting}
         refetch={refetch}
         renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
-        handleEdit={(exp) => {
-          loadExpenseDialog();
-          setSelectedExpense(exp);
-          setActiveModal("EDIT");
-        }}
-        handleDelete={(exp) => {
-          loadExpenseDialog();
-          setSelectedExpense(exp);
-          setActiveModal("DELETE");
-        }}
+        handleEdit={openEdit}
+        handleDelete={openDelete}
       />
 
       <Suspense fallback={null}>
-        {activeModal && (activeModal === "ADD" || canOpenEditOrDelete) && (
+        {dialogOpen && (
           <ExpenseDialog
             open
             mode={activeModal} // "ADD" | "EDIT" | "DELETE"
             expenseToEdit={activeModal === "ADD" ? null : selectedExpense}
             onClose={handleDialogClose}
             onSuccess={(payload) => {
-              // payload is saved expense (ADD/EDIT) OR deleted expense (DELETE)
               const name =
                 payload?.productName?.name ||
                 payload?.productName ||
