@@ -1,72 +1,90 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useMemo, useEffect, useCallback } from "react";
 
+/**
+ * usePaginatedData (optimized)
+ * - Uses React Query's structural queryKey instead of JSON.stringify
+ * - keepPreviousData prevents table flicker on param changes
+ * - Prefetches next page safely without effect churn
+ */
 export const usePaginatedData = ({
   endpoint,
   params,
   urlBuilder,
   transformFn,
   baseQueryKey,
+  enabled = true,
+  staleTime = 60_000,
 }) => {
   const queryClient = useQueryClient();
 
-  // Stable, serializable key piece
-  const paramKey = useMemo(() => JSON.stringify(params), [params]);
-
-  const queryKey = useMemo(
-    () => [...baseQueryKey, paramKey],
-    [baseQueryKey, paramKey]
-  );
+  // ✅ Create a stable queryKey using structured params
+  // React Query will hash this deterministically.
+  const queryKey = useMemo(() => {
+    // If baseQueryKey isn't stable, callers should memoize it.
+    return [...baseQueryKey, params];
+  }, [baseQueryKey, params]);
 
   const fetchPage = useCallback(
-    async (p, signal) => {
+    async ({ p, signal }) => {
       const url = urlBuilder(endpoint, p);
       const response = await fetch(url.href, { signal });
-      if (!response.ok) throw new Error("Network response was not ok");
+
+      if (!response.ok) {
+        // try to extract server message if present
+        let msg = "Network response was not ok";
+        try {
+          const text = await response.text();
+          if (text) msg = text;
+        } catch {}
+        throw new Error(msg);
+      }
+
       const json = await response.json();
-      return transformFn ? await transformFn(json, signal) : json;
+      return transformFn ? transformFn(json) : json;
     },
     [endpoint, urlBuilder, transformFn]
   );
 
   const queryResult = useQuery({
     queryKey,
-    queryFn: ({ signal }) => fetchPage(params, signal),
-    staleTime: 60_000,
-    placeholderData: (previousData) => previousData,
+    queryFn: ({ signal }) => fetchPage({ p: params, signal }),
+    enabled,
+    staleTime,
+    gcTime: 5 * 60_000,
+    placeholderData: keepPreviousData, // ✅ best practice in v5
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 
-  // Prefetch next page
-  const totalRowCount = queryResult.data?.meta?.totalRowCount;
+  // ---------- Prefetch next page ----------
+  const totalRowCount = queryResult.data?.meta?.totalRowCount ?? 0;
 
-  useEffect(() => {
-    if (!totalRowCount) return;
+  const nextParams = useMemo(() => {
+    if (!totalRowCount) return null;
 
     const totalPages = Math.ceil(totalRowCount / params.pageSize);
     const nextPageIndex = params.pageIndex + 1;
 
-    if (nextPageIndex >= totalPages) return;
+    if (nextPageIndex >= totalPages) return null;
 
-    const nextParams = { ...params, pageIndex: nextPageIndex };
-    const nextParamKey = JSON.stringify(nextParams);
-    const nextQueryKey = [...baseQueryKey, nextParamKey];
+    // ✅ only copy what you must; keep reference churn low
+    return { ...params, pageIndex: nextPageIndex };
+  }, [totalRowCount, params]);
 
+  useEffect(() => {
+    if (!nextParams) return;
+
+    const nextQueryKey = [...baseQueryKey, nextParams];
     if (queryClient.getQueryData(nextQueryKey)) return;
 
     queryClient.prefetchQuery({
       queryKey: nextQueryKey,
-      queryFn: ({ signal }) => fetchPage(nextParams, signal),
-      staleTime: 60_000,
+      queryFn: ({ signal }) => fetchPage({ p: nextParams, signal }),
+      staleTime,
     });
-  }, [
-    totalRowCount,
-    params.pageIndex,
-    params.pageSize,
-    params, // used to spread into nextParams
-    baseQueryKey,
-    queryClient,
-    fetchPage,
-  ]);
+  }, [nextParams, baseQueryKey, queryClient, fetchPage, staleTime]);
 
   return queryResult;
 };
+
