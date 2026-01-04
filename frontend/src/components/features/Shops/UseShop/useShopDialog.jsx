@@ -1,6 +1,6 @@
 // src/components/.../UseShop/useShopDialog.js
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
 import { StoreContext } from "../../../../Store/Store";
@@ -8,60 +8,21 @@ import { addShopValidationSchema } from "../../../../validation/validationSchema
 
 const INITIAL_SHOP_STATE = {
   name: "",
-  location: "",     // ObjectId string OR "temp-..." (new)
-  locationName: "", // display + yup
-  category: "",     // ObjectId string OR "temp-..." (new)
-  categoryName: "", // display + yup
+  locationName: "", // ✅ always a name (display + payload)
+  categoryName: "", // ✅ always a name (display + payload)
 };
 
 const SHOPS_QUERY_KEY = ["shops", "paginated"];
 
-const buildShopState = (initialShop) => {
+const buildShopStateFromInitial = (initialShop) => {
   if (!initialShop?._id) return { ...INITIAL_SHOP_STATE };
-
-  const locationId = initialShop.location ? String(initialShop.location) : "";
-  const categoryId = initialShop.category ? String(initialShop.category) : "";
-
-  const locationName = initialShop.locationName || "";
-  const categoryName = initialShop.categoryName || "";
 
   return {
     ...INITIAL_SHOP_STATE,
     ...initialShop,
-    location: locationId,
-    category: categoryId,
-    locationName,
-    categoryName,
-  };
-};
-
-// ✅ Normalize POST/PUT responses to match GET shape
-const normalizeShopResponse = (saved) => {
-  if (!saved) return saved;
-
-  const locObj =
-    saved.location && typeof saved.location === "object" ? saved.location : null;
-  const catObj =
-    saved.category && typeof saved.category === "object" ? saved.category : null;
-
-  const locationId = locObj?._id
-    ? String(locObj._id)
-    : saved.location
-    ? String(saved.location)
-    : "";
-
-  const categoryId = catObj?._id
-    ? String(catObj._id)
-    : saved.category
-    ? String(saved.category)
-    : "";
-
-  return {
-    ...saved,
-    location: locationId,
-    category: categoryId,
-    locationName: saved.locationName || locObj?.name || "N/A",
-    categoryName: saved.categoryName || catObj?.name || "N/A",
+    name: initialShop.name ?? "",
+    locationName: initialShop.locationName ?? "",
+    categoryName: initialShop.categoryName ?? "",
   };
 };
 
@@ -76,12 +37,12 @@ const useShopDialog = (initialShop = null) => {
   const shopId = initialShop?._id;
   const isEditMode = Boolean(shopId);
 
-  const [shop, setShop] = useState(() => buildShopState(initialShop));
+  const [shop, setShop] = useState(() => buildShopStateFromInitial(initialShop));
 
-  // ✅ only resync when switching record (prevents “can't type”)
+  // ✅ IMPORTANT: only sync when id changes, not when object identity changes
   useEffect(() => {
-    setShop(buildShopState(initialShop));
-  }, [shopId]); // intentional
+    setShop(buildShopStateFromInitial(initialShop));
+  }, [shopId]); // 👈 this fixes "can't type"
 
   const resetServerError = useCallback(() => {
     dispatch({ type: "RESET_ERROR", resource: "shops" });
@@ -92,7 +53,7 @@ const useShopDialog = (initialShop = null) => {
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
-    setShop(buildShopState(initialShop));
+    setShop(buildShopStateFromInitial(initialShop));
     resetServerError();
     resetValidationErrors();
   }, [initialShop, resetServerError, resetValidationErrors]);
@@ -103,14 +64,14 @@ const useShopDialog = (initialShop = null) => {
       const method = shopId ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, payload);
-      if (error) throw new Error(error.message || "Failed to save shop");
+      if (error) throw new Error(error.message || "Could not save shop");
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SHOPS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["shops"] });
 
-      // backend may create new ones by name
+      // if backend upserts new ones by name, refresh these too
       queryClient.invalidateQueries({ queryKey: ["locations"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
 
@@ -151,38 +112,28 @@ const useShopDialog = (initialShop = null) => {
   });
 
   const handleSaveShop = useCallback(async () => {
+    if (!shop?.name?.trim()) return false;
+
     resetServerError();
     resetValidationErrors();
 
     try {
       const formatted = {
         name: formatComponentFields(shop.name, "shop", "name"),
-        locationName: formatComponentFields(
-          shop.locationName,
-          "shop",
-          "locationName"
-        ),
-        categoryName: formatComponentFields(
-          shop.categoryName,
-          "shop",
-          "categoryName"
-        ),
+        locationName: formatComponentFields(shop.locationName, "shop", "locationName"),
+        categoryName: formatComponentFields(shop.categoryName, "shop", "categoryName"),
       };
 
       await addShopValidationSchema.validate(formatted, { abortEarly: false });
 
-      const isTemp = (v) => typeof v === "string" && v.startsWith("temp-");
-
+      // ✅ payload is names only (backend resolves -> ids)
       const payload = {
         name: formatted.name,
-        location: isTemp(shop.location) ? formatted.locationName : shop.location,
-        category: isTemp(shop.category) ? formatted.categoryName : shop.category,
+        locationName: formatted.locationName,
+        categoryName: formatted.categoryName,
       };
 
-      const savedRaw = await saveShopMutation.mutateAsync(payload);
-
-      // ✅ FIX: return normalized so table shows names immediately
-      const saved = normalizeShopResponse(savedRaw);
+      const saved = await saveShopMutation.mutateAsync(payload);
 
       if (!isEditMode) setShop({ ...INITIAL_SHOP_STATE });
 
@@ -248,17 +199,16 @@ const useShopDialog = (initialShop = null) => {
     );
   }, [shop, validationError]);
 
-  const loading =
-    httpLoading || saveShopMutation.isPending || deleteShopMutation.isPending;
+  const loading = httpLoading || saveShopMutation.isPending || deleteShopMutation.isPending;
 
   return useMemo(
     () => ({
       shop,
       setShop,
+      isFormValid,
       loading,
       displayError,
       validationError,
-      isFormValid,
       handleSaveShop,
       handleDeleteShop,
       resetServerError,
@@ -267,10 +217,10 @@ const useShopDialog = (initialShop = null) => {
     }),
     [
       shop,
+      isFormValid,
       loading,
       displayError,
       validationError,
-      isFormValid,
       handleSaveShop,
       handleDeleteShop,
       resetServerError,

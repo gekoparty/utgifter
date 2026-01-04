@@ -1,0 +1,368 @@
+import React, { useMemo } from "react";
+import {
+  Box,
+  Stack,
+  InputAdornment,
+  Checkbox,
+  FormControlLabel,
+  RadioGroup,
+  Radio,
+} from "@mui/material";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import VirtualizedSelect from "../../../../commons/VirtualizedSelect/VirtualizedSelect";
+import ExpenseField from "../../../../commons/ExpenseField/ExpenseField";
+
+/**
+ * Fix: allow comma/dot typing without snapping back to 0
+ * Approach:
+ * - Use text inputs with inputMode="decimal"
+ * - Keep raw text locally in state (priceText/volumeText/discountText) OR fall back to formatting numbers
+ * - Only write numeric fields when the input parses as a valid number
+ *
+ * This component expects your expense object to optionally contain:
+ * - priceText, volumeText, discountValueText, discountAmountText
+ *
+ * If they don't exist yet, this component will still work by creating them via setExpense.
+ */
+
+const normalizeDecimal = (s) => String(s ?? "").replace(/\s/g, "").replace(",", ".");
+const parseDecimalOrNull = (s) => {
+  const t = normalizeDecimal(s);
+  if (t === "") return null;
+  // Allow intermediate "." or "-" (don’t commit numeric update yet)
+  if (t === "." || t === "-" || t === "-.") return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+};
+
+const formatDecimalForInput = (n) => {
+  if (n == null) return "";
+  if (typeof n === "string") return n; // in case older code stores strings
+  if (!Number.isFinite(n)) return "";
+  // Keep it simple: show as plain number (no localization) to avoid commas reappearing unexpectedly
+  return String(n);
+};
+
+const ExpenseFormFields = ({
+  expense,
+  setExpense,
+  selectStyles,
+  productOptions,
+  brandOptions,
+  shopOptions,
+  selectedProduct,
+  hasNextPage,
+  fetchNextPage,
+  isLoadingProducts,
+  isLoadingBrands,
+  isLoadingShops,
+  controller,
+}) => {
+  // Prefer text versions if present, otherwise fall back to numeric values
+  const priceInputValue = expense.priceText ?? formatDecimalForInput(expense.price);
+  const volumeInputValue = expense.volumeText ?? formatDecimalForInput(expense.volume);
+  const discountValueInputValue =
+    expense.discountValueText ?? formatDecimalForInput(expense.discountValue);
+  const discountAmountInputValue =
+    expense.discountAmountText ?? formatDecimalForInput(expense.discountAmount);
+
+  const measuresOptions = useMemo(() => {
+    const measures = selectedProduct?.measures || [];
+    return measures.map((m) => ({ label: m.toString(), value: m }));
+  }, [selectedProduct]);
+
+  const handlePriceTextChange = (text) => {
+    // always keep raw text so typing never snaps back
+    setExpense((prev) => ({ ...prev, priceText: text }));
+
+    const parsed = parseDecimalOrNull(text);
+    if (parsed !== null) {
+      // commit numeric update through controller so derived fields update
+      controller.handleFieldChange?.("price", parsed);
+      // If controller doesn't expose handleFieldChange, use setExpense + rely on your effect in useHandleFieldChange
+      if (!controller.handleFieldChange) {
+        setExpense((prev) => ({ ...prev, price: parsed }));
+      }
+    }
+  };
+
+  const handleVolumeTextChange = (text) => {
+    setExpense((prev) => ({ ...prev, volumeText: text }));
+
+    const parsed = parseDecimalOrNull(text);
+    if (parsed !== null) {
+      controller.handleFieldChange?.("volume", parsed);
+      if (!controller.handleFieldChange) {
+        setExpense((prev) => ({ ...prev, volume: parsed }));
+      }
+    }
+  };
+
+  const handleDiscountValueTextChange = (text) => {
+    setExpense((prev) => ({ ...prev, discountValueText: text }));
+
+    const parsed = parseDecimalOrNull(text);
+    if (parsed !== null) {
+      // Your existing controller handlers expect events; we can call handleFieldChange directly if exposed,
+      // otherwise simulate the event for compatibility.
+      if (controller.handleFieldChange) {
+        controller.handleFieldChange("discountValue", parsed);
+      } else if (controller.handleDiscountValueChange) {
+        controller.handleDiscountValueChange({ target: { value: text } });
+      } else {
+        setExpense((prev) => ({ ...prev, discountValue: parsed }));
+      }
+    }
+  };
+
+  const handleDiscountAmountTextChange = (text) => {
+    setExpense((prev) => ({ ...prev, discountAmountText: text }));
+
+    const parsed = parseDecimalOrNull(text);
+    if (parsed !== null) {
+      if (controller.handleFieldChange) {
+        controller.handleFieldChange("discountAmount", parsed);
+      } else if (controller.handleDiscountAmountChange) {
+        controller.handleDiscountAmountChange({ target: { value: text } });
+      } else {
+        setExpense((prev) => ({ ...prev, discountAmount: parsed }));
+      }
+    }
+  };
+
+  return (
+    <Box sx={{ p: 2 }}>
+      <Stack spacing={2}>
+        {/* PRODUCT & BRAND */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+          <Box flex={1}>
+            <VirtualizedSelect
+              isClearable
+              options={productOptions}
+              value={
+                selectedProduct ??
+                (expense.productName
+                  ? {
+                      label: expense.productName,
+                      value: expense.productName,
+                      name: expense.productName,
+                    }
+                  : null)
+              }
+              onChange={controller.handleProductSelect}
+              onInputChange={controller.handleProductInputChange}
+              hasNextPage={hasNextPage}
+              fetchNextPage={fetchNextPage}
+              isLoading={isLoadingProducts}
+              placeholder="Velg produkt"
+              loadingMessage={() => "Søker etter produkter..."}
+              menuPortalTarget={document.body}
+              styles={selectStyles}
+            />
+          </Box>
+
+          <Box flex={1}>
+            <VirtualizedSelect
+              isClearable
+              options={brandOptions}
+              value={
+                expense.brandName
+                  ? {
+                      label: expense.brandName,
+                      value: expense.brandName,
+                      name: expense.brandName,
+                    }
+                  : null
+              }
+              onChange={controller.handleBrandSelect}
+              placeholder={selectedProduct ? "Velg merke" : "Velg et produkt først"}
+              isLoading={isLoadingBrands}
+              menuPortalTarget={document.body}
+              isDisabled={!selectedProduct}
+              styles={selectStyles}
+            />
+          </Box>
+        </Stack>
+
+        {/* SHOP & LOCATION */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+          <Box flex={1}>
+            <VirtualizedSelect
+              isClearable
+              options={shopOptions}
+              value={expense.shopName ? { label: expense.shopName, value: expense.shopName } : null}
+              onChange={controller.handleShopSelect}
+              placeholder="Velg butikk"
+              isLoading={isLoadingShops}
+              menuPortalTarget={document.body}
+              styles={selectStyles}
+            />
+          </Box>
+
+          <Box flex={1}>
+            <ExpenseField
+              label="Sted"
+              value={expense.locationName || ""}
+              InputProps={{ readOnly: true }}
+            />
+          </Box>
+        </Stack>
+
+        {/* PRICE & VOLUME */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
+          <Box sx={{ flex: 1, width: "100%" }}>
+            <ExpenseField
+              label="Pris"
+              type="text"
+              value={priceInputValue}
+              onChange={(e) => handlePriceTextChange(e.target.value)}
+              inputProps={{ inputMode: "decimal" }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+              }}
+              fullWidth
+            />
+          </Box>
+
+          <Box sx={{ flex: 1, width: "100%", minWidth: "200px" }}>
+            {expense.measurementUnit && selectedProduct?.measures?.length ? (
+              <VirtualizedSelect
+                isClearable
+                options={measuresOptions}
+                value={
+                  expense.volume
+                    ? { label: String(expense.volume), value: expense.volume }
+                    : null
+                }
+                onChange={controller.handleVolumeChange}
+                placeholder="Velg volum"
+                menuPortalTarget={document.body}
+                styles={selectStyles}
+              />
+            ) : (
+              <ExpenseField
+                label="Volum (manuelt)"
+                type="text"
+                value={volumeInputValue}
+                onChange={(e) => handleVolumeTextChange(e.target.value)}
+                inputProps={{ inputMode: "decimal" }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">{expense.measurementUnit}</InputAdornment>
+                  ),
+                }}
+                fullWidth
+              />
+            )}
+          </Box>
+        </Stack>
+
+        {/* PRICE PER UNIT */}
+        <Box>
+          <ExpenseField
+            label={`Pris per ${expense.measurementUnit || ""}`}
+            value={expense.pricePerUnit ?? 0}
+            InputProps={{ readOnly: true }}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Box>
+
+        {/* QUANTITY & DISCOUNT TOGGLE */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+          <Box flex={1} width="100%">
+            <ExpenseField
+              label="Antall"
+              type="number"
+              value={expense.quantity}
+              onChange={(e) => setExpense((prev) => ({ ...prev, quantity: Number(e.target.value) || 1 }))}
+            />
+          </Box>
+
+          <Box flex={1} width="100%">
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(expense.hasDiscount)}
+                  onChange={controller.handleDiscountToggle}
+                />
+              }
+              label="Rabatt?"
+            />
+          </Box>
+        </Stack>
+
+        {/* DISCOUNT FIELDS */}
+        {expense.hasDiscount && (
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+            <Box flex={1}>
+              <ExpenseField
+                label="Rabatt (%)"
+                type="text"
+                value={discountValueInputValue}
+                onChange={(e) => handleDiscountValueTextChange(e.target.value)}
+                inputProps={{ inputMode: "decimal" }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">%</InputAdornment>,
+                }}
+              />
+            </Box>
+            <Box flex={1}>
+              <ExpenseField
+                label="Rabatt (kr)"
+                type="text"
+                value={discountAmountInputValue}
+                onChange={(e) => handleDiscountAmountTextChange(e.target.value)}
+                inputProps={{ inputMode: "decimal" }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+                }}
+              />
+            </Box>
+          </Stack>
+        )}
+
+        {/* FINAL PRICE + TYPE */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+          <Box flex={1}>
+            <ExpenseField
+              label="Sluttpris"
+              value={expense.finalPrice ?? 0}
+              InputProps={{
+                readOnly: true,
+                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+              }}
+            />
+          </Box>
+          <Box flex={1}>
+            <ExpenseField label="Type" value={expense.type || ""} InputProps={{ readOnly: true }} />
+          </Box>
+        </Stack>
+
+        {/* TRANSACTION TYPE */}
+        <Box>
+          <RadioGroup
+            row
+            value={expense.purchased ? "kjøpt" : "registrert"}
+            onChange={controller.handleTransactionType}
+          >
+            <FormControlLabel value="kjøpt" control={<Radio />} label="Kjøpt" />
+            <FormControlLabel value="registrert" control={<Radio />} label="Registrert" />
+          </RadioGroup>
+        </Box>
+
+        {/* DATE */}
+        <Box>
+          <DatePicker
+            label="Dato"
+            value={controller.pickerDate}
+            onChange={controller.handleDateChange}
+            slotProps={{ textField: { fullWidth: true } }}
+          />
+        </Box>
+      </Stack>
+    </Box>
+  );
+};
+
+export default ExpenseFormFields;
+

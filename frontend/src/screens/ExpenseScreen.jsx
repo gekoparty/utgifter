@@ -1,6 +1,6 @@
 // ExpenseScreen.jsx
-// React 19 + MUI 7 + React Query v5 + MRT v3.2.1 optimized version
-import React, { useMemo, useState, lazy, Suspense, useTransition, useDeferredValue } from "react";
+// React 19 + MUI 7 + React Query v5 + MRT v3.2.1 (optimized, unified ExpenseDialog)
+import React, { useMemo, useState, lazy, Suspense, useDeferredValue } from "react";
 import {
   Popover,
   Typography,
@@ -27,18 +27,12 @@ import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
 // ------------------------------------------------------
-// Lazy dialogs + preloading
+// Lazy unified dialog + preloading
 // ------------------------------------------------------
-const loadAddExpenseDialog = () =>
-  import("../components/features/Expenses/ExpenseDialogs/AddExpense/AddExpenseDialog");
-const loadEditExpenseDialog = () =>
-  import("../components/features/Expenses/ExpenseDialogs/EditExpense/EditExpenseDialog");
-const loadDeleteExpenseDialog = () =>
-  import("../components/features/Expenses/ExpenseDialogs/DeleteExpense/DeleteExpenseDialog");
-
-const AddExpenseDialog = lazy(loadAddExpenseDialog);
-const EditExpenseDialog = lazy(loadEditExpenseDialog);
-const DeleteExpenseDialog = lazy(loadDeleteExpenseDialog);
+// ✅ Adjust this path to where you put ExpenseDialog.jsx
+const loadExpenseDialog = () =>
+  import("../components/features/Expenses/components/ExpenseDialog/ExpenseDialog");
+const ExpenseDialog = lazy(loadExpenseDialog);
 
 // ------------------------------------------------------
 // Constants
@@ -47,6 +41,7 @@ const EXPENSES_QUERY_KEY = ["expenses", "paginated"];
 
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "purchaseDate", desc: true }];
+
 const INITIAL_SELECTED_EXPENSE = {
   _id: "",
   productName: "",
@@ -121,7 +116,6 @@ const DateRangeFilter = ({ column }) => {
   const initialValue = column.getFilterValue() || ["", ""];
   const [localDateRange, setLocalDateRange] = useState(initialValue);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [isPending, startTransition] = useTransition();
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -139,18 +133,13 @@ const DateRangeFilter = ({ column }) => {
   const applyFilter = () => {
     const valueToSet =
       !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
-
-    startTransition(() => {
-      column.setFilterValue(valueToSet);
-    });
+    column.setFilterValue(valueToSet);
     handleClose();
   };
 
   const clearFilter = () => {
     setLocalDateRange(["", ""]);
-    startTransition(() => {
-      column.setFilterValue(undefined);
-    });
+    column.setFilterValue(undefined);
     handleClose();
   };
 
@@ -195,7 +184,7 @@ const DateRangeFilter = ({ column }) => {
               <Button size="small" color="inherit" onClick={clearFilter}>
                 Nullstill
               </Button>
-              <Button size="small" variant="contained" onClick={applyFilter} disabled={isPending}>
+              <Button size="small" variant="contained" onClick={applyFilter}>
                 Bruk
               </Button>
             </Stack>
@@ -209,9 +198,9 @@ const DateRangeFilter = ({ column }) => {
 const PriceRangeFilter = ({ column, onModeChange }) => {
   const defaultState = { min: "", max: "", mode: "pricePerUnit" };
   const filterValue = column.getFilterValue() || defaultState;
+
   const [localState, setLocalState] = useState(filterValue);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [isPending, startTransition] = useTransition();
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -233,18 +222,13 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
 
   const applyFilter = () => {
     const valueToSet = !localState.min && !localState.max ? undefined : localState;
-
-    startTransition(() => {
-      column.setFilterValue(valueToSet);
-    });
+    column.setFilterValue(valueToSet);
     handleClose();
   };
 
   const clearFilter = () => {
     setLocalState(defaultState);
-    startTransition(() => {
-      column.setFilterValue(undefined);
-    });
+    column.setFilterValue(undefined);
     handleClose();
   };
 
@@ -303,7 +287,7 @@ const PriceRangeFilter = ({ column, onModeChange }) => {
               <Button size="small" color="inherit" onClick={clearFilter}>
                 Nullstill
               </Button>
-              <Button size="small" variant="contained" onClick={applyFilter} disabled={isPending}>
+              <Button size="small" variant="contained" onClick={applyFilter}>
                 Bruk
               </Button>
             </Stack>
@@ -343,12 +327,12 @@ const ExpenseScreen = () => {
   // Table state
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const deferredGlobalFilter = useDeferredValue(globalFilter); // smooth typing
+  const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
   // Dialog state
-  const [activeModal, setActiveModal] = useState(null); // ADD | EDIT | DELETE | null
+  const [activeModal, setActiveModal] = useState(null); // "ADD" | "EDIT" | "DELETE" | null
   const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
 
   // View state
@@ -362,7 +346,7 @@ const ExpenseScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // Fetch params (deferred global filter)
+  // Fetch params
   const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
@@ -382,7 +366,7 @@ const ExpenseScreen = () => {
   const tableData = expensesData?.expenses ?? [];
   const metaData = expensesData?.meta ?? {};
 
-  // Compute stats (avoid mutating arrays; still memoized)
+  // Stats (per current page)
   const priceStatsByType = useMemo(() => {
     const list = expensesData?.expenses;
     if (!list?.length) return {};
@@ -410,19 +394,18 @@ const ExpenseScreen = () => {
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
   };
 
-  // Keep stable for filter component
-  const handlePriceFilterModeChange = React.useCallback((newMode) => {
+  const handlePriceFilterModeChange = (newMode) => {
     if (["pricePerUnit", "finalPrice", "price", "all"].includes(newMode)) {
       setPriceDisplayMode(newMode);
     } else {
       setPriceDisplayMode("pricePerUnit");
     }
-  }, []);
+  };
 
   const handleSuccess = (action, expenseName) => {
     showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
     handleDialogClose();
-    // ✅ Prefer invalidate in mutations; keep refetch only for manual refresh
+    // ✅ Prefer invalidateQueries in mutations (inside ExpenseDialog/useExpenseForm)
   };
 
   const handleError = (action) => {
@@ -430,7 +413,6 @@ const ExpenseScreen = () => {
     handleDialogClose();
   };
 
-  // Column definition (stable + uses cached formatter + memoized badge)
   const tableColumns = useMemo(() => {
     const resolvedAccessor =
       priceDisplayMode === "finalPrice"
@@ -485,15 +467,17 @@ const ExpenseScreen = () => {
           cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("nb-NO") : "—",
       },
     ];
-  }, [priceDisplayMode, handlePriceFilterModeChange, priceStatsByType, theme]);
+  }, [priceDisplayMode, priceStatsByType, theme]);
+
+  const canOpenEditOrDelete = Boolean(selectedExpense?._id);
 
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
         <Button
           variant="contained"
-          onMouseEnter={loadAddExpenseDialog}
-          onFocus={loadAddExpenseDialog}
+          onMouseEnter={loadExpenseDialog}
+          onFocus={loadExpenseDialog}
           onClick={() => setActiveModal("ADD")}
         >
           Legg til ny utgift
@@ -518,45 +502,41 @@ const ExpenseScreen = () => {
         refetch={refetch}
         renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
         handleEdit={(exp) => {
-          loadEditExpenseDialog();
+          loadExpenseDialog();
           setSelectedExpense(exp);
           setActiveModal("EDIT");
         }}
         handleDelete={(exp) => {
-          loadDeleteExpenseDialog();
+          loadExpenseDialog();
           setSelectedExpense(exp);
           setActiveModal("DELETE");
         }}
       />
 
       <Suspense fallback={null}>
-        {activeModal === "ADD" && (
-          <AddExpenseDialog
+        {activeModal && (activeModal === "ADD" || canOpenEditOrDelete) && (
+          <ExpenseDialog
             open
+            mode={activeModal} // "ADD" | "EDIT" | "DELETE"
+            expenseToEdit={activeModal === "ADD" ? null : selectedExpense}
             onClose={handleDialogClose}
-            onAdd={(created) => handleSuccess("registrert", created?.productName || "Ny utgift")}
-            onError={() => handleError("registrere")}
-          />
-        )}
+            onSuccess={(payload) => {
+              // payload is saved expense (ADD/EDIT) OR deleted expense (DELETE)
+              const name =
+                payload?.productName?.name ||
+                payload?.productName ||
+                selectedExpense?.productName ||
+                "Ukjent produkt";
 
-        {activeModal === "EDIT" && selectedExpense._id && (
-          <EditExpenseDialog
-            open
-            onClose={handleDialogClose}
-            selectedExpense={selectedExpense}
-            onUpdateSuccess={(exp) => handleSuccess("oppdatert", exp.productName)}
-            onUpdateFailure={() => handleError("oppdatere")}
-          />
-        )}
-
-        {activeModal === "DELETE" && selectedExpense._id && (
-          <DeleteExpenseDialog
-            open
-            onClose={handleDialogClose}
-            selectedExpense={selectedExpense}
-            dialogTitle="Slett Utgift"
-            onDeleteSuccess={(exp) => handleSuccess("slettet", exp.productName)}
-            onDeleteFailure={() => handleError("slette")}
+              if (activeModal === "ADD") handleSuccess("registrert", name);
+              if (activeModal === "EDIT") handleSuccess("oppdatert", name);
+              if (activeModal === "DELETE") handleSuccess("slettet", name);
+            }}
+            onError={() => {
+              if (activeModal === "ADD") handleError("registrere");
+              if (activeModal === "EDIT") handleError("oppdatere");
+              if (activeModal === "DELETE") handleError("slette");
+            }}
           />
         )}
       </Suspense>
