@@ -1,7 +1,7 @@
 // src/screens/StatsScreen.jsx
 import { useOutletContext } from "react-router-dom";
-import MonthlyExpensesChart from "../components/Charts/MonthlyExpensesChart";
-import ProductPriceChart from "../components/Charts/ProductPriceChart";
+import MonthlyExpensesChart from "../components/Charts/MonthlyExpensesChart/MonthlyExpensesChart";
+import ProductPriceChart from "../components/Charts/ProductPriceChart/ProductPriceChart";
 import { Typography } from "@mui/material";
 
 export default function StatsScreen() {

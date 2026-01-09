@@ -2,45 +2,34 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    type: {
-      type: String,
-      required: true,
-    },
-    description: {
-      type: String,
-    },
-    slug: {
-      type: String,
-      required: true,
-      unique: true,
-    },
+    name: { type: String, required: true, unique: true },
+
+    // NEW: category (what your current "type" really is)
+    category: { type: String, required: false }, // temporarily optional for migration
+
+    // NEW: type becomes variant/flavor
+    type: { type: String, required: false }, // temporarily optional for migration
+
+    // OPTIONAL: keep old field for a while (so old code still works)
+    legacyType: { type: String, required: false }, // will store old "type" (food/drinks)
+
+    description: { type: String },
+
+    slug: { type: String, required: true, unique: true },
+
     measurementUnit: {
-        type: String, // You can use an enum or validation to ensure valid units
-        enum: ["l", "kg", "stk", "grams", "millilitres", "etc"],
-        required: true,
-      },
-      measures: { // Add this field
-        type: [Number], // Array of numbers for measures
-        default: [], // Default to an empty array
-      },
-    brands: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Brand", // Reference to the "Brand" model
-      },
-    ],
+      type: String,
+      enum: ["l", "kg", "stk", "grams", "millilitres", "etc"],
+      required: true,
+    },
+
+    measures: { type: [Number], default: [] },
+
+    brands: [{ type: mongoose.Schema.Types.ObjectId, ref: "Brand" }],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const Product = mongoose.model("Product", productSchema);
-
 export default Product;
 
