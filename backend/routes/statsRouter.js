@@ -12,45 +12,210 @@ const router = express.Router();
  * Returns an array of:
  *   { month: "YYYY-MM", total: Number }
  */
-router.get('/expenses-by-month', async (req, res, next) => {
+/**
+ * GET /api/stats/expenses-by-month-summary?year=2025&compare=1
+ * Computes 12-month series + YoY comparison + useful stats on backend
+ */
+/**
+ * GET /api/stats/expenses-by-month-summary?year=2025&compare=1
+ *
+ * Returns:
+ * {
+ *   years: ["2026","2025"...],
+ *   year: "2025",
+ *   compareYear: "2024" | null,
+ *   months: [{ monthIndex, month, current, previous, yoyPct }, ... 12],
+ *   stats: {
+ *     currentSum, previousSum, yoyTotalPct,
+ *     avgPerActiveMonth, medianPerMonth, momPct,
+ *     volatilityPct, runRate, activeMonths,
+ *     maxMonth, minMonth, bestQuarter, worstQuarter
+ *   }
+ * }
+ */
+router.get("/expenses-by-month-summary", async (req, res, next) => {
   try {
-    const data = await Expense.aggregate([
-      // 1) pick whichever date is set
+    const requestedYear = req.query.year ? String(req.query.year) : null;
+    const compare = req.query.compare !== "0"; // default true
+
+    // 1) Find available years
+    const yearsAgg = await Expense.aggregate([
       {
         $addFields: {
           actualDate: {
-            $cond: [
-              { $ifNull: ['$purchaseDate', false] },
-              '$purchaseDate',
-              '$registeredDate'
-            ]
-          }
-        }
+            $cond: [{ $ifNull: ["$purchaseDate", false] }, "$purchaseDate", "$registeredDate"],
+          },
+        },
       },
-      // 2) group by year-month string
+      { $group: { _id: { $year: "$actualDate" } } },
+      { $project: { _id: 0, year: { $toString: "$_id" } } },
+      { $sort: { year: -1 } },
+    ]);
+
+    const years = yearsAgg.map((x) => x.year);
+    if (!years.length) {
+      return res.json({ years: [], year: null, compareYear: null, months: [], stats: null });
+    }
+
+    const year = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
+    const candidateCompareYear = String(Number(year) - 1);
+    const doCompare = compare && years.includes(candidateCompareYear);
+    const compareYear = doCompare ? candidateCompareYear : null;
+
+    // 2) Pull month totals (only year + optional compareYear)
+    const matchYears = doCompare ? [Number(year), Number(compareYear)] : [Number(year)];
+
+    const monthTotals = await Expense.aggregate([
+      {
+        $addFields: {
+          actualDate: {
+            $cond: [{ $ifNull: ["$purchaseDate", false] }, "$purchaseDate", "$registeredDate"],
+          },
+        },
+      },
+      {
+        $addFields: {
+          y: { $year: "$actualDate" },
+          m: { $month: "$actualDate" },
+        },
+      },
+      { $match: { y: { $in: matchYears } } },
       {
         $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$actualDate' } },
-          total: { $sum: '$finalPrice' }
-        }
+          _id: { y: "$y", m: "$m" },
+          total: { $sum: "$finalPrice" },
+        },
       },
-      // 3) rename fields
       {
         $project: {
           _id: 0,
-          month: '$_id',
-          total: 1
-        }
+          y: "$_id.y",
+          m: "$_id.m",
+          total: 1,
+        },
       },
-      // 4) sort ascending by month
-      { $sort: { month: 1 } }
     ]);
 
-    res.json(data);
+    // Map: "YYYY-MM" -> total
+    const totalsMap = new Map();
+    for (const r of monthTotals) {
+      const mm = String(r.m).padStart(2, "0");
+      totalsMap.set(`${r.y}-${mm}`, Number(r.total || 0));
+    }
+
+    // 3) Generate 12 months
+    const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    const months = [];
+    for (let i = 0; i < 12; i++) {
+      const mm = String(i + 1).padStart(2, "0");
+
+      const current = totalsMap.get(`${year}-${mm}`) || 0;
+
+      const previous = doCompare ? totalsMap.get(`${compareYear}-${mm}`) || 0 : null;
+
+      const yoyPct = doCompare && previous && previous > 0 ? ((current - previous) / previous) * 100 : null;
+
+      months.push({
+        monthIndex: i,
+        month: monthShort[i],
+        current,
+        previous,
+        yoyPct,
+      });
+    }
+
+    // 4) Stats
+    const currentVals = months.map((x) => x.current || 0);
+    const prevVals = doCompare ? months.map((x) => x.previous || 0) : [];
+
+    const sum = (arr) => arr.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+
+    const currentSum = sum(currentVals);
+    const previousSum = doCompare ? sum(prevVals) : null;
+
+    const activeMonths = currentVals.filter((v) => v > 0).length;
+    const avgPerActiveMonth = activeMonths ? currentSum / activeMonths : null;
+
+    const median = (arr) => {
+      const a = arr.filter(Number.isFinite).slice().sort((x, y) => x - y);
+      if (!a.length) return null;
+      const mid = Math.floor(a.length / 2);
+      return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+    };
+    const medianPerMonth = median(currentVals);
+
+    // MoM: last month with spend vs month before it (within selected year)
+    const lastIdx = [...months].reverse().find((x) => x.current > 0)?.monthIndex ?? -1;
+    let momPct = null;
+    if (lastIdx >= 1) {
+      const last = months[lastIdx].current;
+      const prev = months[lastIdx - 1].current;
+      if (prev > 0) momPct = ((last - prev) / prev) * 100;
+    }
+
+    const yoyTotalPct =
+      doCompare && previousSum && previousSum > 0 ? ((currentSum - previousSum) / previousSum) * 100 : null;
+
+    // Volatility (CV%)
+    let volatilityPct = null;
+    if (activeMonths > 1 && avgPerActiveMonth && avgPerActiveMonth > 0) {
+      const vals = currentVals.filter((v) => v > 0);
+      const mean = avgPerActiveMonth;
+      const variance = vals.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / (vals.length - 1);
+      const std = Math.sqrt(variance);
+      volatilityPct = (std / mean) * 100;
+    }
+
+    const runRate = avgPerActiveMonth != null ? avgPerActiveMonth * 12 : null;
+
+    const maxMonth = months.reduce((best, x) => {
+      if (!best || x.current > best.value) return { monthIndex: x.monthIndex, month: x.month, value: x.current };
+      return best;
+    }, null);
+
+    const minMonth = months.reduce((best, x) => {
+      if (x.current <= 0) return best; // ignore 0 months
+      if (!best || x.current < best.value) return { monthIndex: x.monthIndex, month: x.month, value: x.current };
+      return best;
+    }, null);
+
+    const quarterTotals = [0, 1, 2, 3].map((q) => {
+      const start = q * 3;
+      const total = months.slice(start, start + 3).reduce((acc, x) => acc + (x.current || 0), 0);
+      return { q: q + 1, total };
+    });
+
+    const bestQuarter = quarterTotals.reduce((a, b) => (b.total > a.total ? b : a), quarterTotals[0]);
+    const worstQuarter = quarterTotals.reduce((a, b) => (b.total < a.total ? b : a), quarterTotals[0]);
+
+    res.json({
+      years,
+      year,
+      compareYear,
+      months,
+      stats: {
+        currentSum,
+        previousSum,
+        yoyTotalPct,
+        avgPerActiveMonth,
+        medianPerMonth,
+        momPct,
+        volatilityPct,
+        runRate,
+        activeMonths,
+        maxMonth,
+        minMonth,
+        bestQuarter,
+        worstQuarter,
+      },
+    });
   } catch (err) {
     next(err);
   }
 });
+
+
 
 router.get('/price-history', async (req, res, next) => {
     const { productId } = req.query;
@@ -190,7 +355,7 @@ router.get("/product-insights", async (req, res, next) => {
         },
       },
 
-      // joins (names)
+      // joins for names
       {
         $lookup: {
           from: "products",
@@ -221,19 +386,78 @@ router.get("/product-insights", async (req, res, next) => {
       },
       { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
 
-      // normalize fields we need
+      // robust discount saving per expense
+      {
+        $addFields: {
+          computedSaving: {
+            $let: {
+              vars: {
+                priceSafe: { $ifNull: ["$price", 0] },
+                finalSafe: { $ifNull: ["$finalPrice", 0] },
+                discAmt: { $ifNull: ["$discountAmount", null] },
+                discPct: { $ifNull: ["$discountValue", 0] },
+                hasDisc: { $ifNull: ["$hasDiscount", false] },
+              },
+              in: {
+                $cond: [
+                  // 1) discountAmount if present and > 0
+                  { $and: [{ $ne: ["$$discAmt", null] }, { $gt: ["$$discAmt", 0] }] },
+                  "$$discAmt",
+                  {
+                    $cond: [
+                      // 2) price - finalPrice if positive
+                      { $gt: ["$$priceSafe", "$$finalSafe"] },
+                      { $subtract: ["$$priceSafe", "$$finalSafe"] },
+                      {
+                        $cond: [
+                          // 3) estimate from discountValue% if needed
+                          { $and: ["$$hasDisc", { $gt: ["$$discPct", 0] }, { $gt: ["$$finalSafe", 0] }] },
+                          {
+                            $let: {
+                              vars: {
+                                factor: { $subtract: [1, { $divide: ["$$discPct", 100] }] },
+                              },
+                              in: {
+                                $cond: [
+                                  { $gt: ["$$factor", 0] },
+                                  {
+                                    $subtract: [
+                                      { $divide: ["$$finalSafe", "$$factor"] },
+                                      "$$finalSafe",
+                                    ],
+                                  },
+                                  0,
+                                ],
+                              },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+
+      // normalized projection
       {
         $project: {
           _id: 0,
           actualDate: 1,
-          // money
-          finalPrice: 1,
-          price: 1, // original (if you store it)
           pricePerUnit: 1,
-
+          price: 1,
+          finalPrice: 1,
           quantity: 1,
+          volume: 1,
+
           hasDiscount: 1,
           discountValue: 1,
+          discountAmount: 1,
+          computedSaving: 1,
 
           productName: "$product.name",
           measurementUnit: "$product.measurementUnit",
@@ -246,18 +470,20 @@ router.get("/product-insights", async (req, res, next) => {
 
       {
         $facet: {
-          // -------------------------
-          // History (chart points)
-          // -------------------------
+          // chart history
           history: [
             {
               $project: {
                 date: "$actualDate",
                 pricePerUnit: 1,
-                finalPrice: 1,
                 price: 1,
+                finalPrice: 1,
+                quantity: 1,
+                volume: 1,
                 hasDiscount: 1,
                 discountValue: 1,
+                discountAmount: 1,
+                saving: "$computedSaving",
                 productName: 1,
                 measurementUnit: 1,
                 shopName: 1,
@@ -266,9 +492,7 @@ router.get("/product-insights", async (req, res, next) => {
             },
           ],
 
-          // -------------------------
-          // Monthly totals (compact list)
-          // -------------------------
+          // monthly buckets
           monthlySpend: [
             {
               $group: {
@@ -276,6 +500,7 @@ router.get("/product-insights", async (req, res, next) => {
                 totalSpend: { $sum: "$finalPrice" },
                 purchases: { $sum: 1 },
                 avgPricePerUnit: { $avg: "$pricePerUnit" },
+                totalSavings: { $sum: "$computedSaving" },
               },
             },
             {
@@ -285,51 +510,13 @@ router.get("/product-insights", async (req, res, next) => {
                 totalSpend: 1,
                 purchases: 1,
                 avgPricePerUnit: 1,
+                totalSavings: 1,
               },
             },
             { $sort: { month: 1 } },
           ],
 
-          // -------------------------
-          // Weekly counts (optional)
-          // -------------------------
-          weeklyCounts: [
-            {
-              $group: {
-                _id: {
-                  y: { $isoWeekYear: "$actualDate" },
-                  w: { $isoWeek: "$actualDate" },
-                },
-                purchases: { $sum: 1 },
-                totalSpend: { $sum: "$finalPrice" },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                weekKey: {
-                  $concat: [
-                    { $toString: "$_id.y" },
-                    "-W",
-                    {
-                      $cond: [
-                        { $lt: ["$_id.w", 10] },
-                        { $concat: ["0", { $toString: "$_id.w" }] },
-                        { $toString: "$_id.w" },
-                      ],
-                    },
-                  ],
-                },
-                purchases: 1,
-                totalSpend: 1,
-              },
-            },
-            { $sort: { weekKey: 1 } },
-          ],
-
-          // -------------------------
-          // First/Last/Prev price + range + totals
-          // -------------------------
+          // base trend
           trendBase: [
             {
               $group: {
@@ -337,10 +524,18 @@ router.get("/product-insights", async (req, res, next) => {
                 count: { $sum: 1 },
                 firstDate: { $first: "$actualDate" },
                 lastDate: { $last: "$actualDate" },
+
                 firstPricePerUnit: { $first: "$pricePerUnit" },
                 lastPricePerUnit: { $last: "$pricePerUnit" },
+
                 totalSpend: { $sum: "$finalPrice" },
+                totalOriginal: { $sum: "$price" },
+                totalSavings: { $sum: "$computedSaving" },
+
                 lastTwo: { $push: { date: "$actualDate", pricePerUnit: "$pricePerUnit" } },
+                discountedPurchases: {
+                  $sum: { $cond: [{ $eq: ["$hasDiscount", true] }, 1, 0] },
+                },
               },
             },
             {
@@ -352,14 +547,15 @@ router.get("/product-insights", async (req, res, next) => {
                 firstPricePerUnit: 1,
                 lastPricePerUnit: 1,
                 totalSpend: 1,
+                totalOriginal: 1,
+                totalSavings: 1,
+                discountedPurchases: 1,
                 lastTwo: { $slice: ["$lastTwo", -2] },
               },
             },
           ],
 
-          // -------------------------
-          // Median gap in days for forecast
-          // -------------------------
+          // median gap (days)
           gapDays: [
             { $group: { _id: null, dates: { $push: "$actualDate" } } },
             {
@@ -402,60 +598,7 @@ router.get("/product-insights", async (req, res, next) => {
             },
           ],
 
-          // -------------------------
-          // Discount savings (accurate if price exists)
-          // - savings = max(price - finalPrice, 0) per expense
-          // -------------------------
-          discountAgg: [
-            {
-              $addFields: {
-                computedSaving: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $ne: ["$price", null] },
-                        { $ne: ["$finalPrice", null] },
-                        { $gt: ["$price", "$finalPrice"] },
-                      ],
-                    },
-                    { $subtract: ["$price", "$finalPrice"] },
-                    0,
-                  ],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                discountedPurchases: {
-                  $sum: { $cond: [{ $eq: ["$hasDiscount", true] }, 1, 0] },
-                },
-                totalSavings: { $sum: "$computedSaving" },
-                totalOriginal: { $sum: { $ifNull: ["$price", "$finalPrice"] } }, // fallback
-                totalFinal: { $sum: "$finalPrice" },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                discountedPurchases: 1,
-                totalSavings: 1,
-                totalOriginal: 1,
-                totalFinal: 1,
-                savingsRate: {
-                  $cond: [
-                    { $gt: ["$totalOriginal", 0] },
-                    { $multiply: [{ $divide: ["$totalSavings", "$totalOriginal"] }, 100] },
-                    null,
-                  ],
-                },
-              },
-            },
-          ],
-
-          // -------------------------
-          // Top + cheapest avg
-          // -------------------------
+          // top + cheapest avg
           topShopByCount: [
             { $group: { _id: "$shopName", purchases: { $sum: 1 } } },
             { $sort: { purchases: -1 } },
@@ -469,13 +612,25 @@ router.get("/product-insights", async (req, res, next) => {
             { $project: { _id: 0, name: "$_id", purchases: 1 } },
           ],
           cheapestShopAvg: [
-            { $group: { _id: "$shopName", avgPricePerUnit: { $avg: "$pricePerUnit" }, purchases: { $sum: 1 } } },
+            {
+              $group: {
+                _id: "$shopName",
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
             { $sort: { avgPricePerUnit: 1 } },
             { $limit: 1 },
             { $project: { _id: 0, name: "$_id", avgPricePerUnit: 1, purchases: 1 } },
           ],
           cheapestBrandAvg: [
-            { $group: { _id: "$brandName", avgPricePerUnit: { $avg: "$pricePerUnit" }, purchases: { $sum: 1 } } },
+            {
+              $group: {
+                _id: "$brandName",
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
             { $sort: { avgPricePerUnit: 1 } },
             { $limit: 1 },
             { $project: { _id: 0, name: "$_id", avgPricePerUnit: 1, purchases: 1 } },
@@ -486,18 +641,70 @@ router.get("/product-insights", async (req, res, next) => {
 
     const history = result?.history ?? [];
     const monthlySpend = result?.monthlySpend ?? [];
-    const weeklyCounts = result?.weeklyCounts ?? [];
     const trendBase = result?.trendBase?.[0] ?? null;
     const medianGapDays = result?.gapDays?.[0]?.medianGapDays ?? null;
-    const discount = result?.discountAgg?.[0] ?? {
-      discountedPurchases: 0,
-      totalSavings: 0,
-      totalOriginal: 0,
-      totalFinal: 0,
-      savingsRate: null,
+
+    // ---- helper: weighted avg by purchases ----
+    const weightedAvg = (rows) => {
+      const totalPurchases = rows.reduce((s, r) => s + (r.purchases ?? 0), 0);
+      if (!totalPurchases) return null;
+      const weightedSum = rows.reduce(
+        (s, r) => s + (r.avgPricePerUnit ?? 0) * (r.purchases ?? 0),
+        0
+      );
+      return weightedSum / totalPurchases;
     };
 
-    // % changes
+    // ---- 3-month trend (based on last available month in data) ----
+    // We use the last month present in monthlySpend (already sorted YYYY-MM).
+    let threeMonth = {
+      last3AvgPricePerUnit: null,
+      prev3AvgPricePerUnit: null,
+      pctChangePricePerUnit: null,
+      last3TotalSpend: null,
+      prev3TotalSpend: null,
+      pctChangeSpend: null,
+      last3Purchases: 0,
+      prev3Purchases: 0,
+      last3Months: [],
+      prev3Months: [],
+    };
+
+    if (monthlySpend.length) {
+      const lastIndex = monthlySpend.length - 1;
+      const last3 = monthlySpend.slice(Math.max(0, lastIndex - 2), lastIndex + 1);
+      const prev3 = monthlySpend.slice(Math.max(0, lastIndex - 5), Math.max(0, lastIndex - 2));
+
+      const last3Avg = weightedAvg(last3);
+      const prev3Avg = weightedAvg(prev3);
+
+      const last3Spend = last3.reduce((s, r) => s + (r.totalSpend ?? 0), 0);
+      const prev3Spend = prev3.reduce((s, r) => s + (r.totalSpend ?? 0), 0);
+
+      const last3Purchases = last3.reduce((s, r) => s + (r.purchases ?? 0), 0);
+      const prev3Purchases = prev3.reduce((s, r) => s + (r.purchases ?? 0), 0);
+
+      const pctPrice =
+        prev3Avg && prev3Avg !== 0 && last3Avg != null ? ((last3Avg - prev3Avg) / prev3Avg) * 100 : null;
+
+      const pctSpend =
+        prev3Spend && prev3Spend !== 0 ? ((last3Spend - prev3Spend) / prev3Spend) * 100 : null;
+
+      threeMonth = {
+        last3AvgPricePerUnit: last3Avg,
+        prev3AvgPricePerUnit: prev3Avg,
+        pctChangePricePerUnit: pctPrice,
+        last3TotalSpend: last3Spend,
+        prev3TotalSpend: prev3Spend,
+        pctChangeSpend: pctSpend,
+        last3Purchases,
+        prev3Purchases,
+        last3Months: last3.map((x) => x.month),
+        prev3Months: prev3.map((x) => x.month),
+      };
+    }
+
+    // ---- % change calculations (per purchase) ----
     let lastVsPrevPct = null;
     let lastVsFirstPct = null;
 
@@ -518,7 +725,7 @@ router.get("/product-insights", async (req, res, next) => {
         ((trendBase.lastPricePerUnit - trendBase.firstPricePerUnit) / trendBase.firstPricePerUnit) * 100;
     }
 
-    // Frequency + forecast
+    // ---- Frequency + forecast ----
     let perWeek = null,
       perMonth = null,
       perYear = null,
@@ -540,6 +747,11 @@ router.get("/product-insights", async (req, res, next) => {
       nextPurchaseDate = d;
     }
 
+    const savingsRate =
+      typeof trendBase?.totalOriginal === "number" && trendBase.totalOriginal > 0
+        ? (trendBase.totalSavings / trendBase.totalOriginal) * 100
+        : null;
+
     res.json({
       product: {
         name: history?.[0]?.productName ?? null,
@@ -547,7 +759,6 @@ router.get("/product-insights", async (req, res, next) => {
       },
       history,
       monthlySpend,
-      weeklyCounts,
       frequency: {
         totalPurchases: trendBase?.count ?? 0,
         perWeek,
@@ -563,11 +774,18 @@ router.get("/product-insights", async (req, res, next) => {
         firstPricePerUnit: trendBase?.firstPricePerUnit ?? null,
         lastVsPrevPct,
         lastVsFirstPct,
+        threeMonth,
       },
       totals: {
         totalSpend: trendBase?.totalSpend ?? 0,
       },
-      discount,
+      discount: {
+        discountedPurchases: trendBase?.discountedPurchases ?? 0,
+        totalSavings: trendBase?.totalSavings ?? 0,
+        totalOriginal: trendBase?.totalOriginal ?? 0,
+        totalFinal: trendBase?.totalSpend ?? 0,
+        savingsRate,
+      },
       top: {
         shopMostOften: result?.topShopByCount?.[0] ?? null,
         brandMostOften: result?.topBrandByCount?.[0] ?? null,
