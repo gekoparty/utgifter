@@ -6,6 +6,7 @@ import Category from "../models/categorySchema.js";
 import mongoose from "mongoose";
 
 const shopsRouter = express.Router();
+
 const createSlug = (name) =>
   slugify(name, { lower: true, strict: true, remove: /[*+~.()'"!:@]/g });
 
@@ -37,14 +38,85 @@ const resolveCategoryId = async (categoryName) => {
   return cat._id;
 };
 
-
 const isObjectIdString = (v) =>
   typeof v === "string" && mongoose.Types.ObjectId.isValid(v);
 
+/**
+ * Enrich ONLY the shops returned (small list) with location/category names.
+ */
+const enrichShops = async (shops) => {
+  const allLocationIds = shops.map((s) => s.location).filter(Boolean);
+  const allCategoryIds = shops.map((s) => s.category).filter(Boolean);
+
+  const uniqueLocationIds = [...new Set(allLocationIds.map((id) => id.toString()))];
+  const uniqueCategoryIds = [...new Set(allCategoryIds.map((id) => id.toString()))];
+
+  const [locationDocs, categoryDocs] = await Promise.all([
+    uniqueLocationIds.length
+      ? Location.find({ _id: { $in: uniqueLocationIds } }).select("name").lean()
+      : Promise.resolve([]),
+    uniqueCategoryIds.length
+      ? Category.find({ _id: { $in: uniqueCategoryIds } }).select("name").lean()
+      : Promise.resolve([]),
+  ]);
+
+  const locationIdToNameMap = locationDocs.reduce((acc, loc) => {
+    acc[loc._id.toString()] = loc.name;
+    return acc;
+  }, {});
+
+  const categoryIdToNameMap = categoryDocs.reduce((acc, cat) => {
+    acc[cat._id.toString()] = cat.name;
+    return acc;
+  }, {});
+
+  return shops.map((shop) => {
+    const shopObj = shop.toObject ? shop.toObject() : shop;
+
+    shopObj.locationName =
+      shopObj.location && locationIdToNameMap[String(shopObj.location)]
+        ? locationIdToNameMap[String(shopObj.location)]
+        : "N/A";
+
+    shopObj.categoryName =
+      shopObj.category && categoryIdToNameMap[String(shopObj.category)]
+        ? categoryIdToNameMap[String(shopObj.category)]
+        : "N/A";
+
+    return shopObj;
+  });
+};
+
 shopsRouter.get("/", async (req, res) => {
   try {
-    // Log incoming query parameters for debugging
-    console.log("Shops GET params:", req.query);
+    /**
+     * FAST SEARCH MODE (for ExpenseDialog)
+     * GET /api/shops?query=rema&limit=20
+     * Returns small result set with locationName.
+     */
+    const search = String(req.query.query || "").trim();
+    if (search) {
+      const limit = Math.min(Number(req.query.limit) || 20, 50);
+
+      // Guard: avoid returning big lists for short search
+      if (search.length < 2) {
+        return res.json({ shops: [], meta: { totalRowCount: 0 } });
+      }
+
+      const query = Shop.find({ name: { $regex: search, $options: "i" } })
+        .select("name location category slugifiedName") // keep it light
+        .limit(limit);
+
+      const shops = await query.exec();
+      const enrichedShops = await enrichShops(shops);
+
+      return res.json({ shops: enrichedShops, meta: { totalRowCount: enrichedShops.length } });
+    }
+
+    /**
+     * EXISTING TABLE MODE (for Shops screen)
+     * Supports: columnFilters, globalFilter, sorting, start, size
+     */
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     let query = Shop.find();
@@ -53,14 +125,13 @@ shopsRouter.get("/", async (req, res) => {
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
       filters.forEach(({ id, value }) => {
-        if (id && value) {
-          if (id === "name") {
-            query = query.where("name").regex(new RegExp(value, "i"));
-          } else if (id === "location" || id === "category") {
-            // Log the value received for debugging
-            console.log(`Filtering on ${id} with value:`, value);
-            query = query.where(id).equals(value);
-          }
+        if (!id || (!value && value !== 0)) return;
+
+        if (id === "name") {
+          query = query.where("name").regex(new RegExp(value, "i"));
+        } else if (id === "location" || id === "category") {
+          // allow filtering by id or name slug if you later support it
+          query = query.where(id).equals(value);
         }
       });
     }
@@ -79,7 +150,6 @@ shopsRouter.get("/", async (req, res) => {
           acc[id] = desc ? -1 : 1;
           return acc;
         }, {});
-        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
@@ -90,55 +160,14 @@ shopsRouter.get("/", async (req, res) => {
       const startIndex = parseInt(start, 10);
       const pageSize = parseInt(size, 10);
       totalRowCount = await Shop.countDocuments(query.getFilter());
-      console.log("Total matching shops:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
     }
 
-    // Execute the query
     const shops = await query.exec();
-    console.log("Fetched shops:", shops);
-
-    // Enrich shops with location and category names
-    const allLocationIds = shops.map(shop => shop.location).filter(Boolean);
-    const allCategoryIds = shops.map(shop => shop.category).filter(Boolean);
-    const uniqueLocationIds = [...new Set(allLocationIds.map(id => id.toString()))];
-    const uniqueCategoryIds = [...new Set(allCategoryIds.map(id => id.toString()))];
-
-    const locationDocs = await Location.find({ _id: { $in: uniqueLocationIds } }).lean();
-    const categoryDocs = await Category.find({ _id: { $in: uniqueCategoryIds } }).lean();
-
-    const locationIdToNameMap = locationDocs.reduce((acc, loc) => {
-      acc[loc._id.toString()] = loc.name;
-      return acc;
-    }, {});
-    const categoryIdToNameMap = categoryDocs.reduce((acc, cat) => {
-      acc[cat._id.toString()] = cat.name;
-      return acc;
-    }, {});
-
-    const enrichedShops = shops.map(shop => {
-      const shopObj = shop.toObject();
-      // Check if shopObj.location exists before calling toString()
-      shopObj.locationName =
-        shopObj.location && locationIdToNameMap[shopObj.location.toString()]
-          ? locationIdToNameMap[shopObj.location.toString()]
-          : "N/A";
-      
-      // Similarly for category
-      shopObj.categoryName =
-        shopObj.category && categoryIdToNameMap[shopObj.category.toString()]
-          ? categoryIdToNameMap[shopObj.category.toString()]
-          : "N/A";
-      
-      return shopObj;
-    });
-
-    // Log the final enriched shops for debugging
-    console.log("Enriched shops:", enrichedShops);
+    const enrichedShops = await enrichShops(shops);
 
     res.json({ shops: enrichedShops, meta: { totalRowCount } });
   } catch (err) {
-    // Log the full error for debugging
     console.error("Error in /api/shops:", err);
     res.status(500).json({ error: err.message });
   }
@@ -169,7 +198,6 @@ shopsRouter.post("/", async (req, res) => {
       slugifiedName,
     }).save();
 
-    // Return GET-like shape immediately (optional but nice)
     const shop = await Shop.findById(savedShop._id).lean();
 
     res.status(201).json({
@@ -182,10 +210,6 @@ shopsRouter.post("/", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
-
-
-
 
 shopsRouter.put("/:id", async (req, res) => {
   try {
@@ -224,17 +248,10 @@ shopsRouter.put("/:id", async (req, res) => {
   }
 });
 
-
-
-
 shopsRouter.delete("/:id", async (req, res) => {
-  const { id } = req.params;
-
   try {
     const shop = await Shop.findByIdAndDelete(req.params.id);
-    if (!shop) {
-      return res.status(404).send({ error: "Shop not found" });
-    }
+    if (!shop) return res.status(404).send({ error: "Shop not found" });
     res.send(shop);
   } catch (error) {
     console.error(error);

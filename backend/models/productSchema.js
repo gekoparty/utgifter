@@ -4,14 +4,11 @@ const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
 
-    // NEW: category (what your current "type" really is)
-    category: { type: String, required: false }, // temporarily optional for migration
+    // Category (e.g. Soda, Juice, Snacks)
+    category: { type: String, required: false },
 
-    // NEW: type becomes variant/flavor
-    type: { type: String, required: false }, // temporarily optional for migration
-
-    // OPTIONAL: keep old field for a while (so old code still works)
-    legacyType: { type: String, required: false }, // will store old "type" (food/drinks)
+    // Variants (e.g. Original, Light, Zero)
+    variants: { type: [String], default: [] },
 
     description: { type: String },
 
@@ -23,7 +20,8 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
 
-    measures: { type: [Number], default: [] },
+    // ✅ store as strings because UI allows "0.5", "500ml", etc.
+    measures: { type: [String], default: [] },
 
     brands: [{ type: mongoose.Schema.Types.ObjectId, ref: "Brand" }],
   },

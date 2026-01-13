@@ -3,12 +3,13 @@ import React, { useMemo } from "react";
 import { Stack } from "@mui/material";
 import ProductNameInput from "./ProductNameInput.jsx";
 import BrandSelect from "./BrandSelect";
-import ProductTypeSelect from "./ProductTypeSelect";
+import CategorySelect from "./CategorySelect"; // ✅ renamed (was ProductTypeSelect)
 import MeasurementUnitSelect from "./MeasurementUnitSelect";
 import MeasuresInput from "./MeasuresInput";
+import VariantsInput from "./VariantsInput";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import {
-  predefinedTypes,
+  predefinedTypes as predefinedCategories, // ✅ alias to fix misleading naming without breaking constants
   measurementUnitOptions,
 } from "../../../../commons/Consts/constants";
 
@@ -17,7 +18,12 @@ const ProductForm = ({
   onNameChange,
   onBrandChange,
   onBrandCreate,
-  onProductTypeChange,
+
+  // ✅ variants
+  onVariantsChange,
+  onVariantCreate,
+
+  onProductCategoryChange,
   onMeasurementUnitChange,
   onMeasuresChange,
   onMeasureCreate,
@@ -51,6 +57,11 @@ const ProductForm = ({
     return names.map((name) => ({ label: name, value: name }));
   }, [product?.brandNames, product?.brands]);
 
+  const selectedVariantValues = useMemo(() => {
+    const variants = product?.variants ?? [];
+    return variants.map((v) => ({ label: v, value: v }));
+  }, [product?.variants]);
+
   return (
     <Stack spacing={2}>
       <div>
@@ -61,6 +72,20 @@ const ProductForm = ({
         />
         {(displayError || validationError) && (
           <ErrorHandling resource="products" field="name" loading={loading} />
+        )}
+      </div>
+
+      <div>
+        <VariantsInput
+          value={selectedVariantValues}
+          onChange={onVariantsChange}
+          onCreateOption={onVariantCreate}
+          selectStyles={selectStyles}
+          isLoading={loading}
+        />
+
+        {(displayError || validationError) && (
+          <ErrorHandling resource="products" field="variants" loading={loading} />
         )}
       </div>
 
@@ -83,18 +108,19 @@ const ProductForm = ({
       </div>
 
       <div>
-        <ProductTypeSelect
-          options={predefinedTypes.map((type) => ({ value: type, label: type }))}
+        <CategorySelect
+          options={predefinedCategories.map((c) => ({ value: c, label: c }))}
           value={
-            product?.type
-              ? { value: product.type, label: product.type }
+            product?.category
+              ? { value: product.category, label: product.category }
               : null
           }
-          onChange={onProductTypeChange}
+          onChange={onProductCategoryChange}
           selectStyles={selectStyles}
         />
+
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="type" loading={loading} />
+          <ErrorHandling resource="products" field="category" loading={loading} />
         )}
       </div>
 
@@ -134,4 +160,3 @@ const ProductForm = ({
 };
 
 export default React.memo(ProductForm);
-

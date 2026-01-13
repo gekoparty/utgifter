@@ -1,3 +1,4 @@
+// models/brandSchema.js
 import mongoose from "mongoose";
 
 const brandSchema = new mongoose.Schema(
@@ -18,7 +19,7 @@ const brandSchema = new mongoose.Schema(
     products: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Product", // Reference to the "Product" model
+        ref: "Product",
       },
     ],
   },
@@ -30,3 +31,4 @@ const brandSchema = new mongoose.Schema(
 const Brand = mongoose.model("Brand", brandSchema);
 
 export default Brand;
+

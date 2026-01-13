@@ -1,3 +1,4 @@
+// models/shopSchema.js
 import mongoose from "mongoose";
 
 const shopSchema = new mongoose.Schema(
@@ -10,7 +11,7 @@ const shopSchema = new mongoose.Schema(
     },
     location: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Location", // Reference the 'Location' model
+      ref: "Location",
       required: true,
     },
     category: {
@@ -39,7 +40,7 @@ const shopSchema = new mongoose.Schema(
   }
 );
 
-// Create a unique compound index on name and location
+// Unique compound index
 shopSchema.index({ name: 1, location: 1 }, { unique: true });
 
 const Shop = mongoose.model("Shop", shopSchema);

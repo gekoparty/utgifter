@@ -1,27 +1,12 @@
-import useFetchData from "../../../../hooks/useFetchData";
 import useInfiniteProducts from "../../../../hooks/useInfiniteProducts";
+import useCustomHttp from "../../../../hooks/useHttp";
+import { useBrandsForSelectedProduct, useRecentBrands } from "./useBrandsForSelectedProduct";
+import { useShopSearch } from "./useShopSearch";
 
-// Batch enrich shops with location names (your optimized approach)
-const enrichShopsWithLocations = async (shopsData) => {
-  const shops = Array.isArray(shopsData) ? shopsData : shopsData?.shops || [];
-  if (!shops.length) return [];
+export const useExpenseDialogData = ({ open, productSearch, selectedProduct, shopSearch }) => {
+  // You can use your existing base URL config, this is just to get sendRequest
+  const { sendRequest } = useCustomHttp("", { auto: false });
 
-  const ids = [...new Set(shops.map((s) => s.location).filter(Boolean))];
-  if (!ids.length) return shops;
-
-  const res = await fetch(`/api/locations?ids=${ids.join(",")}`);
-  const json = await res.json();
-  const locations = Array.isArray(json) ? json : json.locations || [];
-
-  const map = locations.reduce((acc, loc) => {
-    if (loc?._id) acc[loc._id] = loc.name;
-    return acc;
-  }, {});
-
-  return shops.map((s) => ({ ...s, locationName: map[s.location] || "N/A" }));
-};
-
-export const useExpenseDialogData = ({ open, productSearch }) => {
   const {
     data: infiniteData,
     isLoading: isLoadingProducts,
@@ -29,27 +14,26 @@ export const useExpenseDialogData = ({ open, productSearch }) => {
     hasNextPage,
   } = useInfiniteProducts(productSearch, { enabled: open });
 
-  const { data: brands, isLoading: isLoadingBrands } = useFetchData(
-    "brands",
-    "/api/brands",
-    (d) => (Array.isArray(d?.brands) ? d.brands : Array.isArray(d) ? d : []),
-    { enabled: open }
-  );
+  const { data: brandsForProduct = [], isLoading: isLoadingBrandsForProduct } =
+    useBrandsForSelectedProduct({ open, selectedProduct, sendRequest });
 
-  const { data: shops, isLoading: isLoadingShops } = useFetchData(
-    "shops",
-    "/api/shops",
-    enrichShopsWithLocations,
-    { enabled: open }
-  );
+  const { data: recentBrands = [], isLoading: isLoadingRecentBrands } =
+    useRecentBrands({ open, sendRequest });
+
+  const { data: shops = [], isFetching: isLoadingShops } = useShopSearch({
+    open,
+    query: shopSearch,
+    sendRequest,
+  });
 
   return {
     infiniteData,
     isLoadingProducts,
     fetchNextPage,
     hasNextPage,
-    brands,
-    isLoadingBrands,
+    brandsForProduct,
+    recentBrands,
+    isLoadingBrands: isLoadingBrandsForProduct || isLoadingRecentBrands,
     shops,
     isLoadingShops,
   };
