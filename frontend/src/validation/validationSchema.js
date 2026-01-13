@@ -33,15 +33,28 @@ export const addProductValidationSchema = Yup.object().shape({
 
   // ✅ match UI requirement: at least one brand
   brands: Yup.array()
-    .of(Yup.string().required("Brand navn er påkrævet"))
-    .min(1, "Må ha minst ett merke"),
+    .of(Yup.string().trim().required("Brand navn er påkrævet"))
+    .min(1, "Må ha minst ett merke")
+    .required("Må ha minst ett merke"),
 
-  // ✅ you require this in UI
-  type: Yup.string().required("Må ha produkttype"),
+  // ✅ category required
+  category: Yup.string()
+    .trim()
+    .required("Kategori er påkrevd")
+    .min(1, "Kategori er påkrevd"),
+
+  // ✅ variants required (array of strings)
+  variants: Yup.array()
+    .of(Yup.string().trim().min(1).required())
+    .min(1, "Velg minst én variant")
+    .required("Velg minst én variant"),
 
   measurementUnit: Yup.string().required("Må ha måleenhet"),
 
-  measures: Yup.array().of(Yup.string()), // optional
+  // ✅ measures are strings (because UI is creatable free text)
+  measures: Yup.array()
+    .of(Yup.string().trim().min(1))
+    .notRequired(),
 });
 
 export const addExpenseValidationSchema = Yup.object()
@@ -65,18 +78,11 @@ export const addExpenseValidationSchema = Yup.object()
     hasDiscount: Yup.boolean(),
     discountValue: Yup.number().when("hasDiscount", {
       is: true,
-      then: (schema) => {
-        return schema
-          .required("Må ha rabattverdi")
-          .positive("Må være positivt");
-      },
-      otherwise: (schema) => {
-        return schema.nullable();
-      },
+      then: (schema) =>
+        schema.required("Må ha rabattverdi").positive("Må være positivt"),
+      otherwise: (schema) => schema.nullable(),
     }),
-    quantity: Yup.number()
-      .required("Må ha et antall")
-      .positive("Må være positivt"),
+    quantity: Yup.number().required("Må ha et antall").positive("Må være positivt"),
     purchaseDate: Yup.date().nullable(),
     registeredDate: Yup.date().nullable(),
   })
@@ -85,28 +91,21 @@ export const addExpenseValidationSchema = Yup.object()
     "Må ha en kjøpsdato eller registreringsdato, men ikke begge",
     function (value) {
       const { purchaseDate, registeredDate } = value || {};
-
-      if (
-        (purchaseDate && registeredDate) ||
-        (!purchaseDate && !registeredDate)
-      ) {
-        return false;
-      }
-      return true;
+      return !((purchaseDate && registeredDate) || (!purchaseDate && !registeredDate));
     }
   );
 
-  export const addShopValidationSchema = Yup.object().shape({
-    name: Yup.string()
-      .required("Navn kan ikke være tomy")
-      .min(2, "Navnet må være minst 2 tegn")
-      .max(30, "Maks 30 tegn"),
-    locationName: Yup.string()  // Changed from 'location' to 'locationName'
-      .required("Må ha et sted")
-      .min(2, "Lokasjon må være minst 2 tegn")
-      .max(30, "Maks 30 tegn"),
-    categoryName: Yup.string()  // Changed from 'category' to 'categoryName'
-      .required("Må ha en kategori")
-      .min(2, "Må være minst 2 tegn")
-      .max(30, "Maks 30 tegn"),
-  });
+export const addShopValidationSchema = Yup.object().shape({
+  name: Yup.string()
+    .required("Navn kan ikke være tomy")
+    .min(2, "Navnet må være minst 2 tegn")
+    .max(30, "Maks 30 tegn"),
+  locationName: Yup.string()
+    .required("Må ha et sted")
+    .min(2, "Lokasjon må være minst 2 tegn")
+    .max(30, "Maks 30 tegn"),
+  categoryName: Yup.string()
+    .required("Må ha en kategori")
+    .min(2, "Må være minst 2 tegn")
+    .max(30, "Maks 30 tegn"),
+});

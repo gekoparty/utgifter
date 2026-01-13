@@ -94,6 +94,37 @@ const ProductDialog = ({
     [setProduct, resetValidationErrors, resetServerError]
   );
 
+  // ✅ Variants (array) — no search needed, just multi + create
+  const handleVariantsChange = useCallback(
+    (selectedOptions) => {
+      const arr = selectedOptions ?? [];
+      setProduct((prev) => ({
+        ...prev,
+        variants: arr.map((o) => o.value),
+      }));
+
+      resetValidationErrors();
+      resetServerError();
+    },
+    [setProduct, resetValidationErrors, resetServerError]
+  );
+
+  const handleVariantCreate = useCallback(
+    (inputValue) => {
+      const trimmed = inputValue.trim();
+      if (!trimmed) return;
+
+      setProduct((prev) => ({
+        ...prev,
+        variants: [...(prev.variants ?? []), trimmed],
+      }));
+
+      resetValidationErrors();
+      resetServerError();
+    },
+    [setProduct, resetValidationErrors, resetServerError]
+  );
+
   const handleInputChange = useCallback((inputValue, meta) => {
     if (meta?.action === "input-change") setBrandSearch(inputValue);
   }, []);
@@ -169,8 +200,11 @@ const ProductDialog = ({
                 resetValidationErrors();
                 resetServerError();
               }}
-              onProductTypeChange={(opt) => {
-                setProduct((p) => ({ ...p, type: opt?.value ?? "" }));
+              // ✅ variants props (correct names)
+              onVariantsChange={handleVariantsChange}
+              onVariantCreate={handleVariantCreate}
+              onProductCategoryChange={(opt) => {
+                setProduct((p) => ({ ...p, category: opt?.value ?? "" }));
                 resetValidationErrors();
                 resetServerError();
               }}

@@ -10,7 +10,8 @@ const INITIAL_PRODUCT_STATE = {
   brandNames: [],
   measures: [],
   measurementUnit: "",
-  type: "",
+  category: "",
+  variants: [],
 };
 
 const PRODUCTS_QUERY_KEY = ["products", "paginated"];
@@ -29,6 +30,14 @@ const normalizeBrandNames = (p) => {
   return [];
 };
 
+const normalizeVariants = (p) => {
+  if (Array.isArray(p?.variants)) {
+    return p.variants.map((v) => String(v).trim()).filter(Boolean);
+  }
+  // If you truly migrated away from old `type`, we do NOT fall back to it.
+  return [];
+};
+
 const buildFormStateFromInitial = (initialProduct) => {
   if (!initialProduct?._id) return { ...INITIAL_PRODUCT_STATE };
 
@@ -38,7 +47,8 @@ const buildFormStateFromInitial = (initialProduct) => {
     brandNames: normalizeBrandNames(initialProduct),
     measures: initialProduct.measures ?? [],
     measurementUnit: initialProduct.measurementUnit ?? "",
-    type: initialProduct.type ?? "",
+    category: initialProduct.category ?? "", // ✅ remove fallback to old type
+    variants: normalizeVariants(initialProduct),
   };
 };
 
@@ -58,7 +68,7 @@ const useProductDialog = (initialProduct = null) => {
   // ✅ IMPORTANT: only sync when id changes, not when object identity changes
   useEffect(() => {
     setProduct(buildFormStateFromInitial(initialProduct));
-  }, [productId]); // 👈 this fixes "can't type"
+  }, [productId]);
 
   const resetServerError = useCallback(() => {
     dispatch({ type: "RESET_ERROR", resource: "products" });
@@ -138,8 +148,15 @@ const useProductDialog = (initialProduct = null) => {
         brands: (product.brandNames ?? [])
           .map((b) => formatComponentFields(b, "product", "brands"))
           .filter(Boolean),
+
         measurementUnit: product.measurementUnit ?? "",
-        type: formatComponentFields(product.type ?? "", "product", "type"),
+
+        category: formatComponentFields(product.category ?? "", "product", "category"),
+
+        variants: (product.variants ?? [])
+          .map((v) => formatComponentFields(v, "product", "variants"))
+          .filter(Boolean),
+
         measures: product.measures ?? [],
       };
 
@@ -204,17 +221,18 @@ const useProductDialog = (initialProduct = null) => {
     return (
       product?.name?.trim().length > 0 &&
       (product?.brandNames?.length ?? 0) > 0 &&
+      (product?.variants?.length ?? 0) > 0 &&
       product?.measurementUnit?.trim().length > 0 &&
-      product?.type?.trim().length > 0 &&
+      product?.category?.trim().length > 0 &&
       !validationError?.name &&
       !validationError?.brands &&
+      !validationError?.variants &&
       !validationError?.measurementUnit &&
-      !validationError?.type
+      !validationError?.category
     );
   }, [product, validationError]);
 
-  const loading =
-    httpLoading || saveProductMutation.isPending || deleteProductMutation.isPending;
+  const loading = httpLoading || saveProductMutation.isPending || deleteProductMutation.isPending;
 
   return useMemo(
     () => ({
@@ -246,4 +264,3 @@ const useProductDialog = (initialProduct = null) => {
 };
 
 export default useProductDialog;
-

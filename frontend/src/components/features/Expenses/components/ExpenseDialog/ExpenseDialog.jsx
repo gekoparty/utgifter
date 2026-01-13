@@ -34,18 +34,19 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     isFormValid,
   } = form;
 
-  // controller (handlers + selectedProduct/search)
   const controller = useExpenseDialogController({ open, mode, expense, setExpense });
 
-  // data for selects
   const data = useExpenseDialogData({
     open,
     productSearch: controller.productSearch,
+    selectedProduct: controller.selectedProduct,
+    shopSearch: controller.shopSearch,
   });
 
   const { productOptions, brandOptions, shopOptions } = useExpenseDialogOptions({
     infiniteData: data.infiniteData,
-    brands: data.brands,
+    brandsForProduct: data.brandsForProduct,
+    recentBrands: data.recentBrands,
     selectedProduct: controller.selectedProduct,
     shops: data.shops,
   });
@@ -58,23 +59,12 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     if (!productOptions.length) return;
 
     const match =
-      productOptions.find((o) => o.name === name) ??
-      { label: name, value: name, name };
+      productOptions.find((o) => o.name === name) ?? { label: name, value: name, name };
 
     controller.setSelectedProduct(match);
-  }, [
-    open,
-    isEdit,
-    expenseToEdit?.productName,
-    productOptions,
-    controller.setSelectedProduct,
-  ]);
+  }, [open, isEdit, expenseToEdit?.productName, productOptions, controller.setSelectedProduct]);
 
-  const loading =
-    formLoading ||
-    data.isLoadingProducts ||
-    data.isLoadingBrands ||
-    data.isLoadingShops;
+  const loading = formLoading || data.isLoadingProducts || data.isLoadingBrands || data.isLoadingShops;
 
   const dialogTitle = isDelete
     ? "Bekreft sletting"
@@ -105,6 +95,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
         return;
       }
 
+      // NOTE: if isFormValid is a function in your form hook, change to: if (!isFormValid()) return;
       if (!isFormValid) return;
 
       const saved = await handleSaveExpense();

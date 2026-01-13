@@ -30,10 +30,7 @@ const productUrlBuilder = (endpoint, params) => {
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
   fetchURL.searchParams.set("size", `${params.pageSize}`);
   fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  fetchURL.searchParams.set(
-    "columnFilters",
-    JSON.stringify(params.filters ?? [])
-  );
+  fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
   fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
   return fetchURL;
 };
@@ -45,10 +42,8 @@ const ProductScreen = () => {
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
-  // --- Dialog State Consolidation ---
-  const [selectedProduct, setSelectedProduct] = useState(
-    INITIAL_SELECTED_PRODUCT
-  );
+  // --- Dialog State ---
+  const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
   const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
 
   const {
@@ -59,8 +54,6 @@ const ProductScreen = () => {
     handleSnackbarClose,
   } = useSnackBar();
 
-  // --- Data Fetching ---
-  // No useDeepCompareMemo needed in R19
   const fetchParams = {
     pageIndex: pagination.pageIndex,
     pageSize: pagination.pageSize,
@@ -85,8 +78,6 @@ const ProductScreen = () => {
   const tableData = productsData?.products || [];
   const metaData = productsData?.meta || {};
 
-  // --- Handlers (No useCallback needed in R19) ---
-
   const handleCloseDialog = () => {
     setActiveModal(null);
     setSelectedProduct(INITIAL_SELECTED_PRODUCT);
@@ -102,34 +93,32 @@ const ProductScreen = () => {
     setActiveModal("DELETE");
   };
 
-  // Centralized Action Feedback
-  const handleSuccess = (action, productName) => {
-    showSnackbar(`Produkt "${productName}" ${action}`);
-    if (action === "slettet") handleCloseDialog();
-  };
-
-  const handleError = (message) => {
-    showSnackbar(message, "error");
-  };
-
-  // --- Table Configuration (No useMemo needed in R19) ---
   const tableColumns = [
     { accessorKey: "name", header: "Produkter" },
     { accessorKey: "brand", header: "Merker" },
-    { accessorKey: "type", header: "Type" },
+
+    // ✅ variants column (array -> string)
+    {
+      accessorKey: "variants",
+      header: "Varianter",
+      Cell: ({ cell }) => {
+        const v = cell.getValue();
+        return Array.isArray(v) ? v.join(", ") : v || "N/A";
+      },
+    },
+
+    { accessorKey: "category", header: "Kategori" },
+
     {
       accessorKey: "measures",
       header: "Mål",
-      CSPViolationReportBodyell: ({ cell }) => {
+      Cell: ({ cell }) => {
         const measures = cell.getValue();
         return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
       },
     },
   ];
 
-  // -------------------------
-  // Render
-  // -------------------------
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
@@ -170,7 +159,6 @@ const ProductScreen = () => {
         />
       )}
 
-      {/* Dialogs - Grouped Suspense */}
       <Suspense fallback={null}>
         {activeModal && (
           <ProductDialog
@@ -186,9 +174,7 @@ const ProductScreen = () => {
                   ? "oppdatert"
                   : "lagt til";
 
-              showSnackbar(
-                `Produkt "${p?.name ?? selectedProduct?.name}" ble ${action}`
-              );
+              showSnackbar(`Produkt "${p?.name ?? selectedProduct?.name}" ble ${action}`);
               handleCloseDialog();
             }}
             onError={() => showSnackbar("Kunne ikke utføre handling", "error")}
@@ -196,7 +182,6 @@ const ProductScreen = () => {
         )}
       </Suspense>
 
-      {/* Snackbar */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         open={snackbarOpen}
@@ -208,11 +193,7 @@ const ProductScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
+            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           }
@@ -225,3 +206,4 @@ const ProductScreen = () => {
 };
 
 export default ProductScreen;
+

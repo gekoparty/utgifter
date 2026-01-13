@@ -68,7 +68,13 @@ const ExpenseFormFields = ({
 
   const measuresOptions = useMemo(() => {
     const measures = selectedProduct?.measures || [];
-    return measures.map((m) => ({ label: m.toString(), value: m }));
+    return measures.map((m) => ({ label: String(m), value: m }));
+  }, [selectedProduct]);
+
+  // ✅ NEW: variants for selected product
+  const variantOptions = useMemo(() => {
+    const variants = selectedProduct?.variants || [];
+    return variants.map((v) => ({ label: String(v), value: String(v) }));
   }, [selectedProduct]);
 
   const handlePriceTextChange = (text) => {
@@ -184,12 +190,37 @@ const ExpenseFormFields = ({
           </Box>
         </Stack>
 
+        {/* ✅ NEW: VARIANT (must belong to selected product) */}
+        <Box>
+          <VirtualizedSelect
+            isClearable
+            options={variantOptions}
+            value={
+              expense.variant
+                ? { label: expense.variant, value: expense.variant }
+                : null
+            }
+            onChange={controller.handleVariantSelect}
+            placeholder={
+              !selectedProduct
+                ? "Velg et produkt først"
+                : variantOptions.length
+                ? "Velg variant"
+                : "Ingen varianter på produktet"
+            }
+            isDisabled={!selectedProduct || variantOptions.length === 0}
+            menuPortalTarget={document.body}
+            styles={selectStyles}
+          />
+        </Box>
+
         {/* SHOP & LOCATION */}
         <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
           <Box flex={1}>
             <VirtualizedSelect
               isClearable
               options={shopOptions}
+              onInputChange={controller.handleShopInputChange}
               value={expense.shopName ? { label: expense.shopName, value: expense.shopName } : null}
               onChange={controller.handleShopSelect}
               placeholder="Velg butikk"
@@ -274,17 +305,16 @@ const ExpenseFormFields = ({
               label="Antall"
               type="number"
               value={expense.quantity}
-              onChange={(e) => setExpense((prev) => ({ ...prev, quantity: Number(e.target.value) || 1 }))}
+              onChange={(e) =>
+                setExpense((prev) => ({ ...prev, quantity: Number(e.target.value) || 1 }))
+              }
             />
           </Box>
 
           <Box flex={1} width="100%">
             <FormControlLabel
               control={
-                <Checkbox
-                  checked={Boolean(expense.hasDiscount)}
-                  onChange={controller.handleDiscountToggle}
-                />
+                <Checkbox checked={Boolean(expense.hasDiscount)} onChange={controller.handleDiscountToggle} />
               }
               label="Rabatt?"
             />
@@ -321,22 +351,17 @@ const ExpenseFormFields = ({
           </Stack>
         )}
 
-        {/* FINAL PRICE + TYPE */}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          <Box flex={1}>
-            <ExpenseField
-              label="Sluttpris"
-              value={expense.finalPrice ?? 0}
-              InputProps={{
-                readOnly: true,
-                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
-              }}
-            />
-          </Box>
-          <Box flex={1}>
-            <ExpenseField label="Type" value={expense.type || ""} InputProps={{ readOnly: true }} />
-          </Box>
-        </Stack>
+        {/* FINAL PRICE */}
+        <Box>
+          <ExpenseField
+            label="Sluttpris"
+            value={expense.finalPrice ?? 0}
+            InputProps={{
+              readOnly: true,
+              startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+            }}
+          />
+        </Box>
 
         {/* TRANSACTION TYPE */}
         <Box>
@@ -365,4 +390,5 @@ const ExpenseFormFields = ({
 };
 
 export default ExpenseFormFields;
+
 

@@ -65,7 +65,7 @@ const INITIAL_SELECTED_EXPENSE = {
   purchased: false,
   registeredDate: null,
   purchaseDate: null,
-  type: "",
+  variant: "", 
   measurementUnit: "",
   pricePerUnit: 0,
 };
@@ -108,7 +108,7 @@ const transformExpenseData = (json) => {
       purchased: x.purchased,
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
-      type: x.type,
+      variant: x.variant || "",
       measurementUnit: x.measurementUnit,
       pricePerUnit: x.pricePerUnit,
     })),
@@ -404,7 +404,7 @@ const ExpenseScreen = () => {
 
     const grouped = list.reduce((acc, item) => {
       if (typeof item.pricePerUnit !== "number") return acc;
-      const k = item.type || "Ukjent";
+      const k = item.variant || "Ukjent"; // ✅ was item.type
       (acc[k] = acc[k] || []).push(item.pricePerUnit);
       return acc;
     }, {});
@@ -471,7 +471,7 @@ const ExpenseScreen = () => {
       enableColumnFilter: true,
       Cell: ({ row }) => {
         const value = row.original[resolvedAccessor.key];
-        const type = row.original.type || "Ukjent";
+        const type = row.original.variant || "Ukjent"; // ✅ rename variable if you want
         const stats = priceStatsByType[type] || {};
 
         let bg = "transparent";
@@ -513,6 +513,7 @@ const ExpenseScreen = () => {
   const tableColumns = useMemo(
     () => [
       { accessorKey: "productName", header: "Produktnavn" },
+      { accessorKey: "variant", header: "Variant" },
       priceColumn,
       { accessorKey: "shopName", header: "Butikk" },
       dateColumn,
