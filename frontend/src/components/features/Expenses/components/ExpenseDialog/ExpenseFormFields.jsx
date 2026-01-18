@@ -25,7 +25,11 @@ import ExpenseField from "../../../../commons/ExpenseField/ExpenseField";
  * If they don't exist yet, this component will still work by creating them via setExpense.
  */
 
-const normalizeDecimal = (s) => String(s ?? "").replace(/\s/g, "").replace(",", ".");
+const normalizeDecimal = (s) =>
+  String(s ?? "")
+    .replace(/\s/g, "")
+    .replace(",", ".");
+
 const parseDecimalOrNull = (s) => {
   const t = normalizeDecimal(s);
   if (t === "") return null;
@@ -49,6 +53,7 @@ const ExpenseFormFields = ({
   selectStyles,
   productOptions,
   brandOptions,
+  variantOptions,
   shopOptions,
   selectedProduct,
   hasNextPage,
@@ -59,8 +64,10 @@ const ExpenseFormFields = ({
   controller,
 }) => {
   // Prefer text versions if present, otherwise fall back to numeric values
-  const priceInputValue = expense.priceText ?? formatDecimalForInput(expense.price);
-  const volumeInputValue = expense.volumeText ?? formatDecimalForInput(expense.volume);
+  const priceInputValue =
+    expense.priceText ?? formatDecimalForInput(expense.price);
+  const volumeInputValue =
+    expense.volumeText ?? formatDecimalForInput(expense.volume);
   const discountValueInputValue =
     expense.discountValueText ?? formatDecimalForInput(expense.discountValue);
   const discountAmountInputValue =
@@ -71,11 +78,8 @@ const ExpenseFormFields = ({
     return measures.map((m) => ({ label: String(m), value: m }));
   }, [selectedProduct]);
 
-  // ✅ NEW: variants for selected product
-  const variantOptions = useMemo(() => {
-    const variants = selectedProduct?.variants || [];
-    return variants.map((v) => ({ label: String(v), value: String(v) }));
-  }, [selectedProduct]);
+  const showVariants =
+    Boolean(selectedProduct) && (variantOptions?.length ?? 0) > 0;
 
   const handlePriceTextChange = (text) => {
     // always keep raw text so typing never snaps back
@@ -85,7 +89,7 @@ const ExpenseFormFields = ({
     if (parsed !== null) {
       // commit numeric update through controller so derived fields update
       controller.handleFieldChange?.("price", parsed);
-      // If controller doesn't expose handleFieldChange, use setExpense + rely on your effect in useHandleFieldChange
+      // If controller doesn't expose handleFieldChange, update directly
       if (!controller.handleFieldChange) {
         setExpense((prev) => ({ ...prev, price: parsed }));
       }
@@ -109,8 +113,6 @@ const ExpenseFormFields = ({
 
     const parsed = parseDecimalOrNull(text);
     if (parsed !== null) {
-      // Your existing controller handlers expect events; we can call handleFieldChange directly if exposed,
-      // otherwise simulate the event for compatibility.
       if (controller.handleFieldChange) {
         controller.handleFieldChange("discountValue", parsed);
       } else if (controller.handleDiscountValueChange) {
@@ -181,7 +183,9 @@ const ExpenseFormFields = ({
                   : null
               }
               onChange={controller.handleBrandSelect}
-              placeholder={selectedProduct ? "Velg merke" : "Velg et produkt først"}
+              placeholder={
+                selectedProduct ? "Velg merke" : "Velg et produkt først"
+              }
               isLoading={isLoadingBrands}
               menuPortalTarget={document.body}
               isDisabled={!selectedProduct}
@@ -190,25 +194,27 @@ const ExpenseFormFields = ({
           </Box>
         </Stack>
 
-        {/* ✅ NEW: VARIANT (must belong to selected product) */}
+        {/* VARIANT */}
         <Box>
           <VirtualizedSelect
             isClearable
-            options={variantOptions}
+            options={variantOptions ?? []}
             value={
               expense.variant
-                ? { label: expense.variant, value: expense.variant }
+                ? ((variantOptions ?? []).find(
+                    (o) => o.value === String(expense.variant),
+                  ) ?? null)
                 : null
             }
             onChange={controller.handleVariantSelect}
             placeholder={
               !selectedProduct
                 ? "Velg et produkt først"
-                : variantOptions.length
-                ? "Velg variant"
-                : "Ingen varianter på produktet"
+                : showVariants
+                  ? "Velg variant"
+                  : "Ingen varianter på produktet"
             }
-            isDisabled={!selectedProduct || variantOptions.length === 0}
+            isDisabled={!selectedProduct || !showVariants}
             menuPortalTarget={document.body}
             styles={selectStyles}
           />
@@ -221,7 +227,11 @@ const ExpenseFormFields = ({
               isClearable
               options={shopOptions}
               onInputChange={controller.handleShopInputChange}
-              value={expense.shopName ? { label: expense.shopName, value: expense.shopName } : null}
+              value={
+                expense.shopName
+                  ? { label: expense.shopName, value: expense.shopName }
+                  : null
+              }
               onChange={controller.handleShopSelect}
               placeholder="Velg butikk"
               isLoading={isLoadingShops}
@@ -240,7 +250,11 @@ const ExpenseFormFields = ({
         </Stack>
 
         {/* PRICE & VOLUME */}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems="flex-start"
+        >
           <Box sx={{ flex: 1, width: "100%" }}>
             <ExpenseField
               label="Pris"
@@ -249,7 +263,9 @@ const ExpenseFormFields = ({
               onChange={(e) => handlePriceTextChange(e.target.value)}
               inputProps={{ inputMode: "decimal" }}
               InputProps={{
-                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+                startAdornment: (
+                  <InputAdornment position="start">Kr</InputAdornment>
+                ),
               }}
               fullWidth
             />
@@ -279,7 +295,9 @@ const ExpenseFormFields = ({
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{
                   startAdornment: (
-                    <InputAdornment position="start">{expense.measurementUnit}</InputAdornment>
+                    <InputAdornment position="start">
+                      {expense.measurementUnit}
+                    </InputAdornment>
                   ),
                 }}
                 fullWidth
@@ -299,14 +317,21 @@ const ExpenseFormFields = ({
         </Box>
 
         {/* QUANTITY & DISCOUNT TOGGLE */}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems="center"
+        >
           <Box flex={1} width="100%">
             <ExpenseField
               label="Antall"
               type="number"
               value={expense.quantity}
               onChange={(e) =>
-                setExpense((prev) => ({ ...prev, quantity: Number(e.target.value) || 1 }))
+                setExpense((prev) => ({
+                  ...prev,
+                  quantity: Number(e.target.value) || 1,
+                }))
               }
             />
           </Box>
@@ -314,7 +339,10 @@ const ExpenseFormFields = ({
           <Box flex={1} width="100%">
             <FormControlLabel
               control={
-                <Checkbox checked={Boolean(expense.hasDiscount)} onChange={controller.handleDiscountToggle} />
+                <Checkbox
+                  checked={Boolean(expense.hasDiscount)}
+                  onChange={controller.handleDiscountToggle}
+                />
               }
               label="Rabatt?"
             />
@@ -332,7 +360,9 @@ const ExpenseFormFields = ({
                 onChange={(e) => handleDiscountValueTextChange(e.target.value)}
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">%</InputAdornment>,
+                  startAdornment: (
+                    <InputAdornment position="start">%</InputAdornment>
+                  ),
                 }}
               />
             </Box>
@@ -344,7 +374,9 @@ const ExpenseFormFields = ({
                 onChange={(e) => handleDiscountAmountTextChange(e.target.value)}
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{
-                  startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+                  startAdornment: (
+                    <InputAdornment position="start">Kr</InputAdornment>
+                  ),
                 }}
               />
             </Box>
@@ -358,7 +390,9 @@ const ExpenseFormFields = ({
             value={expense.finalPrice ?? 0}
             InputProps={{
               readOnly: true,
-              startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
+              startAdornment: (
+                <InputAdornment position="start">Kr</InputAdornment>
+              ),
             }}
           />
         </Box>
@@ -371,7 +405,11 @@ const ExpenseFormFields = ({
             onChange={controller.handleTransactionType}
           >
             <FormControlLabel value="kjøpt" control={<Radio />} label="Kjøpt" />
-            <FormControlLabel value="registrert" control={<Radio />} label="Registrert" />
+            <FormControlLabel
+              value="registrert"
+              control={<Radio />}
+              label="Registrert"
+            />
           </RadioGroup>
         </Box>
 
@@ -390,5 +428,3 @@ const ExpenseFormFields = ({
 };
 
 export default ExpenseFormFields;
-
-

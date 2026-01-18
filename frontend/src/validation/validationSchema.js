@@ -31,27 +31,23 @@ export const addProductValidationSchema = Yup.object().shape({
     .max(50, "Maks 50 tegn")
     .notOneOf(["Admin", "SuperAdmin"], "Ugyldig merkenavn"),
 
-  // ✅ match UI requirement: at least one brand
   brands: Yup.array()
     .of(Yup.string().trim().required("Brand navn er påkrævet"))
     .min(1, "Må ha minst ett merke")
     .required("Må ha minst ett merke"),
 
-  // ✅ category required
   category: Yup.string()
     .trim()
     .required("Kategori er påkrevd")
     .min(1, "Kategori er påkrevd"),
 
-  // ✅ variants required (array of strings)
+  // ✅ variants OPTIONAL
   variants: Yup.array()
-    .of(Yup.string().trim().min(1).required())
-    .min(1, "Velg minst én variant")
-    .required("Velg minst én variant"),
+    .of(Yup.string().trim().min(1))
+    .notRequired(),
 
   measurementUnit: Yup.string().required("Må ha måleenhet"),
 
-  // ✅ measures are strings (because UI is creatable free text)
   measures: Yup.array()
     .of(Yup.string().trim().min(1))
     .notRequired(),

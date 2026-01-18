@@ -9,13 +9,11 @@ export const getSelectStyles = (theme) => {
 
     menu: (base) => ({
       ...base,
-      backgroundColor: isDark
-        ? theme.palette.background.paper
-        : "#fff",
+      backgroundColor: isDark ? theme.palette.background.paper : "#fff",
       color: isDark ? "#fff" : "#000",
-      border: `1px solid ${
-        isDark ? theme.palette.divider : "#ddd"
-      }`,
+      border: `1px solid ${isDark ? theme.palette.divider : "#ddd"}`,
+      // optional: make menu a bit wider than control so long names fit better
+      minWidth: 420,
     }),
 
     control: (base, state) => ({
@@ -25,9 +23,7 @@ export const getSelectStyles = (theme) => {
       color: isDark ? "#fff" : "#000",
       borderColor: state.isFocused ? theme.palette.primary.main : theme.palette.divider,
       boxShadow: state.isFocused ? `0 0 0 1px ${theme.palette.primary.main}` : "none",
-      "&:hover": {
-        borderColor: theme.palette.primary.main,
-      },
+      "&:hover": { borderColor: theme.palette.primary.main },
     }),
 
     container: (base) => ({
@@ -35,11 +31,17 @@ export const getSelectStyles = (theme) => {
       width: "100%",
     }),
 
+    // ✅ selected value: single line + ellipsis
     singleValue: (base) => ({
       ...base,
       color: isDark ? "#fff" : "#000",
+      maxWidth: "100%",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap",
     }),
 
+    // ✅ input also single-line
     input: (base) => ({
       ...base,
       color: isDark ? "#fff" : "#000",
@@ -48,8 +50,12 @@ export const getSelectStyles = (theme) => {
     placeholder: (base) => ({
       ...base,
       color: isDark ? "#aaa" : "#666",
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
     }),
 
+    // ✅ dropdown option: force one line + ellipsis (no wrap)
     option: (base, state) => ({
       ...base,
       backgroundColor: state.isFocused
@@ -60,17 +66,17 @@ export const getSelectStyles = (theme) => {
         ? theme.palette.background.paper
         : "#fff",
       color: isDark ? "#fff" : "#000",
-      "&:active": {
-        backgroundColor: isDark ? "#555" : "#ccc",
-      },
+      "&:active": { backgroundColor: isDark ? "#555" : "#ccc" },
+
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
     }),
 
     noOptionsMessage: (base) => ({
       ...base,
       color: isDark ? "#fff" : "#000",
-      backgroundColor: isDark
-        ? theme.palette.background.paper
-        : "#fff",
+      backgroundColor: isDark ? theme.palette.background.paper : "#fff",
     }),
   };
 };

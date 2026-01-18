@@ -43,7 +43,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     shopSearch: controller.shopSearch,
   });
 
-  const { productOptions, brandOptions, shopOptions } = useExpenseDialogOptions({
+  const { productOptions, brandOptions, shopOptions, variantOptions } = useExpenseDialogOptions({
     infiniteData: data.infiniteData,
     brandsForProduct: data.brandsForProduct,
     recentBrands: data.recentBrands,
@@ -54,17 +54,75 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
   // EDIT: once productOptions available, set selectedProduct to the real option object
   useEffect(() => {
     if (!open || !isEdit) return;
+
     const name = expenseToEdit?.productName;
     if (!name) return;
     if (!productOptions.length) return;
 
     const match =
-      productOptions.find((o) => o.name === name) ?? { label: name, value: name, name };
+      productOptions.find((o) => o.name === name || o.value === name) ??
+      {
+        label: name,
+        value: name,
+        name,
+
+        // ✅ IMPORTANT: "unknown" until we find the real product option
+        // If you set [] here, other effects will think product has no variants and clear selection.
+        variants: null,
+
+        measures: null,
+        brands: null,
+        measurementUnit: expenseToEdit?.measurementUnit ?? "",
+      };
 
     controller.setSelectedProduct(match);
-  }, [open, isEdit, expenseToEdit?.productName, productOptions, controller.setSelectedProduct]);
+  }, [
+    open,
+    isEdit,
+    expenseToEdit?._id,
+    expenseToEdit?.productName,
+    expenseToEdit?.measurementUnit,
+    productOptions,
+    controller.setSelectedProduct,
+  ]);
 
-  const loading = formLoading || data.isLoadingProducts || data.isLoadingBrands || data.isLoadingShops;
+  /**
+   * ✅ A) Keep expense.variant valid for the selected product.
+   *
+   * Rules:
+   * - If variants are unknown (null/undefined), do nothing (don't clear user/edit selection).
+   * - If product has 0 variants (empty array), clear any selected variant.
+   * - If product has variants, clear variant ONLY if it's not in the allowed list.
+   *
+   * This prevents "edit mode" from clearing variant before real product data arrives.
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    const variants = controller.selectedProduct?.variants;
+
+    // unknown / not loaded yet -> don't touch variant
+    if (!Array.isArray(variants)) return;
+
+    // product truly has no variants -> clear any selected one
+    if (variants.length === 0) {
+      setExpense((prev) => (prev.variant ? { ...prev, variant: "" } : prev));
+      return;
+    }
+
+    // product has variants -> ensure current value is valid
+    const allowed = new Set(variants.map((v) => String(v)));
+
+    setExpense((prev) => {
+      const current = prev?.variant ? String(prev.variant) : "";
+      if (!current) return prev;
+      if (!allowed.has(current)) return { ...prev, variant: "" };
+      return prev;
+    });
+  }, [open, controller.selectedProduct, setExpense]);
+
+  const loading =
+    formLoading || data.isLoadingProducts || data.isLoadingBrands || data.isLoadingShops;
 
   const dialogTitle = isDelete
     ? "Bekreft sletting"
@@ -95,7 +153,6 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
         return;
       }
 
-      // NOTE: if isFormValid is a function in your form hook, change to: if (!isFormValid()) return;
       if (!isFormValid) return;
 
       const saved = await handleSaveExpense();
@@ -121,6 +178,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       expense={expense}
       setExpense={setExpense}
       selectStyles={selectStyles}
+      variantOptions={variantOptions}
       productOptions={productOptions}
       brandOptions={brandOptions}
       shopOptions={shopOptions}

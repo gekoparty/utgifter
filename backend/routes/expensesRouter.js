@@ -5,16 +5,17 @@ import Expense from "../models/expenseSchema.js";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
-import Location from "../models/locationScema.js"; // Typo in filename preserved
+import Location from "../models/locationScema.js";
+import Variant from "../models/variantSchema.js";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
 
 const expensesRouter = express.Router();
 const TIME_ZONE = "Europe/Oslo";
 
-// --- Utility Functions ---
-
+// --- Utilities ---
 const formatDate = (date) => (date ? format(new Date(date), "dd MMMM yyyy") : "");
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Parallelized Reference Lookup
 const getReferenceIds = async (model, field, value) => {
@@ -22,27 +23,42 @@ const getReferenceIds = async (model, field, value) => {
   return model.find({ [field]: new RegExp(value, "i") }).distinct("_id");
 };
 
-// ✅ Accept either IDs OR names (future-proof for fast dialog)
+// Accept either IDs OR names (case-insensitive exact match on name)
 const resolveByIdOrName = async (Model, id, name) => {
   if (id && mongoose.Types.ObjectId.isValid(id)) return Model.findById(id);
   if (!name) return null;
-  return Model.findOne({ name });
+  const safe = escapeRegex(name);
+  return Model.findOne({ name: new RegExp(`^${safe}$`, "i") });
 };
 
-const normalizeVariant = (v) => {
+const normalizeVariantId = (v) => {
   const s = String(v ?? "").trim();
-  return s;
+  return mongoose.Types.ObjectId.isValid(s) ? s : "";
 };
 
-const validateVariantForProduct = (product, variant) => {
+const validateVariantForProduct = (product, variantId) => {
   const variants = Array.isArray(product?.variants) ? product.variants : [];
-  // If product has no variants defined -> allow empty
+
+  // product has no variants -> allow empty
   if (variants.length === 0) return true;
 
-  // If product has variants defined -> require one of them
-  if (!variant) return false;
+  // product has variants -> must provide one
+  if (!variantId) return false;
 
-  return variants.map(String).includes(String(variant));
+  return variants.map((id) => String(id)).includes(String(variantId));
+};
+
+// Build variantName from populated product variants
+const getVariantNameFromProduct = (expense) => {
+  const variantId = expense?.variant ? String(expense.variant) : "";
+  const productVariants = Array.isArray(expense?.productName?.variants)
+    ? expense.productName.variants
+    : [];
+
+  if (!variantId || productVariants.length === 0) return "";
+
+  const match = productVariants.find((v) => String(v?._id) === variantId);
+  return match?.name ? String(match.name) : "";
 };
 
 const filterByDate = (query, id, value) => {
@@ -52,7 +68,6 @@ const filterByDate = (query, id, value) => {
     if (isNaN(date.getTime())) return null;
 
     const zonedDate = toZonedTime(date, TIME_ZONE);
-
     if (type === "start") zonedDate.setHours(0, 0, 0, 0);
     else zonedDate.setHours(23, 59, 59, 999);
 
@@ -60,11 +75,8 @@ const filterByDate = (query, id, value) => {
   };
 
   if (Array.isArray(value)) {
-    const startStr = value[0];
-    const endStr = value[1];
-
-    const startDate = getDateBoundary(startStr, "start");
-    const endDate = getDateBoundary(endStr, "end");
+    const startDate = getDateBoundary(value[0], "start");
+    const endDate = getDateBoundary(value[1], "end");
 
     if (startDate && endDate) query.where(id).gte(startDate).lte(endDate);
     else if (startDate) query.where(id).gte(startDate);
@@ -99,19 +111,17 @@ const filterByRange = (query, defaultField, value) => {
 
   if (min === null && max === null) return;
 
-  const buildRangeQuery = (field) => {
-    const criteria = {};
-    if (min !== null) criteria.$gte = min;
-    if (max !== null) criteria.$lte = max;
-    return { [field]: criteria };
-  };
-
   if (targetFields.length === 1) {
     const field = targetFields[0];
     if (min !== null) query.where(field).gte(min);
     if (max !== null) query.where(field).lte(max);
   } else {
-    const orConditions = targetFields.map((field) => buildRangeQuery(field));
+    const orConditions = targetFields.map((field) => {
+      const criteria = {};
+      if (min !== null) criteria.$gte = min;
+      if (max !== null) criteria.$lte = max;
+      return { [field]: criteria };
+    });
     query.or(orConditions);
   }
 };
@@ -131,7 +141,7 @@ const applyFilters = async (query, filters) => {
     } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
       referenceFilters.push({ id, value });
     } else {
-      // ✅ includes "variant" (string) and any other plain fields
+      // includes "variant" (stores variantId string)
       regexFilters.push({ id, value });
     }
   }
@@ -191,7 +201,7 @@ const applyPagination = async (query, start, size) => {
 
 // --- Routes ---
 
-// GET Expenses
+// GET Expenses (paginated)
 expensesRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
@@ -202,22 +212,26 @@ expensesRouter.get("/", async (req, res) => {
     if (globalFilter) {
       const productIds = await getReferenceIds(Product, "name", globalFilter);
 
-      // ✅ include variant in global search too
+      // Optional: allow searching by variant name (store variant as id string)
       const regex = new RegExp(globalFilter, "i");
-      query.or([{ productName: { $in: productIds } }, { variant: regex }]);
+      const variantIds = await Variant.find({ name: { $regex: regex } }).distinct("_id");
+
+      query.or([
+        { productName: { $in: productIds } },
+        ...(variantIds.length ? [{ variant: { $in: variantIds.map(String) } }] : []),
+      ]);
     }
 
     applySorting(query, sorting ? JSON.parse(sorting) : []);
 
-    const { query: paginatedQuery, total, startIndex } = await applyPagination(
-      query,
-      start,
-      size
-    );
+    const { query: paginatedQuery, total, startIndex } = await applyPagination(query, start, size);
 
     const expenses = await paginatedQuery
-      // ✅ include variants so UI has it if needed
-      .populate("productName", "name measures measurementUnit variants")
+      .populate({
+        path: "productName",
+        select: "name measures measurementUnit variants",
+        populate: { path: "variants", select: "name" }, // ✅ gives variant names
+      })
       .populate("brandName", "name")
       .populate("shopName", "name")
       .populate("locationName", "name")
@@ -225,19 +239,25 @@ expensesRouter.get("/", async (req, res) => {
       .exec();
 
     res.json({
-      expenses: expenses.map((expense) => ({
-        ...expense,
-        productName: expense.productName?.name || "",
-        brandName: expense.brandName?.name || "",
-        shopName: expense.shopName?.name || "",
-        locationName: expense.locationName?.name || "",
-        measures: expense.productName?.measures || [],
-        measurementUnit: expense.productName?.measurementUnit || "",
-        variants: expense.productName?.variants || [],
-        variant: expense.variant || "",
-        purchaseDate: formatDate(expense.purchaseDate),
-        registeredDate: formatDate(expense.registeredDate),
-      })),
+      expenses: expenses.map((expense) => {
+        const variantId = expense.variant ? String(expense.variant) : "";
+        const variantName = getVariantNameFromProduct(expense);
+
+        return {
+          ...expense,
+          productName: expense.productName?.name || "",
+          brandName: expense.brandName?.name || "",
+          shopName: expense.shopName?.name || "",
+          locationName: expense.locationName?.name || "",
+          measures: expense.productName?.measures || [],
+          measurementUnit: expense.productName?.measurementUnit || "",
+          variants: expense.productName?.variants || [], // [{_id,name}] if you want it
+          variant: variantId, // stored id string
+          variantName, // ✅ NEW: display name for tables
+          purchaseDate: formatDate(expense.purchaseDate),
+          registeredDate: formatDate(expense.registeredDate),
+        };
+      }),
       meta: { totalRowCount: total, startIndex },
     });
   } catch (err) {
@@ -250,13 +270,20 @@ expensesRouter.get("/", async (req, res) => {
 expensesRouter.get("/:id", async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id)
-      .populate("productName", "name measures measurementUnit variants")
+      .populate({
+        path: "productName",
+        select: "name measures measurementUnit variants",
+        populate: { path: "variants", select: "name" },
+      })
       .populate("brandName", "name")
       .populate("shopName", "name")
       .populate("locationName", "name")
       .lean();
 
     if (!expense) return res.status(404).json({ error: "Expense not found" });
+
+    const variantId = expense.variant ? String(expense.variant) : "";
+    const variantName = getVariantNameFromProduct(expense);
 
     res.json({
       ...expense,
@@ -267,7 +294,8 @@ expensesRouter.get("/:id", async (req, res) => {
       measures: expense.productName?.measures || [],
       measurementUnit: expense.productName?.measurementUnit || "",
       variants: expense.productName?.variants || [],
-      variant: expense.variant || "",
+      variant: variantId,
+      variantName, // ✅ NEW
       purchaseDate: formatDate(expense.purchaseDate),
       registeredDate: formatDate(expense.registeredDate),
     });
@@ -277,25 +305,21 @@ expensesRouter.get("/:id", async (req, res) => {
   }
 });
 
-// POST Expense (supports IDs or names)
+// POST Expense
 expensesRouter.post("/", async (req, res) => {
   try {
     const {
-      // names (legacy)
       productName,
       brandName,
       shopName,
       locationName,
 
-      // ids (new)
       productId,
       brandId,
       shopId,
       locationId,
 
-      // ✅ new
-      variant,
-
+      variant, // variantId string
       quantity,
       ...expenseData
     } = req.body;
@@ -304,21 +328,16 @@ expensesRouter.post("/", async (req, res) => {
       resolveByIdOrName(Product, productId, productName),
       resolveByIdOrName(Brand, brandId, brandName),
       resolveByIdOrName(Shop, shopId, shopName),
-      locationName || locationId
-        ? resolveByIdOrName(Location, locationId, locationName)
-        : null,
+      locationName || locationId ? resolveByIdOrName(Location, locationId, locationName) : null,
     ]);
 
     if (!product || !brand || !shop) {
       return res.status(400).json({ message: "Invalid product, brand, or shop." });
     }
 
-    // ✅ validate variant belongs to product (if product has variants)
-    const normalizedVariant = normalizeVariant(variant);
-    if (!validateVariantForProduct(product, normalizedVariant)) {
-      return res.status(400).json({
-        message: "Invalid variant for selected product.",
-      });
+    const normalizedVariantId = normalizeVariantId(variant);
+    if (!validateVariantForProduct(product, normalizedVariantId)) {
+      return res.status(400).json({ message: "Invalid variant for selected product." });
     }
 
     const qty = parseInt(quantity, 10);
@@ -331,15 +350,13 @@ expensesRouter.post("/", async (req, res) => {
       brandName: brand._id,
       shopName: shop._id,
       locationName: location?._id,
-
-      // ✅ store chosen variant on expense
-      variant: normalizedVariant,
-
+      variant: normalizedVariantId, // store id string
       ...expenseData,
     }));
 
     const savedExpenses = await Expense.insertMany(expensesToInsert);
 
+    // Return minimal payload; client refetches table anyway
     const populatedExpenses = await Expense.find({
       _id: { $in: savedExpenses.map((exp) => exp._id) },
     })
@@ -366,25 +383,21 @@ expensesRouter.post("/", async (req, res) => {
   }
 });
 
-// PUT Expense (supports IDs or names)
+// PUT Expense
 expensesRouter.put("/:id", async (req, res) => {
   try {
     const {
-      // names (legacy)
       productName,
       brandName,
       shopName,
       locationName,
 
-      // ids (new)
       productId,
       brandId,
       shopId,
       locationId,
 
-      // ✅ new
-      variant,
-
+      variant, // optional
       ...updateData
     } = req.body;
 
@@ -392,38 +405,30 @@ expensesRouter.put("/:id", async (req, res) => {
       resolveByIdOrName(Product, productId, productName),
       resolveByIdOrName(Brand, brandId, brandName),
       resolveByIdOrName(Shop, shopId, shopName),
-      locationName || locationId
-        ? resolveByIdOrName(Location, locationId, locationName)
-        : null,
+      locationName || locationId ? resolveByIdOrName(Location, locationId, locationName) : null,
     ]);
 
     if (!product || !brand || !shop) {
       return res.status(400).json({ message: "Invalid product, brand, or shop." });
     }
 
-    // ✅ validate variant belongs to product (if product has variants)
-    const normalizedVariant = normalizeVariant(variant);
-    if (!validateVariantForProduct(product, normalizedVariant)) {
-      return res.status(400).json({
-        message: "Invalid variant for selected product.",
-      });
+    const update = {
+      productName: product._id,
+      brandName: brand._id,
+      shopName: shop._id,
+      locationName: location?._id,
+      ...updateData,
+    };
+
+    if (variant !== undefined) {
+      const normalizedVariantId = normalizeVariantId(variant);
+      if (!validateVariantForProduct(product, normalizedVariantId)) {
+        return res.status(400).json({ message: "Invalid variant for selected product." });
+      }
+      update.variant = normalizedVariantId;
     }
 
-    const updatedExpense = await Expense.findByIdAndUpdate(
-      req.params.id,
-      {
-        productName: product._id,
-        brandName: brand._id,
-        shopName: shop._id,
-        locationName: location?._id,
-
-        // ✅ store chosen variant on expense
-        variant: normalizedVariant,
-
-        ...updateData,
-      },
-      { new: true }
-    )
+    const updatedExpense = await Expense.findByIdAndUpdate(req.params.id, update, { new: true })
       .populate("productName", "name")
       .populate("brandName", "name")
       .populate("shopName", "name")
@@ -462,4 +467,3 @@ expensesRouter.delete("/:id", async (req, res) => {
 });
 
 export default expensesRouter;
-

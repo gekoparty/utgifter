@@ -15,12 +15,10 @@ export const useExpenseDialogOptions = ({
         value: p.name,
         name: p.name,
 
-        // ✅ NEW: variants (array of strings)
+        // ✅ variants (array of strings / reference ids)
         variants: Array.isArray(p.variants) ? p.variants : [],
 
-        // (optional, but often useful)
         category: p.category ?? "",
-
         measurementUnit: p.measurementUnit ?? "",
         measures: Array.isArray(p.measures) ? p.measures : [],
         brands: Array.isArray(p.brands) ? p.brands : [],
@@ -28,11 +26,20 @@ export const useExpenseDialogOptions = ({
     );
   }, [infiniteData]);
 
+  // ✅ NEW: options for the variant select (depends on selectedProduct)
+  const variantOptions = useMemo(() => {
+  const variants = selectedProduct?.variants;
+  if (!Array.isArray(variants)) return [];
+
+  return variants
+    .map((v) => ({ label: v?.name, value: String(v?._id) }))
+    .filter((o) => o.value && o.label);
+}, [selectedProduct]);
+
   const brandOptions = useMemo(() => {
-    const list =
-      selectedProduct?.brands?.length
-        ? (brandsForProduct ?? [])
-        : (recentBrands ?? []);
+    const list = selectedProduct?.brands?.length
+      ? (brandsForProduct ?? [])
+      : (recentBrands ?? []);
 
     const safe = Array.isArray(list) ? list : [];
 
@@ -52,5 +59,5 @@ export const useExpenseDialogOptions = ({
     }));
   }, [shops]);
 
-  return { productOptions, brandOptions, shopOptions };
+  return { productOptions, brandOptions, shopOptions, variantOptions };
 };

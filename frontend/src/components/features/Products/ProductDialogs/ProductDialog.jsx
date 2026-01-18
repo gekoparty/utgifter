@@ -9,14 +9,7 @@ import useProductDialog from "../UseProduct/useProductDialog";
 import useInfiniteBrands from "../../../../hooks/useInfiniteBrands";
 import { getSelectStyles } from "../../../../theme/selectStyles";
 
-const ProductDialog = ({
-  open,
-  mode,
-  productToEdit,
-  onClose,
-  onSuccess,
-  onError,
-}) => {
+const ProductDialog = ({ open, mode, productToEdit, onClose, onSuccess, onError }) => {
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
@@ -40,6 +33,10 @@ const ProductDialog = ({
   // Brand select UI state
   const [brandSearch, setBrandSearch] = useState("");
 
+  // ✅ Variants options (from /api/variants)
+  const [variantOptions, setVariantOptions] = useState([]);
+  const [isLoadingVariants, setIsLoadingVariants] = useState(false);
+
   // Infinite brands
   const {
     data,
@@ -54,12 +51,42 @@ const ProductDialog = ({
     return pages.flatMap((p) => p.brands ?? []);
   }, [data]);
 
-  // When opening, reset
-  useEffect(() => {
-    if (!open) return;
-    resetFormAndErrors();
-    setBrandSearch("");
-  }, [open, productToEdit?._id, resetFormAndErrors]);
+  // When opening, reset + load variants
+  // ProductDialog.jsx
+// ProductDialog.jsx - replace the "load variants for select" useEffect with this
+useEffect(() => {
+  if (!open) return;
+
+  resetFormAndErrors();
+  setBrandSearch("");
+
+  // ✅ EDIT: use the product's populated variants as options (names!)
+  if (mode === "EDIT") {
+    const opts =
+      Array.isArray(productToEdit?.variants)
+        ? productToEdit.variants
+            .map((v) => {
+              // populated doc: {_id,name}
+              if (v && typeof v === "object") {
+                return { label: String(v.name ?? ""), value: String(v._id ?? "") };
+              }
+              // if it's an id string, we can't show name without fetching - ignore
+              return null;
+            })
+            .filter(Boolean)
+        : [];
+
+    setVariantOptions(opts);
+    setIsLoadingVariants(false);
+    return;
+  }
+
+  // ✅ ADD: you can start with empty options (creatable will still work)
+  setVariantOptions([]);
+  setIsLoadingVariants(false);
+}, [open, mode, productToEdit?._id, resetFormAndErrors]);
+
+
 
   const handleBrandChange = useCallback(
     (selectedOptions) => {
@@ -94,36 +121,93 @@ const ProductDialog = ({
     [setProduct, resetValidationErrors, resetServerError]
   );
 
-  // ✅ Variants (array) — no search needed, just multi + create
-  const handleVariantsChange = useCallback(
-    (selectedOptions) => {
-      const arr = selectedOptions ?? [];
-      setProduct((prev) => ({
-        ...prev,
-        variants: arr.map((o) => o.value),
-      }));
+  // ✅ Variants: store ids in product.variants
+ const handleVariantsChange = useCallback(
+  (selectedOptions) => {
+    const arr = selectedOptions ?? [];
 
-      resetValidationErrors();
-      resetServerError();
-    },
-    [setProduct, resetValidationErrors, resetServerError]
-  );
+    const seen = new Set();
+    const uniq = [];
+    for (const o of arr) {
+      const v = String(o?.value ?? "").trim();
+      if (!v) continue;
+      const key = v.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      uniq.push(v);
+    }
 
+    setProduct((prev) => ({ ...prev, variants: uniq }));
+    resetValidationErrors();
+    resetServerError();
+  },
+  [setProduct, resetValidationErrors, resetServerError]
+);
+
+  // ✅ Create a variant in DB, then add its id to product.variants and options list
   const handleVariantCreate = useCallback(
-    (inputValue) => {
-      const trimmed = inputValue.trim();
-      if (!trimmed) return;
+  async (inputValue) => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+
+    resetValidationErrors();
+    resetServerError();
+
+    const alreadySelected = (product?.variants ?? []).some(
+      (v) => String(v).trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (alreadySelected) return;
+
+    // Optimistic add (works in ADD + EDIT)
+    setVariantOptions((prev) => {
+      const exists = prev.some((o) => String(o.value).toLowerCase() === trimmed.toLowerCase());
+      return exists ? prev : [...prev, { label: trimmed, value: trimmed }];
+    });
+
+    setProduct((prev) => ({
+      ...prev,
+      variants: [...(prev.variants ?? []), trimmed],
+    }));
+
+    // ✅ ADD MODE: no productId yet -> stop here
+    if (!product?._id) return;
+
+    try {
+      const res = await fetch("/api/variants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed, productId: product._id }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || "Could not create variant");
+
+      const v = json?.variant ?? json;
+      const id = String(v?._id ?? "");
+      const name = String(v?.name ?? trimmed);
+      if (!id) return;
+
+      // Replace "trimmed" placeholder with real id
+      setVariantOptions((prev) =>
+        prev.map((o) =>
+          String(o.value).toLowerCase() === trimmed.toLowerCase()
+            ? { label: name, value: id }
+            : o
+        )
+      );
 
       setProduct((prev) => ({
         ...prev,
-        variants: [...(prev.variants ?? []), trimmed],
+        variants: (prev.variants ?? []).map((x) =>
+          String(x).toLowerCase() === trimmed.toLowerCase() ? id : x
+        ),
       }));
-
-      resetValidationErrors();
-      resetServerError();
-    },
-    [setProduct, resetValidationErrors, resetServerError]
-  );
+    } catch {
+      // optional rollback
+    }
+  },
+  [product?._id, product?.variants, resetValidationErrors, resetServerError, setProduct]
+);
 
   const handleInputChange = useCallback((inputValue, meta) => {
     if (meta?.action === "input-change") setBrandSearch(inputValue);
@@ -167,16 +251,11 @@ const ProductDialog = ({
     }
   };
 
-  const dialogTitle = isDelete
-    ? "Bekreft sletting"
-    : isEdit
-    ? "Rediger produkt"
-    : "Nytt produkt";
-
+  const dialogTitle = isDelete ? "Bekreft sletting" : isEdit ? "Rediger produkt" : "Nytt produkt";
   const confirmLabel = isDelete ? "Slett" : "Lagre";
   const confirmColor = isDelete ? "error" : "primary";
 
-  const showBusy = loading || isLoadingBrands;
+  const showBusy = loading || isLoadingBrands || isLoadingVariants;
 
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
@@ -186,8 +265,9 @@ const ProductDialog = ({
             <ProductForm
               product={product}
               brandOptions={brandOptions}
+              variantOptions={variantOptions} // ✅ NEW
               selectStyles={selectStyles}
-              loading={loading || isLoadingBrands || isFetchingNextPage}
+              loading={loading || isLoadingBrands || isFetchingNextPage || isLoadingVariants}
               validationError={validationError}
               displayError={displayError}
               inputValue={brandSearch}
@@ -200,9 +280,8 @@ const ProductDialog = ({
                 resetValidationErrors();
                 resetServerError();
               }}
-              // ✅ variants props (correct names)
               onVariantsChange={handleVariantsChange}
-              onVariantCreate={handleVariantCreate}
+              onVariantCreate={handleVariantCreate} // ✅ creates variant doc
               onProductCategoryChange={(opt) => {
                 setProduct((p) => ({ ...p, category: opt?.value ?? "" }));
                 resetValidationErrors();
@@ -248,11 +327,7 @@ const ProductDialog = ({
               color={confirmColor}
               disabled={showBusy || (isDelete ? false : !isFormValid())}
             >
-              {showBusy ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                confirmLabel
-              )}
+              {showBusy ? <CircularProgress size={22} color="inherit" /> : confirmLabel}
             </Button>
           </Stack>
         </Stack>
