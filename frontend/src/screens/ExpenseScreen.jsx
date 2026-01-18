@@ -65,7 +65,13 @@ const INITIAL_SELECTED_EXPENSE = {
   purchased: false,
   registeredDate: null,
   purchaseDate: null,
-  variant: "", 
+
+  // stores variantId
+  variant: "",
+
+  // ✅ NEW: display name (from backend)
+  variantName: "",
+
   measurementUnit: "",
   pricePerUnit: 0,
 };
@@ -108,7 +114,13 @@ const transformExpenseData = (json) => {
       purchased: x.purchased,
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
+
+      // stores variantId
       variant: x.variant || "",
+
+      // ✅ NEW: backend-provided display name
+      variantName: x.variantName || "",
+
       measurementUnit: x.measurementUnit,
       pricePerUnit: x.pricePerUnit,
     })),
@@ -124,7 +136,6 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
   const [localDateRange, setLocalDateRange] = useState(filterValue);
   const [anchorEl, setAnchorEl] = useState(null);
 
-  // Keep local state in sync when opening popover
   const handleClick = useCallback(
     (event) => {
       setAnchorEl(event.currentTarget);
@@ -144,8 +155,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
   }, []);
 
   const applyFilter = useCallback(() => {
-    const valueToSet =
-      !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
+    const valueToSet = !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
     column.setFilterValue(valueToSet);
     handleClose();
   }, [column, handleClose, localDateRange]);
@@ -343,29 +353,20 @@ const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
 const ExpenseScreen = () => {
   const theme = useTheme();
 
-  // Table state
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
-  // Dialog state
   const [activeModal, setActiveModal] = useState(null); // "ADD" | "EDIT" | "DELETE" | null
   const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
 
-  // View state
   const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
+  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } =
+    useSnackBar();
 
-  // ✅ Stable params object: prevents queryKey churn + unnecessary fetches
   const fetchParams = useMemo(
     () => ({
       pageIndex: pagination.pageIndex,
@@ -374,13 +375,7 @@ const ExpenseScreen = () => {
       filters: columnFilters,
       globalFilter: deferredGlobalFilter,
     }),
-    [
-      pagination.pageIndex,
-      pagination.pageSize,
-      sorting,
-      columnFilters,
-      deferredGlobalFilter,
-    ]
+    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, deferredGlobalFilter]
   );
 
   const { data: expensesData, isError, isFetching, isLoading, refetch } = usePaginatedData({
@@ -394,17 +389,16 @@ const ExpenseScreen = () => {
   const tableData = expensesData?.expenses ?? [];
   const metaData = expensesData?.meta ?? {};
 
-  // ✅ Defer stats computation a bit if data changes rapidly
   const deferredExpenses = useDeferredValue(expensesData?.expenses);
 
-  // Stats (per current page)
+  // Stats (per current page) — group by VARIANT NAME (not id)
   const priceStatsByType = useMemo(() => {
     const list = deferredExpenses;
     if (!list?.length) return {};
 
     const grouped = list.reduce((acc, item) => {
       if (typeof item.pricePerUnit !== "number") return acc;
-      const k = item.variant || "Ukjent"; // ✅ was item.type
+      const k = item.variantName || "Ukjent";
       (acc[k] = acc[k] || []).push(item.pricePerUnit);
       return acc;
     }, {});
@@ -450,10 +444,8 @@ const ExpenseScreen = () => {
     [showSnackbar, handleDialogClose]
   );
 
-  // ✅ Memoize theme palette values used in cells (avoid reaching deep per cell)
   const palette = theme.palette;
 
-  // ✅ Stabilize price column separately to reduce columns churn
   const priceColumn = useMemo(() => {
     const resolvedAccessor =
       priceDisplayMode === "finalPrice"
@@ -471,7 +463,7 @@ const ExpenseScreen = () => {
       enableColumnFilter: true,
       Cell: ({ row }) => {
         const value = row.original[resolvedAccessor.key];
-        const type = row.original.variant || "Ukjent"; // ✅ rename variable if you want
+        const type = row.original.variantName || "Ukjent"; // ✅ use name
         const stats = priceStatsByType[type] || {};
 
         let bg = "transparent";
@@ -510,10 +502,11 @@ const ExpenseScreen = () => {
     []
   );
 
+  // ✅ show variantName in table (not variant id)
   const tableColumns = useMemo(
     () => [
       { accessorKey: "productName", header: "Produktnavn" },
-      { accessorKey: "variant", header: "Variant" },
+      { accessorKey: "variantName", header: "Variant" },
       priceColumn,
       { accessorKey: "shopName", header: "Butikk" },
       dateColumn,
@@ -523,9 +516,7 @@ const ExpenseScreen = () => {
 
   const canOpenEditOrDelete = Boolean(selectedExpense?._id);
 
-  // ✅ Preload dialog immediately after first interaction (optional, but smooth)
   useEffect(() => {
-    // No-op; kept here if you want to auto-preload after first mount:
     // loadExpenseDialog();
   }, []);
 
@@ -562,9 +553,9 @@ const ExpenseScreen = () => {
         meta={metaData}
         isError={isError}
         isLoading={isLoading}
-        isFetching={!activeModal && isFetching} // avoid progress bars behind modal
+        isFetching={!activeModal && isFetching}
         columnFilters={columnFilters}
-        globalFilter={globalFilter} // keep input responsive; fetch uses deferred
+        globalFilter={globalFilter}
         pagination={pagination}
         sorting={sorting}
         setColumnFilters={setColumnFilters}
@@ -581,7 +572,7 @@ const ExpenseScreen = () => {
         {dialogOpen && (
           <ExpenseDialog
             open
-            mode={activeModal} // "ADD" | "EDIT" | "DELETE"
+            mode={activeModal}
             expenseToEdit={activeModal === "ADD" ? null : selectedExpense}
             onClose={handleDialogClose}
             onSuccess={(payload) => {

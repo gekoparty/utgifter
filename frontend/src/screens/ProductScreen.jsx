@@ -62,18 +62,13 @@ const ProductScreen = () => {
     globalFilter,
   };
 
-  const {
-    data: productsData,
-    isError,
-    isFetching,
-    isLoading,
-    refetch,
-  } = usePaginatedData({
-    endpoint: "/api/products",
-    params: fetchParams,
-    urlBuilder: productUrlBuilder,
-    baseQueryKey: ["products", "paginated"],
-  });
+  const { data: productsData, isError, isFetching, isLoading, refetch } =
+    usePaginatedData({
+      endpoint: "/api/products",
+      params: fetchParams,
+      urlBuilder: productUrlBuilder,
+      baseQueryKey: ["products", "paginated"],
+    });
 
   const tableData = productsData?.products || [];
   const metaData = productsData?.meta || {};
@@ -97,13 +92,21 @@ const ProductScreen = () => {
     { accessorKey: "name", header: "Produkter" },
     { accessorKey: "brand", header: "Merker" },
 
-    // ✅ variants column (array -> string)
+    // ✅ variants column (supports populated objects or strings)
     {
       accessorKey: "variants",
       header: "Varianter",
       Cell: ({ cell }) => {
         const v = cell.getValue();
-        return Array.isArray(v) ? v.join(", ") : v || "N/A";
+        if (!Array.isArray(v) || v.length === 0) return "N/A";
+
+        // populated: [{_id,name}]
+        if (typeof v[0] === "object") {
+          return v.map((x) => x?.name).filter(Boolean).join(", ") || "N/A";
+        }
+
+        // fallback: ["id1","id2"] (should not happen once backend populates)
+        return v.join(", ");
       },
     },
 
@@ -206,4 +209,5 @@ const ProductScreen = () => {
 };
 
 export default ProductScreen;
+
 

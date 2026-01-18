@@ -1,7 +1,10 @@
+// routes/productsRouter.js
 import express from "express";
 import slugify from "slugify";
+import mongoose from "mongoose";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
+import Variant from "../models/variantSchema.js";
 
 const productsRouter = express.Router();
 
@@ -13,13 +16,13 @@ const createSlug = (name) =>
     remove: /[*+~.()'"!:@]/g,
   });
 
-// Helper function for brand resolution (used in both POST and PUT)
-const resolveBrandIds = async (brandNames) => {
-  if (!Array.isArray(brandNames)) {
-    throw new Error("Brands must be an array");
-  }
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  return Promise.all(
+// -------------------- Brand helpers --------------------
+const resolveBrandIds = async (brandNames) => {
+  if (!Array.isArray(brandNames)) throw new Error("Brands must be an array");
+
+  const ids = await Promise.all(
     brandNames.map(async (name) => {
       const trimmedName = String(name ?? "").trim();
       if (!trimmedName) return null;
@@ -34,27 +37,118 @@ const resolveBrandIds = async (brandNames) => {
 
       return brand._id;
     })
-  ).then((ids) => ids.filter(Boolean));
+  );
+
+  return ids.filter(Boolean);
 };
 
-// Normalize variants coming from client
-const normalizeVariants = (body) => {
-  // preferred: array
-  if (Array.isArray(body?.variants)) {
-    return body.variants.map((v) => String(v).trim()).filter(Boolean);
-  }
+// -------------------- Variant helpers (PRODUCT-SCOPED) --------------------
 
-  // legacy support: single string "Original" or "Original, Zero"
-  if (typeof body?.variant === "string") {
-    return body.variant
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
+/**
+ * Resolve variants for a given product.
+ * body.variants can include:
+ *  - ObjectId strings that MUST belong to this product
+ *  - names (strings) => upsert per (product, slug) and return their ids
+ *
+ * Ensures uniqueness within payload by case-insensitive name.
+ */
+const resolveVariantIds = async (productId, body) => {
+  const arr = Array.isArray(body?.variants) ? body.variants : [];
+  if (!arr.length) return [];
 
-  return [];
+  const pid = new mongoose.Types.ObjectId(productId);
+  const seenNames = new Set();
+
+  const ids = await Promise.all(
+    arr.map(async (raw) => {
+      const s = String(raw ?? "").trim();
+      if (!s) return null;
+
+      // If ObjectId string, ensure it belongs to THIS product
+      if (mongoose.Types.ObjectId.isValid(s)) {
+        const exists = await Variant.findOne({ _id: s, product: pid }).select("_id").lean();
+        return exists ? new mongoose.Types.ObjectId(s) : null;
+      }
+
+      // Otherwise treat as a name; de-dupe names in payload (case-insensitive)
+      const name = s;
+      const key = name.toLowerCase();
+      if (seenNames.has(key)) return null;
+      seenNames.add(key);
+
+      const slug = createSlug(name);
+
+      // ✅ Upsert per product (not shared across products)
+      const doc = await Variant.findOneAndUpdate(
+        { product: pid, slug },
+        { $setOnInsert: { product: pid, name, slug } },
+        { new: true, upsert: true }
+      )
+        .select("_id")
+        .lean();
+
+      return doc?._id ?? null;
+    })
+  );
+
+  // De-dupe ids just in case
+  const unique = [...new Set(ids.filter(Boolean).map(String))].map(
+    (x) => new mongoose.Types.ObjectId(x)
+  );
+
+  return unique;
 };
 
+/** Delete variant docs that were removed from this product */
+const deleteVariantsForProduct = async (productId, removedVariantIds) => {
+  const pid = new mongoose.Types.ObjectId(productId);
+
+  const ids = (removedVariantIds ?? [])
+    .map((x) => String(x))
+    .filter((x) => mongoose.Types.ObjectId.isValid(x))
+    .map((x) => new mongoose.Types.ObjectId(x));
+
+  if (!ids.length) return;
+
+  await Variant.deleteMany({ _id: { $in: ids }, product: pid });
+};
+
+/**
+ * Cleanup orphan variant ObjectIds in product.variants (safety net).
+ * If product references a variant id that doesn't exist (or doesn't belong to product),
+ * pull it from the product array.
+ */
+const cleanupProductVariantOrphans = async (productId) => {
+  const pid = new mongoose.Types.ObjectId(productId);
+
+  const product = await Product.findById(pid).select("variants").lean();
+  if (!product) return;
+
+  const ids = (product.variants ?? []).map(String).filter(mongoose.Types.ObjectId.isValid);
+  if (!ids.length) return;
+
+  const existing = await Variant.find({ _id: { $in: ids }, product: pid })
+    .select("_id")
+    .lean();
+
+  const existingSet = new Set(existing.map((v) => String(v._id)));
+  const orphanIds = ids.filter((id) => !existingSet.has(id));
+
+  if (orphanIds.length) {
+    await Product.updateOne(
+      { _id: pid },
+      {
+        $pull: {
+          variants: {
+            $in: orphanIds.map((x) => new mongoose.Types.ObjectId(x)),
+          },
+        },
+      }
+    );
+  }
+};
+
+// -------------------- Other helpers --------------------
 const normalizeMeasures = (measures) => {
   if (!Array.isArray(measures)) return [];
   return measures.map((m) => String(m).trim()).filter(Boolean);
@@ -67,7 +161,6 @@ productsRouter.get("/", async (req, res) => {
 
     let query = Product.find();
 
-    // Apply column filters
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
 
@@ -84,26 +177,30 @@ productsRouter.get("/", async (req, res) => {
           const brandIds = matchingBrands.map((b) => b._id);
           query = query.where("brands").in(brandIds.length > 0 ? brandIds : []);
         } else if (id === "type" || id === "category") {
-          // ✅ Backwards compatibility: old UI used "type" but it meant category
           query = query.where("category").regex(new RegExp(value, "i"));
         } else if (id === "variant" || id === "variants") {
-          // ✅ New filter: variants array
-          query = query.where("variants").elemMatch({ $regex: new RegExp(value, "i") });
+          // ✅ Filter products by variant NAME (product-scoped variants, but search is global)
+          const regex = new RegExp(value, "i");
+          const variantDocs = await Variant.find({ name: { $regex: regex } }).select("_id");
+          const variantIds = variantDocs.map((v) => v._id);
+          query = query.where("variants").in(variantIds.length ? variantIds : []);
         }
       }
     }
 
-    // Apply global filter
     if (globalFilter) {
       const regex = new RegExp(globalFilter, "i");
+
+      const variantDocs = await Variant.find({ name: { $regex: regex } }).select("_id");
+      const variantIds = variantDocs.map((v) => v._id);
+
       query = query.or([
         { name: regex },
         { category: regex },
-        { variants: { $elemMatch: { $regex: regex } } },
+        ...(variantIds.length ? [{ variants: { $in: variantIds } }] : []),
       ]);
     }
 
-    // Apply sorting
     if (sorting) {
       const parsedSorting = JSON.parse(sorting);
       if (parsedSorting.length > 0) {
@@ -115,7 +212,6 @@ productsRouter.get("/", async (req, res) => {
       }
     }
 
-    // Pagination
     let totalRowCount = 0;
     const startIndex = Number(start) || 0;
     const pageSize = Number(size) || 10;
@@ -125,15 +221,17 @@ productsRouter.get("/", async (req, res) => {
       query = query.skip(startIndex).limit(pageSize);
     }
 
-    // Execute query
     const products = await query
       .select("name brands category variants measures measurementUnit")
+      .populate("variants", "name")
       .lean();
 
-    // Collect unique brand IDs
+    // Optional safety: if you want to auto-clean orphans during GET, uncomment this.
+    // It adds extra DB ops though.
+    // await Promise.all(products.map((p) => cleanupProductVariantOrphans(p._id)));
+
     const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands ?? []))].filter(Boolean);
 
-    // Fetch brands
     const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
     const brandIdToNameMap = brandDocs.reduce(
       (acc, { _id, name }) => ({ ...acc, [_id.toString()]: name }),
@@ -161,12 +259,9 @@ productsRouter.get("/", async (req, res) => {
 // -------------------- POST --------------------
 productsRouter.post("/", async (req, res) => {
   try {
-    console.log("[POST] Incoming request body:", req.body);
-
     const { name, brands, measurementUnit, category, measures } = req.body;
 
     const normalizedCategory = String(category ?? "").trim();
-    const normalizedVariants = normalizeVariants(req.body);
     const normalizedMeasures = normalizeMeasures(measures);
 
     if (!name || !String(name).trim()) {
@@ -181,13 +276,7 @@ productsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "category is required" });
     }
 
-    // If variants are required in your frontend validation, enforce here too:
-    if (normalizedVariants.length === 0) {
-      return res.status(400).json({ message: "variants must be a non-empty array" });
-    }
-
     const brandIds = await resolveBrandIds(brands);
-
     const productSlug = createSlug(name);
 
     const existingProduct = await Product.findOne({
@@ -199,20 +288,31 @@ productsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "duplicate" });
     }
 
+    // 1) create product first WITHOUT variants (we need the productId)
     const product = new Product({
       name: String(name).trim(),
       measurementUnit,
       category: normalizedCategory,
-      variants: normalizedVariants,
       measures: normalizedMeasures,
       brands: brandIds,
       slug: productSlug,
+      variants: [],
     });
 
-    const savedProduct = await product.save();
+    const saved = await product.save();
 
-    const populatedProduct = await Product.findById(savedProduct._id)
+    // 2) create/upsert variants scoped to this product
+    const variantIds = await resolveVariantIds(saved._id, req.body);
+
+    // 3) attach variants
+    await Product.updateOne({ _id: saved._id }, { $set: { variants: variantIds } });
+
+    // 4) safety cleanup
+    await cleanupProductVariantOrphans(saved._id);
+
+    const populatedProduct = await Product.findById(saved._id)
       .populate("brands", "name _id")
+      .populate("variants", "name _id")
       .lean();
 
     res.status(201).json(populatedProduct);
@@ -228,11 +328,20 @@ productsRouter.post("/", async (req, res) => {
 // -------------------- DELETE --------------------
 productsRouter.delete("/:id", async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) {
-      return res.status(404).send({ error: "Product not found" });
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send({ error: "Invalid product id" });
     }
-    res.send(product);
+
+    const product = await Product.findById(id).select("_id variants").lean();
+    if (!product) return res.status(404).send({ error: "Product not found" });
+
+    // delete all variants owned by this product
+    await Variant.deleteMany({ product: product._id });
+
+    const deleted = await Product.findByIdAndDelete(product._id);
+    res.send(deleted);
   } catch (error) {
     console.error(error);
     res.status(500).send({ error: "Internal server error" });
@@ -243,12 +352,16 @@ productsRouter.delete("/:id", async (req, res) => {
 productsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("[PUT] Incoming request body:", req.body);
-
     const { name, brands, measurementUnit, category, measures } = req.body;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid product id" });
+    }
+
+    const existing = await Product.findById(id).select("variants").lean();
+    if (!existing) return res.status(404).json({ message: "Product not found" });
+
     const normalizedCategory = String(category ?? "").trim();
-    const normalizedVariants = normalizeVariants(req.body);
     const normalizedMeasures = normalizeMeasures(measures);
 
     if (!name || !String(name).trim()) {
@@ -256,7 +369,6 @@ productsRouter.put("/:id", async (req, res) => {
     }
 
     if (!Array.isArray(brands)) {
-      console.error("[PUT] Brands is not an array:", brands);
       return res.status(400).json({ message: "Brands must be an array" });
     }
 
@@ -264,13 +376,7 @@ productsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "category is required" });
     }
 
-    // If variants are required in your frontend validation, enforce here too:
-    if (normalizedVariants.length === 0) {
-      return res.status(400).json({ message: "variants must be a non-empty array" });
-    }
-
     const brandIds = await resolveBrandIds(brands);
-
     const productSlug = createSlug(name);
 
     const duplicateProduct = await Product.findOne({
@@ -280,15 +386,25 @@ productsRouter.put("/:id", async (req, res) => {
     });
 
     if (duplicateProduct) {
-      console.error("[PUT] Duplicate product found:", duplicateProduct);
       return res.status(400).json({ message: "duplicate" });
     }
+
+    // resolve next variant ids (creates/upserts per product)
+    const nextVariantIds = await resolveVariantIds(id, req.body);
+
+    // compute removed (prev -> next)
+    const prevIds = (existing.variants ?? []).map(String);
+    const nextIds = nextVariantIds.map((x) => String(x));
+    const removedIds = prevIds.filter((x) => !nextIds.includes(x));
+
+    // delete removed variant docs for this product
+    await deleteVariantsForProduct(id, removedIds);
 
     const updatedProduct = {
       name: String(name).trim(),
       measurementUnit,
       category: normalizedCategory,
-      variants: normalizedVariants,
+      variants: nextVariantIds,
       measures: normalizedMeasures,
       brands: brandIds,
       slug: productSlug,
@@ -299,13 +415,14 @@ productsRouter.put("/:id", async (req, res) => {
       runValidators: true,
     });
 
-    if (!result) {
-      console.error("[PUT] Product not found for id:", id);
-      return res.status(404).json({ message: "Product not found" });
-    }
+    if (!result) return res.status(404).json({ message: "Product not found" });
+
+    // cleanup orphan ids (safety net)
+    await cleanupProductVariantOrphans(id);
 
     const populatedProduct = await Product.findById(result._id)
       .populate("brands", "name _id")
+      .populate("variants", "name _id")
       .lean();
 
     res.status(200).json(populatedProduct);

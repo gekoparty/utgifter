@@ -31,13 +31,18 @@ const normalizeBrandNames = (p) => {
 };
 
 const normalizeVariants = (p) => {
-  if (Array.isArray(p?.variants)) {
-    return p.variants.map((v) => String(v).trim()).filter(Boolean);
-  }
-  // If you truly migrated away from old `type`, we do NOT fall back to it.
-  return [];
-};
+  if (!Array.isArray(p?.variants)) return [];
 
+  // populated: [{_id,name}]
+  if (p.variants.length > 0 && typeof p.variants[0] === "object") {
+    return p.variants
+      .map((v) => String(v?._id ?? "").trim())
+      .filter(Boolean);
+  }
+
+  // already ids: ["..."]
+  return p.variants.map((v) => String(v).trim()).filter(Boolean);
+};
 const buildFormStateFromInitial = (initialProduct) => {
   if (!initialProduct?._id) return { ...INITIAL_PRODUCT_STATE };
 
@@ -216,21 +221,20 @@ const useProductDialog = (initialProduct = null) => {
 
   const displayError = state.error?.products;
   const validationError = state.validationErrors?.products;
+const isFormValid = useCallback(() => {
+  return (
+    product?.name?.trim().length > 0 &&
+    (product?.brandNames?.length ?? 0) > 0 &&
+    product?.measurementUnit?.trim().length > 0 &&
+    product?.category?.trim().length > 0 &&
+    !validationError?.name &&
+    !validationError?.brands &&
+    !validationError?.measurementUnit &&
+    !validationError?.category &&
+    !validationError?.variants
+  );
+}, [product, validationError]);
 
-  const isFormValid = useCallback(() => {
-    return (
-      product?.name?.trim().length > 0 &&
-      (product?.brandNames?.length ?? 0) > 0 &&
-      (product?.variants?.length ?? 0) > 0 &&
-      product?.measurementUnit?.trim().length > 0 &&
-      product?.category?.trim().length > 0 &&
-      !validationError?.name &&
-      !validationError?.brands &&
-      !validationError?.variants &&
-      !validationError?.measurementUnit &&
-      !validationError?.category
-    );
-  }, [product, validationError]);
 
   const loading = httpLoading || saveProductMutation.isPending || deleteProductMutation.isPending;
 

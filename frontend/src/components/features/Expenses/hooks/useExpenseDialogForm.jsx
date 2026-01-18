@@ -29,6 +29,7 @@ const INITIAL_EXPENSE_STATE = {
   registeredDate: null,
   type: "",
   pricePerUnit: 0,
+  variant: "",
 };
 
 const expenseReducer = (state, action) => {
