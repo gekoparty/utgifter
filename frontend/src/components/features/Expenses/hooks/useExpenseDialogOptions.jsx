@@ -15,7 +15,7 @@ export const useExpenseDialogOptions = ({
         value: p.name,
         name: p.name,
 
-        // ✅ variants (array of strings / reference ids)
+        // variants is array (often ids/refs)
         variants: Array.isArray(p.variants) ? p.variants : [],
 
         category: p.category ?? "",
@@ -26,23 +26,24 @@ export const useExpenseDialogOptions = ({
     );
   }, [infiniteData]);
 
-  // ✅ NEW: options for the variant select (depends on selectedProduct)
   const variantOptions = useMemo(() => {
-  const variants = selectedProduct?.variants;
-  if (!Array.isArray(variants)) return [];
+    const variants = selectedProduct?.variants;
+    if (!Array.isArray(variants)) return [];
 
-  return variants
-    .map((v) => ({ label: v?.name, value: String(v?._id) }))
-    .filter((o) => o.value && o.label);
-}, [selectedProduct]);
+    return variants
+      .map((v) => ({ label: v?.name, value: String(v?._id) }))
+      .filter((o) => o.value && o.label);
+  }, [selectedProduct]);
 
+  /**
+   * ✅ IMPORTANT:
+   * - If a product is selected (ADD or EDIT), show ONLY brands for that product.
+   * - If no product selected, show recent brands (optional UX).
+   */
   const brandOptions = useMemo(() => {
-    const list = selectedProduct?.brands?.length
-      ? (brandsForProduct ?? [])
-      : (recentBrands ?? []);
+    const list = selectedProduct ? brandsForProduct : recentBrands;
 
     const safe = Array.isArray(list) ? list : [];
-
     return safe.map((b) => ({
       label: b.name,
       value: b._id,
