@@ -48,7 +48,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
         const unit = opt.measurementUnit || "unit";
         const volume = opt.measures?.[0] ?? 0;
 
-        // ✅ Reset variant when product changes.
+        // Reset variant when product changes.
         // If product has exactly 1 variant, auto-select it.
         const variants = Array.isArray(opt.variants) ? opt.variants : [];
         const autoVariant = variants.length === 1 ? String(variants[0]) : "";
@@ -71,7 +71,6 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
     [handleFieldChange]
   );
 
-  // ✅ NEW: choose variant for this expense (must be in selectedProduct.variants on UI side)
   const handleVariantSelect = useCallback(
     (opt) => {
       handleFieldChange("variant", opt?.value ? String(opt.value) : "");
@@ -146,7 +145,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
     handleShopInputChange,
 
     handleBrandSelect,
-    handleVariantSelect, // ✅ export to UI
+    handleVariantSelect,
     handleShopSelect,
     handleDateChange,
     handleVolumeChange,

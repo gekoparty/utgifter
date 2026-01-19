@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
@@ -51,12 +51,35 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     shops: data.shops,
   });
 
-  // EDIT: once productOptions available, set selectedProduct to the real option object
+  /**
+   * ✅ FIX: Only initialize selectedProduct ONCE per open/edit expense.
+   * Otherwise it will overwrite the user's selection whenever productOptions changes.
+   */
+  const didInitSelectedProductRef = useRef(false);
+  const lastEditIdRef = useRef(null);
+
+  // Reset init flag when dialog closes OR when editing a different expense id
+  useEffect(() => {
+    if (!open) {
+      didInitSelectedProductRef.current = false;
+      lastEditIdRef.current = null;
+      return;
+    }
+    if (isEdit && expenseToEdit?._id && lastEditIdRef.current !== expenseToEdit._id) {
+      didInitSelectedProductRef.current = false;
+      lastEditIdRef.current = expenseToEdit._id;
+    }
+  }, [open, isEdit, expenseToEdit?._id]);
+
+  // EDIT: once productOptions available, set selectedProduct to the real option object (one-time init)
   useEffect(() => {
     if (!open || !isEdit) return;
+    if (didInitSelectedProductRef.current) return;
 
     const name = expenseToEdit?.productName;
     if (!name) return;
+
+    // Wait for options (if we don't have any yet, keep waiting)
     if (!productOptions.length) return;
 
     const match =
@@ -66,20 +89,21 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
         value: name,
         name,
 
-        // ✅ IMPORTANT: "unknown" until we find the real product option
-        // If you set [] here, other effects will think product has no variants and clear selection.
+        // unknown until real option arrives
         variants: null,
-
         measures: null,
         brands: null,
+
         measurementUnit: expenseToEdit?.measurementUnit ?? "",
       };
 
     controller.setSelectedProduct(match);
+
+    // ✅ mark as initialized so we don't overwrite user changes later
+    didInitSelectedProductRef.current = true;
   }, [
     open,
     isEdit,
-    expenseToEdit?._id,
     expenseToEdit?.productName,
     expenseToEdit?.measurementUnit,
     productOptions,
@@ -93,8 +117,6 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
    * - If variants are unknown (null/undefined), do nothing (don't clear user/edit selection).
    * - If product has 0 variants (empty array), clear any selected variant.
    * - If product has variants, clear variant ONLY if it's not in the allowed list.
-   *
-   * This prevents "edit mode" from clearing variant before real product data arrives.
    */
   useEffect(() => {
     if (!open) return;
