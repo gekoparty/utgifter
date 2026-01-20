@@ -6,7 +6,7 @@ export const measurementUnitOptions = [
 ];
 
 export const predefinedTypes = [
-    "Matvare", "Medisin","Transport", "Elektronikk", "Hage", "Hobby", "Lege/Tannlege", "Katt", "Soverom",
+    "Matvare", "Baderom","Medisin","Transport", "Elektronikk", "Hage", "Rengjøring", "Hobby", "Lege/Tannlege", "Katt", "Soverom",
     "Alkohol", "Bil", "Båt/Fiske", "Hus", "Gave", "Hage", "Kjøkken",
     "Gambling", "Datautstyr", "Pakke", "Ferje", "Hår/Hud", "Brev/Pakke","Fisk",
     "Reise", "Ferdigmat", "Jernvare", "Elektronikk", "Bil", "Artikler",

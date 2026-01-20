@@ -1,3 +1,4 @@
+// src/components/.../UseProduct/useProductDialog.js
 import { useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
@@ -43,6 +44,22 @@ const normalizeVariants = (p) => {
   // already ids: ["..."]
   return p.variants.map((v) => String(v).trim()).filter(Boolean);
 };
+
+// ✅ used to de-dupe variants before formatting/sending
+const uniqueCaseInsensitive = (arr) => {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr ?? []) {
+    const v = String(x ?? "").trim();
+    if (!v) continue;
+    const k = v.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(v);
+  }
+  return out;
+};
+
 const buildFormStateFromInitial = (initialProduct) => {
   if (!initialProduct?._id) return { ...INITIAL_PRODUCT_STATE };
 
@@ -52,7 +69,7 @@ const buildFormStateFromInitial = (initialProduct) => {
     brandNames: normalizeBrandNames(initialProduct),
     measures: initialProduct.measures ?? [],
     measurementUnit: initialProduct.measurementUnit ?? "",
-    category: initialProduct.category ?? "", // ✅ remove fallback to old type
+    category: initialProduct.category ?? "",
     variants: normalizeVariants(initialProduct),
   };
 };
@@ -73,7 +90,7 @@ const useProductDialog = (initialProduct = null) => {
   // ✅ IMPORTANT: only sync when id changes, not when object identity changes
   useEffect(() => {
     setProduct(buildFormStateFromInitial(initialProduct));
-  }, [productId]);
+  }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetServerError = useCallback(() => {
     dispatch({ type: "RESET_ERROR", resource: "products" });
@@ -150,6 +167,7 @@ const useProductDialog = (initialProduct = null) => {
     try {
       const formatted = {
         name: formatComponentFields(product.name, "product", "name"),
+
         brands: (product.brandNames ?? [])
           .map((b) => formatComponentFields(b, "product", "brands"))
           .filter(Boolean),
@@ -158,7 +176,10 @@ const useProductDialog = (initialProduct = null) => {
 
         category: formatComponentFields(product.category ?? "", "product", "category"),
 
-        variants: (product.variants ?? [])
+        // ✅ OPTION A:
+        // - de-dupe first (case-insensitive)
+        // - then format (formatComponentFields must NOT mutate ObjectIds for variants)
+        variants: uniqueCaseInsensitive(product.variants ?? [])
           .map((v) => formatComponentFields(v, "product", "variants"))
           .filter(Boolean),
 
@@ -221,20 +242,20 @@ const useProductDialog = (initialProduct = null) => {
 
   const displayError = state.error?.products;
   const validationError = state.validationErrors?.products;
-const isFormValid = useCallback(() => {
-  return (
-    product?.name?.trim().length > 0 &&
-    (product?.brandNames?.length ?? 0) > 0 &&
-    product?.measurementUnit?.trim().length > 0 &&
-    product?.category?.trim().length > 0 &&
-    !validationError?.name &&
-    !validationError?.brands &&
-    !validationError?.measurementUnit &&
-    !validationError?.category &&
-    !validationError?.variants
-  );
-}, [product, validationError]);
 
+  const isFormValid = useCallback(() => {
+    return (
+      product?.name?.trim().length > 0 &&
+      (product?.brandNames?.length ?? 0) > 0 &&
+      product?.measurementUnit?.trim().length > 0 &&
+      product?.category?.trim().length > 0 &&
+      !validationError?.name &&
+      !validationError?.brands &&
+      !validationError?.measurementUnit &&
+      !validationError?.category &&
+      !validationError?.variants
+    );
+  }, [product, validationError]);
 
   const loading = httpLoading || saveProductMutation.isPending || deleteProductMutation.isPending;
 

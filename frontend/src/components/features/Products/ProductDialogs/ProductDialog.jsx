@@ -144,69 +144,31 @@ useEffect(() => {
   [setProduct, resetValidationErrors, resetServerError]
 );
 
-  // ✅ Create a variant in DB, then add its id to product.variants and options list
-  const handleVariantCreate = useCallback(
-  async (inputValue) => {
+ const handleVariantCreate = useCallback(
+  (inputValue) => {
     const trimmed = inputValue.trim();
     if (!trimmed) return;
 
     resetValidationErrors();
     resetServerError();
 
+    // prevent duplicates (case-insensitive)
     const alreadySelected = (product?.variants ?? []).some(
       (v) => String(v).trim().toLowerCase() === trimmed.toLowerCase()
     );
     if (alreadySelected) return;
 
-    // Optimistic add (works in ADD + EDIT)
     setVariantOptions((prev) => {
-      const exists = prev.some((o) => String(o.value).toLowerCase() === trimmed.toLowerCase());
-      return exists ? prev : [...prev, { label: trimmed, value: trimmed }];
+      const exists = prev.some((o) => String(o.value).trim().toLowerCase() === trimmed.toLowerCase());
+      return exists ? prev : [...prev, { label: trimmed, value: trimmed }]; // <-- placeholder name
     });
 
     setProduct((prev) => ({
       ...prev,
-      variants: [...(prev.variants ?? []), trimmed],
+      variants: [...(prev.variants ?? []), trimmed], // <-- store name until submit
     }));
-
-    // ✅ ADD MODE: no productId yet -> stop here
-    if (!product?._id) return;
-
-    try {
-      const res = await fetch("/api/variants", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed, productId: product._id }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.message || "Could not create variant");
-
-      const v = json?.variant ?? json;
-      const id = String(v?._id ?? "");
-      const name = String(v?.name ?? trimmed);
-      if (!id) return;
-
-      // Replace "trimmed" placeholder with real id
-      setVariantOptions((prev) =>
-        prev.map((o) =>
-          String(o.value).toLowerCase() === trimmed.toLowerCase()
-            ? { label: name, value: id }
-            : o
-        )
-      );
-
-      setProduct((prev) => ({
-        ...prev,
-        variants: (prev.variants ?? []).map((x) =>
-          String(x).toLowerCase() === trimmed.toLowerCase() ? id : x
-        ),
-      }));
-    } catch {
-      // optional rollback
-    }
   },
-  [product?._id, product?.variants, resetValidationErrors, resetServerError, setProduct]
+  [product?.variants, resetValidationErrors, resetServerError, setProduct]
 );
 
   const handleInputChange = useCallback((inputValue, meta) => {

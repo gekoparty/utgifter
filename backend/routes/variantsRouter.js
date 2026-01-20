@@ -14,6 +14,9 @@ const createSlug = (name) =>
     remove: /[*+~.()'"!:@]/g,
   });
 
+// ✅ Strict ObjectId string check (24 hex only)
+const isHexObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
+
 // GET variants (must be scoped by product)
 variantsRouter.get("/", async (req, res) => {
   try {
@@ -52,7 +55,7 @@ variantsRouter.get("/by-ids", async (req, res) => {
     const ids = idsParam
       .split(",")
       .map((s) => s.trim())
-      .filter((s) => mongoose.Types.ObjectId.isValid(s))
+      .filter((s) => isHexObjectId(s))
       .map((s) => new mongoose.Types.ObjectId(s));
 
     if (!ids.length) return res.json({ variants: [] });
@@ -94,10 +97,7 @@ variantsRouter.post("/", async (req, res) => {
     ).select("_id name product");
 
     // ensure product references it (idempotent)
-    await Product.updateOne(
-      { _id: product._id },
-      { $addToSet: { variants: variant._id } }
-    );
+    await Product.updateOne({ _id: product._id }, { $addToSet: { variants: variant._id } });
 
     res.status(201).json({ variant });
   } catch (err) {
@@ -168,10 +168,7 @@ variantsRouter.delete("/:id", async (req, res) => {
     await Variant.deleteOne({ _id: variant._id });
 
     // ✅ remove from product array to avoid orphan ids
-    await Product.updateOne(
-      { _id: variant.product },
-      { $pull: { variants: variant._id } }
-    );
+    await Product.updateOne({ _id: variant.product }, { $pull: { variants: variant._id } });
 
     res.status(200).json({ ok: true });
   } catch (err) {

@@ -18,6 +18,10 @@ const createSlug = (name) =>
 
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// ✅ IMPORTANT: Strict ObjectId string check (24 hex only)
+// fixes cases like "Lando Norris" (12 chars) being treated as an ObjectId by mongoose.isValid
+const isHexObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
+
 // -------------------- Brand helpers --------------------
 const resolveBrandIds = async (brandNames) => {
   if (!Array.isArray(brandNames)) throw new Error("Brands must be an array");
@@ -47,7 +51,7 @@ const resolveBrandIds = async (brandNames) => {
 /**
  * Resolve variants for a given product.
  * body.variants can include:
- *  - ObjectId strings that MUST belong to this product
+ *  - ObjectId strings (24-hex) that MUST belong to this product
  *  - names (strings) => upsert per (product, slug) and return their ids
  *
  * Ensures uniqueness within payload by case-insensitive name.
@@ -64,8 +68,8 @@ const resolveVariantIds = async (productId, body) => {
       const s = String(raw ?? "").trim();
       if (!s) return null;
 
-      // If ObjectId string, ensure it belongs to THIS product
-      if (mongoose.Types.ObjectId.isValid(s)) {
+      // ✅ If ObjectId string (STRICT 24-hex), ensure it belongs to THIS product
+      if (isHexObjectId(s)) {
         const exists = await Variant.findOne({ _id: s, product: pid }).select("_id").lean();
         return exists ? new mongoose.Types.ObjectId(s) : null;
       }
@@ -105,7 +109,7 @@ const deleteVariantsForProduct = async (productId, removedVariantIds) => {
 
   const ids = (removedVariantIds ?? [])
     .map((x) => String(x))
-    .filter((x) => mongoose.Types.ObjectId.isValid(x))
+    .filter((x) => isHexObjectId(x))
     .map((x) => new mongoose.Types.ObjectId(x));
 
   if (!ids.length) return;
@@ -124,7 +128,7 @@ const cleanupProductVariantOrphans = async (productId) => {
   const product = await Product.findById(pid).select("variants").lean();
   if (!product) return;
 
-  const ids = (product.variants ?? []).map(String).filter(mongoose.Types.ObjectId.isValid);
+  const ids = (product.variants ?? []).map(String).filter(isHexObjectId);
   if (!ids.length) return;
 
   const existing = await Variant.find({ _id: { $in: ids }, product: pid })
@@ -226,10 +230,6 @@ productsRouter.get("/", async (req, res) => {
       .populate("variants", "name")
       .lean();
 
-    // Optional safety: if you want to auto-clean orphans during GET, uncomment this.
-    // It adds extra DB ops though.
-    // await Promise.all(products.map((p) => cleanupProductVariantOrphans(p._id)));
-
     const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands ?? []))].filter(Boolean);
 
     const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
@@ -301,7 +301,7 @@ productsRouter.post("/", async (req, res) => {
 
     const saved = await product.save();
 
-    // 2) create/upsert variants scoped to this product
+    // 2) create/upsert variants scoped to this product (ids or names)
     const variantIds = await resolveVariantIds(saved._id, req.body);
 
     // 3) attach variants
