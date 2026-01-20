@@ -11,6 +11,8 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
+import VariantsCell from "./CellUtils/VariantsCell"
+import ChipsOverflow from "./CellUtils/ChipsOverflow"
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
@@ -93,25 +95,31 @@ const ProductScreen = () => {
     { accessorKey: "brand", header: "Merker" },
 
     // ✅ variants column (supports populated objects or strings)
-    {
-      accessorKey: "variants",
-      header: "Varianter",
-      Cell: ({ cell }) => {
-        const v = cell.getValue();
-        if (!Array.isArray(v) || v.length === 0) return "N/A";
-
-        // populated: [{_id,name}]
-        if (typeof v[0] === "object") {
-          return v.map((x) => x?.name).filter(Boolean).join(", ") || "N/A";
-        }
-
-        // fallback: ["id1","id2"] (should not happen once backend populates)
-        return v.join(", ");
-      },
-    },
-
+ {
+  accessorKey: "variants",
+  header: "Varianter",
+  Cell: ({ cell }) => (
+    <ChipsOverflow
+      items={Array.isArray(cell.getValue()) ? cell.getValue() : []}
+      maxVisible={3}
+      popoverTitle="Varianter"
+      tone="primary"   // ✅ looks nicer on dark theme
+      getLabel={(x) => (typeof x === "object" ? x?.name : String(x))}
+      getKey={(x) => (typeof x === "object" ? x?._id : String(x))}
+      // Optional: click chip could also set a table filter if you want:
+      // onChipClick={(variant) => setColumnFilters([{ id: "variants", value: variant.name }])}
+    />
+  ),
+},
     { accessorKey: "category", header: "Kategori" },
-
+{
+    accessorKey: "expenseCount",
+    header: "Brukt i utgifter",
+    Cell: ({ cell }) => {
+      const n = cell.getValue();
+      return Number.isFinite(Number(n)) ? Number(n) : 0;
+    },
+  },
     {
       accessorKey: "measures",
       header: "Mål",

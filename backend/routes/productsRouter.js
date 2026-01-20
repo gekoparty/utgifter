@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Variant from "../models/variantSchema.js";
+import Expense from "../models/expenseSchema.js";
 
 const productsRouter = express.Router();
 
@@ -230,6 +231,19 @@ productsRouter.get("/", async (req, res) => {
       .populate("variants", "name")
       .lean();
 
+      // ✅ NEW: attach expenseCount for the products on this page
+    const productIds = products.map((p) => p._id).filter(Boolean);
+    let countMap = new Map();
+
+    if (productIds.length) {
+      const counts = await Expense.aggregate([
+        { $match: { productName: { $in: productIds } } },
+        { $group: { _id: "$productName", count: { $sum: 1 } } },
+      ]);
+
+      countMap = new Map(counts.map((x) => [String(x._id), Number(x.count || 0)]));
+    }
+
     const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands ?? []))].filter(Boolean);
 
     const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
@@ -246,6 +260,7 @@ productsRouter.get("/", async (req, res) => {
       return {
         ...product,
         brand: resolvedBrands.join(", "),
+        expenseCount: countMap.get(String(product._id)) ?? 0, // ✅ NEW
       };
     });
 
@@ -333,6 +348,15 @@ productsRouter.delete("/:id", async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).send({ error: "Invalid product id" });
     }
+
+    // ✅ NEW: safeguard — don't allow delete if product is used by any expense
+    const inUse = await Expense.exists({ productName: new mongoose.Types.ObjectId(id) });
+    if (inUse) {
+      return res.status(400).json({
+        message: "Kan ikke slette produktet fordi det brukes i minst én utgift.",
+      });
+    }
+
 
     const product = await Product.findById(id).select("_id variants").lean();
     if (!product) return res.status(404).send({ error: "Product not found" });
