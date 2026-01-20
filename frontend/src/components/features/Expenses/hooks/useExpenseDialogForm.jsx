@@ -77,13 +77,19 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
     setValidationErrors({});
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
 
-    if (isEdit && expenseToEdit?._id) {
-      dispatchExpense({
-        type: "INIT",
-        payload: computeDerivedExpense({ ...INITIAL_EXPENSE_STATE, ...expenseToEdit }),
-      });
-      return;
-    }
+   if (isEdit && expenseToEdit?._id) {
+  const init = {
+    ...INITIAL_EXPENSE_STATE,
+    ...expenseToEdit,
+    variant: normalizeVariantValue(expenseToEdit?.variant),
+  };
+
+  dispatchExpense({
+    type: "INIT",
+    payload: computeDerivedExpense(init),
+  });
+  return;
+}
 
     if (!isDelete) {
       dispatchExpense({
@@ -111,6 +117,13 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
     setValidationErrors({});
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
   }, [storeDispatch]);
+
+  const normalizeVariantValue = (v) => {
+  if (!v) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "object") return String(v._id ?? "").trim(); // populated doc
+  return "";
+};
 
   const saveMutation = useMutation({
     mutationFn: async (payload) => {

@@ -12,7 +12,14 @@ import { useExpenseDialogData } from "../../hooks/useExpenseDialogData";
 import { useExpenseDialogOptions } from "../../hooks/useExpenseDialogOptions";
 import { useExpenseDialogController } from "../../hooks/useExpenseDialogController";
 
-const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError }) => {
+const ExpenseDialog = ({
+  open,
+  mode,
+  expenseToEdit,
+  onClose,
+  onSuccess,
+  onError,
+}) => {
   const theme = useTheme();
   const selectStyles = getSelectStyles(theme);
 
@@ -34,7 +41,12 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     isFormValid,
   } = form;
 
-  const controller = useExpenseDialogController({ open, mode, expense, setExpense });
+  const controller = useExpenseDialogController({
+    open,
+    mode,
+    expense,
+    setExpense,
+  });
 
   const data = useExpenseDialogData({
     open,
@@ -43,13 +55,14 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     shopSearch: controller.shopSearch,
   });
 
-  const { productOptions, brandOptions, shopOptions, variantOptions } = useExpenseDialogOptions({
-    infiniteData: data.infiniteData,
-    brandsForProduct: data.brandsForProduct,
-    recentBrands: data.recentBrands,
-    selectedProduct: controller.selectedProduct,
-    shops: data.shops,
-  });
+  const { productOptions, brandOptions, shopOptions, variantOptions } =
+    useExpenseDialogOptions({
+      infiniteData: data.infiniteData,
+      brandsForProduct: data.brandsForProduct,
+      recentBrands: data.recentBrands,
+      selectedProduct: controller.selectedProduct,
+      shops: data.shops,
+    });
 
   /**
    * ✅ FIX: Only initialize selectedProduct ONCE per open/edit expense.
@@ -65,7 +78,11 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       lastEditIdRef.current = null;
       return;
     }
-    if (isEdit && expenseToEdit?._id && lastEditIdRef.current !== expenseToEdit._id) {
+    if (
+      isEdit &&
+      expenseToEdit?._id &&
+      lastEditIdRef.current !== expenseToEdit._id
+    ) {
       didInitSelectedProductRef.current = false;
       lastEditIdRef.current = expenseToEdit._id;
     }
@@ -82,20 +99,20 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     // Wait for options (if we don't have any yet, keep waiting)
     if (!productOptions.length) return;
 
-    const match =
-      productOptions.find((o) => o.name === name || o.value === name) ??
-      {
-        label: name,
-        value: name,
-        name,
+    const match = productOptions.find(
+      (o) => o.name === name || o.value === name,
+    ) ?? {
+      label: name,
+      value: name,
+      name,
 
-        // unknown until real option arrives
-        variants: null,
-        measures: null,
-        brands: null,
+      // unknown until real option arrives
+      variants: null,
+      measures: null,
+      brands: null,
 
-        measurementUnit: expenseToEdit?.measurementUnit ?? "",
-      };
+      measurementUnit: expenseToEdit?.measurementUnit ?? "",
+    };
 
     controller.setSelectedProduct(match);
 
@@ -133,7 +150,9 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     }
 
     // product has variants -> ensure current value is valid
-    const allowed = new Set(variants.map((v) => String(v)));
+    const allowed = new Set(
+      variants.map((v) => String(v?._id ?? v)).filter(Boolean),
+    );
 
     setExpense((prev) => {
       const current = prev?.variant ? String(prev.variant) : "";
@@ -144,13 +163,16 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
   }, [open, controller.selectedProduct, setExpense]);
 
   const loading =
-    formLoading || data.isLoadingProducts || data.isLoadingBrands || data.isLoadingShops;
+    formLoading ||
+    data.isLoadingProducts ||
+    data.isLoadingBrands ||
+    data.isLoadingShops;
 
   const dialogTitle = isDelete
     ? "Bekreft sletting"
     : isEdit
-    ? "Rediger utgift"
-    : "Legg til ny utgift";
+      ? "Rediger utgift"
+      : "Legg til ny utgift";
 
   const confirmLabel = isDelete ? "Slett" : "Lagre";
   const confirmColor = isDelete ? "error" : "primary";
@@ -219,7 +241,12 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       <form onSubmit={handleSubmit}>
         {body}
 
-        <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+        <Stack
+          direction="row"
+          spacing={2}
+          justifyContent="flex-end"
+          sx={{ mt: 3 }}
+        >
           <Button onClick={handleClose} disabled={loading}>
             Avbryt
           </Button>

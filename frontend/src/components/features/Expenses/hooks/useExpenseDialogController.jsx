@@ -3,16 +3,30 @@ import dayjs from "dayjs";
 import { debounce } from "lodash";
 import useHandleFieldChange from "../../../../hooks/useHandleFieldChange";
 
-export const useExpenseDialogController = ({ open, mode, expense, setExpense }) => {
+export const useExpenseDialogController = ({
+  open,
+  mode,
+  expense,
+  setExpense,
+}) => {
   const [productSearch, setProductSearch] = useState("");
   const [shopSearch, setShopSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const { handleFieldChange, handleDiscountAmountChange, handleDiscountValueChange } =
-    useHandleFieldChange(expense, setExpense);
+  const {
+    handleFieldChange,
+    handleDiscountAmountChange,
+    handleDiscountValueChange,
+  } = useHandleFieldChange(expense, setExpense);
 
-  const debouncedSetProductSearch = useMemo(() => debounce(setProductSearch, 300), []);
-  const debouncedSetShopSearch = useMemo(() => debounce(setShopSearch, 250), []);
+  const debouncedSetProductSearch = useMemo(
+    () => debounce(setProductSearch, 300),
+    [],
+  );
+  const debouncedSetShopSearch = useMemo(
+    () => debounce(setShopSearch, 250),
+    [],
+  );
 
   useEffect(() => {
     return () => {
@@ -32,55 +46,54 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
 
   const handleProductInputChange = useCallback(
     (inputValue) => debouncedSetProductSearch(inputValue),
-    [debouncedSetProductSearch]
+    [debouncedSetProductSearch],
   );
 
   const handleShopInputChange = useCallback(
     (inputValue) => debouncedSetShopSearch(inputValue),
-    [debouncedSetShopSearch]
+    [debouncedSetShopSearch],
   );
 
   const handleProductSelect = useCallback(
-    (opt) => {
-      setSelectedProduct(opt);
+  (opt) => {
+    setSelectedProduct(opt);
 
-      if (opt) {
-        const unit = opt.measurementUnit || "unit";
-        const volume = opt.measures?.[0] ?? 0;
+    if (opt) {
+      const unit = opt.measurementUnit || "unit";
+      const volume = opt.measures?.[0] ?? 0;
 
-        // Reset variant when product changes.
-        // If product has exactly 1 variant, auto-select it.
-        const variants = Array.isArray(opt.variants) ? opt.variants : [];
-        const autoVariant = variants.length === 1 ? String(variants[0]) : "";
+      const variants = Array.isArray(opt.variants) ? opt.variants : [];
+      const autoVariant =
+        variants.length === 1 ? String(variants[0]?._id ?? variants[0]) : "";
 
-        handleFieldChange("productName", opt.name, {
-          brandName: "",
-          measurementUnit: unit,
-          volume,
-          variant: autoVariant,
-        });
-      } else {
-        handleFieldChange("productName", "", {
-          brandName: "",
-          measurementUnit: "",
-          volume: 0,
-          variant: "",
-        });
-      }
-    },
-    [handleFieldChange]
-  );
+      handleFieldChange("productName", opt.name, {
+        brandName: "",
+        measurementUnit: unit,
+        volume,
+        variant: autoVariant,
+      });
+    } else {
+      handleFieldChange("productName", "", {
+        brandName: "",
+        measurementUnit: "",
+        volume: 0,
+        variant: "",
+      });
+    }
+  },
+  [handleFieldChange]
+);
 
   const handleVariantSelect = useCallback(
     (opt) => {
       handleFieldChange("variant", opt?.value ? String(opt.value) : "");
     },
-    [handleFieldChange]
+    [handleFieldChange],
   );
 
   const handleBrandSelect = useCallback(
     (opt) => handleFieldChange("brandName", opt?.name || opt?.value || ""),
-    [handleFieldChange]
+    [handleFieldChange],
   );
 
   const handleShopSelect = useCallback(
@@ -88,12 +101,12 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
       handleFieldChange("shopName", shop?.value || "", {
         locationName: shop?.locationName || "",
       }),
-    [handleFieldChange]
+    [handleFieldChange],
   );
 
   const handleVolumeChange = useCallback(
     (opt) => handleFieldChange("volume", opt ? parseFloat(opt.value) : 0),
-    [handleFieldChange]
+    [handleFieldChange],
   );
 
   const handleDateChange = useCallback(
@@ -101,7 +114,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
       const key = expense.purchased ? "purchaseDate" : "registeredDate";
       handleFieldChange(key, date);
     },
-    [expense.purchased, handleFieldChange]
+    [expense.purchased, handleFieldChange],
   );
 
   const handleDiscountToggle = useCallback(
@@ -110,15 +123,17 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
       handleFieldChange(
         "hasDiscount",
         checked,
-        checked ? {} : { discountValue: 0, discountAmount: 0 }
+        checked ? {} : { discountValue: 0, discountAmount: 0 },
       );
     },
-    [handleFieldChange]
+    [handleFieldChange],
   );
 
   const handleTransactionType = useCallback(
     (valueOrEvent) => {
-      const value = valueOrEvent?.target ? valueOrEvent.target.value : valueOrEvent;
+      const value = valueOrEvent?.target
+        ? valueOrEvent.target.value
+        : valueOrEvent;
       const isPurchased = value === "kjøpt";
 
       handleFieldChange("purchased", isPurchased, {
@@ -126,7 +141,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
         purchaseDate: isPurchased ? expense.purchaseDate : null,
       });
     },
-    [expense.registeredDate, expense.purchaseDate, handleFieldChange]
+    [expense.registeredDate, expense.purchaseDate, handleFieldChange],
   );
 
   const pickerDate = useMemo(() => {
