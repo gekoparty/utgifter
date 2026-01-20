@@ -1,3 +1,4 @@
+// models/variantSchema.js
 import mongoose from "mongoose";
 
 const variantSchema = new mongoose.Schema(
@@ -20,3 +21,4 @@ variantSchema.index({ product: 1, name: 1 }, { unique: true });
 
 const Variant = mongoose.model("Variant", variantSchema);
 export default Variant;
+
