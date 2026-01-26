@@ -1,7 +1,7 @@
 // src/components/.../ProductDialog.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import PropTypes from "prop-types";
-import { Button, CircularProgress, Stack } from "@mui/material";
+import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import BasicDialog from "../../../commons/BasicDialog/BasicDialog";
 import ProductForm from "./commons/ProductForm";
@@ -9,7 +9,14 @@ import useProductDialog from "../UseProduct/useProductDialog";
 import useInfiniteBrands from "../../../../hooks/useInfiniteBrands";
 import { getSelectStyles } from "../../../../theme/selectStyles";
 
-const ProductDialog = ({ open, mode, productToEdit, onClose, onSuccess, onError }) => {
+const ProductDialog = ({
+  open,
+  mode,
+  productToEdit,
+  onClose,
+  onSuccess,
+  onError,
+}) => {
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
@@ -53,22 +60,24 @@ const ProductDialog = ({ open, mode, productToEdit, onClose, onSuccess, onError 
 
   // When opening, reset + load variants
   // ProductDialog.jsx
-// ProductDialog.jsx - replace the "load variants for select" useEffect with this
-useEffect(() => {
-  if (!open) return;
+  // ProductDialog.jsx - replace the "load variants for select" useEffect with this
+  useEffect(() => {
+    if (!open) return;
 
-  resetFormAndErrors();
-  setBrandSearch("");
+    resetFormAndErrors();
+    setBrandSearch("");
 
-  // ✅ EDIT: use the product's populated variants as options (names!)
-  if (mode === "EDIT") {
-    const opts =
-      Array.isArray(productToEdit?.variants)
+    // ✅ EDIT: use the product's populated variants as options (names!)
+    if (mode === "EDIT") {
+      const opts = Array.isArray(productToEdit?.variants)
         ? productToEdit.variants
             .map((v) => {
               // populated doc: {_id,name}
               if (v && typeof v === "object") {
-                return { label: String(v.name ?? ""), value: String(v._id ?? "") };
+                return {
+                  label: String(v.name ?? ""),
+                  value: String(v._id ?? ""),
+                };
               }
               // if it's an id string, we can't show name without fetching - ignore
               return null;
@@ -76,17 +85,15 @@ useEffect(() => {
             .filter(Boolean)
         : [];
 
-    setVariantOptions(opts);
+      setVariantOptions(opts);
+      setIsLoadingVariants(false);
+      return;
+    }
+
+    // ✅ ADD: you can start with empty options (creatable will still work)
+    setVariantOptions([]);
     setIsLoadingVariants(false);
-    return;
-  }
-
-  // ✅ ADD: you can start with empty options (creatable will still work)
-  setVariantOptions([]);
-  setIsLoadingVariants(false);
-}, [open, mode, productToEdit?._id, resetFormAndErrors]);
-
-
+  }, [open, mode, productToEdit?._id, resetFormAndErrors]);
 
   const handleBrandChange = useCallback(
     (selectedOptions) => {
@@ -101,7 +108,7 @@ useEffect(() => {
       resetValidationErrors();
       resetServerError();
     },
-    [setProduct, resetValidationErrors, resetServerError]
+    [setProduct, resetValidationErrors, resetServerError],
   );
 
   const handleBrandCreate = useCallback(
@@ -118,58 +125,60 @@ useEffect(() => {
       resetValidationErrors();
       resetServerError();
     },
-    [setProduct, resetValidationErrors, resetServerError]
+    [setProduct, resetValidationErrors, resetServerError],
   );
 
   // ✅ Variants: store ids in product.variants
- const handleVariantsChange = useCallback(
-  (selectedOptions) => {
-    const arr = selectedOptions ?? [];
+  const handleVariantsChange = useCallback(
+    (selectedOptions) => {
+      const arr = selectedOptions ?? [];
 
-    const seen = new Set();
-    const uniq = [];
-    for (const o of arr) {
-      const v = String(o?.value ?? "").trim();
-      if (!v) continue;
-      const key = v.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      uniq.push(v);
-    }
+      const seen = new Set();
+      const uniq = [];
+      for (const o of arr) {
+        const v = String(o?.value ?? "").trim();
+        if (!v) continue;
+        const key = v.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        uniq.push(v);
+      }
 
-    setProduct((prev) => ({ ...prev, variants: uniq }));
-    resetValidationErrors();
-    resetServerError();
-  },
-  [setProduct, resetValidationErrors, resetServerError]
-);
+      setProduct((prev) => ({ ...prev, variants: uniq }));
+      resetValidationErrors();
+      resetServerError();
+    },
+    [setProduct, resetValidationErrors, resetServerError],
+  );
 
- const handleVariantCreate = useCallback(
-  (inputValue) => {
-    const trimmed = inputValue.trim();
-    if (!trimmed) return;
+  const handleVariantCreate = useCallback(
+    (inputValue) => {
+      const trimmed = inputValue.trim();
+      if (!trimmed) return;
 
-    resetValidationErrors();
-    resetServerError();
+      resetValidationErrors();
+      resetServerError();
 
-    // prevent duplicates (case-insensitive)
-    const alreadySelected = (product?.variants ?? []).some(
-      (v) => String(v).trim().toLowerCase() === trimmed.toLowerCase()
-    );
-    if (alreadySelected) return;
+      // prevent duplicates (case-insensitive)
+      const alreadySelected = (product?.variants ?? []).some(
+        (v) => String(v).trim().toLowerCase() === trimmed.toLowerCase(),
+      );
+      if (alreadySelected) return;
 
-    setVariantOptions((prev) => {
-      const exists = prev.some((o) => String(o.value).trim().toLowerCase() === trimmed.toLowerCase());
-      return exists ? prev : [...prev, { label: trimmed, value: trimmed }]; // <-- placeholder name
-    });
+      setVariantOptions((prev) => {
+        const exists = prev.some(
+          (o) => String(o.value).trim().toLowerCase() === trimmed.toLowerCase(),
+        );
+        return exists ? prev : [...prev, { label: trimmed, value: trimmed }]; // <-- placeholder name
+      });
 
-    setProduct((prev) => ({
-      ...prev,
-      variants: [...(prev.variants ?? []), trimmed], // <-- store name until submit
-    }));
-  },
-  [product?.variants, resetValidationErrors, resetServerError, setProduct]
-);
+      setProduct((prev) => ({
+        ...prev,
+        variants: [...(prev.variants ?? []), trimmed], // <-- store name until submit
+      }));
+    },
+    [product?.variants, resetValidationErrors, resetServerError, setProduct],
+  );
 
   const handleInputChange = useCallback((inputValue, meta) => {
     if (meta?.action === "input-change") setBrandSearch(inputValue);
@@ -213,7 +222,11 @@ useEffect(() => {
     }
   };
 
-  const dialogTitle = isDelete ? "Bekreft sletting" : isEdit ? "Rediger produkt" : "Nytt produkt";
+  const dialogTitle = isDelete
+    ? "Bekreft sletting"
+    : isEdit
+      ? "Rediger produkt"
+      : "Nytt produkt";
   const confirmLabel = isDelete ? "Slett" : "Lagre";
   const confirmColor = isDelete ? "error" : "primary";
 
@@ -222,14 +235,31 @@ useEffect(() => {
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
       <form onSubmit={handleSubmit}>
-        <Stack spacing={2} sx={{ mt: 2 }}>
+        <Stack spacing={2} sx={{ mt: 0.5 }}>
+          {isDelete && (
+            <Typography>
+              Er du sikker på at du vil slette{" "}
+              <strong>
+                {productToEdit?.name?.trim()
+                  ? `"${productToEdit.name}"`
+                  : "dette produktet"}
+              </strong>
+              ?
+            </Typography>
+          )}
+
           {!isDelete && (
             <ProductForm
               product={product}
               brandOptions={brandOptions}
               variantOptions={variantOptions} // ✅ NEW
               selectStyles={selectStyles}
-              loading={loading || isLoadingBrands || isFetchingNextPage || isLoadingVariants}
+              loading={
+                loading ||
+                isLoadingBrands ||
+                isFetchingNextPage ||
+                isLoadingVariants
+              }
               validationError={validationError}
               displayError={displayError}
               inputValue={brandSearch}
@@ -279,7 +309,7 @@ useEffect(() => {
           )}
 
           <Stack direction="row" justifyContent="flex-end" spacing={2}>
-            <Button onClick={handleClose} disabled={loading}>
+            <Button onClick={handleClose} disabled={showBusy}>
               Avbryt
             </Button>
 
@@ -289,7 +319,11 @@ useEffect(() => {
               color={confirmColor}
               disabled={showBusy || (isDelete ? false : !isFormValid())}
             >
-              {showBusy ? <CircularProgress size={22} color="inherit" /> : confirmLabel}
+              {showBusy ? (
+                <CircularProgress size={22} color="inherit" />
+              ) : (
+                confirmLabel
+              )}
             </Button>
           </Stack>
         </Stack>

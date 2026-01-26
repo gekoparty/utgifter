@@ -24,7 +24,7 @@ const BasicDialog = ({
     disableEnforceFocus={true} disableAutoFocus={true}>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Stack spacing={2} sx={{ mt: 0.25 }}>
           {children}
         </Stack>
       </DialogContent>
