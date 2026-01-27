@@ -1,8 +1,11 @@
+// src/components/commons/React-Table/react-table.jsx
 import React, { useMemo, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
 import { IconButton, Tooltip, MenuItem } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
+import { useTheme } from "@mui/material/styles";
+import { getTableStyles } from "./tableStyles"
 
 const ReactTable = ({
   data,
@@ -26,7 +29,9 @@ const ReactTable = ({
   handleDelete,
   renderDetailPanel,
 }) => {
-  // ✅ Memoize initialState so it doesn't "feel" like it changes
+  const theme = useTheme();
+  const tableStyles = useMemo(() => getTableStyles(theme), [theme]);
+
   const initialState = useMemo(
     () => ({
       showColumnFilters: true,
@@ -35,7 +40,6 @@ const ReactTable = ({
     []
   );
 
-  // ✅ Memoize MRT state object (reduces table recalcs)
   const tableState = useMemo(
     () => ({
       columnFilters,
@@ -45,25 +49,25 @@ const ReactTable = ({
 
       isLoading,
       showAlertBanner: isError,
-
-      // If you want *no* progress bars during modal, do it outside (like you already do)
       showProgressBars: isFetching,
     }),
-    [
-      columnFilters,
-      globalFilter,
-      sorting,
-      pagination,
-      isLoading,
-      isError,
-      isFetching,
-    ]
+    [columnFilters, globalFilter, sorting, pagination, isLoading, isError, isFetching]
   );
 
   const refreshButton = useCallback(
     () => (
       <Tooltip title="Oppdater">
-        <IconButton onClick={refetch}>
+        <IconButton
+          onClick={refetch}
+          sx={(t) => ({
+            borderRadius: 2,
+            border: "1px solid",
+            borderColor:
+              t.palette.mode === "dark"
+                ? "rgba(255,255,255,0.12)"
+                : "rgba(0,0,0,0.10)",
+          })}
+        >
           <RefreshIcon />
         </IconButton>
       </Tooltip>
@@ -77,7 +81,7 @@ const ReactTable = ({
         key="edit"
         onClick={() => {
           closeMenu?.();
-          handleEdit(row.original);
+          handleEdit?.(row.original);
         }}
       >
         Rediger
@@ -86,7 +90,7 @@ const ReactTable = ({
         key="delete"
         onClick={() => {
           closeMenu?.();
-          handleDelete(row.original);
+          handleDelete?.(row.original);
         }}
       >
         Slett
@@ -95,51 +99,57 @@ const ReactTable = ({
     [handleEdit, handleDelete]
   );
 
-  const rowCount = meta?.totalRowCount ?? 0;
+  // Supports both meta.totalRowCount and meta.total
+  const rowCount = meta?.totalRowCount ?? meta?.total ?? 0;
 
   return (
     <MaterialReactTable
       columns={columns}
       data={data}
+      localization={MRT_Localization_NO}
 
-      // ✅ Server-side
+      // Server-side
       manualPagination
       manualSorting
       manualFiltering
+      rowCount={rowCount}
 
-      // ✅ Don’t reapply initialState each render
       initialState={initialState}
-
-      localization={MRT_Localization_NO}
-
-      // ✅ Top toolbar
-      renderTopToolbarCustomActions={refreshButton}
-
-      // ✅ Row actions
-      enableRowActions
-      positionActionsColumn="left"
-      renderRowActionMenuItems={renderRowActionMenuItems}
-
-      // ✅ Detail panel
-      renderDetailPanel={renderDetailPanel}
-
-      // ✅ Controlled state
       state={tableState}
 
-      // ✅ Controlled updaters (these should already be stable from useState)
       onColumnFiltersChange={setColumnFilters}
       onGlobalFilterChange={setGlobalFilter}
       onSortingChange={setSorting}
       onPaginationChange={setPagination}
 
-      // ✅ Total rows
-      rowCount={rowCount}
+      // Top toolbar
+      renderTopToolbarCustomActions={refreshButton}
 
-      // Optional: small perf helpers
+      // Row actions
+      enableRowActions
+      positionActionsColumn="left"
+      renderRowActionMenuItems={renderRowActionMenuItems}
+
+      // Detail panel (optional)
+      renderDetailPanel={renderDetailPanel}
+
+      // Toggles
       enableColumnResizing={false}
       enableDensityToggle={false}
       enableFullScreenToggle={false}
-      enableHiding={true}
+      enableHiding
+      enableStickyHeader
+
+      // ✅ Styles from helper
+      muiTablePaperProps={tableStyles.muiTablePaperProps}
+      muiTopToolbarProps={tableStyles.muiTopToolbarProps}
+      muiTableHeadRowProps={tableStyles.muiTableHeadRowProps}
+      muiTableHeadCellProps={tableStyles.muiTableHeadCellProps}
+      muiTableBodyCellProps={tableStyles.muiTableBodyCellProps}
+      muiTableBodyRowProps={tableStyles.muiTableBodyRowProps}
+      muiTableContainerProps={tableStyles.muiTableContainerProps}
+      muiSearchTextFieldProps={tableStyles.muiSearchTextFieldProps}
+      muiFilterTextFieldProps={tableStyles.muiFilterTextFieldProps}
     />
   );
 };
