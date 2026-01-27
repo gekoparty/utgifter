@@ -1,32 +1,21 @@
-import React, { useState, lazy, Suspense } from "react";
-import {
-  Box,
-  Button,
-  IconButton,
-  Snackbar,
-  Alert,
-  LinearProgress,
-} from "@mui/material";
+import React, { useState, lazy, Suspense, useMemo, useCallback, startTransition } from "react";
+import { Box, Button, IconButton, Snackbar, Alert, LinearProgress } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
-import VariantsCell from "./CellUtils/VariantsCell"
-import ChipsOverflow from "./CellUtils/ChipsOverflow"
+import ChipsOverflow from "./CellUtils/ChipsOverflow";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { API_URL } from "../components/commons/Consts/constants";
 
-// Lazy-loaded Dialogs
 const loadProductDialog = () =>
   import("../components/features/Products/ProductDialogs/ProductDialog");
 const ProductDialog = lazy(loadProductDialog);
 
-// Constants
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "name", desc: false }];
 const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 
-// Custom URL builder
 const productUrlBuilder = (endpoint, params) => {
   const fetchURL = new URL(endpoint, API_URL);
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
@@ -38,107 +27,101 @@ const productUrlBuilder = (endpoint, params) => {
 };
 
 const ProductScreen = () => {
-  // --- Table State ---
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
-  // --- Dialog State ---
   const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
-  const [activeModal, setActiveModal] = useState(null); // 'ADD', 'EDIT', 'DELETE', or null
+  const [activeModal, setActiveModal] = useState(null);
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
+  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } =
+    useSnackBar();
 
-  const fetchParams = {
-    pageIndex: pagination.pageIndex,
-    pageSize: pagination.pageSize,
-    sorting,
-    filters: columnFilters,
-    globalFilter,
-  };
+  const fetchParams = useMemo(
+    () => ({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      filters: columnFilters,
+      globalFilter,
+    }),
+    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+  );
 
-  const { data: productsData, isError, isFetching, isLoading, refetch } =
-    usePaginatedData({
-      endpoint: "/api/products",
-      params: fetchParams,
-      urlBuilder: productUrlBuilder,
-      baseQueryKey: ["products", "paginated"],
+  const { data: productsData, isError, isFetching, isLoading, refetch } = usePaginatedData({
+    endpoint: "/api/products",
+    params: fetchParams,
+    urlBuilder: productUrlBuilder,
+    baseQueryKey: ["products", "paginated"],
+  });
+
+  const tableData = useMemo(() => productsData?.products ?? [], [productsData?.products]);
+  const metaData = useMemo(() => productsData?.meta ?? {}, [productsData?.meta]);
+
+  const openModal = useCallback((mode, product = INITIAL_SELECTED_PRODUCT) => {
+    startTransition(() => {
+      setSelectedProduct(product);
+      setActiveModal(mode);
     });
+  }, []);
 
-  const tableData = productsData?.products || [];
-  const metaData = productsData?.meta || {};
-
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setActiveModal(null);
     setSelectedProduct(INITIAL_SELECTED_PRODUCT);
-  };
+  }, []);
 
-  const handleEdit = (product) => {
-    setSelectedProduct(product);
-    setActiveModal("EDIT");
-  };
-
-  const handleDelete = (product) => {
-    setSelectedProduct(product);
-    setActiveModal("DELETE");
-  };
-
-  const tableColumns = [
-    { accessorKey: "name", header: "Produkter" },
-    { accessorKey: "brand", header: "Merker" },
-
-    // ✅ variants column (supports populated objects or strings)
- {
-  accessorKey: "variants",
-  header: "Varianter",
-  Cell: ({ cell }) => (
-    <ChipsOverflow
-      items={Array.isArray(cell.getValue()) ? cell.getValue() : []}
-      maxVisible={3}
-      popoverTitle="Varianter"
-      tone="primary"   // ✅ looks nicer on dark theme
-      getLabel={(x) => (typeof x === "object" ? x?.name : String(x))}
-      getKey={(x) => (typeof x === "object" ? x?._id : String(x))}
-      // Optional: click chip could also set a table filter if you want:
-      // onChipClick={(variant) => setColumnFilters([{ id: "variants", value: variant.name }])}
-    />
-  ),
-},
-    { accessorKey: "category", header: "Kategori" },
-{
-    accessorKey: "expenseCount",
-    header: "Brukt i utgifter",
-    Cell: ({ cell }) => {
-      const n = cell.getValue();
-      return Number.isFinite(Number(n)) ? Number(n) : 0;
-    },
-  },
-    {
-      accessorKey: "measures",
-      header: "Mål",
-      Cell: ({ cell }) => {
-        const measures = cell.getValue();
-        return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
+  const tableColumns = useMemo(
+    () => [
+      { accessorKey: "name", header: "Produkter" },
+      { accessorKey: "brand", header: "Merker" },
+      {
+        accessorKey: "variants",
+        header: "Varianter",
+        Cell: ({ cell }) => (
+          <ChipsOverflow
+            items={Array.isArray(cell.getValue()) ? cell.getValue() : []}
+            maxVisible={3}
+            popoverTitle="Varianter"
+            tone="primary"
+            getLabel={(x) => (typeof x === "object" ? x?.name : String(x))}
+            getKey={(x) => (typeof x === "object" ? x?._id : String(x))}
+          />
+        ),
       },
-    },
-  ];
+      { accessorKey: "category", header: "Kategori" },
+      {
+        accessorKey: "expenseCount",
+        header: "Brukt i utgifter",
+        Cell: ({ cell }) => {
+          const n = cell.getValue();
+          return Number.isFinite(Number(n)) ? Number(n) : 0;
+        },
+      },
+      {
+        accessorKey: "measures",
+        header: "Mål",
+        Cell: ({ cell }) => {
+          const measures = cell.getValue();
+          return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
+        },
+      },
+    ],
+    []
+  );
+
+  const preloadDialog = useCallback(() => {
+    loadProductDialog();
+  }, []);
 
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
         <Button
           variant="contained"
-          onMouseEnter={loadProductDialog}
-          onFocus={loadProductDialog}
-          color="primary"
-          onClick={() => setActiveModal("ADD")}
+          onMouseEnter={preloadDialog}
+          onFocus={preloadDialog}
+          onClick={() => openModal("ADD")}
         >
           Nytt Produkt
         </Button>
@@ -165,8 +148,8 @@ const ProductScreen = () => {
           pagination={pagination}
           isError={isError}
           isFetching={isFetching}
-          handleEdit={handleEdit}
-          handleDelete={handleDelete}
+          handleEdit={(p) => openModal("EDIT", p)}
+          handleDelete={(p) => openModal("DELETE", p)}
         />
       )}
 
@@ -179,11 +162,7 @@ const ProductScreen = () => {
             onClose={handleCloseDialog}
             onSuccess={(p) => {
               const action =
-                activeModal === "DELETE"
-                  ? "slettet"
-                  : activeModal === "EDIT"
-                  ? "oppdatert"
-                  : "lagt til";
+                activeModal === "DELETE" ? "slettet" : activeModal === "EDIT" ? "oppdatert" : "lagt til";
 
               showSnackbar(`Produkt "${p?.name ?? selectedProduct?.name}" ble ${action}`);
               handleCloseDialog();
@@ -217,5 +196,4 @@ const ProductScreen = () => {
 };
 
 export default ProductScreen;
-
 
