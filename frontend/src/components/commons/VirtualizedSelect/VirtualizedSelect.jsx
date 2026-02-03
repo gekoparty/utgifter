@@ -7,16 +7,9 @@ const ITEM_COUNT_THRESHOLD = 10;
 
 const MenuList = (props) => {
   const { children, maxHeight } = props;
-
-  // ✅ custom props come from selectProps
   const { fetchNextPage, hasNextPage, isLoading } = props.selectProps;
 
   const selectOptions = Array.isArray(children) ? children : [children];
-  const itemCount = selectOptions.length;
-
-  if (itemCount < ITEM_COUNT_THRESHOLD) {
-    return <components.MenuList {...props}>{children}</components.MenuList>;
-  }
 
   return (
     <Virtuoso

@@ -1,5 +1,19 @@
-import React, { useState, lazy, Suspense, useMemo, useCallback, startTransition } from "react";
-import { Box, Button, IconButton, Snackbar, Alert, LinearProgress } from "@mui/material";
+import React, {
+  useState,
+  lazy,
+  Suspense,
+  useMemo,
+  useCallback,
+  startTransition,
+} from "react";
+import {
+  Box,
+  Button,
+  IconButton,
+  Snackbar,
+  Alert,
+  LinearProgress,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
@@ -21,7 +35,10 @@ const productUrlBuilder = (endpoint, params) => {
   fetchURL.searchParams.set("start", `${params.pageIndex * params.pageSize}`);
   fetchURL.searchParams.set("size", `${params.pageSize}`);
   fetchURL.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  fetchURL.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
+  fetchURL.searchParams.set(
+    "columnFilters",
+    JSON.stringify(params.filters ?? []),
+  );
   fetchURL.searchParams.set("globalFilter", params.globalFilter ?? "");
   return fetchURL;
 };
@@ -32,11 +49,18 @@ const ProductScreen = () => {
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
-  const [selectedProduct, setSelectedProduct] = useState(INITIAL_SELECTED_PRODUCT);
+  const [selectedProduct, setSelectedProduct] = useState(
+    INITIAL_SELECTED_PRODUCT,
+  );
   const [activeModal, setActiveModal] = useState(null);
 
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } =
-    useSnackBar();
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
   const fetchParams = useMemo(
     () => ({
@@ -46,18 +70,36 @@ const ProductScreen = () => {
       filters: columnFilters,
       globalFilter,
     }),
-    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, globalFilter]
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter,
+    ],
   );
 
-  const { data: productsData, isError, isFetching, isLoading, refetch } = usePaginatedData({
+  const {
+    data: productsData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
     endpoint: "/api/products",
     params: fetchParams,
     urlBuilder: productUrlBuilder,
     baseQueryKey: ["products", "paginated"],
   });
 
-  const tableData = useMemo(() => productsData?.products ?? [], [productsData?.products]);
-  const metaData = useMemo(() => productsData?.meta ?? {}, [productsData?.meta]);
+  const tableData = useMemo(
+    () => productsData?.products ?? [],
+    [productsData?.products],
+  );
+  const metaData = useMemo(
+    () => productsData?.meta ?? {},
+    [productsData?.meta],
+  );
 
   const openModal = useCallback((mode, product = INITIAL_SELECTED_PRODUCT) => {
     startTransition(() => {
@@ -103,11 +145,13 @@ const ProductScreen = () => {
         header: "Mål",
         Cell: ({ cell }) => {
           const measures = cell.getValue();
-          return Array.isArray(measures) ? measures.join(" ") : measures || "N/A";
+          return Array.isArray(measures)
+            ? measures.join(" ")
+            : measures || "N/A";
         },
       },
     ],
-    []
+    [],
   );
 
   const preloadDialog = useCallback(() => {
@@ -162,9 +206,15 @@ const ProductScreen = () => {
             onClose={handleCloseDialog}
             onSuccess={(p) => {
               const action =
-                activeModal === "DELETE" ? "slettet" : activeModal === "EDIT" ? "oppdatert" : "lagt til";
+                activeModal === "DELETE"
+                  ? "slettet"
+                  : activeModal === "EDIT"
+                    ? "oppdatert"
+                    : "lagt til";
 
-              showSnackbar(`Produkt "${p?.name ?? selectedProduct?.name}" ble ${action}`);
+              showSnackbar(
+                `Produkt "${p?.name ?? selectedProduct?.name}" ble ${action}`,
+              );
               handleCloseDialog();
             }}
             onError={() => showSnackbar("Kunne ikke utføre handling", "error")}
@@ -183,7 +233,11 @@ const ProductScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon fontSize="small" />
             </IconButton>
           }
@@ -196,4 +250,3 @@ const ProductScreen = () => {
 };
 
 export default ProductScreen;
-

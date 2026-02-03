@@ -19,13 +19,24 @@ const PRODUCTS_QUERY_KEY = ["products", "paginated"];
 const BRANDS_QUERY_KEY = ["brands", "paginated"];
 
 const normalizeBrandNames = (p) => {
-  if (Array.isArray(p?.brands) && p.brands.length > 0 && typeof p.brands[0] === "object") {
+  if (
+    Array.isArray(p?.brands) &&
+    p.brands.length > 0 &&
+    typeof p.brands[0] === "object"
+  ) {
     return p.brands.map((b) => b?.name).filter(Boolean);
   }
   if (typeof p?.brand === "string") {
-    return p.brand.split(",").map((s) => s.trim()).filter(Boolean);
+    return p.brand
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
   }
-  if (Array.isArray(p?.brands) && p.brands.length > 0 && typeof p.brands[0] === "string") {
+  if (
+    Array.isArray(p?.brands) &&
+    p.brands.length > 0 &&
+    typeof p.brands[0] === "string"
+  ) {
     return p.brands.map((s) => s.trim()).filter(Boolean);
   }
   return [];
@@ -36,9 +47,7 @@ const normalizeVariants = (p) => {
 
   // populated: [{_id,name}]
   if (p.variants.length > 0 && typeof p.variants[0] === "object") {
-    return p.variants
-      .map((v) => String(v?._id ?? "").trim())
-      .filter(Boolean);
+    return p.variants.map((v) => String(v?._id ?? "").trim()).filter(Boolean);
   }
 
   // already ids: ["..."]
@@ -84,13 +93,36 @@ const useProductDialog = (initialProduct = null) => {
 
   const productId = initialProduct?._id;
   const isEditMode = Boolean(productId);
+  const initKey = productId || "ADD";
 
-  const [product, setProduct] = useState(() => buildFormStateFromInitial(initialProduct));
+  const [product, _setProduct] = useState(() =>
+    buildFormStateFromInitial(initialProduct),
+  );
 
-  // ✅ IMPORTANT: only sync when id changes, not when object identity changes
+  const setProduct = useCallback((updater) => {
+    setIsDirty(true);
+    _setProduct(updater);
+  }, []);
+
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // ✅ Init once per dialog open / product target.
+  // Allows late-arriving initialProduct data without wiping user edits.
   useEffect(() => {
-    setProduct(buildFormStateFromInitial(initialProduct));
-  }, [productId]); // eslint-disable-line react-hooks/exhaustive-deps
+    setHasInitialized(false);
+    setIsDirty(false);
+    _setProduct(buildFormStateFromInitial(initialProduct));
+  }, [initKey]);
+
+  useEffect(() => {
+    if (!productId) return; // ADD: initializer already handled it
+
+    if (!hasInitialized && !isDirty) {
+      _setProduct(buildFormStateFromInitial(initialProduct));
+      setHasInitialized(true);
+    }
+  }, [productId, initialProduct, hasInitialized, isDirty]);
 
   const resetServerError = useCallback(() => {
     dispatch({ type: "RESET_ERROR", resource: "products" });
@@ -101,10 +133,14 @@ const useProductDialog = (initialProduct = null) => {
   }, [dispatch]);
 
   const resetFormAndErrors = useCallback(() => {
-    setProduct(buildFormStateFromInitial(initialProduct));
+    setHasInitialized(false);
+    setIsDirty(false);
+    _setProduct(buildFormStateFromInitial(initialProduct));
     resetServerError();
     resetValidationErrors();
   }, [initialProduct, resetServerError, resetValidationErrors]);
+
+  
 
   const saveProductMutation = useMutation({
     mutationFn: async (payload) => {
@@ -174,7 +210,11 @@ const useProductDialog = (initialProduct = null) => {
 
         measurementUnit: product.measurementUnit ?? "",
 
-        category: formatComponentFields(product.category ?? "", "product", "category"),
+        category: formatComponentFields(
+          product.category ?? "",
+          "product",
+          "category",
+        ),
 
         // ✅ OPTION A:
         // - de-dupe first (case-insensitive)
@@ -186,7 +226,9 @@ const useProductDialog = (initialProduct = null) => {
         measures: product.measures ?? [],
       };
 
-      await addProductValidationSchema.validate(formatted, { abortEarly: false });
+      await addProductValidationSchema.validate(formatted, {
+        abortEarly: false,
+      });
 
       const saved = await saveProductMutation.mutateAsync(formatted);
 
@@ -237,7 +279,7 @@ const useProductDialog = (initialProduct = null) => {
         return false;
       }
     },
-    [deleteProductMutation, resetServerError, resetValidationErrors]
+    [deleteProductMutation, resetServerError, resetValidationErrors],
   );
 
   const displayError = state.error?.products;
@@ -257,7 +299,10 @@ const useProductDialog = (initialProduct = null) => {
     );
   }, [product, validationError]);
 
-  const loading = httpLoading || saveProductMutation.isPending || deleteProductMutation.isPending;
+  const loading =
+    httpLoading ||
+    saveProductMutation.isPending ||
+    deleteProductMutation.isPending;
 
   return useMemo(
     () => ({
@@ -284,7 +329,7 @@ const useProductDialog = (initialProduct = null) => {
       resetServerError,
       resetValidationErrors,
       resetFormAndErrors,
-    ]
+    ],
   );
 };
 
