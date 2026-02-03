@@ -19,7 +19,6 @@ const ProductDialog = ({
 }) => {
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
-
   const theme = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
 
@@ -59,8 +58,6 @@ const ProductDialog = ({
   }, [data]);
 
   // When opening, reset + load variants
-  // ProductDialog.jsx
-  // ProductDialog.jsx - replace the "load variants for select" useEffect with this
   useEffect(() => {
     if (!open) return;
 
@@ -95,6 +92,11 @@ const ProductDialog = ({
     setIsLoadingVariants(false);
   }, [open, mode, productToEdit?._id, resetFormAndErrors]);
 
+   const clearProductErrorsIfAny = useCallback(() => {
+    if (validationError) resetValidationErrors();
+    if (displayError) resetServerError();
+  }, [validationError, displayError, resetValidationErrors, resetServerError]);
+
   const handleBrandChange = useCallback(
     (selectedOptions) => {
       const arr = selectedOptions ?? [];
@@ -105,10 +107,9 @@ const ProductDialog = ({
       }));
 
       setBrandSearch("");
-      resetValidationErrors();
-      resetServerError();
+      clearProductErrorsIfAny();
     },
-    [setProduct, resetValidationErrors, resetServerError],
+    [setProduct, clearProductErrorsIfAny],
   );
 
   const handleBrandCreate = useCallback(
@@ -122,10 +123,9 @@ const ProductDialog = ({
       }));
 
       setBrandSearch("");
-      resetValidationErrors();
-      resetServerError();
+     clearProductErrorsIfAny();
     },
-    [setProduct, resetValidationErrors, resetServerError],
+    [setProduct, clearProductErrorsIfAny],
   );
 
   // ✅ Variants: store ids in product.variants
@@ -145,10 +145,9 @@ const ProductDialog = ({
       }
 
       setProduct((prev) => ({ ...prev, variants: uniq }));
-      resetValidationErrors();
-      resetServerError();
+      clearProductErrorsIfAny();
     },
-    [setProduct, resetValidationErrors, resetServerError],
+    [setProduct, clearProductErrorsIfAny],
   );
 
   const handleVariantCreate = useCallback(
@@ -156,14 +155,13 @@ const ProductDialog = ({
       const trimmed = inputValue.trim();
       if (!trimmed) return;
 
-      resetValidationErrors();
-      resetServerError();
-
       // prevent duplicates (case-insensitive)
       const alreadySelected = (product?.variants ?? []).some(
         (v) => String(v).trim().toLowerCase() === trimmed.toLowerCase(),
       );
       if (alreadySelected) return;
+
+      clearProductErrorsIfAny();
 
       setVariantOptions((prev) => {
         const exists = prev.some(
@@ -177,12 +175,14 @@ const ProductDialog = ({
         variants: [...(prev.variants ?? []), trimmed], // <-- store name until submit
       }));
     },
-    [product?.variants, resetValidationErrors, resetServerError, setProduct],
+    [product?.variants, clearProductErrorsIfAny, setProduct],
   );
 
   const handleInputChange = useCallback((inputValue, meta) => {
     if (meta?.action === "input-change") setBrandSearch(inputValue);
   }, []);
+
+ 
 
   const handleMenuScrollToBottom = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -269,31 +269,27 @@ const ProductDialog = ({
               onBrandCreate={handleBrandCreate}
               onNameChange={(name) => {
                 setProduct((p) => ({ ...p, name }));
-                resetValidationErrors();
-                resetServerError();
+                clearProductErrorsIfAny();
               }}
               onVariantsChange={handleVariantsChange}
               onVariantCreate={handleVariantCreate} // ✅ creates variant doc
               onProductCategoryChange={(opt) => {
                 setProduct((p) => ({ ...p, category: opt?.value ?? "" }));
-                resetValidationErrors();
-                resetServerError();
+                clearProductErrorsIfAny();
               }}
               onMeasurementUnitChange={(opt) => {
                 setProduct((p) => ({
                   ...p,
                   measurementUnit: opt?.value ?? "",
                 }));
-                resetValidationErrors();
-                resetServerError();
+                clearProductErrorsIfAny();
               }}
               onMeasuresChange={(opts) => {
                 setProduct((p) => ({
                   ...p,
                   measures: (opts ?? []).map((o) => o.value),
                 }));
-                resetValidationErrors();
-                resetServerError();
+                clearProductErrorsIfAny();
               }}
               onMeasureCreate={(val) => {
                 const trimmed = val.trim();
@@ -302,8 +298,7 @@ const ProductDialog = ({
                   ...p,
                   measures: [...(p.measures ?? []), trimmed],
                 }));
-                resetValidationErrors();
-                resetServerError();
+                clearProductErrorsIfAny();
               }}
             />
           )}

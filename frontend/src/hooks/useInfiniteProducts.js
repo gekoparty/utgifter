@@ -5,7 +5,7 @@ import { API_URL } from '../components/commons/Consts/constants';
 const buildApiUrl = (globalFilter, pageParam) =>
   `${API_URL}/api/products?globalFilter=${encodeURIComponent(globalFilter || '')}&start=${pageParam}&size=10`;
 
-const useInfiniteProducts = (globalFilter) => {
+const useInfiniteProducts = (globalFilter, options = {}) => {
   const queryKey = useMemo(() => ['products', globalFilter], [globalFilter]);
 
   const fetchProducts = async ({ pageParam = 0, signal }) => {
@@ -36,9 +36,9 @@ const useInfiniteProducts = (globalFilter) => {
     queryKey,
     queryFn: fetchProducts,
     getNextPageParam,
+    enabled: options.enabled ?? true,
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
-    keepPreviousData: true,
+    gcTime: 10 * 60 * 1000,
     onError: (error) => {
       console.error("Infinite query error:", error);
     }

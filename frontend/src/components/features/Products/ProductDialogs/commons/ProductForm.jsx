@@ -17,12 +17,10 @@ const ProductForm = ({
   onNameChange,
   onBrandChange,
   onBrandCreate,
-
   // ✅ variants
   variantOptions,
   onVariantsChange,
   onVariantCreate,
-
   onProductCategoryChange,
   onMeasurementUnitChange,
   onMeasuresChange,
@@ -42,7 +40,7 @@ const ProductForm = ({
         label: b.name,
         value: b.name,
       })),
-    [brandOptions]
+    [brandOptions],
   );
 
   const selectedBrandValues = useMemo(() => {
@@ -57,12 +55,14 @@ const ProductForm = ({
 
   // ✅ product.variants is array of ids -> map ids to option objects
   // If options haven't loaded yet, show fallback {label:id,value:id}, then swap to names once options arrive.
-const selectedVariantValues = useMemo(() => {
-  const raw = (product?.variants ?? []).map(String).filter(Boolean)
-  const opts = variantOptions ?? [];
-  const map = new Map(opts.map((o) => [String(o.value), o]));
- return raw.map((v) => map.get(String(v)) ?? { label: String(v), value: String(v) });
-}, [product?.variants, variantOptions]);
+  const selectedVariantValues = useMemo(() => {
+    const raw = (product?.variants ?? []).map(String).filter(Boolean);
+    const opts = variantOptions ?? [];
+    const map = new Map(opts.map((o) => [String(o.value), o]));
+    return raw.map(
+      (v) => map.get(String(v)) ?? { label: String(v), value: String(v) },
+    );
+  }, [product?.variants, variantOptions]);
 
   return (
     <Stack spacing={2}>
@@ -88,7 +88,11 @@ const selectedVariantValues = useMemo(() => {
         />
 
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="variants" loading={loading} />
+          <ErrorHandling
+            resource="products"
+            field="variants"
+            loading={loading}
+          />
         )}
       </div>
 
@@ -113,14 +117,20 @@ const selectedVariantValues = useMemo(() => {
         <CategorySelect
           options={predefinedCategories.map((c) => ({ value: c, label: c }))}
           value={
-            product?.category ? { value: product.category, label: product.category } : null
+            product?.category
+              ? { value: product.category, label: product.category }
+              : null
           }
           onChange={onProductCategoryChange}
           selectStyles={selectStyles}
         />
 
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="category" loading={loading} />
+          <ErrorHandling
+            resource="products"
+            field="category"
+            loading={loading}
+          />
         )}
       </div>
 
@@ -128,13 +138,19 @@ const selectedVariantValues = useMemo(() => {
         <MeasurementUnitSelect
           options={measurementUnitOptions}
           value={
-            measurementUnitOptions.find((o) => o.value === product?.measurementUnit) || null
+            measurementUnitOptions.find(
+              (o) => o.value === product?.measurementUnit,
+            ) || null
           }
           onChange={onMeasurementUnitChange}
           selectStyles={selectStyles}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="measurementUnit" loading={loading} />
+          <ErrorHandling
+            resource="products"
+            field="measurementUnit"
+            loading={loading}
+          />
         )}
       </div>
 
@@ -146,7 +162,11 @@ const selectedVariantValues = useMemo(() => {
           selectStyles={selectStyles}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="measures" loading={loading} />
+          <ErrorHandling
+            resource="products"
+            field="measures"
+            loading={loading}
+          />
         )}
       </div>
     </Stack>
