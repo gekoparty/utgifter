@@ -12,6 +12,7 @@ import BrandScreen from "../screens/BrandScreen";
 import LocationScreen from "../screens/LocationScreen";
 import ProductScreen from "../screens/ProductScreen";
 import StatsScreen from "../screens/StatsScreen";
+import RecurringExpenseScreen from "../screens/RecurringExpenseScreen";
 
 const AppRouter = () => (
   <BrowserRouter>
@@ -28,6 +29,7 @@ const AppRouter = () => (
           <Route path="brands" element={<BrandScreen />} />
           <Route path="locations" element={<LocationScreen />} />
           <Route path="products" element={<ProductScreen />} />
+          <Route path="recurring-expenses" element={<RecurringExpenseScreen />} />
         </Route>
 
         {/* stats page without sidebar */}

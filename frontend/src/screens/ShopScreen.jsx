@@ -8,7 +8,6 @@ import {
   LinearProgress,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
