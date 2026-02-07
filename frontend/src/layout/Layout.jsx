@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import MiniVariantDrawer from "../components/NavBar/MiniVariantDrawer";
 
@@ -10,6 +10,14 @@ export default function Layout() {
     () => location.pathname.replace(/\W/g, " "),
     [location.pathname]
   );
+
+   // ✅ auto-collapse on some routes
+  useEffect(() => {
+    const fullscreenRoutes = ["/recurring-expenses"];
+    if (fullscreenRoutes.includes(location.pathname)) {
+      setIsDrawerOpen(false);
+    }
+  }, [location.pathname]);
 
   return (
     <MiniVariantDrawer

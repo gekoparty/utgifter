@@ -9,7 +9,7 @@ const CustomControl = ({ children, ...props }) => {
   const theme = useTheme();
 
   return (
-    <div style={{ position: "relative" }}>
+    <div>
       <components.Control {...props}>
         {children}
         {props.selectProps.isLoading && (

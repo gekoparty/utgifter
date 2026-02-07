@@ -89,8 +89,8 @@ export default function MiniVariantDrawer({
     return mainNavbarItems.findIndex((item) =>
       matchPath(
         { path: item.route, end: item.route === "/" },
-        location.pathname
-      )
+        location.pathname,
+      ),
     );
   }, [location.pathname]);
 
@@ -153,7 +153,7 @@ export default function MiniVariantDrawer({
 
           {mainNavbarItems.map(({ id, icon, label, route }) => {
             const isActive = Boolean(
-              matchPath({ path: route, end: route === "/" }, location.pathname)
+              matchPath({ path: route, end: route === "/" }, location.pathname),
             );
 
             return (
@@ -200,21 +200,20 @@ export default function MiniVariantDrawer({
 
       {/* Main content */}
       <Box
-  component="main"
-  sx={(theme) => ({
-    flexGrow: 1,
-    minHeight: "100vh",
-    bgcolor: "background.default",
-    px: { xs: 2, md: 3 },
-    // push below fixed AppBar
-    pt: `calc(${theme.mixins.toolbar.minHeight}px + ${theme.spacing(2)})`,
-  })}
->
-  <Container maxWidth="lg" sx={{ width: "100%" }}>
-    {children}
-  </Container>
-</Box>
-
+        component="main"
+        sx={(theme) => ({
+          flexGrow: 1,
+          minHeight: "100vh",
+          bgcolor: "background.default",
+          px: { xs: 2, md: 3 },
+          // push below fixed AppBar
+          pt: `calc(${theme.mixins.toolbar.minHeight}px + ${theme.spacing(2)})`,
+        })}
+      >
+        <Container maxWidth="lg" sx={{ width: "100%" }}>
+          {children}
+        </Container>
+      </Box>
     </Box>
   );
 }

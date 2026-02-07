@@ -7,6 +7,7 @@ import StoreIcon from "@mui/icons-material/Store";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import BarChartIcon from "@mui/icons-material/BarChart";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 
 export const mainNavbarItems = [
   // "Home" points to expenses now
@@ -18,7 +19,12 @@ export const mainNavbarItems = [
   { id: 4, icon: <StoreIcon />, label: "Butikker", route: "/shops" },
   { id: 5, icon: <LocationOnIcon />, label: "Steder", route: "/locations" },
   { id: 6, icon: <Inventory2Icon />, label: "Produkter", route: "/products" },
-
+  {
+    id: 7, // or whatever the next index is
+    icon: <AccountBalanceIcon />,
+    label: "Fixed Costs",
+    route: "/recurring-expenses",
+  },
   // stats is outside sidebar layout, still navigable from drawer if you want
-  { id: 7, icon: <BarChartIcon />, label: "Stats", route: "/stats" },
+  { id: 8, icon: <BarChartIcon />, label: "Stats", route: "/stats" },
 ];

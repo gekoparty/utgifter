@@ -11,6 +11,9 @@ import compression from "compression";
 import productsRouter from "./routes/productsRouter.js";
 import expensesRouter from "./routes/expensesRouter.js";
 import statsRouter from "./routes/statsRouter.js";
+import recurringPaymentsRouter from "./routes/recurringPaymentsRouter.js";
+import recurringExpensesRouter from "./routes/recurringExpensesRouter.js";
+import mortgageTermsHistoryRouter from "./routes/mortgageTermsHistoryRouter.js";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -48,6 +51,9 @@ app.use("/api/brands", brandsRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/stats", statsRouter);
+app.use("/api/recurring-payments", recurringPaymentsRouter);
+app.use("/api/recurring-expenses", recurringExpensesRouter);
+app.use("/api/mortgage-terms-history", mortgageTermsHistoryRouter);
 
 // For production: Serve frontend static files if using single service approach
 if (process.env.NODE_ENV !== 'production') {
