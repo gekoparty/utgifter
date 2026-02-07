@@ -37,6 +37,8 @@ import {
   useRecurringInvalidation,
 } from "../components/features/RecurringExpenes/hooks/useRecurringData";
 
+import RecurringOverviewCharts from "../components/features/RecurringExpenes/components/RecurringOverviewCharts";
+
 const TYPE_META = {
   MORTGAGE: { label: "Lån", color: "primary" },
   UTILITY: { label: "Strøm/kommunikasjon", color: "warning" },
@@ -44,7 +46,6 @@ const TYPE_META = {
   SUBSCRIPTION: { label: "Abonnement", color: "info" },
   HOUSING: { label: "Lån", color: "primary" },
 };
-
 
 const monthLabel = (d) =>
   new Date(d).toLocaleDateString("nb-NO", { month: "short", year: "numeric" });
@@ -79,11 +80,11 @@ export default function RecurringExpenseScreen() {
 
   const ctrl = useRecurringController();
 
+  // ✅ Pay dialog state MUST be inside component
   const [payDialogOpen, setPayDialogOpen] = useState(false);
-const [payDraft, setPayDraft] = useState(null);
-const [payAmount, setPayAmount] = useState("");
-const [payAmountError, setPayAmountError] = useState("");
-
+  const [payDraft, setPayDraft] = useState(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payAmountError, setPayAmountError] = useState("");
 
   const months = 12;
 
@@ -127,7 +128,6 @@ const [payAmountError, setPayAmountError] = useState("");
       return res.data;
     },
     onSuccess: () => {
-      // refresh summaries for all filters/months
       invalidateSummary();
     },
   });
@@ -251,6 +251,13 @@ const [payAmountError, setPayAmountError] = useState("");
             </Stack>
           </CardContent>
         </Card>
+
+        {/* ✅ Charts (overview layer) */}
+        {!isLoading && !isError && forecast.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <RecurringOverviewCharts forecast={forecast} monthsForTypeSplit={3} />
+          </Box>
+        )}
 
         {(isLoading || isError) && (
           <Card sx={{ mt: 2 }}>
@@ -419,10 +426,7 @@ const [payAmountError, setPayAmountError] = useState("");
                 {nextBills.map((b) => {
                   const dueLabel = new Date(b.dueDate).toLocaleDateString(
                     "nb-NO",
-                    {
-                      day: "2-digit",
-                      month: "short",
-                    },
+                    { day: "2-digit", month: "short" },
                   );
 
                   const isPaid = b.status === "PAID";
@@ -464,11 +468,7 @@ const [payAmountError, setPayAmountError] = useState("");
                                 {b.title}
                               </Typography>
                               {isPaid && (
-                                <Chip
-                                  size="small"
-                                  label="Betalt"
-                                  color="success"
-                                />
+                                <Chip size="small" label="Betalt" color="success" />
                               )}
                             </Stack>
                           }
@@ -481,15 +481,6 @@ const [payAmountError, setPayAmountError] = useState("");
                               {TYPE_META[b.type]?.label ?? b.type}
                               {" • "}
                               {dueLabel}
-                              {b.mortgage?.interestRate != null
-                                ? ` • ${b.mortgage.interestRate}%`
-                                : ""}
-                              {b.mortgage?.mortgageHolder
-                                ? ` • ${b.mortgage.mortgageHolder}`
-                                : ""}
-                              {b.mortgage?.monthlyFee
-                                ? ` • Gebyr ${formatCurrency(b.mortgage.monthlyFee)}`
-                                : ""}
                             </Typography>
                           }
                         />
@@ -522,8 +513,7 @@ const [payAmountError, setPayAmountError] = useState("");
             >
               {expenses.map((e) => {
                 const id = e._id || e.id;
-                const isMortgage =
-                  e.type === "MORTGAGE" || e.type === "HOUSING";
+                const isMortgage = e.type === "MORTGAGE" || e.type === "HOUSING";
 
                 const monthlyPayment = Number(e.amount ?? 0);
                 const monthlyFee = Number(e.monthlyFee ?? 0);
@@ -546,26 +536,14 @@ const [payAmountError, setPayAmountError] = useState("");
                             {e.title}
                           </Typography>
 
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            noWrap
-                          >
+                          <Typography variant="caption" color="text.secondary" noWrap>
                             {TYPE_META[e.type]?.label ?? e.type}
-                            {isMortgage && e.mortgageKind
-                              ? ` • ${e.mortgageKind}`
-                              : ""}
-                            {isMortgage && e.mortgageHolder
-                              ? ` • ${e.mortgageHolder}`
-                              : ""}
+                            {isMortgage && e.mortgageKind ? ` • ${e.mortgageKind}` : ""}
+                            {isMortgage && e.mortgageHolder ? ` • ${e.mortgageHolder}` : ""}
                           </Typography>
                         </Box>
 
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          sx={{ flexShrink: 0 }}
-                        >
+                        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                           <Button size="small" onClick={() => ctrl.openEdit(e)}>
                             Rediger
                           </Button>
@@ -579,44 +557,26 @@ const [payAmountError, setPayAmountError] = useState("");
                         </Stack>
                       </Stack>
 
-                      <Typography
-                        variant="h5"
-                        fontWeight={900}
-                        sx={{ mt: 1 }}
-                        noWrap
-                      >
+                      <Typography variant="h5" fontWeight={900} sx={{ mt: 1 }} noWrap>
                         {formatCurrency(monthlyPayment)}
                       </Typography>
 
                       {isMortgage && monthlyFee > 0 && (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mt: 0.5 }}
-                        >
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                           Inkl. gebyr: {formatCurrency(monthlyFee)}
                         </Typography>
                       )}
 
                       {!isMortgage &&
-                        (Number(e.estimateMin) > 0 ||
-                          Number(e.estimateMax) > 0) && (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mt: 0.5 }}
-                          >
+                        (Number(e.estimateMin) > 0 || Number(e.estimateMax) > 0) && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                             Template-estimat: {formatCurrency(e.estimateMin)} –{" "}
                             {formatCurrency(e.estimateMax)}
                           </Typography>
                         )}
 
                       {isMortgage && monthsLeft && (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mt: 0.5 }}
-                        >
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                           Estimert tid igjen:{" "}
                           <strong>
                             {(() => {
@@ -631,12 +591,7 @@ const [payAmountError, setPayAmountError] = useState("");
                       )}
 
                       {isMortgage && estInterest != null && (
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          sx={{ mt: 1 }}
-                          flexWrap="wrap"
-                        >
+                        <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap">
                           <Chip
                             size="small"
                             variant="outlined"
@@ -676,12 +631,7 @@ const [payAmountError, setPayAmountError] = useState("");
         onClose={ctrl.closeMonth}
         PaperProps={{ sx: { width: { xs: "100%", sm: 460 }, p: 2 } }}
       >
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ mb: 1 }}
-        >
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="h6" fontWeight={900} noWrap sx={{ minWidth: 0 }}>
             {selected ? monthLabel(selected.date) : "Måned"}
           </Typography>
@@ -711,13 +661,10 @@ const [payAmountError, setPayAmountError] = useState("");
                 .slice()
                 .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
                 .map((it) => {
-                  const dueLabel = new Date(it.dueDate).toLocaleDateString(
-                    "nb-NO",
-                    {
-                      day: "2-digit",
-                      month: "short",
-                    },
-                  );
+                  const dueLabel = new Date(it.dueDate).toLocaleDateString("nb-NO", {
+                    day: "2-digit",
+                    month: "short",
+                  });
 
                   const isPaid = it.status === "PAID";
                   const isSkipped = it.status === "SKIPPED";
@@ -746,9 +693,7 @@ const [payAmountError, setPayAmountError] = useState("");
                     : null;
 
                   return (
-                    <React.Fragment
-                      key={`${selected.key}-${it.recurringExpenseId}`}
-                    >
+                    <React.Fragment key={`${selected.key}-${it.recurringExpenseId}`}>
                       <ListItem
                         sx={{
                           px: 1,
@@ -757,22 +702,13 @@ const [payAmountError, setPayAmountError] = useState("");
                           alignItems: "flex-start",
                         }}
                         secondaryAction={
-                          <Stack
-                            direction="column"
-                            alignItems="flex-end"
-                            spacing={0.5}
-                            sx={{ pt: 0.25 }}
-                          >
+                          <Stack direction="column" alignItems="flex-end" spacing={0.5} sx={{ pt: 0.25 }}>
                             <Typography fontWeight={900} noWrap>
                               {expectedLabel}
                             </Typography>
 
                             {paidLabel && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                noWrap
-                              >
+                              <Typography variant="caption" color="text.secondary" noWrap>
                                 Betalt: {paidLabel}
                               </Typography>
                             )}
@@ -792,34 +728,19 @@ const [payAmountError, setPayAmountError] = useState("");
                       >
                         <ListItemText
                           primary={
-                            <Stack
-                              direction="row"
-                              spacing={1}
-                              alignItems="center"
-                              sx={{ minWidth: 0 }}
-                            >
-                              <Typography
-                                fontWeight={800}
-                                noWrap
-                                sx={{ minWidth: 0 }}
-                              >
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                              <Typography fontWeight={800} noWrap sx={{ minWidth: 0 }}>
                                 {it.title}
                               </Typography>
                               {statusChip}
                             </Stack>
                           }
                           secondary={
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              noWrap
-                            >
+                            <Typography variant="caption" color="text.secondary" noWrap>
                               {TYPE_META[it.type]?.label ?? it.type}
                               {" • "}
                               {dueLabel}
-                              {it.expected?.source
-                                ? ` • ${it.expected.source}`
-                                : ""}
+                              {it.expected?.source ? ` • ${it.expected.source}` : ""}
                             </Typography>
                           }
                         />
@@ -844,19 +765,12 @@ const [payAmountError, setPayAmountError] = useState("");
         mode={ctrl.dialogMode}
         expense={ctrl.expenseTarget}
         onClose={ctrl.closeDialog}
-        onSuccess={() => {
-          // dialog already saves; just refresh summary
-          invalidateSummary();
-        }}
+        onSuccess={() => invalidateSummary()}
         onError={() => {}}
       />
 
-      <Dialog
-        open={payDialogOpen}
-        onClose={closePayDialog}
-        fullWidth
-        maxWidth="xs"
-      >
+      {/* Pay confirm dialog */}
+      <Dialog open={payDialogOpen} onClose={closePayDialog} fullWidth maxWidth="xs">
         <DialogTitle>Registrer betalt</DialogTitle>
 
         <DialogContent sx={{ pt: 1 }}>
@@ -874,9 +788,7 @@ const [payAmountError, setPayAmountError] = useState("");
               setPayAmountError("");
             }}
             error={Boolean(payAmountError)}
-            helperText={
-              payAmountError || "Endre beløpet hvis estimatet ikke stemmer."
-            }
+            helperText={payAmountError || "Endre beløpet hvis estimatet ikke stemmer."}
             inputProps={{ min: 0, step: "0.01" }}
           />
         </DialogContent>
@@ -888,7 +800,7 @@ const [payAmountError, setPayAmountError] = useState("");
           <Button
             variant="contained"
             onClick={confirmPayDialog}
-            disabled={registerPayment.isPending}
+            disabled={registerPayment.isPending || payAmount === ""}
           >
             Lagre
           </Button>
