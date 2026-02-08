@@ -1,10 +1,16 @@
 // src/components/features/RecurringExpenes/components/RecurringOverviewCharts.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useId } from "react";
 import PropTypes from "prop-types";
 import { Box, Card, CardContent, Typography, Divider } from "@mui/material";
 import { useTheme, alpha } from "@mui/material/styles";
 import { ResponsiveLine } from "@nivo/line";
 import { ResponsiveBar } from "@nivo/bar";
+
+import {
+  RECURRING_TYPES,
+  TYPE_META_BY_KEY,
+  normalizeRecurringType,
+} from "../../../../screens/RecurringExpenses/utils/recurringTypes"; // ensure this path is correct
 
 const monthLabel = (d) =>
   new Date(d).toLocaleDateString("nb-NO", { month: "short", year: "2-digit" });
@@ -14,29 +20,23 @@ const formatCurrency = (val) =>
     Number(val || 0),
   );
 
-const TYPE_LABEL = {
-  MORTGAGE: "Lån",
-  HOUSING: "Lån",
-  UTILITY: "Strøm/kommunikasjon",
-  INSURANCE: "Forsikring",
-  SUBSCRIPTION: "Abonnement",
-};
-
-const TYPE_ORDER = ["MORTGAGE", "UTILITY", "INSURANCE", "SUBSCRIPTION"];
-
-const compactNok = (v) => {
-  const n = Number(v || 0);
-  if (n >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
-  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
-  return `${Math.round(n)}`;
-};
+// Better NOK compact formatter (native Intl)
+const compactFmt = new Intl.NumberFormat("nb-NO", {
+  notation: "compact",
+  compactDisplay: "short",
+  maximumFractionDigits: 0,
+});
+const compactNok = (v) => compactFmt.format(Number(v || 0));
 
 export default function RecurringOverviewCharts({
   forecast,
   monthsForTypeSplit = 3,
 }) {
   const mui = useTheme();
+  const reactId = useId(); // unique per mount (React 18/19)
+  const clipPathId = `expected-band-clip-${reactId}`;
 
+  // ---------- Nivo theme derived from MUI ----------
   const nivoTheme = useMemo(() => {
     const text = mui.palette.text.primary;
     const text2 = mui.palette.text.secondary;
@@ -81,64 +81,57 @@ export default function RecurringOverviewCharts({
     };
   }, [mui]);
 
-  // Palette
-  const expectedColor = useMemo(() => {
-    return mui.palette.mode === "dark"
-      ? mui.palette.info.light
-      : mui.palette.info.main;
-  }, [mui]);
+  // ---------- Palette ----------
+  const expectedColor = useMemo(
+    () =>
+      mui.palette.mode === "dark"
+        ? mui.palette.info.light
+        : mui.palette.info.main,
+    [mui],
+  );
 
-  const paidColor = useMemo(() => {
-    return mui.palette.mode === "dark"
-      ? mui.palette.success.light
-      : mui.palette.success.main;
-  }, [mui]);
+  const paidColor = useMemo(
+    () =>
+      mui.palette.mode === "dark"
+        ? mui.palette.success.light
+        : mui.palette.success.main,
+    [mui],
+  );
 
-  const bandFill = useMemo(() => {
-    // translucent band fill
-    return alpha(expectedColor, mui.palette.mode === "dark" ? 0.18 : 0.16);
-  }, [expectedColor, mui]);
+  const bandFill = useMemo(
+    () => alpha(expectedColor, mui.palette.mode === "dark" ? 0.18 : 0.16),
+    [expectedColor, mui],
+  );
 
-  const barColor = useMemo(() => {
-    return mui.palette.mode === "dark"
-      ? mui.palette.warning.light
-      : mui.palette.warning.main;
-  }, [mui]);
+  const barColor = useMemo(
+    () =>
+      mui.palette.mode === "dark"
+        ? mui.palette.warning.light
+        : mui.palette.warning.main,
+    [mui],
+  );
 
-  // ---------- Line chart data (range band + expected line + paid line) ----------
+  // ---------- Line chart data ----------
+  const bandPoints = useMemo(() => {
+    return (forecast ?? []).map((m) => ({
+      x: monthLabel(m.date),
+      min: Number(m.expectedMin ?? 0),
+      max: Number(m.expectedMax ?? 0),
+    }));
+  }, [forecast]);
+
   const lineData = useMemo(() => {
     const points = (forecast ?? []).map((m) => ({
       x: monthLabel(m.date),
-      expectedMin: Number(m.expectedMin ?? 0),
       expectedMax: Number(m.expectedMax ?? 0),
-      expectedMaxLine: Number(m.expectedMax ?? 0),
       paid: Number(m.paidTotal ?? 0),
     }));
 
-    // Nivo "area band" technique:
-    // - a "range" series with y = max, and area baseline uses y0 = min via `areaBaselineValue` isn't supported per-point,
-    //   so we instead render TWO hidden series (min/max) and a custom layer that fills between them.
-    //
-    // Easiest reliable approach: custom layer that draws the band between two series.
-    //
-    // We'll provide:
-    // - expectedMin (hidden points)
-    // - expectedMax (hidden points)
-    // - expectedMaxLine (visible line)
-    // - paid (visible dashed)
     return [
-      {
-        id: "__ExpectedMin",
-        data: points.map((p) => ({ x: p.x, y: p.expectedMin })),
-      },
-      {
-        id: "__ExpectedMax",
-        data: points.map((p) => ({ x: p.x, y: p.expectedMax })),
-      },
       {
         id: "Forventet (maks)",
         color: expectedColor,
-        data: points.map((p) => ({ x: p.x, y: p.expectedMaxLine })),
+        data: points.map((p) => ({ x: p.x, y: p.expectedMax })),
       },
       {
         id: "Betalt",
@@ -148,55 +141,60 @@ export default function RecurringOverviewCharts({
     ];
   }, [forecast, expectedColor, paidColor]);
 
-  // Custom band layer: fill between __ExpectedMin and __ExpectedMax
-  const ExpectedBandLayer = (props) => {
-    const { series, xScale, yScale, innerHeight, innerWidth } = props;
+  // Band layer between expected min/max
+  const ExpectedBandLayer = ({ xScale, yScale, innerHeight, innerWidth }) => {
+    if (!bandPoints?.length) return null;
 
-    const minSerie = series.find((s) => s.id === "__ExpectedMin");
-    const maxSerie = series.find((s) => s.id === "__ExpectedMax");
-    if (!minSerie || !maxSerie) return null;
-
-    const minPts = minSerie.data;
-    const maxPts = maxSerie.data;
-    if (!minPts?.length || !maxPts?.length) return null;
-
-    // Build SVG path:
-    // go along max left->right, then min right->left, close.
-    const top = maxPts
+    const top = bandPoints
       .map((p, i) => {
-        const x = xScale(p.data.x);
-        const y = yScale(p.data.y);
+        const x = xScale(p.x);
+        const y = yScale(p.max);
         return `${i === 0 ? "M" : "L"} ${x} ${y}`;
       })
       .join(" ");
 
-    const bottom = minPts
+    const bottom = bandPoints
       .slice()
       .reverse()
       .map((p) => {
-        const x = xScale(p.data.x);
-        const y = yScale(p.data.y);
+        const x = xScale(p.x);
+        const y = yScale(p.min);
         return `L ${x} ${y}`;
       })
       .join(" ");
 
     const d = `${top} ${bottom} Z`;
 
-    // Clip to chart area
     return (
       <g>
         <defs>
-          <clipPath id="expected-band-clip">
+          <clipPath id={clipPathId}>
             <rect x="0" y="0" width={innerWidth} height={innerHeight} />
           </clipPath>
         </defs>
         <path
           d={d}
-          clipPath="url(#expected-band-clip)"
+          clipPath={`url(#${clipPathId})`}
           fill={bandFill}
           stroke="none"
         />
       </g>
+    );
+  };
+
+  // Overlay dashed paid line ON TOP of normal lines (so we keep the "lines" layer)
+  const DashedPaidLineLayer = ({ series }) => {
+    const paid = series.find((s) => s.id === "Betalt");
+    if (!paid?.path) return null;
+
+    return (
+      <path
+        d={paid.path}
+        fill="none"
+        stroke={paid.color}
+        strokeWidth={3}
+        strokeDasharray="8 6"
+      />
     );
   };
 
@@ -207,23 +205,19 @@ export default function RecurringOverviewCharts({
 
     for (const m of slice) {
       for (const it of m.items ?? []) {
-        const t = String(it.type || "").toUpperCase();
-        const normalized = t === "HOUSING" ? "MORTGAGE" : t;
+        const normalized = normalizeRecurringType(it.type);
         const v = Number(it.expected?.max ?? it.expected?.fixed ?? 0);
         sums.set(normalized, (sums.get(normalized) ?? 0) + v);
       }
     }
 
-    const rows = TYPE_ORDER.map((t) => ({
-      type: TYPE_LABEL[t] ?? t,
-      amount: Number(sums.get(t) ?? 0),
+    const rows = RECURRING_TYPES.map((t) => ({
+      type: TYPE_META_BY_KEY[t.key]?.label ?? t.key,
+      amount: Number(sums.get(t.key) ?? 0),
     })).filter((r) => r.amount > 0);
 
     return rows.length ? rows : [{ type: "—", amount: 0 }];
   }, [forecast, monthsForTypeSplit]);
-
-  // Filter out hidden series from legends & points
-  const visibleSeriesForLegend = ["Forventet (maks)", "Betalt"];
 
   return (
     <Box
@@ -234,7 +228,7 @@ export default function RecurringOverviewCharts({
         alignItems: "stretch",
       }}
     >
-      {/* Line: Expected band + expected line + paid line */}
+      {/* Line */}
       <Card>
         <CardContent sx={{ pb: 1 }}>
           <Typography fontWeight={900} variant="h6">
@@ -251,15 +245,11 @@ export default function RecurringOverviewCharts({
             theme={nivoTheme}
             data={lineData}
             colors={(d) => d.color}
-            margin={{ top: 10, right: 18, bottom: 44, left: 64 }}
+            margin={{ top: 10, right: 18, bottom: 56, left: 64 }}
             xScale={{ type: "point" }}
             yScale={{ type: "linear", min: 0, max: "auto", stacked: false }}
             curve="monotoneX"
-            enableArea={false}
-            axisBottom={{
-              tickRotation: -25,
-              tickPadding: 8,
-            }}
+            axisBottom={{ tickRotation: -25, tickPadding: 8 }}
             axisLeft={{
               format: compactNok,
               legend: "NOK",
@@ -272,59 +262,41 @@ export default function RecurringOverviewCharts({
             pointBorderColor={{ from: "serieColor" }}
             pointColor={mui.palette.background.paper}
             useMesh
-            // Hide points/lines for min/max helper series
-            enablePoints={(s) =>
-              s?.id !== "__ExpectedMin" && s?.id !== "__ExpectedMax"
-            }
-            lineWidth={(s) =>
-              s?.id === "Forventet (maks)" ? 3 : s?.id === "Betalt" ? 3 : 0
-            }
-            // Paid dashed
-            lineStyle={(s) =>
-              s?.id === "Betalt" ? { strokeDasharray: "8 6" } : undefined
-            }
-            // Custom layers: grid -> axes -> band -> lines -> points -> mesh -> legends
+            enablePoints
+            lineWidth={3}
             layers={[
               "grid",
               "markers",
               "axes",
-              ExpectedBandLayer,
-              "lines",
+              ExpectedBandLayer, // behind
+              "lines", // ✅ required
+              DashedPaidLineLayer, // dashed overlay
               "points",
               "mesh",
               "legends",
             ]}
-            tooltip={({ point }) => {
-              // ignore hidden helper series
-              if (
-                point.serieId === "__ExpectedMin" ||
-                point.serieId === "__ExpectedMax"
-              )
-                return null;
-
-              return (
-                <Box sx={{ px: 1.25, py: 0.75 }}>
-                  <Typography fontWeight={900} variant="caption">
-                    {point.serieId}
-                  </Typography>
-                  <Typography variant="body2">
-                    {point.data.xFormatted}:{" "}
-                    <strong>{formatCurrency(point.data.yFormatted)}</strong>
-                  </Typography>
-                </Box>
-              );
-            }}
+            tooltip={({ point }) => (
+              <Box sx={{ px: 1.25, py: 0.75 }}>
+                <Typography fontWeight={900} variant="caption">
+                  {point.serieId}
+                </Typography>
+                <Typography variant="body2">
+                  {point.data.xFormatted}:{" "}
+                  <strong>{formatCurrency(point.data.yFormatted)}</strong>
+                </Typography>
+              </Box>
+            )}
             legends={[
               {
                 anchor: "bottom",
                 direction: "row",
-                translateY: 44,
+                translateY: 52,
                 itemWidth: 150,
                 itemHeight: 18,
                 itemsSpacing: 14,
                 symbolSize: 10,
                 symbolShape: "circle",
-                data: visibleSeriesForLegend.map((id) => ({
+                data: ["Forventet (maks)", "Betalt"].map((id) => ({
                   id,
                   label: id,
                   color: id === "Betalt" ? paidColor : expectedColor,
@@ -335,7 +307,7 @@ export default function RecurringOverviewCharts({
         </Box>
       </Card>
 
-      {/* Bars: Type split next N months */}
+      {/* Bars */}
       <Card>
         <CardContent sx={{ pb: 1 }}>
           <Typography fontWeight={900} variant="h6">
@@ -354,7 +326,7 @@ export default function RecurringOverviewCharts({
             keys={["amount"]}
             indexBy="type"
             layout="horizontal"
-            margin={{ top: 10, right: 18, bottom: 40, left: 160 }}
+            margin={{ top: 10, right: 18, bottom: 56, left: 160 }}
             padding={0.28}
             colors={barColor}
             borderRadius={6}
@@ -364,14 +336,14 @@ export default function RecurringOverviewCharts({
             enableLabel={false}
             axisBottom={{
               format: compactNok,
+              tickValues: 5,
+              tickRotation: -20,
+              tickPadding: 6,
               legend: "NOK",
-              legendOffset: 32,
+              legendOffset: 42,
               legendPosition: "middle",
             }}
-            axisLeft={{
-              tickSize: 0,
-              tickPadding: 10,
-            }}
+            axisLeft={{ tickSize: 0, tickPadding: 10 }}
             tooltip={({ indexValue, value }) => (
               <Box sx={{ px: 1.25, py: 0.75 }}>
                 <Typography fontWeight={900} variant="caption">

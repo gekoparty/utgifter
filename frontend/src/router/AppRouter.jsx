@@ -12,7 +12,7 @@ import BrandScreen from "../screens/BrandScreen";
 import LocationScreen from "../screens/LocationScreen";
 import ProductScreen from "../screens/ProductScreen";
 import StatsScreen from "../screens/StatsScreen";
-import RecurringExpenseScreen from "../screens/RecurringExpenseScreen";
+import RecurringExpenseScreen from "../screens/RecurringExpenses/RecurringExpenseScreen"
 
 const AppRouter = () => (
   <BrowserRouter>
