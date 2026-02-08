@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import { useExpensesByMonthSummary } from "./hooks/useExpensesByMonth";
 import { buildOption } from "./echarts/buildOption";
 
-import HeaderControls from "./ui/HeaderControls";
+import HeaderControls from "./ui/headerControls"
 import StatsStrip from "./ui/StatsStrip";
 
 /**

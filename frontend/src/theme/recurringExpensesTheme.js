@@ -20,16 +20,15 @@ export const recurringExpensesTheme = createTheme(dashboardTheme, {
     },
 
     MuiCardContent: {
-      styleOverrides: {
-        root: {
-          // More consistent spacing so text doesn't collide at smaller widths
-          padding: 18,
-          "&:last-child": {
-            paddingBottom: 18,
-          },
-        },
+  styleOverrides: {
+    root: {
+      padding: 22,
+      "&:last-child": {
+        paddingBottom: 22,
       },
     },
+  },
+},
 
     MuiChip: {
       styleOverrides: {

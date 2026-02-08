@@ -54,8 +54,12 @@ function ExpenseTemplateCard({ expense, onEdit, onDelete, formatCurrency }) {
             <Typography variant="caption" color="text.secondary" noWrap>
               {/* ✅ THIS is where meta?.label ?? expense.type goes */}
               {meta?.label ?? expense.type}
-              {isMortgage && expense.mortgageKind ? ` • ${expense.mortgageKind}` : ""}
-              {isMortgage && expense.mortgageHolder ? ` • ${expense.mortgageHolder}` : ""}
+              {isMortgage && expense.mortgageKind
+                ? ` • ${expense.mortgageKind}`
+                : ""}
+              {isMortgage && expense.mortgageHolder
+                ? ` • ${expense.mortgageHolder}`
+                : ""}
             </Typography>
           </Box>
 
@@ -63,8 +67,12 @@ function ExpenseTemplateCard({ expense, onEdit, onDelete, formatCurrency }) {
             <Button size="small" onClick={() => onEdit(expense)}>
               Rediger
             </Button>
-            <Button size="small" color="error" onClick={() => onDelete(expense)}>
-              Slett
+            <Button
+              size="small"
+              color="error"
+              onClick={() => onDelete(expense)}
+            >
+              Fullfør
             </Button>
           </Stack>
         </Stack>
@@ -80,7 +88,8 @@ function ExpenseTemplateCard({ expense, onEdit, onDelete, formatCurrency }) {
         )}
 
         {!isMortgage &&
-          (Number(expense.estimateMin) > 0 || Number(expense.estimateMax) > 0) && (
+          (Number(expense.estimateMin) > 0 ||
+            Number(expense.estimateMax) > 0) && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
               Template-estimat: {formatCurrency(expense.estimateMin)} –{" "}
               {formatCurrency(expense.estimateMax)}

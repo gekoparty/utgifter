@@ -1,10 +1,6 @@
-// src/screens/RecurringExpenses/RecurringExpenseScreen.jsx
 import React, { useCallback, useMemo } from "react";
-import axios from "axios";
 import { Box, Card, CardContent, Typography } from "@mui/material";
-import { useMutation } from "@tanstack/react-query";
 
-import { API_URL } from "../../components/commons/Consts/constants";
 import { useRecurringController } from "../../components/features/RecurringExpenes/hooks/useRecurringController";
 import RecurringExpenseDialog from "../../components/features/RecurringExpenes/components/RecurringExpenseDialog";
 import { useRecurringInvalidation } from "../../components/features/RecurringExpenes/hooks/useRecurringData";
@@ -12,6 +8,7 @@ import RecurringOverviewCharts from "../../components/features/RecurringExpenes/
 
 import { useRecurringSummary } from "./hooks/useRecurringSummary";
 import { usePayDialog } from "./hooks/usePayDialog";
+import { useRecurringPayments } from "./hooks/useRecurringPayments";
 import { makeCurrencyFormatter } from "./utils/recurringFormatters";
 
 import HeaderBar from "./components/HeaderBar";
@@ -22,11 +19,13 @@ import ExpenseTemplatesSection from "./components/ExpenseTemplatesSection";
 import MonthDrawer from "./components/MonthDrawer";
 import PayDialog from "./components/PayDialog";
 
+const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
+
 export default function RecurringExpenseScreen() {
   const ctrl = useRecurringController();
+  const payments = useRecurringPayments();
   const { invalidateSummary } = useRecurringInvalidation();
 
-  // Stable currency formatter
   const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
   const formatCurrency = useCallback(
     (val) => currencyFormatter.format(Number(val || 0)),
@@ -36,28 +35,37 @@ export default function RecurringExpenseScreen() {
   const {
     open: payDialogOpen,
     draft: payDraft,
+    mode: payMode,
     amount: payAmount,
+    paidDate: payPaidDate,
+    periodKey: payPeriodKey,
+
     error: payAmountError,
+
     setAmount: setPayAmount,
+    setPaidDate: setPayPaidDate,
+    setPeriodKey: setPayPeriodKey,
     setError: setPayAmountError,
+
     openDialog: openPayDialog,
     closeDialog: closePayDialog,
   } = usePayDialog();
 
-  const months = 12;
+  const monthsForward = 12;
+const monthsBack = 12;   // ⭐ history window
 
-  // ✅ With select(), data is already shaped and has defaults
-  const { data, isLoading, isError, error: loadError } = useRecurringSummary({
-    filter: ctrl.filter,
-    months,
-    enabled: true,
-  });
-
- 
-
-  const { expenses, forecast, nextBills, sum3 } = data;
-
-   console.log("FORECAST FROM API:", forecast);
+const { data, isLoading, isError, error: loadError } = useRecurringSummary({
+  filter: ctrl.filter,
+  months: monthsForward,
+  pastMonths: monthsBack,
+  enabled: true,
+});
+  const { expenses, forecast, nextBills, sum3 } = data || {
+    expenses: [],
+    forecast: [],
+    nextBills: [],
+    sum3: { min: 0, max: 0, paid: 0 },
+  };
 
   const selected = useMemo(() => {
     if (!ctrl.selectedMonthKey) return null;
@@ -65,29 +73,10 @@ export default function RecurringExpenseScreen() {
   }, [forecast, ctrl.selectedMonthKey]);
 
   const maxRef = useMemo(() => {
-    const vals = forecast.map((x) =>
-      ctrl.tab === 1 ? x.paidTotal : x.expectedMax,
-    );
+    const vals = forecast.map((x) => (ctrl.tab === 1 ? x.paidTotal : x.expectedMax));
     return Math.max(...vals, 1) || 1;
   }, [forecast, ctrl.tab]);
 
-  const registerPayment = useMutation({
-    mutationFn: async ({ recurringExpenseId, periodKey, amount }) => {
-      const url = `${API_URL}/api/recurring-payments`;
-      const payload = {
-        recurringExpenseId,
-        periodKey,
-        amount: Number(amount || 0),
-        paidDate: new Date().toISOString(),
-        status: "PAID",
-      };
-      const res = await axios.post(url, payload);
-      return res.data;
-    },
-    onSuccess: () => invalidateSummary(),
-  });
-
-  // Prefer depending on functions, not whole ctrl object
   const onFilter = useCallback((f) => ctrl.setFilter(f), [ctrl.setFilter]);
   const onTab = useCallback((v) => ctrl.setTab(v), [ctrl.setTab]);
   const onOpenMonth = useCallback((key) => ctrl.openMonth(key), [ctrl.openMonth]);
@@ -100,28 +89,120 @@ export default function RecurringExpenseScreen() {
     [setPayAmount, setPayAmountError],
   );
 
-  const confirmPay = useCallback(() => {
+  const onPaidDate = useCallback(
+    (v) => {
+      setPayPaidDate(v);
+      setPayAmountError("");
+    },
+    [setPayPaidDate, setPayAmountError],
+  );
+
+  const onPeriodKey = useCallback(
+    (v) => {
+      setPayPeriodKey(v);
+      setPayAmountError("");
+    },
+    [setPayPeriodKey, setPayAmountError],
+  );
+
+  const confirmPay = useCallback(async () => {
     const n = Number(payAmount);
     if (!Number.isFinite(n) || n < 0) {
       setPayAmountError("Ugyldig beløp");
       return;
     }
-    if (!payDraft?.recurringExpenseId || !payDraft?.periodKey) {
-      setPayAmountError("Mangler data for betaling");
+
+    if (!payDraft?.recurringExpenseId) {
+      setPayAmountError("Mangler recurringExpenseId");
       return;
     }
 
-    registerPayment.mutate(
+    if (!payPeriodKey || !isPeriodKey(payPeriodKey)) {
+      setPayAmountError("Ugyldig måned (YYYY-MM)");
+      return;
+    }
+
+    if (!payPaidDate) {
+      setPayAmountError("Mangler betalt dato");
+      return;
+    }
+
+    // ✅ EDIT
+    if (payMode === "EDIT") {
+      if (!payDraft?.paymentId) {
+        setPayAmountError("Mangler paymentId");
+        return;
+      }
+
+      const originalPk = payDraft.originalPeriodKey;
+
+      // If user changed month, "move" payment:
+      // 1) upsert into the new periodKey
+      // 2) delete old payment doc
+      if (originalPk && originalPk !== payPeriodKey) {
+        try {
+          await payments.createPayment.mutateAsync({
+            recurringExpenseId: payDraft.recurringExpenseId,
+            periodKey: payPeriodKey,
+            amount: n,
+            paidDate: payPaidDate,
+          });
+
+          await payments.deletePayment.mutateAsync({
+            paymentId: payDraft.paymentId,
+          });
+
+          closePayDialog();
+        } catch (e) {
+          setPayAmountError("Kunne ikke flytte betalingen");
+        }
+        return;
+      }
+
+      // Normal edit (amount/date only)
+      payments.updatePayment.mutate(
+        {
+          paymentId: payDraft.paymentId,
+          amount: n,
+          paidDate: payPaidDate,
+        },
+        { onSuccess: () => closePayDialog() },
+      );
+      return;
+    }
+
+    // ✅ CREATE/UPSERT (expenseId + periodKey)
+    payments.createPayment.mutate(
       {
         recurringExpenseId: payDraft.recurringExpenseId,
-        periodKey: payDraft.periodKey,
+        periodKey: payPeriodKey,
         amount: n,
+        paidDate: payPaidDate,
       },
       { onSuccess: () => closePayDialog() },
     );
-  }, [payAmount, payDraft, registerPayment, closePayDialog, setPayAmountError]);
+  }, [
+    payAmount,
+    payDraft,
+    payPaidDate,
+    payPeriodKey,
+    payMode,
+    payments,
+    closePayDialog,
+    setPayAmountError,
+  ]);
 
-  
+  const deletePay = useCallback(() => {
+    if (!payDraft?.paymentId) {
+      setPayAmountError("Mangler paymentId");
+      return;
+    }
+
+    payments.deletePayment.mutate(
+      { paymentId: payDraft.paymentId },
+      { onSuccess: () => closePayDialog() },
+    );
+  }, [payDraft, payments, closePayDialog, setPayAmountError]);
 
   return (
     <Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
@@ -145,9 +226,7 @@ export default function RecurringExpenseScreen() {
           <Card sx={{ mt: 2 }}>
             <CardContent>
               {isLoading && (
-                <Typography color="text.secondary">
-                  Laster faste kostnader…
-                </Typography>
+                <Typography color="text.secondary">Laster faste kostnader…</Typography>
               )}
               {isError && (
                 <Typography color="error">
@@ -180,7 +259,6 @@ export default function RecurringExpenseScreen() {
 
           <NextBillsCard nextBills={nextBills} formatCurrency={formatCurrency} />
 
-          {/* ✅ this section now virtualizes internally via VirtuosoGrid when large */}
           <ExpenseTemplatesSection
             expenses={expenses}
             onEdit={ctrl.openEdit}
@@ -195,8 +273,8 @@ export default function RecurringExpenseScreen() {
         onClose={ctrl.closeMonth}
         selected={selected}
         onOpenPay={openPayDialog}
-        registerPaymentPending={registerPayment.isPending}
-        registerPaymentError={registerPayment.isError}
+        registerPaymentPending={payments.pending}
+        registerPaymentError={payments.error}
         formatCurrency={formatCurrency}
       />
 
@@ -215,9 +293,15 @@ export default function RecurringExpenseScreen() {
         title={payDraft?.title}
         amount={payAmount}
         onAmount={onAmount}
+        paidDate={payPaidDate}
+        onPaidDate={onPaidDate}
+        periodKey={payPeriodKey}
+        onPeriodKey={onPeriodKey}
         error={payAmountError}
         onConfirm={confirmPay}
-        pending={registerPayment.isPending}
+        onDelete={payMode === "EDIT" ? deletePay : undefined}
+        pending={payments.pending}
+        mode={payMode}
       />
     </Box>
   );
