@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, Fragment } from "react";
 import {
   Button,
   Chip,
@@ -26,9 +26,7 @@ function MonthDrawer({
 }) {
   const sortedItems = useMemo(() => {
     const items = selected?.items ?? [];
-    return items
-      .slice()
-      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    return items.slice().sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
   }, [selected?.items]);
 
   return (
@@ -38,12 +36,7 @@ function MonthDrawer({
       onClose={onClose}
       PaperProps={{ sx: { width: { xs: "100%", sm: 460 }, p: 2 } }}
     >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        sx={{ mb: 1 }}
-      >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6" fontWeight={900} noWrap sx={{ minWidth: 0 }}>
           {selected ? monthLabel(selected.date) : "Måned"}
         </Typography>
@@ -88,9 +81,9 @@ function MonthDrawer({
                   : formatCurrency(0);
 
               const paidLabel = it.actual
-                ? `${formatCurrency(it.actual.amount)} (${new Date(
-                    it.actual.paidDate,
-                  ).toLocaleDateString("nb-NO")})`
+                ? `${formatCurrency(it.actual.amount)} (${new Date(it.actual.paidDate).toLocaleDateString(
+                    "nb-NO",
+                  )})`
                 : null;
 
               const typeKey = normalizeRecurringType(it.type);
@@ -99,7 +92,7 @@ function MonthDrawer({
               const key = `${selected.key}-${it.recurringExpenseId}-${String(it.dueDate)}`;
 
               return (
-                <React.Fragment key={key}>
+                <Fragment key={key}>
                   <ListItem
                     sx={{
                       px: 1,
@@ -108,12 +101,7 @@ function MonthDrawer({
                       alignItems: "flex-start",
                     }}
                     secondaryAction={
-                      <Stack
-                        direction="column"
-                        alignItems="flex-end"
-                        spacing={0.5}
-                        sx={{ pt: 0.25 }}
-                      >
+                      <Stack direction="column" alignItems="flex-end" spacing={0.5} sx={{ pt: 0.25 }}>
                         <Typography fontWeight={900} noWrap>
                           {expectedLabel}
                         </Typography>
@@ -124,14 +112,19 @@ function MonthDrawer({
                           </Typography>
                         )}
 
-                        {!isPaid && !isSkipped && (
+                        {!isSkipped && (
                           <Button
                             size="small"
-                            variant="outlined"
+                            variant={isPaid ? "text" : "outlined"}
                             disabled={registerPaymentPending}
-                            onClick={() => onOpenPay(it)}
+                            onClick={() =>
+                              onOpenPay({
+                                ...it,
+                                periodKey: it.periodKey || selected.key,
+                              })
+                            }
                           >
-                            Registrer betalt
+                            {isPaid ? "Rediger" : "Registrer betalt"}
                           </Button>
                         )}
                       </Stack>
@@ -148,22 +141,20 @@ function MonthDrawer({
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary" noWrap>
-                          {typeLabel}
-                          {" • "}
-                          {dueShortLabel(it.dueDate)}
+                          {typeLabel} {" • "} {dueShortLabel(it.dueDate)}
                         </Typography>
                       }
                     />
                   </ListItem>
                   <Divider sx={{ opacity: 0.4 }} />
-                </React.Fragment>
+                </Fragment>
               );
             })}
           </List>
 
           {registerPaymentError && (
             <Typography color="error" sx={{ mt: 1 }}>
-              Kunne ikke registrere betaling.
+              Kunne ikke lagre endringene.
             </Typography>
           )}
         </>

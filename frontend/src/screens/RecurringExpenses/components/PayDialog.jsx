@@ -1,43 +1,101 @@
 import React, { memo } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from "@mui/material";
+import {
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
 
 function PayDialog({
   open,
   onClose,
   title,
+
   amount,
   onAmount,
+
+  paidDate,
+  onPaidDate,
+
+  periodKey,
+  onPeriodKey,
+
   error,
   onConfirm,
+  onDelete,
   pending,
+  mode, // "CREATE" | "EDIT"
 }) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Registrer betalt</DialogTitle>
+    <Dialog open={open} onClose={pending ? undefined : onClose} fullWidth maxWidth="xs">
+      <DialogTitle>
+        {mode === "EDIT" ? "Rediger betaling" : "Registrer betaling"}
+      </DialogTitle>
 
-      <DialogContent sx={{ pt: 1 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {title || "Betaling"}
-        </Typography>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {title && (
+            <Typography fontWeight={800} noWrap>
+              {title}
+            </Typography>
+          )}
 
-        <TextField
-          label="Faktisk beløp (NOK)"
-          type="number"
-          fullWidth
-          value={amount}
-          onChange={(e) => onAmount(e.target.value)}
-          error={Boolean(error)}
-          helperText={error || "Endre beløpet hvis estimatet ikke stemmer."}
-          inputProps={{ min: 0, step: "0.01" }}
-        />
+          {/* ✅ Accounting month */}
+          <TextField
+            label="Måned (regnskapsmåned)"
+            type="month"
+            value={periodKey || ""}
+            onChange={(e) => onPeriodKey?.(e.target.value)}
+            fullWidth
+            helperText="Velg hvilken måned betalingen skal knyttes til (YYYY-MM)."
+          />
+
+          <TextField
+            label="Beløp (NOK)"
+            type="number"
+            value={amount}
+            onChange={(e) => onAmount(e.target.value)}
+            error={Boolean(error)}
+            helperText={error || " "}
+            inputProps={{ min: 0, step: 1 }}
+            fullWidth
+          />
+
+          <TextField
+            label="Betalt dato"
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            value={paidDate || ""}
+            onChange={(e) => onPaidDate(e.target.value)}
+            fullWidth
+            helperText="Du kan registrere betalinger tilbake i tid."
+          />
+        </Stack>
       </DialogContent>
 
-      <DialogActions>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        {mode === "EDIT" && (
+          <Button
+            color="error"
+            onClick={onDelete}
+            disabled={pending}
+            sx={{ mr: "auto" }}
+          >
+            Slett betaling
+          </Button>
+        )}
+
         <Button onClick={onClose} disabled={pending}>
           Avbryt
         </Button>
-        <Button variant="contained" onClick={onConfirm} disabled={pending || amount === ""}>
-          Lagre
+
+        <Button variant="contained" onClick={onConfirm} disabled={pending}>
+          {pending ? <CircularProgress size={22} color="inherit" /> : "Lagre"}
         </Button>
       </DialogActions>
     </Dialog>

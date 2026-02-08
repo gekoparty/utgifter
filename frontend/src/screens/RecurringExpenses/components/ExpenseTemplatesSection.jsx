@@ -5,7 +5,12 @@ import VirtualizedExpenseGrid from "./VirtualizedExpenseGrid";
 
 const VIRTUALIZE_AFTER = 60;
 
-function ExpenseTemplatesSection({ expenses, onEdit, onDelete, formatCurrency }) {
+function ExpenseTemplatesSection({
+  expenses,
+  onEdit,
+  onArchive,   // ⭐ CHANGED
+  formatCurrency,
+}) {
   const shouldVirtualize = (expenses?.length ?? 0) >= VIRTUALIZE_AFTER;
 
   return (
@@ -18,7 +23,7 @@ function ExpenseTemplatesSection({ expenses, onEdit, onDelete, formatCurrency })
         <VirtualizedExpenseGrid
           expenses={expenses}
           onEdit={onEdit}
-          onDelete={onDelete}
+          onArchive={onArchive}   // ⭐ CHANGED
           formatCurrency={formatCurrency}
           height={720}
         />
@@ -40,7 +45,7 @@ function ExpenseTemplatesSection({ expenses, onEdit, onDelete, formatCurrency })
               key={e._id || e.id}
               expense={e}
               onEdit={onEdit}
-              onDelete={onDelete}
+              onArchive={onArchive}   // ⭐ CHANGED
               formatCurrency={formatCurrency}
             />
           ))}
