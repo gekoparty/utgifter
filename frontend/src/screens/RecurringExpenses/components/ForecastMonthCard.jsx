@@ -26,22 +26,27 @@ function ForecastMonthCard({ month, tab, maxRef, onOpenMonth, formatCurrency }) 
       <CardContent>
         <Stack spacing={1.25}>
           {/* Header */}
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-            <Typography fontWeight={950} noWrap sx={{ minWidth: 0 }}>
-              {monthLabel(month.date)}
-            </Typography>
+          <Stack
+  direction="row"
+  alignItems="flex-start"
+  justifyContent="space-between"
+  spacing={1}
+  sx={{ flexWrap: "wrap", rowGap: 1 }}
+>
+  <Typography fontWeight={950} sx={{ flexGrow: 1 }}>
+    {monthLabel(month.date)}
+  </Typography>
 
-            <Chip
-              size="small"
-              label={`${itemsCount} stk`}
-              sx={{
-                flexShrink: 0,
-                fontWeight: 800,
-                opacity: 0.9,
-                bgcolor: "rgba(255,255,255,0.08)",
-              }}
-            />
-          </Stack>
+  <Chip
+    size="small"
+    label={`${itemsCount} stk`}
+    sx={{
+      flexShrink: 0,
+      fontWeight: 800,
+      bgcolor: "rgba(255,255,255,0.12)",
+    }}
+  />
+</Stack>
 
           {/* Label */}
           <Typography

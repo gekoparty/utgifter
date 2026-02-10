@@ -1,7 +1,10 @@
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { API_URL } from "../../../components/commons/Consts/constants";
-import { recurringSummaryKey } from "../../../components/features/RecurringExpenes/hooks/useRecurringData";
+import {
+  recurringSummaryKey,
+  DEFAULT_PAST_MONTHS,
+} from "../../../components/features/RecurringExpenes/hooks/useRecurringData";
 
 const EMPTY = Object.freeze({
   expenses: [],
@@ -19,20 +22,24 @@ const EMPTY = Object.freeze({
 export function useRecurringSummary({
   filter,
   months = 12,
-  pastMonths = 12, // ⭐ NEW DEFAULT
+  pastMonths = DEFAULT_PAST_MONTHS, // ✅ shared default
   enabled = true,
 }) {
+  const normalizedFilter = String(filter || "ALL").toUpperCase();
+  const normalizedMonths = Number(months || 12);
+  const normalizedPast = Number(pastMonths || 0);
+
   return useQuery({
-    queryKey: recurringSummaryKey(filter, months, pastMonths),
+    queryKey: recurringSummaryKey(normalizedFilter, normalizedMonths, normalizedPast),
 
     enabled,
 
     queryFn: async () => {
       const url =
         `${API_URL}/api/recurring-expenses/summary` +
-        `?filter=${encodeURIComponent(filter)}` +
-        `&months=${months}` +
-        `&pastMonths=${pastMonths}`;   // ⭐ NEW PARAM
+        `?filter=${encodeURIComponent(normalizedFilter)}` +
+        `&months=${normalizedMonths}` +
+        `&pastMonths=${normalizedPast}`;
 
       const res = await axios.get(url);
       return res.data;
