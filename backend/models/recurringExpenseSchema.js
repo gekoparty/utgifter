@@ -44,8 +44,17 @@ const RecurringExpenseSchema = new mongoose.Schema(
      * ⭐ NEW — lifecycle
      */
     isActive: { type: Boolean, default: true, index: true },
-    startDate: { type: Date, default: () => new Date(), index: true },
+    startDate: { type: Date, default: null, index: true },
     endDate: { type: Date, default: null, index: true },
+
+    pausePeriods: [
+  {
+    from: { type: Date, required: true },
+    to: { type: Date, required: true },
+    note: { type: String, default: "" },
+  },
+],
+
   },
   { timestamps: true }
 );

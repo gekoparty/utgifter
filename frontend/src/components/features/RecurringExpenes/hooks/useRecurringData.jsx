@@ -3,13 +3,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import useCustomHttp from "../../../../hooks/useHttp";
 
 export const RECURRING_EXPENSES_QUERY_KEY = ["recurring-expenses"];
-
 export const RECURRING_EXPENSES_SUMMARY_ROOT_KEY = ["recurring-expenses-summary"];
 
-export const recurringSummaryKey = (filter, months) => [
+// ✅ include pastMonths in key (VERY important)
+export const recurringSummaryKey = (filter, months, pastMonths) => [
   ...RECURRING_EXPENSES_SUMMARY_ROOT_KEY,
-  filter,
-  months,
+  String(filter || "ALL"),
+  Number(months || 12),
+  Number(pastMonths || 0),
 ];
 
 export const useRecurringInvalidation = () => {

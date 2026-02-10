@@ -59,10 +59,10 @@ export default function RecurringExpenseDialog({
   const showMortgage = form.type === "MORTGAGE";
 
   const dialogTitle = isDelete
-    ? "Fullfør fast kostnad"
-    : isEdit
-      ? "Rediger fast kostnad"
-      : "Ny fast kostnad";
+  ? "Fullfør fast kostnad"
+  : isEdit
+  ? "Rediger grunnoppsett"
+  : "Ny fast kostnad";
 
   const confirmLabel = isDelete ? "Fullfør" : "Lagre";
   const confirmColor = isDelete ? "error" : "primary";

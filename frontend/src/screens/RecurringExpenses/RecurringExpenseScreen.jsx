@@ -1,9 +1,10 @@
-import React, { useCallback, useMemo } from "react";
-import { Box, Card, CardContent, Typography } from "@mui/material";
+import React, { useCallback, useMemo, useState } from "react";
+import { Box, Card, CardContent, Typography, Slider, Stack } from "@mui/material";
+import dayjs from "dayjs";
 
 import { useRecurringController } from "../../components/features/RecurringExpenes/hooks/useRecurringController";
 import RecurringExpenseDialog from "../../components/features/RecurringExpenes/components/RecurringExpenseDialog";
-import { useRecurringInvalidation } from "../../components/features/RecurringExpenes/hooks/useRecurringData";
+import { useRecurringInvalidation, useRecurringData } from "../../components/features/RecurringExpenes/hooks/useRecurringData";
 import RecurringOverviewCharts from "../../components/features/RecurringExpenes/components/RecurringOverviewCharts";
 
 import { useRecurringSummary } from "./hooks/useRecurringSummary";
@@ -19,17 +20,24 @@ import ExpenseTemplatesSection from "./components/ExpenseTemplatesSection";
 import MonthDrawer from "./components/MonthDrawer";
 import PayDialog from "./components/PayDialog";
 
+import ChangeTermsDialog from "./components/ChangeTermsDialog";
+import PauseDialog from "./components/PauseDialog";
+import { recurringApi } from "./api/recurringApi";
+
 const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
 
 export default function RecurringExpenseScreen() {
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
-  const { invalidateSummary } = useRecurringInvalidation();
+  const { invalidateSummary, invalidateTemplates } = useRecurringInvalidation();
+
+  // ✅ templates include pausePeriods (used for edit/unpause UI)
+  const templates = useRecurringData({ enabled: true });
 
   const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
   const formatCurrency = useCallback(
     (val) => currencyFormatter.format(Number(val || 0)),
-    [currencyFormatter],
+    [currencyFormatter]
   );
 
   const {
@@ -39,27 +47,27 @@ export default function RecurringExpenseScreen() {
     amount: payAmount,
     paidDate: payPaidDate,
     periodKey: payPeriodKey,
-
     error: payAmountError,
-
     setAmount: setPayAmount,
     setPaidDate: setPayPaidDate,
     setPeriodKey: setPayPeriodKey,
     setError: setPayAmountError,
-
     openDialog: openPayDialog,
     closeDialog: closePayDialog,
   } = usePayDialog();
 
   const monthsForward = 12;
-const monthsBack = 12;   // ⭐ history window
 
-const { data, isLoading, isError, error: loadError } = useRecurringSummary({
-  filter: ctrl.filter,
-  months: monthsForward,
-  pastMonths: monthsBack,
-  enabled: true,
-});
+  // ✅ slider-controlled history window
+  const [monthsBack, setMonthsBack] = useState(12);
+
+  const { data, isLoading, isError, error: loadError } = useRecurringSummary({
+    filter: ctrl.filter,
+    months: monthsForward,
+    pastMonths: monthsBack,
+    enabled: true,
+  });
+
   const { expenses, forecast, nextBills, sum3 } = data || {
     expenses: [],
     forecast: [],
@@ -67,13 +75,25 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
     sum3: { min: 0, max: 0, paid: 0 },
   };
 
+  const thisMonthKey = useMemo(() => dayjs().format("YYYY-MM"), []);
+  const forecastPast = useMemo(
+    () => (forecast || []).filter((m) => m.key < thisMonthKey),
+    [forecast, thisMonthKey]
+  );
+  const forecastFuture = useMemo(
+    () => (forecast || []).filter((m) => m.key >= thisMonthKey),
+    [forecast, thisMonthKey]
+  );
+
   const selected = useMemo(() => {
     if (!ctrl.selectedMonthKey) return null;
     return forecast.find((m) => m.key === ctrl.selectedMonthKey) ?? null;
   }, [forecast, ctrl.selectedMonthKey]);
 
   const maxRef = useMemo(() => {
-    const vals = forecast.map((x) => (ctrl.tab === 1 ? x.paidTotal : x.expectedMax));
+    const vals = (forecast || []).map((x) =>
+      ctrl.tab === 1 ? x.paidTotal : x.expectedMax
+    );
     return Math.max(...vals, 1) || 1;
   }, [forecast, ctrl.tab]);
 
@@ -86,7 +106,7 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
       setPayAmount(v);
       setPayAmountError("");
     },
-    [setPayAmount, setPayAmountError],
+    [setPayAmount, setPayAmountError]
   );
 
   const onPaidDate = useCallback(
@@ -94,7 +114,7 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
       setPayPaidDate(v);
       setPayAmountError("");
     },
-    [setPayPaidDate, setPayAmountError],
+    [setPayPaidDate, setPayAmountError]
   );
 
   const onPeriodKey = useCallback(
@@ -102,7 +122,7 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
       setPayPeriodKey(v);
       setPayAmountError("");
     },
-    [setPayPeriodKey, setPayAmountError],
+    [setPayPeriodKey, setPayAmountError]
   );
 
   const confirmPay = useCallback(async () => {
@@ -127,7 +147,6 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
       return;
     }
 
-    // ✅ EDIT
     if (payMode === "EDIT") {
       if (!payDraft?.paymentId) {
         setPayAmountError("Mangler paymentId");
@@ -136,9 +155,6 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
 
       const originalPk = payDraft.originalPeriodKey;
 
-      // If user changed month, "move" payment:
-      // 1) upsert into the new periodKey
-      // 2) delete old payment doc
       if (originalPk && originalPk !== payPeriodKey) {
         try {
           await payments.createPayment.mutateAsync({
@@ -153,25 +169,20 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
           });
 
           closePayDialog();
-        } catch (e) {
+          return;
+        } catch {
           setPayAmountError("Kunne ikke flytte betalingen");
+          return;
         }
-        return;
       }
 
-      // Normal edit (amount/date only)
       payments.updatePayment.mutate(
-        {
-          paymentId: payDraft.paymentId,
-          amount: n,
-          paidDate: payPaidDate,
-        },
-        { onSuccess: () => closePayDialog() },
+        { paymentId: payDraft.paymentId, amount: n, paidDate: payPaidDate },
+        { onSuccess: () => closePayDialog() }
       );
       return;
     }
 
-    // ✅ CREATE/UPSERT (expenseId + periodKey)
     payments.createPayment.mutate(
       {
         recurringExpenseId: payDraft.recurringExpenseId,
@@ -179,7 +190,7 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
         amount: n,
         paidDate: payPaidDate,
       },
-      { onSuccess: () => closePayDialog() },
+      { onSuccess: () => closePayDialog() }
     );
   }, [
     payAmount,
@@ -200,9 +211,96 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
 
     payments.deletePayment.mutate(
       { paymentId: payDraft.paymentId },
-      { onSuccess: () => closePayDialog() },
+      { onSuccess: () => closePayDialog() }
     );
   }, [payDraft, payments, closePayDialog, setPayAmountError]);
+
+  /* =========================
+     ✅ Terms dialog state
+  ========================= */
+
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [termsItem, setTermsItem] = useState(null);
+  const [termsPk, setTermsPk] = useState("");
+
+  const openTerms = useCallback((it, monthKey) => {
+    setTermsItem(it);
+    setTermsPk(monthKey);
+    setTermsOpen(true);
+  }, []);
+
+  const closeTerms = useCallback(() => {
+    setTermsOpen(false);
+    setTermsItem(null);
+    setTermsPk("");
+  }, []);
+
+  const submitTerms = useCallback(
+    async (payload) => {
+      await recurringApi.setTermsFromMonth(termsItem.recurringExpenseId, payload);
+      closeTerms();
+      invalidateSummary();
+      invalidateTemplates();
+    },
+    [termsItem, closeTerms, invalidateSummary, invalidateTemplates]
+  );
+
+  /* =========================
+     ✅ Pause dialog state
+  ========================= */
+
+  const [pauseOpen, setPauseOpen] = useState(false);
+  const [pauseMode, setPauseMode] = useState("CREATE"); // CREATE | EDIT
+  const [pauseItem, setPauseItem] = useState(null);
+  const [pauseInitial, setPauseInitial] = useState(null);
+
+  const openPauseCreate = useCallback((it, monthKey) => {
+    setPauseMode("CREATE");
+    setPauseItem(it);
+    setPauseInitial({ from: monthKey, to: monthKey, note: "" });
+    setPauseOpen(true);
+  }, []);
+
+  const openPauseEdit = useCallback((it, range) => {
+    setPauseMode("EDIT");
+    setPauseItem(it);
+    setPauseInitial(range || { from: it.periodKey, to: it.periodKey, note: "" });
+    setPauseOpen(true);
+  }, []);
+
+  const closePause = useCallback(() => {
+    setPauseOpen(false);
+    setPauseItem(null);
+    setPauseInitial(null);
+  }, []);
+
+  const submitPause = useCallback(
+    async (payload) => {
+      if (!pauseItem) return;
+
+      if (pauseMode === "EDIT") {
+        if (!pauseItem.pauseId) return;
+        await recurringApi.updatePause(pauseItem.recurringExpenseId, pauseItem.pauseId, payload);
+      } else {
+        await recurringApi.createPause(pauseItem.recurringExpenseId, payload);
+      }
+
+      closePause();
+      invalidateSummary();
+      invalidateTemplates();
+    },
+    [pauseItem, pauseMode, closePause, invalidateSummary, invalidateTemplates]
+  );
+
+  const unpause = useCallback(
+    async (it) => {
+      if (!it?.recurringExpenseId || !it?.pauseId) return;
+      await recurringApi.deletePause(it.recurringExpenseId, it.pauseId);
+      invalidateSummary();
+      invalidateTemplates();
+    },
+    [invalidateSummary, invalidateTemplates]
+  );
 
   return (
     <Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
@@ -216,7 +314,27 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
           formatCurrency={formatCurrency}
         />
 
-        {!isLoading && !isError && forecast.length > 0 && (
+        {/* ✅ Past months slider */}
+        <Card sx={{ mt: 2 }}>
+          <CardContent>
+            <Stack spacing={1}>
+              <Typography fontWeight={800}>Historikk</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Vis {monthsBack} måneder bakover
+              </Typography>
+              <Slider
+                value={monthsBack}
+                min={0}
+                max={24}
+                step={1}
+                valueLabelDisplay="auto"
+                onChange={(_, v) => setMonthsBack(Number(v))}
+              />
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
           <Box sx={{ mt: 2 }}>
             <RecurringOverviewCharts forecast={forecast} monthsForTypeSplit={3} />
           </Box>
@@ -226,7 +344,9 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
           <Card sx={{ mt: 2 }}>
             <CardContent>
               {isLoading && (
-                <Typography color="text.secondary">Laster faste kostnader…</Typography>
+                <Typography color="text.secondary">
+                  Laster faste kostnader…
+                </Typography>
               )}
               {isError && (
                 <Typography color="error">
@@ -249,7 +369,8 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
           }}
         >
           <ForecastSection
-            forecast={forecast}
+            title="Kommende måneder"
+            forecast={forecastFuture}
             tab={ctrl.tab}
             onTab={onTab}
             onOpenMonth={onOpenMonth}
@@ -258,6 +379,16 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
           />
 
           <NextBillsCard nextBills={nextBills} formatCurrency={formatCurrency} />
+
+          <ForecastSection
+            title="Historikk"
+            forecast={forecastPast}
+            tab={ctrl.tab}
+            onTab={onTab}
+            onOpenMonth={onOpenMonth}
+            maxRef={maxRef}
+            formatCurrency={formatCurrency}
+          />
 
           <ExpenseTemplatesSection
             expenses={expenses}
@@ -272,7 +403,12 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
         open={ctrl.monthDrawerOpen}
         onClose={ctrl.closeMonth}
         selected={selected}
+        expenses={templates.expenses}   // ✅ include pausePeriods for edit/unpause
         onOpenPay={openPayDialog}
+        onOpenTerms={openTerms}
+        onOpenPauseCreate={openPauseCreate}
+        onOpenPauseEdit={openPauseEdit}
+        onUnpause={unpause}
         registerPaymentPending={payments.pending}
         registerPaymentError={payments.error}
         formatCurrency={formatCurrency}
@@ -302,6 +438,22 @@ const { data, isLoading, isError, error: loadError } = useRecurringSummary({
         onDelete={payMode === "EDIT" ? deletePay : undefined}
         pending={payments.pending}
         mode={payMode}
+      />
+
+      <ChangeTermsDialog
+        open={termsOpen}
+        onClose={closeTerms}
+        onSubmit={submitTerms}
+        expense={termsItem}
+        periodKey={termsPk}
+      />
+
+      <PauseDialog
+        open={pauseOpen}
+        mode={pauseMode}
+        onClose={closePause}
+        onSubmit={submitPause}
+        initial={pauseInitial}
       />
     </Box>
   );
