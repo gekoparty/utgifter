@@ -11,7 +11,7 @@ import { useRecurringSummary } from "./hooks/useRecurringSummary";
 import { usePayDialog } from "./hooks/usePayDialog";
 import { useRecurringPayments } from "./hooks/useRecurringPayments";
 import { makeCurrencyFormatter } from "./utils/recurringFormatters";
-
+import PastMonthsSelect from "./components/PastMonthsSelect";
 import HeaderBar from "./components/HeaderBar";
 import FiltersSummaryCard from "./components/FiltersSummaryCard";
 import ForecastSection from "./components/ForecastSection";
@@ -322,14 +322,7 @@ export default function RecurringExpenseScreen() {
               <Typography variant="body2" color="text.secondary">
                 Vis {monthsBack} måneder bakover
               </Typography>
-              <Slider
-                value={monthsBack}
-                min={0}
-                max={24}
-                step={1}
-                valueLabelDisplay="auto"
-                onChange={(_, v) => setMonthsBack(Number(v))}
-              />
+              <PastMonthsSelect value={monthsBack} onChange={setMonthsBack} />
             </Stack>
           </CardContent>
         </Card>
@@ -391,11 +384,16 @@ export default function RecurringExpenseScreen() {
           />
 
           <ExpenseTemplatesSection
-            expenses={expenses}
-            onEdit={ctrl.openEdit}
-            onDelete={ctrl.openDelete}
-            formatCurrency={formatCurrency}
-          />
+  expenses={expenses}
+  templates={templates.expenses} // ✅ includes pausePeriods
+  onEdit={ctrl.openEdit}
+  onDelete={ctrl.openDelete}
+  formatCurrency={formatCurrency}
+  onOpenTerms={openTerms}
+  onOpenPauseCreate={openPauseCreate}
+  onOpenPauseEdit={openPauseEdit}
+  onUnpause={unpause}
+/>
         </Box>
       </Box>
 

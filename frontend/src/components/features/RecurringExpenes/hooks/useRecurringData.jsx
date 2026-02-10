@@ -4,6 +4,10 @@ import useCustomHttp from "../../../../hooks/useHttp";
 
 export const RECURRING_EXPENSES_QUERY_KEY = ["recurring-expenses"];
 export const RECURRING_EXPENSES_SUMMARY_ROOT_KEY = ["recurring-expenses-summary"];
+export const DEFAULT_MONTHS_FORWARD = 12;
+export const DEFAULT_PAST_MONTHS = 12;
+
+export const PAST_MONTHS_OPTIONS = [0, 3, 6, 12, 18, 24];
 
 // ✅ include pastMonths in key (VERY important)
 export const recurringSummaryKey = (filter, months, pastMonths) => [
