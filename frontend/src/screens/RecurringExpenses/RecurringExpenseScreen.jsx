@@ -1,10 +1,20 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Box, Card, CardContent, Typography, Slider, Stack } from "@mui/material";
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Slider,
+  Stack,
+} from "@mui/material";
 import dayjs from "dayjs";
 
 import { useRecurringController } from "../../components/features/RecurringExpenes/hooks/useRecurringController";
 import RecurringExpenseDialog from "../../components/features/RecurringExpenes/components/RecurringExpenseDialog";
-import { useRecurringInvalidation, useRecurringData } from "../../components/features/RecurringExpenes/hooks/useRecurringData";
+import {
+  useRecurringInvalidation,
+  useRecurringData,
+} from "../../components/features/RecurringExpenes/hooks/useRecurringData";
 import RecurringOverviewCharts from "../../components/features/RecurringExpenes/components/RecurringOverviewCharts";
 
 import { useRecurringSummary } from "./hooks/useRecurringSummary";
@@ -30,14 +40,15 @@ export default function RecurringExpenseScreen() {
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
   const { invalidateSummary, invalidateTemplates } = useRecurringInvalidation();
+  const [showFinished, setShowFinished] = useState(false);
 
   // ✅ templates include pausePeriods (used for edit/unpause UI)
-  const templates = useRecurringData({ enabled: true });
+  const templates = useRecurringData({ enabled: true, includeInactive: true });
 
   const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
   const formatCurrency = useCallback(
     (val) => currencyFormatter.format(Number(val || 0)),
-    [currencyFormatter]
+    [currencyFormatter],
   );
 
   const {
@@ -61,7 +72,12 @@ export default function RecurringExpenseScreen() {
   // ✅ slider-controlled history window
   const [monthsBack, setMonthsBack] = useState(12);
 
-  const { data, isLoading, isError, error: loadError } = useRecurringSummary({
+  const {
+    data,
+    isLoading,
+    isError,
+    error: loadError,
+  } = useRecurringSummary({
     filter: ctrl.filter,
     months: monthsForward,
     pastMonths: monthsBack,
@@ -78,11 +94,11 @@ export default function RecurringExpenseScreen() {
   const thisMonthKey = useMemo(() => dayjs().format("YYYY-MM"), []);
   const forecastPast = useMemo(
     () => (forecast || []).filter((m) => m.key < thisMonthKey),
-    [forecast, thisMonthKey]
+    [forecast, thisMonthKey],
   );
   const forecastFuture = useMemo(
     () => (forecast || []).filter((m) => m.key >= thisMonthKey),
-    [forecast, thisMonthKey]
+    [forecast, thisMonthKey],
   );
 
   const selected = useMemo(() => {
@@ -92,21 +108,24 @@ export default function RecurringExpenseScreen() {
 
   const maxRef = useMemo(() => {
     const vals = (forecast || []).map((x) =>
-      ctrl.tab === 1 ? x.paidTotal : x.expectedMax
+      ctrl.tab === 1 ? x.paidTotal : x.expectedMax,
     );
     return Math.max(...vals, 1) || 1;
   }, [forecast, ctrl.tab]);
 
   const onFilter = useCallback((f) => ctrl.setFilter(f), [ctrl.setFilter]);
   const onTab = useCallback((v) => ctrl.setTab(v), [ctrl.setTab]);
-  const onOpenMonth = useCallback((key) => ctrl.openMonth(key), [ctrl.openMonth]);
+  const onOpenMonth = useCallback(
+    (key) => ctrl.openMonth(key),
+    [ctrl.openMonth],
+  );
 
   const onAmount = useCallback(
     (v) => {
       setPayAmount(v);
       setPayAmountError("");
     },
-    [setPayAmount, setPayAmountError]
+    [setPayAmount, setPayAmountError],
   );
 
   const onPaidDate = useCallback(
@@ -114,7 +133,7 @@ export default function RecurringExpenseScreen() {
       setPayPaidDate(v);
       setPayAmountError("");
     },
-    [setPayPaidDate, setPayAmountError]
+    [setPayPaidDate, setPayAmountError],
   );
 
   const onPeriodKey = useCallback(
@@ -122,7 +141,7 @@ export default function RecurringExpenseScreen() {
       setPayPeriodKey(v);
       setPayAmountError("");
     },
-    [setPayPeriodKey, setPayAmountError]
+    [setPayPeriodKey, setPayAmountError],
   );
 
   const confirmPay = useCallback(async () => {
@@ -178,7 +197,7 @@ export default function RecurringExpenseScreen() {
 
       payments.updatePayment.mutate(
         { paymentId: payDraft.paymentId, amount: n, paidDate: payPaidDate },
-        { onSuccess: () => closePayDialog() }
+        { onSuccess: () => closePayDialog() },
       );
       return;
     }
@@ -190,7 +209,7 @@ export default function RecurringExpenseScreen() {
         amount: n,
         paidDate: payPaidDate,
       },
-      { onSuccess: () => closePayDialog() }
+      { onSuccess: () => closePayDialog() },
     );
   }, [
     payAmount,
@@ -211,7 +230,7 @@ export default function RecurringExpenseScreen() {
 
     payments.deletePayment.mutate(
       { paymentId: payDraft.paymentId },
-      { onSuccess: () => closePayDialog() }
+      { onSuccess: () => closePayDialog() },
     );
   }, [payDraft, payments, closePayDialog, setPayAmountError]);
 
@@ -237,12 +256,15 @@ export default function RecurringExpenseScreen() {
 
   const submitTerms = useCallback(
     async (payload) => {
-      await recurringApi.setTermsFromMonth(termsItem.recurringExpenseId, payload);
+      await recurringApi.setTermsFromMonth(
+        termsItem.recurringExpenseId,
+        payload,
+      );
       closeTerms();
       invalidateSummary();
       invalidateTemplates();
     },
-    [termsItem, closeTerms, invalidateSummary, invalidateTemplates]
+    [termsItem, closeTerms, invalidateSummary, invalidateTemplates],
   );
 
   /* =========================
@@ -264,7 +286,9 @@ export default function RecurringExpenseScreen() {
   const openPauseEdit = useCallback((it, range) => {
     setPauseMode("EDIT");
     setPauseItem(it);
-    setPauseInitial(range || { from: it.periodKey, to: it.periodKey, note: "" });
+    setPauseInitial(
+      range || { from: it.periodKey, to: it.periodKey, note: "" },
+    );
     setPauseOpen(true);
   }, []);
 
@@ -280,7 +304,11 @@ export default function RecurringExpenseScreen() {
 
       if (pauseMode === "EDIT") {
         if (!pauseItem.pauseId) return;
-        await recurringApi.updatePause(pauseItem.recurringExpenseId, pauseItem.pauseId, payload);
+        await recurringApi.updatePause(
+          pauseItem.recurringExpenseId,
+          pauseItem.pauseId,
+          payload,
+        );
       } else {
         await recurringApi.createPause(pauseItem.recurringExpenseId, payload);
       }
@@ -289,7 +317,7 @@ export default function RecurringExpenseScreen() {
       invalidateSummary();
       invalidateTemplates();
     },
-    [pauseItem, pauseMode, closePause, invalidateSummary, invalidateTemplates]
+    [pauseItem, pauseMode, closePause, invalidateSummary, invalidateTemplates],
   );
 
   const unpause = useCallback(
@@ -299,7 +327,7 @@ export default function RecurringExpenseScreen() {
       invalidateSummary();
       invalidateTemplates();
     },
-    [invalidateSummary, invalidateTemplates]
+    [invalidateSummary, invalidateTemplates],
   );
 
   return (
@@ -329,7 +357,10 @@ export default function RecurringExpenseScreen() {
 
         {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
           <Box sx={{ mt: 2 }}>
-            <RecurringOverviewCharts forecast={forecast} monthsForTypeSplit={3} />
+            <RecurringOverviewCharts
+              forecast={forecast}
+              monthsForTypeSplit={3}
+            />
           </Box>
         )}
 
@@ -371,7 +402,10 @@ export default function RecurringExpenseScreen() {
             formatCurrency={formatCurrency}
           />
 
-          <NextBillsCard nextBills={nextBills} formatCurrency={formatCurrency} />
+          <NextBillsCard
+            nextBills={nextBills}
+            formatCurrency={formatCurrency}
+          />
 
           <ForecastSection
             title="Historikk"
@@ -384,16 +418,31 @@ export default function RecurringExpenseScreen() {
           />
 
           <ExpenseTemplatesSection
-  expenses={expenses}
-  templates={templates.expenses} // ✅ includes pausePeriods
-  onEdit={ctrl.openEdit}
-  onDelete={ctrl.openDelete}
-  formatCurrency={formatCurrency}
-  onOpenTerms={openTerms}
-  onOpenPauseCreate={openPauseCreate}
-  onOpenPauseEdit={openPauseEdit}
-  onUnpause={unpause}
-/>
+            expenses={templates.expenses}
+            templates={templates.expenses} 
+            formatCurrency={formatCurrency}
+            onEdit={ctrl.openEdit}
+            // onDelete is no longer used for "Fullfør" (we use onFinish instead)
+            onDelete={ctrl.openDelete}
+            showFinished={showFinished}
+            onToggleShowFinished={() => setShowFinished((v) => !v)}
+            onFinish={async (id) => {
+  if (!id) return;
+  await recurringApi.archiveExpense(String(id));
+  invalidateSummary();
+  invalidateTemplates();
+}}
+            onRestore={async (id) => {
+  if (!id) return;
+  await recurringApi.restoreExpense(String(id));
+  invalidateSummary();
+  invalidateTemplates();
+}}
+            onOpenTerms={openTerms}
+            onOpenPauseCreate={openPauseCreate}
+            onOpenPauseEdit={openPauseEdit}
+            onUnpause={unpause}
+          />
         </Box>
       </Box>
 
@@ -401,7 +450,7 @@ export default function RecurringExpenseScreen() {
         open={ctrl.monthDrawerOpen}
         onClose={ctrl.closeMonth}
         selected={selected}
-        expenses={templates.expenses}   // ✅ include pausePeriods for edit/unpause
+        expenses={templates.expenses} // ✅ include pausePeriods for edit/unpause
         onOpenPay={openPayDialog}
         onOpenTerms={openTerms}
         onOpenPauseCreate={openPauseCreate}
