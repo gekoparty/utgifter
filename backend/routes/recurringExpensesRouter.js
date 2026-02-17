@@ -54,10 +54,13 @@ const isMonthWithin = (monthDate, from, to) => {
  *  - edit/remove pause
  */
 const getPauseForMonth = (expense, monthDate) => {
-  const pauses = Array.isArray(expense.pausePeriods) ? expense.pausePeriods : [];
+  const pauses = Array.isArray(expense.pausePeriods)
+    ? expense.pausePeriods
+    : [];
   return (
-    pauses.find((p) => p?.from && p?.to && isMonthWithin(monthDate, p.from, p.to)) ||
-    null
+    pauses.find(
+      (p) => p?.from && p?.to && isMonthWithin(monthDate, p.from, p.to),
+    ) || null
   );
 };
 
@@ -157,7 +160,9 @@ const buildSummary = ({
     filter === "ALL"
       ? expenses
       : expenses.filter(
-          (e) => e.type === filter || (filter === "MORTGAGE" && e.type === "HOUSING"),
+          (e) =>
+            e.type === filter ||
+            (filter === "MORTGAGE" && e.type === "HOUSING"),
         );
 
   const start = monthStart(timelineStart);
@@ -218,7 +223,11 @@ const buildSummary = ({
       const pause = getPauseForMonth(e, b.date);
       const paused = Boolean(pause);
 
-      const dueDate = clampDayInMonth(b.date.getFullYear(), b.date.getMonth(), dueDay);
+      const dueDate = clampDayInMonth(
+        b.date.getFullYear(),
+        b.date.getMonth(),
+        dueDay,
+      );
       const periodKey = b.key;
 
       const pay = paymentIndex.get(`${String(e._id)}|${periodKey}`) || null;
@@ -260,7 +269,12 @@ const buildSummary = ({
 
       let status;
       if (paused) status = "PAUSED";
-      else status = !pay ? "UNPAID" : pay.status === "SKIPPED" ? "SKIPPED" : "PAID";
+      else
+        status = !pay
+          ? "UNPAID"
+          : pay.status === "SKIPPED"
+            ? "SKIPPED"
+            : "PAID";
 
       // mortgage meta (nice for UI)
       let mortgageMeta = null;
@@ -281,7 +295,12 @@ const buildSummary = ({
         dueDate,
         periodKey,
 
-        expected: { fixed: expectedFixed, min: expectedMin, max: expectedMax, source: estimateSource },
+        expected: {
+          fixed: expectedFixed,
+          min: expectedMin,
+          max: expectedMax,
+          source: estimateSource,
+        },
 
         mortgage: mortgageMeta,
 
@@ -342,13 +361,19 @@ const buildSummary = ({
     const remainingBalance = Number(e.remainingBalance || 0);
     const rate = Number(e.interestRate || 0);
 
-    const monthsLeft = isMortgage ? estimateMonthsLeft({ remainingBalance, amount, monthlyFee }) : null;
+    const monthsLeft = isMortgage
+      ? estimateMonthsLeft({ remainingBalance, amount, monthlyFee })
+      : null;
 
     const estInterest =
-      isMortgage && remainingBalance > 0 && rate >= 0 ? (remainingBalance * (rate / 100)) / 12 : null;
+      isMortgage && remainingBalance > 0 && rate >= 0
+        ? (remainingBalance * (rate / 100)) / 12
+        : null;
 
     const estPrincipal =
-      estInterest != null ? Math.max(0, amount - estInterest - Number(monthlyFee || 0)) : null;
+      estInterest != null
+        ? Math.max(0, amount - estInterest - Number(monthlyFee || 0))
+        : null;
 
     return { ...e, derived: { monthsLeft, estInterest, estPrincipal } };
   });
@@ -357,8 +382,10 @@ const buildSummary = ({
   const m1 = monthBuckets[1];
   const m2 = monthBuckets[2];
   const sum3 = {
-    min: (m0?.expectedMin ?? 0) + (m1?.expectedMin ?? 0) + (m2?.expectedMin ?? 0),
-    max: (m0?.expectedMax ?? 0) + (m1?.expectedMax ?? 0) + (m2?.expectedMax ?? 0),
+    min:
+      (m0?.expectedMin ?? 0) + (m1?.expectedMin ?? 0) + (m2?.expectedMin ?? 0),
+    max:
+      (m0?.expectedMax ?? 0) + (m1?.expectedMax ?? 0) + (m2?.expectedMax ?? 0),
     paid: (m0?.paidTotal ?? 0) + (m1?.paidTotal ?? 0) + (m2?.paidTotal ?? 0),
   };
 
@@ -373,7 +400,12 @@ const buildSummary = ({
     items: b.items,
   }));
 
-  return { expenses: expensesWithDerived, forecast, nextBills, meta: { filter, months, sum3 } };
+  return {
+    expenses: expensesWithDerived,
+    forecast,
+    nextBills,
+    meta: { filter, months, sum3 },
+  };
 };
 
 /* =========================
@@ -389,8 +421,14 @@ recurringExpensesRouter.get("/summary", async (req, res) => {
       return Number.isFinite(n) ? n : fallback;
     };
 
-    const monthsForward = Math.min(24, Math.max(3, toInt(req.query.months, 12)));
-    const pastMonths = Math.min(24, Math.max(0, toInt(req.query.pastMonths, 0)));
+    const monthsForward = Math.min(
+      24,
+      Math.max(3, toInt(req.query.months, 12)),
+    );
+    const pastMonths = Math.min(
+      24,
+      Math.max(0, toInt(req.query.pastMonths, 0)),
+    );
 
     const now = new Date();
 
@@ -400,7 +438,12 @@ recurringExpensesRouter.get("/summary", async (req, res) => {
     const toKey = yyyymmKey(addMonths(timelineStart, totalMonths - 1));
     const histFromKey = yyyymmKey(addMonths(timelineStart, -12));
 
-    const expenses = await RecurringExpense.find().sort({ type: 1, title: 1 }).lean();
+    const includeInactive =
+      String(req.query.includeInactive || "false") === "true";
+    const q = includeInactive ? {} : { isActive: true };
+    const expenses = await RecurringExpense.find(q)
+      .sort({ type: 1, title: 1 })
+      .lean();
 
     const paymentsInRange = await RecurringPayment.find({
       periodKey: { $gte: histFromKey, $lte: toKey },
@@ -408,7 +451,9 @@ recurringExpensesRouter.get("/summary", async (req, res) => {
 
     const expIds = expenses.map((e) => e._id);
     const termsRows = expIds.length
-      ? await RecurringTermsHistory.find({ recurringExpenseId: { $in: expIds } })
+      ? await RecurringTermsHistory.find({
+          recurringExpenseId: { $in: expIds },
+        })
           .sort({ recurringExpenseId: 1, fromDate: 1 })
           .lean()
       : [];
@@ -425,11 +470,18 @@ recurringExpensesRouter.get("/summary", async (req, res) => {
       realNow: now,
     });
 
-    summary.meta = { ...(summary.meta || {}), filter, months: monthsForward, pastMonths };
+    summary.meta = {
+      ...(summary.meta || {}),
+      filter,
+      months: monthsForward,
+      pastMonths,
+    };
     res.json(summary);
   } catch (err) {
     console.error("Error in /api/recurring-expenses/summary:", err);
-    res.status(500).json({ message: "Internal Server Error", error: err?.message });
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: err?.message });
   }
 });
 
@@ -448,27 +500,34 @@ recurringExpensesRouter.post("/:id/terms", async (req, res) => {
     }
 
     const fromDate = periodKeyToMonthStart(periodKey);
-    if (!fromDate) return res.status(400).json({ message: "invalid periodKey" });
+    if (!fromDate)
+      return res.status(400).json({ message: "invalid periodKey" });
 
     const exp = await RecurringExpense.findById(id).lean();
     if (!exp) return res.status(404).json({ message: "Not found" });
 
     const patch = {};
     if (req.body.amount != null) patch.amount = Number(req.body.amount);
-    if (req.body.estimateMin != null) patch.estimateMin = Number(req.body.estimateMin);
-    if (req.body.estimateMax != null) patch.estimateMax = Number(req.body.estimateMax);
+    if (req.body.estimateMin != null)
+      patch.estimateMin = Number(req.body.estimateMin);
+    if (req.body.estimateMax != null)
+      patch.estimateMax = Number(req.body.estimateMax);
 
-    if (req.body.interestRate != null) patch.interestRate = Number(req.body.interestRate);
-    if (req.body.hasMonthlyFee != null) patch.hasMonthlyFee = Boolean(req.body.hasMonthlyFee);
-    if (req.body.monthlyFee != null) patch.monthlyFee = Number(req.body.monthlyFee);
-    if (req.body.remainingBalance != null) patch.remainingBalance = Number(req.body.remainingBalance);
+    if (req.body.interestRate != null)
+      patch.interestRate = Number(req.body.interestRate);
+    if (req.body.hasMonthlyFee != null)
+      patch.hasMonthlyFee = Boolean(req.body.hasMonthlyFee);
+    if (req.body.monthlyFee != null)
+      patch.monthlyFee = Number(req.body.monthlyFee);
+    if (req.body.remainingBalance != null)
+      patch.remainingBalance = Number(req.body.remainingBalance);
 
     patch.note = String(req.body.note || "").trim();
 
     const row = await RecurringTermsHistory.findOneAndUpdate(
       { recurringExpenseId: exp._id, fromDate },
       { $set: { recurringExpenseId: exp._id, fromDate, ...patch } },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     ).lean();
 
     res.json(row);
@@ -504,7 +563,7 @@ recurringExpensesRouter.post("/:id/pause", async (req, res) => {
     const updated = await RecurringExpense.findByIdAndUpdate(
       id,
       { $push: { pausePeriods: { from, to, note } } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Not found" });
@@ -543,13 +602,16 @@ recurringExpensesRouter.put("/:id/pause/:pauseId", async (req, res) => {
           "pausePeriods.$.note": note,
         },
       },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   } catch (err) {
-    console.error("Error in PUT /api/recurring-expenses/:id/pause/:pauseId:", err);
+    console.error(
+      "Error in PUT /api/recurring-expenses/:id/pause/:pauseId:",
+      err,
+    );
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -562,13 +624,16 @@ recurringExpensesRouter.delete("/:id/pause/:pauseId", async (req, res) => {
     const updated = await RecurringExpense.findByIdAndUpdate(
       id,
       { $pull: { pausePeriods: { _id: pauseId } } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   } catch (err) {
-    console.error("Error in DELETE /api/recurring-expenses/:id/pause/:pauseId:", err);
+    console.error(
+      "Error in DELETE /api/recurring-expenses/:id/pause/:pauseId:",
+      err,
+    );
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -579,7 +644,8 @@ recurringExpensesRouter.delete("/:id/pause/:pauseId", async (req, res) => {
 
 const clampDueDay = (d) => Math.min(28, Math.max(1, Number(d || 1)));
 const clampMonth = (m) => Math.min(12, Math.max(1, Number(m || 1)));
-const clampInterval = (v) => ([1, 3, 6, 12].includes(Number(v)) ? Number(v) : 1);
+const clampInterval = (v) =>
+  [1, 3, 6, 12].includes(Number(v)) ? Number(v) : 1;
 
 const normalizePayload = (body = {}) => {
   const type = body.type === "HOUSING" ? "MORTGAGE" : body.type;
@@ -634,10 +700,13 @@ const normalizePayload = (body = {}) => {
 
 recurringExpensesRouter.get("/", async (req, res) => {
   try {
-    const includeInactive = String(req.query.includeInactive || "false") === "true";
+    const includeInactive =
+      String(req.query.includeInactive || "false") === "true";
     const q = includeInactive ? {} : { isActive: true };
 
-    const expenses = await RecurringExpense.find(q).sort({ type: 1, title: 1 }).lean();
+    const expenses = await RecurringExpense.find(q)
+      .sort({ type: 1, title: 1 })
+      .lean();
     res.json({ expenses, meta: { totalRowCount: expenses.length } });
   } catch (err) {
     console.error("Error in /api/recurring-expenses:", err);
@@ -659,9 +728,13 @@ recurringExpensesRouter.get("/:id", async (req, res) => {
 recurringExpensesRouter.post("/", async (req, res) => {
   try {
     const payload = normalizePayload(req.body);
-    if (!payload.title) return res.status(400).json({ message: "Tittel er påkrevd" });
+    if (!payload.title)
+      return res.status(400).json({ message: "Tittel er påkrevd" });
 
-    const existing = await RecurringExpense.findOne({ slug: payload.slug, type: payload.type });
+    const existing = await RecurringExpense.findOne({
+      slug: payload.slug,
+      type: payload.type,
+    });
     if (existing) return res.status(400).json({ message: "duplicate" });
 
     const created = await RecurringExpense.create(payload);
@@ -686,7 +759,7 @@ recurringExpensesRouter.post("/", async (req, res) => {
           note: "Auto snapshot from create",
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     res.status(201).json(created);
@@ -701,7 +774,8 @@ recurringExpensesRouter.put("/:id", async (req, res) => {
     const { id } = req.params;
     const payload = normalizePayload(req.body);
 
-    if (!payload.title) return res.status(400).json({ message: "Tittel er påkrevd" });
+    if (!payload.title)
+      return res.status(400).json({ message: "Tittel er påkrevd" });
 
     const existing = await RecurringExpense.findOne({
       slug: payload.slug,
@@ -710,7 +784,11 @@ recurringExpensesRouter.put("/:id", async (req, res) => {
     });
     if (existing) return res.status(400).json({ message: "duplicate" });
 
-    const updated = await RecurringExpense.findByIdAndUpdate(id, { $set: payload }, { new: true }).lean();
+    const updated = await RecurringExpense.findByIdAndUpdate(
+      id,
+      { $set: payload },
+      { new: true },
+    ).lean();
     if (!updated) return res.status(404).json({ message: "Not found" });
 
     // NOTE:
@@ -760,7 +838,7 @@ recurringExpensesRouter.delete("/:id", async (req, res) => {
     const updated = await RecurringExpense.findByIdAndUpdate(
       req.params.id,
       { $set: { isActive: false, endDate: new Date() } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Not found" });
@@ -777,7 +855,7 @@ recurringExpensesRouter.patch("/:id/restore", async (req, res) => {
     const updated = await RecurringExpense.findByIdAndUpdate(
       req.params.id,
       { $set: { isActive: true, endDate: null } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Not found" });

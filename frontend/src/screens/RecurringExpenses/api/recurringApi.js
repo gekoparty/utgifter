@@ -22,6 +22,17 @@ export const recurringApi = {
     return res.data;
   },
 
+  archiveExpense: async (expenseId) => {
+    // you already have POST /:id/archive (or DELETE /:id). Use one.
+    const res = await axios.post(`${base}/${expenseId}/archive`);
+    return res.data;
+  },
+
+  restoreExpense: async (expenseId) => {
+    const res = await axios.patch(`${base}/${expenseId}/restore`);
+    return res.data;
+  },
+
   // ✅ Remove pause (unpause)
   deletePause: async (expenseId, pauseId) => {
     const res = await axios.delete(`${base}/${expenseId}/pause/${pauseId}`);

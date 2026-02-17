@@ -27,7 +27,7 @@ app.use(helmet());
 app.use(compression());
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*', // Replace with your frontend URL in production
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
