@@ -9,7 +9,6 @@ const toISODate = (d) => {
 };
 
 const toPeriodKey = (d) => {
-  // returns YYYY-MM
   if (!d) {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -23,51 +22,55 @@ const toPeriodKey = (d) => {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`;
 };
 
-/**
- * Expects MonthDrawer to pass an item shaped like buildSummary():
- * {
- *   recurringExpenseId, title, status, periodKey,
- *   expected: { min/max/fixed },
- *   actual: { paymentId, amount, paidDate, ... } | null
- * }
- */
 export function usePayDialog() {
   const [open, setOpen] = useState(false);
-
-  // draft includes immutable identifiers + original periodKey in edit-mode
   const [draft, setDraft] = useState(null);
 
-  // editable fields
   const [amount, setAmount] = useState("");
   const [paidDate, setPaidDate] = useState(toISODate());
   const [periodKey, setPeriodKey] = useState(toPeriodKey());
   const [error, setError] = useState("");
 
+  // ✅ extra payment toggle state (UI)
+  const [isExtra, setIsExtra] = useState(false);
+
   const mode = useMemo(() => (draft?.paymentId ? "EDIT" : "CREATE"), [draft]);
+  const allowExtra = useMemo(() => Boolean(draft?.isMortgage), [draft]);
 
   const openDialog = useCallback((item) => {
-    const isPaid = item?.status === "PAID" && Boolean(item?.actual);
+    const desiredKind = String(item?.paymentKind || "MAIN").toUpperCase(); // MAIN | EXTRA
+    const isMortgage = String(item?.type || "").toUpperCase() === "MORTGAGE";
+    const pk = item?.periodKey ? String(item.periodKey) : toPeriodKey(new Date());
+
+    // ✅ choose which payment object to edit
+    const actualObj = desiredKind === "EXTRA" ? item?.extraPayment : item?.actual;
+
+    const hasPayment = Boolean(actualObj?.paymentId);
+    const paymentId = hasPayment ? String(actualObj.paymentId) : null;
 
     const expectedDefault =
       item?.expected?.max ?? item?.expected?.fixed ?? item?.expected?.min ?? 0;
 
-    const paymentIdRaw = item?.actual?.paymentId;
-    const paymentId = isPaid && paymentIdRaw ? String(paymentIdRaw) : null;
-
-    const pk = item?.periodKey ? String(item.periodKey) : toPeriodKey(new Date());
-    const pd = toISODate(isPaid ? item?.actual?.paidDate : new Date());
+    const startingAmount = hasPayment ? Number(actualObj.amount || 0) : Number(expectedDefault || 0);
+    const startingPaidDate = hasPayment ? toISODate(actualObj.paidDate) : toISODate(new Date());
 
     setDraft({
       recurringExpenseId: item?.recurringExpenseId,
       title: item?.title,
+      type: item?.type,
+      isMortgage,
       paymentId,
-      // remember original month when editing
+      paymentKind: desiredKind, // MAIN | EXTRA
       originalPeriodKey: paymentId ? pk : null,
     });
 
-    setAmount(String(Number(isPaid ? item?.actual?.amount : expectedDefault) || 0));
-    setPaidDate(pd);
+    setAmount(String(Number(startingAmount) || 0));
+    setPaidDate(startingPaidDate);
     setPeriodKey(pk);
+
+    // ✅ checkbox follows the kind we opened
+    setIsExtra(isMortgage && desiredKind === "EXTRA");
+
     setError("");
     setOpen(true);
   }, []);
@@ -78,6 +81,7 @@ export function usePayDialog() {
     setAmount("");
     setPaidDate(toISODate());
     setPeriodKey(toPeriodKey());
+    setIsExtra(false);
     setError("");
   }, []);
 
@@ -90,11 +94,15 @@ export function usePayDialog() {
     paidDate,
     periodKey,
 
+    isExtra,
+    allowExtra,
+
     error,
 
     setAmount,
     setPaidDate,
     setPeriodKey,
+    setIsExtra,
     setError,
 
     openDialog,

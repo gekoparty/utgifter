@@ -1,4 +1,5 @@
 import express from "express";
+
 import RecurringPayment from "../models/recurringPaymentSchema.js";
 import RecurringExpense from "../models/recurringExpenseSchema.js";
 
@@ -10,24 +11,36 @@ const normalizePeriodKey = (v) => {
   return s;
 };
 
+const normalizeKind = (v) => {
+  const s = String(v || "").toUpperCase();
+  return s === "EXTRA" ? "EXTRA" : "MAIN";
+};
+
 const clamp0 = (n) => Math.max(0, Number(n || 0));
 
-const computeMortgageRemaining = ({ initialBalance, interestRate, monthlyFee, payments }) => {
+const computeMortgageRemaining = ({ initialBalance, interestRate, monthlyFee, mainPayments, extraPayments }) => {
   let remaining = clamp0(initialBalance);
   const rate = clamp0(interestRate);
   const fee = clamp0(monthlyFee);
 
-  for (const p of payments) {
+  // mainPayments sorted by periodKey asc
+  for (const p of mainPayments) {
     if (!p) continue;
     if (p.status === "SKIPPED") continue;
 
     const paid = clamp0(p.amount);
 
-    // simple monthly interest approximation
+    // simple monthly interest approximation (your current recompute approach)
     const interest = remaining > 0 ? (remaining * (rate / 100)) / 12 : 0;
 
     const principal = Math.max(0, paid - fee - interest);
     remaining = Math.max(0, remaining - principal);
+
+    // ✅ apply EXTRA for same month (if any)
+    const extra = extraPayments.get(p.periodKey) || 0;
+    if (extra > 0) {
+      remaining = Math.max(0, remaining - extra);
+    }
   }
 
   return remaining;
@@ -39,7 +52,6 @@ const recomputeMortgageBalance = async (recurringExpenseId) => {
 
   if (exp.type !== "MORTGAGE") return;
 
-  // ensure initialBalance exists
   if (!Number(exp.initialBalance) && Number(exp.remainingBalance) > 0) {
     exp.initialBalance = Number(exp.remainingBalance);
   }
@@ -51,31 +63,46 @@ const recomputeMortgageBalance = async (recurringExpenseId) => {
     .sort({ periodKey: 1, paidDate: 1, createdAt: 1 })
     .lean();
 
+  const mainPayments = payments.filter((p) => String(p.kind || "MAIN").toUpperCase() === "MAIN");
+  const extraPayments = new Map(); // periodKey -> amount
+  for (const p of payments) {
+    if (String(p.kind || "").toUpperCase() !== "EXTRA") continue;
+    extraPayments.set(String(p.periodKey), clamp0(p.amount));
+  }
+
   const remaining = computeMortgageRemaining({
     initialBalance: exp.initialBalance,
     interestRate: exp.interestRate,
     monthlyFee: exp.hasMonthlyFee ? exp.monthlyFee : 0,
-    payments,
+    mainPayments,
+    extraPayments,
   });
 
   exp.remainingBalance = remaining;
   await exp.save();
 };
 
-// POST: upsert payment for (expense, periodKey)
+
+// POST: upsert payment for (expense, periodKey, kind)
 recurringPaymentsRouter.post("/", async (req, res) => {
   try {
     const recurringExpenseId = req.body.recurringExpenseId;
     const periodKey = normalizePeriodKey(req.body.periodKey);
     const paidDate = req.body.paidDate ? new Date(req.body.paidDate) : new Date();
     const amount = Number(req.body.amount ?? 0);
-    const status = String(req.body.status || "PAID").toUpperCase();
+
+    const kind = String(req.body.kind || "MAIN").toUpperCase(); // MAIN | EXTRA
+    const status = kind === "EXTRA"
+      ? "EXTRA"
+      : String(req.body.status || "PAID").toUpperCase();
+
     const note = String(req.body.note || "").trim();
 
     if (!recurringExpenseId) return res.status(400).json({ message: "recurringExpenseId required" });
     if (!periodKey) return res.status(400).json({ message: "periodKey invalid" });
     if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ message: "amount invalid" });
-    if (!["PAID", "PARTIAL", "SKIPPED"].includes(status)) {
+    if (!["MAIN", "EXTRA"].includes(kind)) return res.status(400).json({ message: "kind invalid" });
+    if (!["PAID", "PARTIAL", "SKIPPED", "EXTRA"].includes(status)) {
       return res.status(400).json({ message: "status invalid" });
     }
 
@@ -83,12 +110,12 @@ recurringPaymentsRouter.post("/", async (req, res) => {
     if (!exp) return res.status(404).json({ message: "RecurringExpense not found" });
 
     const doc = await RecurringPayment.findOneAndUpdate(
-      { recurringExpenseId, periodKey },
-      { $set: { paidDate, amount, status, note } },
+      { recurringExpenseId, periodKey, kind },
+      { $set: { paidDate, amount, status, note, kind } },
       { upsert: true, new: true }
     ).lean();
 
-    // ✅ update mortgage balance
+    // ✅ update mortgage balance (optional; summary already uses schedule balance)
     await recomputeMortgageBalance(recurringExpenseId);
 
     res.json(doc);
@@ -99,7 +126,8 @@ recurringPaymentsRouter.post("/", async (req, res) => {
   }
 });
 
-// PUT: update payment by id
+
+// PUT: update payment by id (does not change kind)
 recurringPaymentsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -111,20 +139,22 @@ recurringPaymentsRouter.put("/:id", async (req, res) => {
 
     const patch = {};
     if (paidDate) patch.paidDate = paidDate;
+
     if (amount != null) {
       if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ message: "amount invalid" });
       patch.amount = amount;
     }
+
     if (status) {
       if (!["PAID", "PARTIAL", "SKIPPED"].includes(status)) return res.status(400).json({ message: "status invalid" });
       patch.status = status;
     }
+
     if (note != null) patch.note = note;
 
     const updated = await RecurringPayment.findByIdAndUpdate(id, { $set: patch }, { new: true }).lean();
     if (!updated) return res.status(404).json({ message: "Not found" });
 
-    // ✅ update mortgage balance
     await recomputeMortgageBalance(updated.recurringExpenseId);
 
     res.json(updated);
@@ -162,7 +192,6 @@ recurringPaymentsRouter.delete("/:id", async (req, res) => {
     const deleted = await RecurringPayment.findByIdAndDelete(req.params.id).lean();
     if (!deleted) return res.status(404).json({ message: "Not found" });
 
-    // ✅ update mortgage balance
     await recomputeMortgageBalance(deleted.recurringExpenseId);
 
     res.json(deleted);
@@ -173,4 +202,5 @@ recurringPaymentsRouter.delete("/:id", async (req, res) => {
 });
 
 export default recurringPaymentsRouter;
+
 
