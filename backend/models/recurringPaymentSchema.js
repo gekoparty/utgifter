@@ -1,4 +1,3 @@
-// models/recurringPaymentSchema.js
 import mongoose from "mongoose";
 
 const RecurringPaymentSchema = new mongoose.Schema(
@@ -10,7 +9,6 @@ const RecurringPaymentSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Accounting month for the payment ("YYYY-MM")
     periodKey: {
       type: String,
       required: true,
@@ -18,7 +16,6 @@ const RecurringPaymentSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Actual payment date (can be outside the period)
     paidDate: {
       type: Date,
       required: true,
@@ -31,10 +28,19 @@ const RecurringPaymentSchema = new mongoose.Schema(
       min: 0,
     },
 
+    // ✅ allow EXTRA
     status: {
       type: String,
-      enum: ["PAID", "PARTIAL", "SKIPPED"],
+      enum: ["PAID", "PARTIAL", "SKIPPED", "EXTRA"],
       default: "PAID",
+      index: true,
+    },
+
+    // ✅ NEW: explicit kind
+    kind: {
+      type: String,
+      enum: ["MAIN", "EXTRA"],
+      default: "MAIN",
       index: true,
     },
 
@@ -43,12 +49,14 @@ const RecurringPaymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Simple UX: 1 payment per bill per month.
-// If you later want split payments, remove this unique index.
+// ✅ allow one MAIN + one EXTRA per month
 RecurringPaymentSchema.index(
-  { recurringExpenseId: 1, periodKey: 1 },
+  { recurringExpenseId: 1, periodKey: 1, kind: 1 },
   { unique: true }
 );
 
-const RecurringPayment = mongoose.model("RecurringPayment", RecurringPaymentSchema);
-export default RecurringPayment;
+export default mongoose.model("RecurringPayment", RecurringPaymentSchema);
+
+
+
+

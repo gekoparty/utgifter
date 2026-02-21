@@ -4,27 +4,19 @@ import { useMutation } from "@tanstack/react-query";
 import { API_URL } from "../../../components/commons/Consts/constants";
 import { useRecurringInvalidation } from "../../../components/features/RecurringExpenes/hooks/useRecurringData";
 
-/**
- * Single place for RecurringPayment mutations.
- * Keeps screens "visual".
- *
- * Requires backend:
- * - POST /api/recurring-payments
- * - PUT /api/recurring-payments/:id
- * - DELETE /api/recurring-payments/:id
- */
 export function useRecurringPayments() {
   const { invalidateSummary } = useRecurringInvalidation();
 
   const createPayment = useMutation({
-    mutationFn: async ({ recurringExpenseId, periodKey, amount, paidDate }) => {
+    mutationFn: async ({ recurringExpenseId, periodKey, amount, paidDate, kind = "MAIN" }) => {
       const url = `${API_URL}/api/recurring-payments`;
       const payload = {
         recurringExpenseId,
         periodKey,
         amount: Number(amount || 0),
         paidDate: paidDate ? new Date(paidDate).toISOString() : new Date().toISOString(),
-        status: "PAID",
+        kind,
+        status: kind === "EXTRA" ? "EXTRA" : "PAID",
       };
       const res = await axios.post(url, payload);
       return res.data;
@@ -33,12 +25,13 @@ export function useRecurringPayments() {
   });
 
   const updatePayment = useMutation({
-    mutationFn: async ({ paymentId, amount, paidDate }) => {
+    mutationFn: async ({ paymentId, amount, paidDate, kind = "MAIN" }) => {
       const url = `${API_URL}/api/recurring-payments/${paymentId}`;
       const payload = {
         amount: Number(amount || 0),
         paidDate: new Date(paidDate).toISOString(),
-        status: "PAID",
+        kind,
+        status: kind === "EXTRA" ? "EXTRA" : "PAID",
       };
       const res = await axios.put(url, payload);
       return res.data;

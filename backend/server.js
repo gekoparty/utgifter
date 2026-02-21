@@ -12,7 +12,8 @@ import productsRouter from "./routes/productsRouter.js";
 import expensesRouter from "./routes/expensesRouter.js";
 import statsRouter from "./routes/statsRouter.js";
 import recurringPaymentsRouter from "./routes/recurringPaymentsRouter.js";
-import recurringExpensesRouter from "./routes/recurringExpensesRouter.js";
+import recurringRouter from "./routes/recurring/index.js";
+import mortgagesRouter from "./routes/mortages/index.js";
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -51,7 +52,8 @@ app.use("/api/products", productsRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/recurring-payments", recurringPaymentsRouter);
-app.use("/api/recurring-expenses", recurringExpensesRouter);
+app.use("/api/recurring-expenses", recurringRouter);
+app.use("/api/mortgages", mortgagesRouter);
 
 
 

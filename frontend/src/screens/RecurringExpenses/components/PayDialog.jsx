@@ -1,11 +1,13 @@
 import React, { memo } from "react";
 import {
   Button,
+  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Stack,
   TextField,
   Typography,
@@ -24,6 +26,11 @@ function PayDialog({
 
   periodKey,
   onPeriodKey,
+
+  // ✅ extra payment toggle
+  isExtra,
+  onIsExtra,
+  allowExtra,
 
   error,
   onConfirm,
@@ -75,6 +82,26 @@ function PayDialog({
             fullWidth
             helperText="Du kan registrere betalinger tilbake i tid."
           />
+
+          {/* ✅ EXTRA toggle (only when mortgage) */}
+          {allowExtra && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={Boolean(isExtra)}
+                  onChange={(e) => onIsExtra?.(e.target.checked)}
+                  disabled={pending}
+                />
+              }
+              label="Ekstra avdrag (kun lån)"
+            />
+          )}
+
+          {allowExtra && isExtra && (
+            <Typography variant="caption" color="text.secondary">
+              Ekstra avdrag påvirker nedbetalingsplanen som “extraPrincipal” for måneden.
+            </Typography>
+          )}
         </Stack>
       </DialogContent>
 
@@ -103,3 +130,4 @@ function PayDialog({
 }
 
 export default memo(PayDialog);
+

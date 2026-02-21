@@ -1,10 +1,10 @@
+// RecurringExpenseScreen.jsx
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Box,
   Card,
   CardContent,
   Typography,
-  Slider,
   Stack,
 } from "@mui/material";
 import dayjs from "dayjs";
@@ -17,6 +17,7 @@ import {
 } from "../../components/features/RecurringExpenes/hooks/useRecurringData";
 import RecurringOverviewCharts from "../../components/features/RecurringExpenes/components/RecurringOverviewCharts";
 
+import MortgageCenter from "./components/MortgageCenter";
 import { useRecurringSummary } from "./hooks/useRecurringSummary";
 import { usePayDialog } from "./hooks/usePayDialog";
 import { useRecurringPayments } from "./hooks/useRecurringPayments";
@@ -33,6 +34,7 @@ import PayDialog from "./components/PayDialog";
 import ChangeTermsDialog from "./components/ChangeTermsDialog";
 import PauseDialog from "./components/PauseDialog";
 import { recurringApi } from "./api/recurringApi";
+import { mortgageApi } from "./api/mortgageApi";
 
 const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
 
@@ -44,6 +46,11 @@ export default function RecurringExpenseScreen() {
 
   // ✅ templates include pausePeriods (used for edit/unpause UI)
   const templates = useRecurringData({ enabled: true, includeInactive: true });
+
+  const mortgages = useMemo(
+    () => (templates.expenses || []).filter((e) => String(e.type).toUpperCase() === "MORTGAGE"),
+    [templates.expenses]
+  );
 
   const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
   const formatCurrency = useCallback(
@@ -58,10 +65,13 @@ export default function RecurringExpenseScreen() {
     amount: payAmount,
     paidDate: payPaidDate,
     periodKey: payPeriodKey,
+    isExtra: payIsExtra,
+    allowExtra: payAllowExtra,
     error: payAmountError,
     setAmount: setPayAmount,
     setPaidDate: setPayPaidDate,
     setPeriodKey: setPayPeriodKey,
+    setIsExtra: setPayIsExtra,
     setError: setPayAmountError,
     openDialog: openPayDialog,
     closeDialog: closePayDialog,
@@ -144,6 +154,14 @@ export default function RecurringExpenseScreen() {
     [setPayPeriodKey, setPayAmountError],
   );
 
+  const onIsExtra = useCallback(
+    (v) => {
+      setPayIsExtra(Boolean(v));
+      setPayAmountError("");
+    },
+    [setPayIsExtra, setPayAmountError],
+  );
+
   const confirmPay = useCallback(async () => {
     const n = Number(payAmount);
     if (!Number.isFinite(n) || n < 0) {
@@ -166,6 +184,10 @@ export default function RecurringExpenseScreen() {
       return;
     }
 
+    // ✅ IMPORTANT: kind + status rules
+    const kind = payAllowExtra && payIsExtra ? "EXTRA" : "MAIN";
+    const status = kind === "EXTRA" ? "EXTRA" : "PAID";
+
     if (payMode === "EDIT") {
       if (!payDraft?.paymentId) {
         setPayAmountError("Mangler paymentId");
@@ -181,6 +203,8 @@ export default function RecurringExpenseScreen() {
             periodKey: payPeriodKey,
             amount: n,
             paidDate: payPaidDate,
+            kind,
+            status,
           });
 
           await payments.deletePayment.mutateAsync({
@@ -196,7 +220,7 @@ export default function RecurringExpenseScreen() {
       }
 
       payments.updatePayment.mutate(
-        { paymentId: payDraft.paymentId, amount: n, paidDate: payPaidDate },
+        { paymentId: payDraft.paymentId, amount: n, paidDate: payPaidDate, status },
         { onSuccess: () => closePayDialog() },
       );
       return;
@@ -208,6 +232,8 @@ export default function RecurringExpenseScreen() {
         periodKey: payPeriodKey,
         amount: n,
         paidDate: payPaidDate,
+        kind,
+        status,
       },
       { onSuccess: () => closePayDialog() },
     );
@@ -217,6 +243,8 @@ export default function RecurringExpenseScreen() {
     payPaidDate,
     payPeriodKey,
     payMode,
+    payAllowExtra,
+    payIsExtra,
     payments,
     closePayDialog,
     setPayAmountError,
@@ -330,6 +358,19 @@ export default function RecurringExpenseScreen() {
     [invalidateSummary, invalidateTemplates],
   );
 
+  const onHardDeleteMortgage = useCallback(async (mortgageId) => {
+    if (!mortgageId) return;
+    await mortgageApi.hardDelete({ mortgageId: String(mortgageId) });
+    invalidateSummary();
+    invalidateTemplates();
+  }, [invalidateSummary, invalidateTemplates]);
+
+  const onPurgeMortgages = useCallback(async () => {
+    await mortgageApi.purgeAllMortgages();
+    invalidateSummary();
+    invalidateTemplates();
+  }, [invalidateSummary, invalidateTemplates]);
+
   return (
     <Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
       <HeaderBar onAdd={ctrl.openAdd} />
@@ -340,6 +381,14 @@ export default function RecurringExpenseScreen() {
           onFilter={onFilter}
           sum3={sum3}
           formatCurrency={formatCurrency}
+        />
+
+        {/* ✅ Mortgage center (dropdown + plan + what-if + hard delete) */}
+        <MortgageCenter
+          mortgages={mortgages}
+          formatCurrency={formatCurrency}
+          onHardDeleteMortgage={onHardDeleteMortgage}
+          onPurgeMortgages={onPurgeMortgages}
         />
 
         {/* ✅ Past months slider */}
@@ -419,25 +468,24 @@ export default function RecurringExpenseScreen() {
 
           <ExpenseTemplatesSection
             expenses={templates.expenses}
-            templates={templates.expenses} 
+            templates={templates.expenses}
             formatCurrency={formatCurrency}
             onEdit={ctrl.openEdit}
-            // onDelete is no longer used for "Fullfør" (we use onFinish instead)
             onDelete={ctrl.openDelete}
             showFinished={showFinished}
             onToggleShowFinished={() => setShowFinished((v) => !v)}
             onFinish={async (id) => {
-  if (!id) return;
-  await recurringApi.archiveExpense(String(id));
-  invalidateSummary();
-  invalidateTemplates();
-}}
+              if (!id) return;
+              await recurringApi.archiveExpense(String(id));
+              invalidateSummary();
+              invalidateTemplates();
+            }}
             onRestore={async (id) => {
-  if (!id) return;
-  await recurringApi.restoreExpense(String(id));
-  invalidateSummary();
-  invalidateTemplates();
-}}
+              if (!id) return;
+              await recurringApi.restoreExpense(String(id));
+              invalidateSummary();
+              invalidateTemplates();
+            }}
             onOpenTerms={openTerms}
             onOpenPauseCreate={openPauseCreate}
             onOpenPauseEdit={openPauseEdit}
@@ -450,7 +498,7 @@ export default function RecurringExpenseScreen() {
         open={ctrl.monthDrawerOpen}
         onClose={ctrl.closeMonth}
         selected={selected}
-        expenses={templates.expenses} // ✅ include pausePeriods for edit/unpause
+        expenses={templates.expenses}
         onOpenPay={openPayDialog}
         onOpenTerms={openTerms}
         onOpenPauseCreate={openPauseCreate}
@@ -480,6 +528,9 @@ export default function RecurringExpenseScreen() {
         onPaidDate={onPaidDate}
         periodKey={payPeriodKey}
         onPeriodKey={onPeriodKey}
+        isExtra={payIsExtra}
+        onIsExtra={onIsExtra}
+        allowExtra={payAllowExtra}
         error={payAmountError}
         onConfirm={confirmPay}
         onDelete={payMode === "EDIT" ? deletePay : undefined}

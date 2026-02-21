@@ -1,5 +1,6 @@
 import React, { memo, useMemo, Fragment } from "react";
 import PropTypes from "prop-types";
+import MortgageScheduleCard from "./MortgageScheduleCard";
 import {
   Button,
   Chip,
@@ -8,9 +9,9 @@ import {
   IconButton,
   List,
   ListItem,
-  ListItemText,
   Stack,
   Typography,
+  Box,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
 import { TYPE_META_BY_KEY, normalizeRecurringType } from "../utils/recurringTypes";
@@ -20,7 +21,7 @@ function MonthDrawer({
   open,
   onClose,
   selected,
-  expenses, // ✅ templates list (includes pausePeriods)
+  expenses,
   onOpenPay,
   onOpenTerms,
   onOpenPauseCreate,
@@ -60,7 +61,7 @@ function MonthDrawer({
       anchor="right"
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { width: { xs: "100%", sm: 520 }, p: 2 } }}
+      PaperProps={{ sx: { width: { xs: "100%", sm: 560 }, p: 2 } }}
     >
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6" fontWeight={900} noWrap sx={{ minWidth: 0 }}>
@@ -117,23 +118,59 @@ function MonthDrawer({
               const typeLabel = TYPE_META_BY_KEY[typeKey]?.label ?? it.type;
 
               const key = `${selected.key}-${it.recurringExpenseId}-${String(it.dueDate)}`;
-
               const pauseRange = resolvePauseRange(it);
+
+              const mortgageSchedule = it?.mortgage?.schedule ?? null;
+
+              // ✅ NEW: extra payment info from backend (we’ll add this below)
+              const extraPayment = it?.extraPayment ?? null; // { paymentId, amount, paidDate } or null
+              const extraLabel = extraPayment
+                ? `${formatCurrency(extraPayment.amount)} (${new Date(extraPayment.paidDate).toLocaleDateString("nb-NO")})`
+                : null;
 
               return (
                 <Fragment key={key}>
                   <ListItem
                     sx={{
                       px: 1,
+                      py: 1,
                       borderRadius: 2,
                       "&:hover": { bgcolor: "action.hover" },
-                      alignItems: "flex-start",
                     }}
-                    secondaryAction={
-                      <Stack direction="column" alignItems="flex-end" spacing={0.75} sx={{ pt: 0.25 }}>
-                        <Typography fontWeight={900} noWrap>
-                          {expectedLabel}
+                  >
+                    <Box
+                      sx={{
+                        width: "100%",
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0,1fr) 320px",
+                        gap: 1.5,
+                        alignItems: "start",
+                      }}
+                    >
+                      {/* LEFT */}
+                      <Box sx={{ minWidth: 0 }}>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                          <Typography fontWeight={800} noWrap sx={{ minWidth: 0 }}>
+                            {it.title}
+                          </Typography>
+                          {statusChip}
+                        </Stack>
+
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {typeLabel} {" • "} {dueShortLabel(it.dueDate)}
+                          {it?.mortgage?.mortgageHolder ? ` • ${it.mortgage.mortgageHolder}` : ""}
+                          {it?.mortgage?.mortgageKind ? ` • ${it.mortgage.mortgageKind}` : ""}
                         </Typography>
+                      </Box>
+
+                      {/* RIGHT */}
+                      <Stack spacing={1} sx={{ alignItems: "stretch" }}>
+                        <Stack direction="row" justifyContent="space-between" spacing={2}>
+                          <Typography fontWeight={900} noWrap>
+                            {expectedLabel}
+                          </Typography>
+                          <Chip size="small" label={isPaid ? "OK" : "Åpen"} color={isPaid ? "success" : "warning"} />
+                        </Stack>
 
                         {paidLabel && (
                           <Typography variant="caption" color="text.secondary" noWrap>
@@ -141,56 +178,88 @@ function MonthDrawer({
                           </Typography>
                         )}
 
-                        {!isPaused && !isSkipped && (
-                          <Button
-                            size="small"
-                            variant={isPaid ? "text" : "outlined"}
-                            disabled={registerPaymentPending}
-                            onClick={() =>
-                              onOpenPay({
-                                ...it,
-                                periodKey: it.periodKey || selected.key,
-                              })
-                            }
-                          >
-                            {isPaid ? "Rediger betaling" : "Registrer betalt"}
-                          </Button>
+                        {extraLabel && (
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            Ekstra: {extraLabel}
+                          </Typography>
                         )}
 
-                        {/* ✅ Change terms from this month */}
-                        {!isPaused && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => onOpenTerms(it, selected.key)}
-                          >
-                            Endre pris fra denne måneden
-                          </Button>
+                        {mortgageSchedule && (
+                          <MortgageScheduleCard schedule={mortgageSchedule} formatCurrency={formatCurrency} />
                         )}
 
-                        {/* ✅ Pause / edit pause / unpause */}
-                        {!isPaused ? (
-                          <Button
-                            size="small"
-                            color="info"
-                            variant="outlined"
-                            onClick={() => onOpenPauseCreate(it, selected.key)}
-                          >
-                            Pause
-                          </Button>
-                        ) : (
-                          <>
-                            {pauseRange && (
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                Pauset: {pauseRange.from} → {pauseRange.to}
-                              </Typography>
-                            )}
+                        {/* Buttons styled as chips */}
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          {!isPaused && !isSkipped && (
+                            <Button
+                              size="small"
+                              variant={isPaid ? "outlined" : "contained"}
+                              disabled={registerPaymentPending}
+                              onClick={() =>
+                                onOpenPay({
+                                  ...it,
+                                  periodKey: it.periodKey || selected.key,
+                                  paymentKind: "MAIN",
+                                })
+                              }
+                              sx={{ borderRadius: 999, textTransform: "none" }}
+                            >
+                              {isPaid ? "Rediger" : "Registrer betalt"}
+                            </Button>
+                          )}
 
-                            <Stack direction="row" spacing={1}>
+                          {/* ✅ extra payment (mortgage only) */}
+                          {String(it?.type || "").toUpperCase() === "MORTGAGE" && !isPaused && !isSkipped && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              disabled={registerPaymentPending}
+                              onClick={() =>
+                                onOpenPay({
+                                  ...it,
+                                  periodKey: it.periodKey || selected.key,
+                                  paymentKind: "EXTRA",
+                                })
+                              }
+                              sx={{ borderRadius: 999, textTransform: "none" }}
+                            >
+                              Ekstra avdrag
+                            </Button>
+                          )}
+
+                          {!isPaused && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => onOpenTerms(it, selected.key)}
+                              sx={{ borderRadius: 999, textTransform: "none" }}
+                            >
+                              Endre pris
+                            </Button>
+                          )}
+
+                          {!isPaused ? (
+                            <Button
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                              onClick={() => onOpenPauseCreate(it, selected.key)}
+                              sx={{ borderRadius: 999, textTransform: "none" }}
+                            >
+                              Pause
+                            </Button>
+                          ) : (
+                            <>
+                              {pauseRange && (
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  Pauset: {pauseRange.from} → {pauseRange.to}
+                                </Typography>
+                              )}
                               <Button
                                 size="small"
                                 variant="outlined"
                                 onClick={() => onOpenPauseEdit(it, pauseRange)}
+                                sx={{ borderRadius: 999, textTransform: "none" }}
                               >
                                 Rediger pause
                               </Button>
@@ -199,32 +268,18 @@ function MonthDrawer({
                                 color="error"
                                 variant="outlined"
                                 onClick={() => onUnpause(it)}
+                                sx={{ borderRadius: 999, textTransform: "none" }}
                               >
                                 Opphev
                               </Button>
-                            </Stack>
-                          </>
-                        )}
-                      </Stack>
-                    }
-                  >
-                    <ListItemText
-                      primary={
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                          <Typography fontWeight={800} noWrap sx={{ minWidth: 0 }}>
-                            {it.title}
-                          </Typography>
-                          {statusChip}
+                            </>
+                          )}
                         </Stack>
-                      }
-                      secondary={
-                        <Typography variant="caption" color="text.secondary" noWrap>
-                          {typeLabel} {" • "} {dueShortLabel(it.dueDate)}
-                        </Typography>
-                      }
-                    />
+                      </Stack>
+                    </Box>
                   </ListItem>
-                  <Divider sx={{ opacity: 0.4 }} />
+
+                  <Divider sx={{ opacity: 0.35 }} />
                 </Fragment>
               );
             })}
@@ -257,4 +312,5 @@ MonthDrawer.propTypes = {
 };
 
 export default memo(MonthDrawer);
+
 
