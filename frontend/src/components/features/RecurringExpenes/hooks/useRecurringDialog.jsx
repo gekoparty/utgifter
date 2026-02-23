@@ -31,13 +31,16 @@ startMonth: new Date().getMonth() + 1,
 // resource name for StoreContext errors
 const RESOURCE = "recurring-expenses";
 
-const clampDueDay = (d) => Math.min(28, Math.max(1, Number(d || 1)));
+const clampDueDay = (d, type) => {
+  const max = type === "MORTGAGE" ? 31 : 28;
+  return Math.min(max, Math.max(1, Number(d || 1)));
+};
 
-const dueDateToDueDay = (dueDateStr) => {
+const dueDateToDueDay = (dueDateStr, type) => {
   if (!dueDateStr) return 1;
   const d = new Date(dueDateStr);
   if (Number.isNaN(d.getTime())) return 1;
-  return clampDueDay(d.getDate());
+  return clampDueDay(d.getDate(), type);
 };
 
 const buildFormFromInitial = (initial) => {
@@ -94,14 +97,22 @@ const buildBackendPayload = (form) => {
     title: formatComponentFields(form.title, "category", "name"),
     type: form.type,
 
-    // backend: store day-of-month, not full date
-    dueDay: dueDateToDueDay(form.dueDate),
+    // ✅ store day-of-month
+    dueDay: dueDateToDueDay(form.dueDate, form.type),
+
+    // ✅ mortgage: store explicit first payment month for MortgageCenter
+    firstPaymentMonth:
+      form.type === "MORTGAGE" && String(form.dueDate || "").length >= 7
+        ? String(form.dueDate).slice(0, 7) // "YYYY-MM"
+        : "",
 
     amount: Number(form.amount || 0),
     estimateMin: Number(form.estimateMin || 0),
     estimateMax: Number(form.estimateMax || 0),
+
     billingIntervalMonths: Number(form.billingIntervalMonths || 1),
-   startMonth: Number(form.startMonth || new Date().getMonth() + 1),
+    startMonth: Number(form.startMonth || new Date().getMonth() + 1),
+
     mortgageHolder: formatComponentFields(form.mortgageHolder, "brand", "name"),
     mortgageKind: formatComponentFields(form.mortgageKind, "category", "name"),
     remainingBalance: Number(form.remainingBalance || 0),
@@ -118,10 +129,16 @@ const buildBackendPayload = (form) => {
     delete payload.interestRate;
     delete payload.hasMonthlyFee;
     delete payload.monthlyFee;
+
+    // not used for non-mortgages
+    payload.firstPaymentMonth = "";
   } else {
     // mortgage does not use estimate range
     payload.estimateMin = 0;
     payload.estimateMax = 0;
+
+    // mortgage is monthly
+    payload.billingIntervalMonths = 1;
   }
 
   return payload;

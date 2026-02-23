@@ -1,4 +1,4 @@
-// routes/mortgages/index.js
+// routes/mortages/index.js
 import express from "express";
 import plan from "./plan.js";
 import simulate from "./simulate.js";

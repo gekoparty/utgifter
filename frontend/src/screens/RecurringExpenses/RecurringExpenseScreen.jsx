@@ -6,6 +6,7 @@ import {
   CardContent,
   Typography,
   Stack,
+  Button,
 } from "@mui/material";
 import dayjs from "dayjs";
 
@@ -30,11 +31,11 @@ import NextBillsCard from "./components/NextBillsCard";
 import ExpenseTemplatesSection from "./components/ExpenseTemplatesSection";
 import MonthDrawer from "./components/MonthDrawer";
 import PayDialog from "./components/PayDialog";
-
+import PurgeAllRecurringDialog from "./components/PurgeAllRecurringDialog";
 import ChangeTermsDialog from "./components/ChangeTermsDialog";
 import PauseDialog from "./components/PauseDialog";
 import { recurringApi } from "./api/recurringApi";
-import { mortgageApi } from "./api/mortgageApi";
+import { mortgageApi } from "./api/mortageApi"
 
 const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
 
@@ -43,6 +44,15 @@ export default function RecurringExpenseScreen() {
   const payments = useRecurringPayments();
   const { invalidateSummary, invalidateTemplates } = useRecurringInvalidation();
   const [showFinished, setShowFinished] = useState(false);
+
+  const [purgeOpen, setPurgeOpen] = useState(false);
+
+const doPurgeAll = useCallback(async () => {
+  await recurringApi.purgeAll();
+  setPurgeOpen(false);
+  invalidateSummary();
+  invalidateTemplates();
+}, [invalidateSummary, invalidateTemplates]);
 
   // ✅ templates include pausePeriods (used for edit/unpause UI)
   const templates = useRecurringData({ enabled: true, includeInactive: true });
@@ -383,6 +393,17 @@ export default function RecurringExpenseScreen() {
           formatCurrency={formatCurrency}
         />
 
+        <Card sx={{ mt: 2 }}>
+  <CardContent>
+    <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Typography fontWeight={800}>Admin</Typography>
+      <Button color="error" variant="contained" onClick={() => setPurgeOpen(true)}>
+        Purge ALT
+      </Button>
+    </Stack>
+  </CardContent>
+</Card>
+
         {/* ✅ Mortgage center (dropdown + plan + what-if + hard delete) */}
         <MortgageCenter
           mortgages={mortgages}
@@ -553,6 +574,12 @@ export default function RecurringExpenseScreen() {
         onSubmit={submitPause}
         initial={pauseInitial}
       />
+<PurgeAllRecurringDialog
+  open={purgeOpen}
+  onClose={() => setPurgeOpen(false)}
+  onConfirm={doPurgeAll}
+/>
+
     </Box>
   );
 }
