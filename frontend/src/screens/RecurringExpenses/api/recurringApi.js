@@ -10,6 +10,13 @@ export const recurringApi = {
     return res.data;
   },
 
+  purgeAll: async () => {
+  const res = await axios.delete(`${base}/purge-all`, {
+    headers: { "x-confirm-purge": "PURGE" },
+  });
+  return res.data;
+},
+
   // ✅ Pause expense in a month range
   createPause: async (expenseId, payload) => {
     const res = await axios.post(`${base}/${expenseId}/pause`, payload);

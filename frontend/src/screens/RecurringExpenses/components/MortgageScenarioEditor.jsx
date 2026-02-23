@@ -7,17 +7,24 @@ import DeleteIcon from "@mui/icons-material/Delete";
 const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
 
 export default function MortgageScenarioEditor({ from, value, onChange }) {
+  // value is the backend scenario shape
   const initial = useMemo(() => {
     const v = value || {};
+    const firstRate = Array.isArray(v?.rateOverrides) ? v.rateOverrides[0] : null;
+
     return {
-      interestRate: Number(v?.interest?.annualRatePct ?? 0),
-      interestFrom: String(v?.interest?.fromPeriodKey ?? ""),
+      // single override UI (we emit rateOverrides array)
+      overrideRate: Number(firstRate?.interestRate ?? 0),
+      overrideFrom: String(firstRate?.from ?? ""),
 
-      monthlyExtra: Number(v?.extra?.monthlyExtra ?? 0),
-      extraFrom: String(v?.extra?.fromPeriodKey ?? ""),
+      recurringExtra: Number(v?.recurringExtra?.amount ?? 0),
+      recurringExtraFrom: String(v?.recurringExtra?.from ?? ""),
 
-      lumpSums: Array.isArray(v?.extra?.lumpSums)
-        ? v.extra.lumpSums.map((x) => ({ periodKey: String(x.periodKey || ""), amount: Number(x.amount || 0) }))
+      lumpSums: Array.isArray(v?.oneTimeExtras)
+        ? v.oneTimeExtras.map((x) => ({
+            periodKey: String(x.periodKey || ""),
+            amount: Number(x.amount || 0),
+          }))
         : [],
 
       err: "",
@@ -28,56 +35,69 @@ export default function MortgageScenarioEditor({ from, value, onChange }) {
 
   useEffect(() => setS(initial), [initial]);
 
-  const emit = useCallback((next) => {
-    // allow empty, but validate any provided month keys
-    if (next.interestFrom && !isPeriodKey(next.interestFrom)) {
-      setS((p) => ({ ...p, err: "Ugyldig måned for rente (YYYY-MM)" }));
-      return;
-    }
-    if (next.extraFrom && !isPeriodKey(next.extraFrom)) {
-      setS((p) => ({ ...p, err: "Ugyldig måned for ekstra (YYYY-MM)" }));
-      return;
-    }
-    for (const ls of next.lumpSums || []) {
-      if (ls.periodKey && !isPeriodKey(ls.periodKey)) {
-        setS((p) => ({ ...p, err: "Ugyldig måned i engangsinnbetaling (YYYY-MM)" }));
+  const emit = useCallback(
+    (next) => {
+      // validate
+      if (next.overrideFrom && !isPeriodKey(next.overrideFrom)) {
+        setS((p) => ({ ...p, err: "Ugyldig måned for rente (YYYY-MM)" }));
         return;
       }
-    }
+      if (next.recurringExtraFrom && !isPeriodKey(next.recurringExtraFrom)) {
+        setS((p) => ({ ...p, err: "Ugyldig måned for ekstra (YYYY-MM)" }));
+        return;
+      }
+      for (const ls of next.lumpSums || []) {
+        if (ls.periodKey && !isPeriodKey(ls.periodKey)) {
+          setS((p) => ({ ...p, err: "Ugyldig måned i engangsinnbetaling (YYYY-MM)" }));
+          return;
+        }
+      }
 
-    const scenario = {};
+      const scenario = {};
 
-    if (Number(next.interestRate) > 0) {
-      scenario.interest = {
-        mode: "override",
-        annualRatePct: Number(next.interestRate),
-        fromPeriodKey: next.interestFrom || undefined,
-      };
-    }
+      // rateOverrides
+      if (Number(next.overrideRate) > 0) {
+        scenario.rateOverrides = [
+          {
+            from: next.overrideFrom || from || "",
+            interestRate: Number(next.overrideRate),
+          },
+        ].filter((x) => isPeriodKey(x.from));
+      } else {
+        scenario.rateOverrides = [];
+      }
 
-    const hasMonthly = Number(next.monthlyExtra) > 0;
-    const hasLumps = (next.lumpSums || []).some((x) => Number(x.amount) > 0 && isPeriodKey(x.periodKey));
+      // recurringExtra
+      if (Number(next.recurringExtra) > 0) {
+        const f = next.recurringExtraFrom || from || "";
+        if (isPeriodKey(f)) {
+          scenario.recurringExtra = {
+            from: f,
+            amount: Number(next.recurringExtra),
+          };
+        }
+      }
 
-    if (hasMonthly || hasLumps) {
-      scenario.extra = {
-        monthlyExtra: hasMonthly ? Number(next.monthlyExtra) : undefined,
-        fromPeriodKey: next.extraFrom || undefined,
-        lumpSums: (next.lumpSums || [])
-          .filter((x) => Number(x.amount) > 0 && isPeriodKey(x.periodKey))
-          .map((x) => ({ periodKey: String(x.periodKey), amount: Number(x.amount) })),
-      };
-    }
+      // oneTimeExtras
+      scenario.oneTimeExtras = (next.lumpSums || [])
+        .filter((x) => Number(x.amount) > 0 && isPeriodKey(x.periodKey))
+        .map((x) => ({ periodKey: String(x.periodKey), amount: Number(x.amount) }));
 
-    onChange?.(scenario);
-  }, [onChange]);
+      onChange?.(scenario);
+    },
+    [onChange, from]
+  );
 
-  const patch = useCallback((p) => {
-    setS((prev) => {
-      const next = { ...prev, ...p, err: "" };
-      queueMicrotask(() => emit(next));
-      return next;
-    });
-  }, [emit]);
+  const patch = useCallback(
+    (p) => {
+      setS((prev) => {
+        const next = { ...prev, ...p, err: "" };
+        queueMicrotask(() => emit(next));
+        return next;
+      });
+    },
+    [emit]
+  );
 
   const addLump = useCallback(() => {
     patch({
@@ -85,14 +105,20 @@ export default function MortgageScenarioEditor({ from, value, onChange }) {
     });
   }, [patch, s.lumpSums, from]);
 
-  const updateLump = useCallback((idx, p) => {
-    const next = (s.lumpSums || []).map((x, i) => (i === idx ? { ...x, ...p } : x));
-    patch({ lumpSums: next });
-  }, [patch, s.lumpSums]);
+  const updateLump = useCallback(
+    (idx, p) => {
+      const next = (s.lumpSums || []).map((x, i) => (i === idx ? { ...x, ...p } : x));
+      patch({ lumpSums: next });
+    },
+    [patch, s.lumpSums]
+  );
 
-  const removeLump = useCallback((idx) => {
-    patch({ lumpSums: (s.lumpSums || []).filter((_, i) => i !== idx) });
-  }, [patch, s.lumpSums]);
+  const removeLump = useCallback(
+    (idx) => {
+      patch({ lumpSums: (s.lumpSums || []).filter((_, i) => i !== idx) });
+    },
+    [patch, s.lumpSums]
+  );
 
   return (
     <Stack spacing={2}>
@@ -102,14 +128,14 @@ export default function MortgageScenarioEditor({ from, value, onChange }) {
         <TextField
           label="Ny rente (%)"
           type="number"
-          value={s.interestRate}
-          onChange={(e) => patch({ interestRate: Number(e.target.value) })}
+          value={s.overrideRate}
+          onChange={(e) => patch({ overrideRate: Number(e.target.value) })}
           fullWidth
         />
         <TextField
           label="Rente fra måned (YYYY-MM)"
-          value={s.interestFrom}
-          onChange={(e) => patch({ interestFrom: e.target.value })}
+          value={s.overrideFrom}
+          onChange={(e) => patch({ overrideFrom: e.target.value })}
           placeholder={from || "2026-02"}
           fullWidth
         />
@@ -119,14 +145,14 @@ export default function MortgageScenarioEditor({ from, value, onChange }) {
         <TextField
           label="Ekstra pr mnd"
           type="number"
-          value={s.monthlyExtra}
-          onChange={(e) => patch({ monthlyExtra: Number(e.target.value) })}
+          value={s.recurringExtra}
+          onChange={(e) => patch({ recurringExtra: Number(e.target.value) })}
           fullWidth
         />
         <TextField
           label="Ekstra fra måned (YYYY-MM)"
-          value={s.extraFrom}
-          onChange={(e) => patch({ extraFrom: e.target.value })}
+          value={s.recurringExtraFrom}
+          onChange={(e) => patch({ recurringExtraFrom: e.target.value })}
           placeholder={from || "2026-02"}
           fullWidth
         />
