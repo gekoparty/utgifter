@@ -14,10 +14,7 @@ export const useExpenseDialogOptions = ({
         label: p.name,
         value: p.name,
         name: p.name,
-
-        // variants should be populated [{_id,name}], but keep it safe
         variants: Array.isArray(p.variants) ? p.variants : [],
-
         category: p.category ?? "",
         measurementUnit: p.measurementUnit ?? "",
         measures: Array.isArray(p.measures) ? p.measures : [],
@@ -31,23 +28,24 @@ export const useExpenseDialogOptions = ({
     if (!Array.isArray(variants)) return [];
 
     return variants
-      .map((v) => {
-        // v can be {_id,name} or string id (fallback)
-        const id = typeof v === "string" ? v : String(v?._id ?? "");
-        const name = typeof v === "string" ? "" : String(v?.name ?? "");
-        return {
-          label: name || id, // fallback so UI can still show something
-          value: id,
-          name: name || "",
-        };
-      })
-      .filter((o) => o.value);
+      .map((v) => ({
+        label: String(v?.name ?? ""),
+        value: String(v?._id ?? v),
+        name: String(v?.name ?? ""),
+      }))
+      .filter((o) => o.value && o.label);
   }, [selectedProduct]);
 
+  // ✅ STRICT:
+  // - if product selected -> ONLY brandsForProduct
+  // - if no product -> recent brands (optional)
   const brandOptions = useMemo(() => {
-    const list = selectedProduct ? brandsForProduct : recentBrands;
-    const safe = Array.isArray(list) ? list : [];
-    return safe.map((b) => ({
+    const safeForProduct = Array.isArray(brandsForProduct) ? brandsForProduct : [];
+    const safeRecent = Array.isArray(recentBrands) ? recentBrands : [];
+
+    const list = selectedProduct ? safeForProduct : safeRecent;
+
+    return list.map((b) => ({
       label: b.name,
       value: b._id,
       name: b.name,

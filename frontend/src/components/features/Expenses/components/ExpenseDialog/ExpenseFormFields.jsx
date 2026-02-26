@@ -7,15 +7,14 @@ import {
   FormControlLabel,
   RadioGroup,
   Radio,
+  Typography,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import VirtualizedSelect from "../../../../commons/VirtualizedSelect/VirtualizedSelect";
 import ExpenseField from "../../../../commons/ExpenseField/ExpenseField";
 
 const normalizeDecimal = (s) =>
-  String(s ?? "")
-    .replace(/\s/g, "")
-    .replace(",", ".");
+  String(s ?? "").replace(/\s/g, "").replace(",", ".");
 
 const parseDecimalOrNull = (s) => {
   const t = normalizeDecimal(s);
@@ -47,11 +46,12 @@ const ExpenseFormFields = ({
   isLoadingBrands,
   isLoadingShops,
   controller,
+
+  validationErrors,
+  clearFieldError,
 }) => {
-  const priceInputValue =
-    expense.priceText ?? formatDecimalForInput(expense.price);
-  const volumeInputValue =
-    expense.volumeText ?? formatDecimalForInput(expense.volume);
+  const priceInputValue = expense.priceText ?? formatDecimalForInput(expense.price);
+  const volumeInputValue = expense.volumeText ?? formatDecimalForInput(expense.volume);
   const discountValueInputValue =
     expense.discountValueText ?? formatDecimalForInput(expense.discountValue);
   const discountAmountInputValue =
@@ -62,61 +62,30 @@ const ExpenseFormFields = ({
     return measures.map((m) => ({ label: String(m), value: m }));
   }, [selectedProduct]);
 
-  const showVariants =
-    Boolean(selectedProduct) && (variantOptions?.length ?? 0) > 0;
+  const showVariants = Boolean(selectedProduct) && (variantOptions?.length ?? 0) > 0;
 
   const handlePriceTextChange = (text) => {
     setExpense((prev) => ({ ...prev, priceText: text }));
-
     const parsed = parseDecimalOrNull(text);
-    if (parsed !== null) {
-      controller.handleFieldChange?.("price", parsed);
-      if (!controller.handleFieldChange) {
-        setExpense((prev) => ({ ...prev, price: parsed }));
-      }
-    }
+    if (parsed !== null) controller.handleFieldChange?.("price", parsed);
   };
 
   const handleVolumeTextChange = (text) => {
     setExpense((prev) => ({ ...prev, volumeText: text }));
-
     const parsed = parseDecimalOrNull(text);
-    if (parsed !== null) {
-      controller.handleFieldChange?.("volume", parsed);
-      if (!controller.handleFieldChange) {
-        setExpense((prev) => ({ ...prev, volume: parsed }));
-      }
-    }
+    if (parsed !== null) controller.handleFieldChange?.("volume", parsed);
   };
 
   const handleDiscountValueTextChange = (text) => {
     setExpense((prev) => ({ ...prev, discountValueText: text }));
-
     const parsed = parseDecimalOrNull(text);
-    if (parsed !== null) {
-      if (controller.handleFieldChange) {
-        controller.handleFieldChange("discountValue", parsed);
-      } else if (controller.handleDiscountValueChange) {
-        controller.handleDiscountValueChange({ target: { value: text } });
-      } else {
-        setExpense((prev) => ({ ...prev, discountValue: parsed }));
-      }
-    }
+    if (parsed !== null) controller.handleFieldChange?.("discountValue", parsed);
   };
 
   const handleDiscountAmountTextChange = (text) => {
     setExpense((prev) => ({ ...prev, discountAmountText: text }));
-
     const parsed = parseDecimalOrNull(text);
-    if (parsed !== null) {
-      if (controller.handleFieldChange) {
-        controller.handleFieldChange("discountAmount", parsed);
-      } else if (controller.handleDiscountAmountChange) {
-        controller.handleDiscountAmountChange({ target: { value: text } });
-      } else {
-        setExpense((prev) => ({ ...prev, discountAmount: parsed }));
-      }
-    }
+    if (parsed !== null) controller.handleFieldChange?.("discountAmount", parsed);
   };
 
   return (
@@ -131,11 +100,7 @@ const ExpenseFormFields = ({
               value={
                 selectedProduct ??
                 (expense.productName
-                  ? {
-                      label: expense.productName,
-                      value: expense.productName,
-                      name: expense.productName,
-                    }
+                  ? { label: expense.productName, value: expense.productName, name: expense.productName }
                   : null)
               }
               onChange={controller.handleProductSelect}
@@ -158,8 +123,9 @@ const ExpenseFormFields = ({
                 expense.brandName
                   ? (brandOptions.find(
                       (o) =>
+                        o.name === expense.brandName ||
                         o.label === expense.brandName ||
-                        o.name === expense.brandName,
+                        String(o.value) === String(expense.brandName)
                     ) ?? {
                       label: expense.brandName,
                       value: expense.brandName,
@@ -167,28 +133,33 @@ const ExpenseFormFields = ({
                     })
                   : null
               }
-              onChange={controller.handleBrandSelect}
-              placeholder={
-                selectedProduct ? "Velg merke" : "Velg et produkt først"
-              }
+              onChange={(opt) => {
+                clearFieldError?.("brandName");
+                controller.handleBrandSelect(opt);
+              }}
+              placeholder={selectedProduct ? "Velg merke" : "Velg et produkt først"}
               isLoading={isLoadingBrands}
               menuPortalTarget={document.body}
               isDisabled={!selectedProduct}
               styles={selectStyles}
             />
+
+            {validationErrors?.brandName && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: "block" }}>
+                {validationErrors.brandName}
+              </Typography>
+            )}
           </Box>
         </Stack>
 
-        {/* ✅ VARIANT (FIXED: fallback to expense.variantName) */}
+        {/* VARIANT */}
         <Box>
           <VirtualizedSelect
             isClearable
             options={variantOptions ?? []}
             value={
               expense.variant
-                ? ((variantOptions ?? []).find(
-                    (o) => o.value === String(expense.variant),
-                  ) ?? {
+                ? ((variantOptions ?? []).find((o) => o.value === String(expense.variant)) ?? {
                     value: String(expense.variant),
                     label: expense.variantName || "Ukjent variant",
                   })
@@ -215,11 +186,7 @@ const ExpenseFormFields = ({
               isClearable
               options={shopOptions}
               onInputChange={controller.handleShopInputChange}
-              value={
-                expense.shopName
-                  ? { label: expense.shopName, value: expense.shopName }
-                  : null
-              }
+              value={expense.shopName ? { label: expense.shopName, value: expense.shopName } : null}
               onChange={controller.handleShopSelect}
               placeholder="Velg butikk"
               isLoading={isLoadingShops}
@@ -229,20 +196,12 @@ const ExpenseFormFields = ({
           </Box>
 
           <Box flex={1}>
-            <ExpenseField
-              label="Sted"
-              value={expense.locationName || ""}
-              InputProps={{ readOnly: true }}
-            />
+            <ExpenseField label="Sted" value={expense.locationName || ""} InputProps={{ readOnly: true }} />
           </Box>
         </Stack>
 
         {/* PRICE & VOLUME */}
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          alignItems="flex-start"
-        >
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="flex-start">
           <Box sx={{ flex: 1, width: "100%" }}>
             <ExpenseField
               label="Pris"
@@ -251,9 +210,7 @@ const ExpenseFormFields = ({
               onChange={(e) => handlePriceTextChange(e.target.value)}
               inputProps={{ inputMode: "decimal" }}
               InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">Kr</InputAdornment>
-                ),
+                startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
               }}
               fullWidth
             />
@@ -264,11 +221,7 @@ const ExpenseFormFields = ({
               <VirtualizedSelect
                 isClearable
                 options={measuresOptions}
-                value={
-                  expense.volume
-                    ? { label: String(expense.volume), value: expense.volume }
-                    : null
-                }
+                value={expense.volume ? { label: String(expense.volume), value: expense.volume } : null}
                 onChange={controller.handleVolumeChange}
                 placeholder="Velg volum"
                 menuPortalTarget={document.body}
@@ -283,9 +236,7 @@ const ExpenseFormFields = ({
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{
                   startAdornment: (
-                    <InputAdornment position="start">
-                      {expense.measurementUnit}
-                    </InputAdornment>
+                    <InputAdornment position="start">{expense.measurementUnit}</InputAdornment>
                   ),
                 }}
                 fullWidth
@@ -305,11 +256,7 @@ const ExpenseFormFields = ({
         </Box>
 
         {/* QUANTITY & DISCOUNT TOGGLE */}
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          alignItems="center"
-        >
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
           <Box flex={1} width="100%">
             <ExpenseField
               label="Antall"
@@ -326,12 +273,7 @@ const ExpenseFormFields = ({
 
           <Box flex={1} width="100%">
             <FormControlLabel
-              control={
-                <Checkbox
-                  checked={Boolean(expense.hasDiscount)}
-                  onChange={controller.handleDiscountToggle}
-                />
-              }
+              control={<Checkbox checked={Boolean(expense.hasDiscount)} onChange={controller.handleDiscountToggle} />}
               label="Rabatt?"
             />
           </Box>
@@ -348,9 +290,7 @@ const ExpenseFormFields = ({
                 onChange={(e) => handleDiscountValueTextChange(e.target.value)}
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">%</InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start">%</InputAdornment>,
                 }}
               />
             </Box>
@@ -362,9 +302,7 @@ const ExpenseFormFields = ({
                 onChange={(e) => handleDiscountAmountTextChange(e.target.value)}
                 inputProps={{ inputMode: "decimal" }}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">Kr</InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
                 }}
               />
             </Box>
@@ -378,9 +316,7 @@ const ExpenseFormFields = ({
             value={expense.finalPrice ?? 0}
             InputProps={{
               readOnly: true,
-              startAdornment: (
-                <InputAdornment position="start">Kr</InputAdornment>
-              ),
+              startAdornment: <InputAdornment position="start">Kr</InputAdornment>,
             }}
           />
         </Box>
@@ -393,11 +329,7 @@ const ExpenseFormFields = ({
             onChange={controller.handleTransactionType}
           >
             <FormControlLabel value="kjøpt" control={<Radio />} label="Kjøpt" />
-            <FormControlLabel
-              value="registrert"
-              control={<Radio />}
-              label="Registrert"
-            />
+            <FormControlLabel value="registrert" control={<Radio />} label="Registrert" />
           </RadioGroup>
         </Box>
 
