@@ -78,6 +78,19 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
 
   const [validationErrors, setValidationErrors] = useState({});
 
+  const setFieldError = useCallback((field, message) => {
+  setValidationErrors((prev) => ({ ...prev, [field]: message }));
+}, []);
+
+const clearFieldError = useCallback((field) => {
+  setValidationErrors((prev) => {
+    if (!prev?.[field]) return prev;
+    const next = { ...prev };
+    delete next[field];
+    return next;
+  });
+}, []);
+
   const [expense, dispatchExpense] = useReducer(
     expenseReducer,
     computeDerivedExpense({ ...INITIAL_EXPENSE_STATE })
@@ -238,6 +251,8 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
     resetForm,
     loading,
     isFormValid,
+    setFieldError,     // ✅
+  clearFieldError,
     validationErrors,
     handleSaveExpense,
     handleDeleteExpense,

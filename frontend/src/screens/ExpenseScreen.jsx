@@ -114,7 +114,7 @@ const transformExpenseData = (json) => {
       purchased: x.purchased,
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
-
+      productBrandIds: Array.isArray(x.productBrandIds) ? x.productBrandIds : [],
       variant: x.variant || "",
       variantName: x.variantName || "",
 

@@ -14,7 +14,8 @@ const expensesRouter = express.Router();
 const TIME_ZONE = "Europe/Oslo";
 
 // --- Utilities ---
-const formatDate = (date) => (date ? format(new Date(date), "dd MMMM yyyy") : "");
+const formatDate = (date) =>
+  date ? format(new Date(date), "dd MMMM yyyy") : "";
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // Parallelized Reference Lookup
@@ -102,7 +103,8 @@ const filterByRange = (query, defaultField, value) => {
 
     if (value.mode === "finalPrice") targetFields = ["finalPrice"];
     else if (value.mode === "price") targetFields = ["price"];
-    else if (value.mode === "all") targetFields = ["pricePerUnit", "finalPrice", "price"];
+    else if (value.mode === "all")
+      targetFields = ["pricePerUnit", "finalPrice", "price"];
     else targetFields = ["pricePerUnit"];
   } else {
     query.where(defaultField).equals(Number(value));
@@ -138,7 +140,9 @@ const applyFilters = async (query, filters) => {
       dateFilters.push({ id, value });
     } else if (["price", "pricePerUnit", "finalPrice", "volume"].includes(id)) {
       filterByRange(query, id, value);
-    } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
+    } else if (
+      ["productName", "brandName", "shopName", "locationName"].includes(id)
+    ) {
       referenceFilters.push({ id, value });
     } else {
       // includes "variant" (stores variantId string)
@@ -202,6 +206,7 @@ const applyPagination = async (query, start, size) => {
 // --- Routes ---
 
 // GET Expenses (paginated)
+// GET Expenses (paginated)
 expensesRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
@@ -229,7 +234,8 @@ expensesRouter.get("/", async (req, res) => {
     const expenses = await paginatedQuery
       .populate({
         path: "productName",
-        select: "name measures measurementUnit variants",
+        // ✅ CHANGED: include brands
+        select: "name measures measurementUnit variants brands",
         populate: { path: "variants", select: "name" }, // ✅ gives variant names
       })
       .populate("brandName", "name")
@@ -243,6 +249,11 @@ expensesRouter.get("/", async (req, res) => {
         const variantId = expense.variant ? String(expense.variant) : "";
         const variantName = getVariantNameFromProduct(expense);
 
+        // ✅ NEW: product brand ids (for Edit dialog brand filtering)
+        const productBrandIds = Array.isArray(expense.productName?.brands)
+          ? expense.productName.brands.map((id) => String(id))
+          : [];
+
         return {
           ...expense,
           productName: expense.productName?.name || "",
@@ -251,9 +262,10 @@ expensesRouter.get("/", async (req, res) => {
           locationName: expense.locationName?.name || "",
           measures: expense.productName?.measures || [],
           measurementUnit: expense.productName?.measurementUnit || "",
-          variants: expense.productName?.variants || [], // [{_id,name}] if you want it
-          variant: variantId, // stored id string
-          variantName, // ✅ NEW: display name for tables
+          variants: expense.productName?.variants || [],
+          productBrandIds, // ✅ NEW
+          variant: variantId,
+          variantName,
           purchaseDate: formatDate(expense.purchaseDate),
           registeredDate: formatDate(expense.registeredDate),
         };
@@ -267,12 +279,14 @@ expensesRouter.get("/", async (req, res) => {
 });
 
 // GET Expense by ID
+// GET Expense by ID
 expensesRouter.get("/:id", async (req, res) => {
   try {
     const expense = await Expense.findById(req.params.id)
       .populate({
         path: "productName",
-        select: "name measures measurementUnit variants",
+        // ✅ CHANGED: include brands
+        select: "name measures measurementUnit variants brands",
         populate: { path: "variants", select: "name" },
       })
       .populate("brandName", "name")
@@ -285,6 +299,11 @@ expensesRouter.get("/:id", async (req, res) => {
     const variantId = expense.variant ? String(expense.variant) : "";
     const variantName = getVariantNameFromProduct(expense);
 
+    // ✅ NEW: product brand ids (for Edit dialog brand filtering)
+    const productBrandIds = Array.isArray(expense.productName?.brands)
+      ? expense.productName.brands.map((id) => String(id))
+      : [];
+
     res.json({
       ...expense,
       productName: expense.productName?.name || "",
@@ -294,8 +313,9 @@ expensesRouter.get("/:id", async (req, res) => {
       measures: expense.productName?.measures || [],
       measurementUnit: expense.productName?.measurementUnit || "",
       variants: expense.productName?.variants || [],
+      productBrandIds, // ✅ NEW
       variant: variantId,
-      variantName, // ✅ NEW
+      variantName,
       purchaseDate: formatDate(expense.purchaseDate),
       registeredDate: formatDate(expense.registeredDate),
     });
@@ -328,16 +348,29 @@ expensesRouter.post("/", async (req, res) => {
       resolveByIdOrName(Product, productId, productName),
       resolveByIdOrName(Brand, brandId, brandName),
       resolveByIdOrName(Shop, shopId, shopName),
-      locationName || locationId ? resolveByIdOrName(Location, locationId, locationName) : null,
+      locationName || locationId
+        ? resolveByIdOrName(Location, locationId, locationName)
+        : null,
     ]);
 
     if (!product || !brand || !shop) {
-      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+      return res
+        .status(400)
+        .json({ message: "Invalid product, brand, or shop." });
+    }
+
+    const allowedBrandIds = (product.brands ?? []).map(String);
+    if (!allowedBrandIds.includes(String(brand._id))) {
+      return res
+        .status(400)
+        .json({ message: "Brand is not valid for selected product." });
     }
 
     const normalizedVariantId = normalizeVariantId(variant);
     if (!validateVariantForProduct(product, normalizedVariantId)) {
-      return res.status(400).json({ message: "Invalid variant for selected product." });
+      return res
+        .status(400)
+        .json({ message: "Invalid variant for selected product." });
     }
 
     const qty = parseInt(quantity, 10);
@@ -405,11 +438,22 @@ expensesRouter.put("/:id", async (req, res) => {
       resolveByIdOrName(Product, productId, productName),
       resolveByIdOrName(Brand, brandId, brandName),
       resolveByIdOrName(Shop, shopId, shopName),
-      locationName || locationId ? resolveByIdOrName(Location, locationId, locationName) : null,
+      locationName || locationId
+        ? resolveByIdOrName(Location, locationId, locationName)
+        : null,
     ]);
 
     if (!product || !brand || !shop) {
-      return res.status(400).json({ message: "Invalid product, brand, or shop." });
+      return res
+        .status(400)
+        .json({ message: "Invalid product, brand, or shop." });
+    }
+
+    const allowedBrandIds = (product.brands ?? []).map(String);
+    if (!allowedBrandIds.includes(String(brand._id))) {
+      return res
+        .status(400)
+        .json({ message: "Brand is not valid for selected product." });
     }
 
     const update = {
@@ -423,19 +467,26 @@ expensesRouter.put("/:id", async (req, res) => {
     if (variant !== undefined) {
       const normalizedVariantId = normalizeVariantId(variant);
       if (!validateVariantForProduct(product, normalizedVariantId)) {
-        return res.status(400).json({ message: "Invalid variant for selected product." });
+        return res
+          .status(400)
+          .json({ message: "Invalid variant for selected product." });
       }
       update.variant = normalizedVariantId;
     }
 
-    const updatedExpense = await Expense.findByIdAndUpdate(req.params.id, update, { new: true })
+    const updatedExpense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true },
+    )
       .populate("productName", "name")
       .populate("brandName", "name")
       .populate("shopName", "name")
       .populate("locationName", "name")
       .lean();
 
-    if (!updatedExpense) return res.status(404).json({ message: "Expense not found." });
+    if (!updatedExpense)
+      return res.status(404).json({ message: "Expense not found." });
 
     res.json({
       message: "Expense updated successfully!",

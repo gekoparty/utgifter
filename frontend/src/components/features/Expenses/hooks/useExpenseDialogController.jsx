@@ -3,30 +3,16 @@ import dayjs from "dayjs";
 import { debounce } from "lodash";
 import useHandleFieldChange from "../../../../hooks/useHandleFieldChange";
 
-export const useExpenseDialogController = ({
-  open,
-  mode,
-  expense,
-  setExpense,
-}) => {
+export const useExpenseDialogController = ({ open, mode, expense, setExpense }) => {
   const [productSearch, setProductSearch] = useState("");
   const [shopSearch, setShopSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  const {
-    handleFieldChange,
-    handleDiscountAmountChange,
-    handleDiscountValueChange,
-  } = useHandleFieldChange(expense, setExpense);
+  const { handleFieldChange, handleDiscountAmountChange, handleDiscountValueChange } =
+    useHandleFieldChange(expense, setExpense);
 
-  const debouncedSetProductSearch = useMemo(
-    () => debounce(setProductSearch, 300),
-    []
-  );
-  const debouncedSetShopSearch = useMemo(
-    () => debounce(setShopSearch, 250),
-    []
-  );
+  const debouncedSetProductSearch = useMemo(() => debounce(setProductSearch, 300), []);
+  const debouncedSetShopSearch = useMemo(() => debounce(setShopSearch, 250), []);
 
   useEffect(() => {
     return () => {
@@ -63,34 +49,28 @@ export const useExpenseDialogController = ({
         const volume = opt.measures?.[0] ?? 0;
 
         const variants = Array.isArray(opt.variants) ? opt.variants : [];
-
-        // if exactly one variant -> auto select it
         let autoVariantId = "";
         let autoVariantName = "";
 
         if (variants.length === 1) {
           const v = variants[0];
           autoVariantId = String(typeof v === "string" ? v : (v?._id ?? ""));
-          autoVariantName =
-            typeof v === "string" ? "" : String(v?.name ?? "");
+          autoVariantName = typeof v === "string" ? "" : String(v?.name ?? "");
         }
 
+        // ✅ DO NOT clear brandName here (user bulk editing)
         handleFieldChange("productName", opt.name, {
-          brandName: "",
           measurementUnit: unit,
           volume,
-
           variant: autoVariantId,
-          variantName: autoVariantName, // ✅ NEW
+          variantName: autoVariantName,
         });
       } else {
         handleFieldChange("productName", "", {
-          brandName: "",
           measurementUnit: "",
           volume: 0,
-
           variant: "",
-          variantName: "", // ✅ NEW
+          variantName: "",
         });
       }
     },
@@ -100,16 +80,17 @@ export const useExpenseDialogController = ({
   const handleVariantSelect = useCallback(
     (opt) => {
       handleFieldChange("variant", opt?.value ? String(opt.value) : "", {
-        variantName: opt?.label ? String(opt.label) : "", // ✅ NEW
+        variantName: opt?.label ? String(opt.label) : "",
       });
     },
     [handleFieldChange]
   );
 
+  // ✅ brandName should always store NAME, not id
   const handleBrandSelect = useCallback(
-  (opt) => handleFieldChange("brandName", opt?.name || opt?.label || ""),
-  [handleFieldChange]
-);
+    (opt) => handleFieldChange("brandName", opt?.name || opt?.label || ""),
+    [handleFieldChange]
+  );
 
   const handleShopSelect = useCallback(
     (shop) =>
@@ -135,20 +116,14 @@ export const useExpenseDialogController = ({
   const handleDiscountToggle = useCallback(
     (e) => {
       const checked = e.target.checked;
-      handleFieldChange(
-        "hasDiscount",
-        checked,
-        checked ? {} : { discountValue: 0, discountAmount: 0 }
-      );
+      handleFieldChange("hasDiscount", checked, checked ? {} : { discountValue: 0, discountAmount: 0 });
     },
     [handleFieldChange]
   );
 
   const handleTransactionType = useCallback(
     (valueOrEvent) => {
-      const value = valueOrEvent?.target
-        ? valueOrEvent.target.value
-        : valueOrEvent;
+      const value = valueOrEvent?.target ? valueOrEvent.target.value : valueOrEvent;
       const isPurchased = value === "kjøpt";
 
       handleFieldChange("purchased", isPurchased, {
@@ -169,11 +144,9 @@ export const useExpenseDialogController = ({
     shopSearch,
     selectedProduct,
     setSelectedProduct,
-
     handleProductSelect,
     handleProductInputChange,
     handleShopInputChange,
-
     handleBrandSelect,
     handleVariantSelect,
     handleShopSelect,
@@ -181,11 +154,9 @@ export const useExpenseDialogController = ({
     handleVolumeChange,
     handleDiscountToggle,
     handleTransactionType,
-
     handleDiscountAmountChange,
     handleDiscountValueChange,
     handleFieldChange,
-
     pickerDate,
   };
 };

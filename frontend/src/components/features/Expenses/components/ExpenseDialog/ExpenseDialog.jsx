@@ -12,21 +12,13 @@ import { useExpenseDialogData } from "../../hooks/useExpenseDialogData";
 import { useExpenseDialogOptions } from "../../hooks/useExpenseDialogOptions";
 import { useExpenseDialogController } from "../../hooks/useExpenseDialogController";
 
-const ExpenseDialog = ({
-  open,
-  mode,
-  expenseToEdit,
-  onClose,
-  onSuccess,
-  onError,
-}) => {
+const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError }) => {
   const theme = useTheme();
   const selectStyles = getSelectStyles(theme);
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
-  // Safety: if DELETE/EDIT without a selected expense, do nothing
   if ((isEdit || isDelete) && !expenseToEdit?._id) return null;
 
   const form = useExpenseDialogForm({ open, mode, expenseToEdit });
@@ -39,6 +31,9 @@ const ExpenseDialog = ({
     handleDeleteExpense,
     resetForm,
     isFormValid,
+    validationErrors,
+    setFieldError,
+    clearFieldError,
   } = form;
 
   const controller = useExpenseDialogController({
@@ -62,100 +57,95 @@ const ExpenseDialog = ({
       recentBrands: data.recentBrands,
       selectedProduct: controller.selectedProduct,
       shops: data.shops,
+
+      // ✅ NEW: used to decide fallback behavior
+      isLoadingBrandsForProduct: data.isLoadingBrandsForProduct,
     });
 
-  /**
-   * ✅ FIX: Only initialize selectedProduct ONCE per open/edit expense.
-   * Otherwise it will overwrite the user's selection whenever productOptions changes.
-   */
+  // ----------------------------
+  // Selected product init control
+  // ----------------------------
   const didInitSelectedProductRef = useRef(false);
   const lastEditIdRef = useRef(null);
 
-  // Reset init flag when dialog closes OR when editing a different expense id
   useEffect(() => {
     if (!open) {
       didInitSelectedProductRef.current = false;
       lastEditIdRef.current = null;
       return;
     }
-    if (
-      isEdit &&
-      expenseToEdit?._id &&
-      lastEditIdRef.current !== expenseToEdit._id
-    ) {
+    if (isEdit && expenseToEdit?._id && lastEditIdRef.current !== expenseToEdit._id) {
       didInitSelectedProductRef.current = false;
       lastEditIdRef.current = expenseToEdit._id;
     }
   }, [open, isEdit, expenseToEdit?._id]);
 
-  // EDIT: once productOptions available, set selectedProduct to the real option object (one-time init)
+  // ✅ EDIT: initialize selectedProduct even if productOptions doesn't contain it yet
   useEffect(() => {
-  if (!open || !isEdit) return;
-  if (didInitSelectedProductRef.current) return;
+    if (!open || !isEdit) return;
+    if (didInitSelectedProductRef.current) return;
 
-  const name = expenseToEdit?.productName;
-  if (!name) return;
+    const name = expenseToEdit?.productName;
+    if (!name) return;
 
-  // try to match real product if we have options already
-  const match =
-    productOptions.find((o) => o.name === name || o.value === name) ??
-    {
-      label: name,
-      value: name,
-      name,
+    const match =
+      productOptions.find((o) => o.name === name || o.value === name) ??
+      {
+        label: name,
+        value: name,
+        name,
 
-      // ✅ IMPORTANT: use variants/measures from expenseToEdit (from expenses API)
-      variants: Array.isArray(expenseToEdit?.variants) ? expenseToEdit.variants : [],
-      measures: Array.isArray(expenseToEdit?.measures) ? expenseToEdit.measures : [],
+        // ✅ Use variants/measures from expense row (so Variant select works even without productOptions)
+        variants: Array.isArray(expenseToEdit?.variants) ? expenseToEdit.variants : [],
+        measures: Array.isArray(expenseToEdit?.measures) ? expenseToEdit.measures : [],
 
-      brands: null,
-      category: "",
-      measurementUnit: expenseToEdit?.measurementUnit ?? "",
-    };
+        // ✅ Critical for brands query: provide brand ids if you have them
+        // Best: expenseToEdit.brandIds (array) or expenseToEdit.brandId (single)
+        brands: Array.isArray(expenseToEdit?.productBrandIds)
+  ? expenseToEdit.productBrandIds
+  : [],
 
-  controller.setSelectedProduct(match);
-  didInitSelectedProductRef.current = true;
-}, [
-  open,
-  isEdit,
-  expenseToEdit?.productName,
-  expenseToEdit?.measurementUnit,
-  expenseToEdit?.variants,
-  expenseToEdit?.measures,
-  productOptions,
-  controller.setSelectedProduct,
-]);
+        category: "",
+        measurementUnit: expenseToEdit?.measurementUnit ?? "",
+      };
+
+    controller.setSelectedProduct(match);
+    didInitSelectedProductRef.current = true;
+  }, [
+    open,
+    isEdit,
+    expenseToEdit?.productName,
+    expenseToEdit?.measurementUnit,
+    expenseToEdit?.variants,
+    expenseToEdit?.measures,
+    expenseToEdit?.brandId,
+    expenseToEdit?.brandIds,
+    productOptions,
+    controller.setSelectedProduct,
+  ]);
+
   /**
-   * ✅ A) Keep expense.variant valid for the selected product.
-   *
-   * Rules:
-   * - If variants are unknown (null/undefined), do nothing (don't clear user/edit selection).
-   * - If product has 0 variants (empty array), clear any selected variant.
-   * - If product has variants, clear variant ONLY if it's not in the allowed list.
+   * Keep expense.variant valid for selected product.
+   * (brand should NOT be auto-cleared; we validate on save instead)
    */
   useEffect(() => {
     if (!open) return;
 
     const variants = controller.selectedProduct?.variants;
 
-    // unknown / not loaded yet -> don't touch variant
     if (!Array.isArray(variants)) return;
 
-    // product truly has no variants -> clear any selected one
     if (variants.length === 0) {
-      setExpense((prev) => (prev.variant ? { ...prev, variant: "" } : prev));
+      setExpense((prev) => (prev.variant ? { ...prev, variant: "", variantName: "" } : prev));
       return;
     }
 
-    // product has variants -> ensure current value is valid
-    const allowed = new Set(
-      variants.map((v) => String(v?._id ?? v)).filter(Boolean),
-    );
+    const allowed = new Set(variants.map((v) => String(v?._id ?? v)).filter(Boolean));
 
     setExpense((prev) => {
       const current = prev?.variant ? String(prev.variant) : "";
       if (!current) return prev;
-      if (!allowed.has(current)) return { ...prev, variant: "" };
+      if (!allowed.has(current)) return { ...prev, variant: "", variantName: "" };
       return prev;
     });
   }, [open, controller.selectedProduct, setExpense]);
@@ -180,6 +170,19 @@ const ExpenseDialog = ({
     onClose();
   };
 
+  // ✅ Validate brand only on Save
+  const isBrandValidForSelectedProduct = () => {
+    if (!controller.selectedProduct) return true;
+
+    const brand = String(expense.brandName || "").trim();
+    if (!brand) return false;
+
+    const list = Array.isArray(data.brandsForProduct) ? data.brandsForProduct : [];
+    if (!list.length) return false; // no known brands for product -> treat as invalid (or relax if you prefer)
+
+    return list.some((b) => String(b?.name || "").toLowerCase() === brand.toLowerCase());
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -196,6 +199,22 @@ const ExpenseDialog = ({
       }
 
       if (!isFormValid) return;
+
+      // If product selected and brands are still loading, block save with field message
+      if (controller.selectedProduct && data.isLoadingBrandsForProduct) {
+        setFieldError?.("brandName", "Laster merker… prøv igjen om et øyeblikk.");
+        return;
+      }
+
+      if (!isBrandValidForSelectedProduct()) {
+        setFieldError?.(
+          "brandName",
+          "Merket matcher ikke produktet. Velg et gyldig merke før du lagrer."
+        );
+        return;
+      } else {
+        clearFieldError?.("brandName");
+      }
 
       const saved = await handleSaveExpense();
       if (saved) {
@@ -231,6 +250,8 @@ const ExpenseDialog = ({
       isLoadingBrands={data.isLoadingBrands}
       isLoadingShops={data.isLoadingShops}
       controller={controller}
+      validationErrors={validationErrors}
+      clearFieldError={clearFieldError}
     />
   );
 
@@ -239,12 +260,7 @@ const ExpenseDialog = ({
       <form onSubmit={handleSubmit}>
         {body}
 
-        <Stack
-          direction="row"
-          spacing={2}
-          justifyContent="flex-end"
-          sx={{ mt: 3 }}
-        >
+        <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
           <Button onClick={handleClose} disabled={loading}>
             Avbryt
           </Button>

@@ -8,11 +8,11 @@ const brandsRouter = express.Router();
 /**
  * GET /api/brands
  * Supports:
- *  - FAST: /api/brands?ids=a,b,c        (ExpenseDialog)
- *  - TABLE: columnFilters/globalFilter/sorting/start/size (Brands screen)
+ *  - FAST: /api/brands?ids=a,b,c
+ *  - TABLE: columnFilters/globalFilter/sorting/start/size
  *  - Optional SEARCH: /api/brands?query=xxx&limit=20
  *
- * IMPORTANT: if none of these are provided, return [] (don’t return all brands).
+ * IMPORTANT: if none of these are provided, return [].
  */
 brandsRouter.get("/", async (req, res) => {
   try {
@@ -26,7 +26,7 @@ brandsRouter.get("/", async (req, res) => {
         .filter(Boolean);
 
       const brands = await Brand.find({ _id: { $in: idsArray } })
-        .select("name slug")
+        .select("_id name slug") // ✅ include _id
         .lean();
 
       return res.json({ brands, meta: { totalRowCount: brands.length } });
@@ -39,16 +39,17 @@ brandsRouter.get("/", async (req, res) => {
       if (q.length < 2) return res.json({ brands: [], meta: { totalRowCount: 0 } });
 
       const brands = await Brand.find({ name: { $regex: q, $options: "i" } })
-        .select("name slug")
+        .select("_id name slug") // ✅ include _id
         .limit(lim)
         .lean();
 
       return res.json({ brands, meta: { totalRowCount: brands.length } });
     }
 
-    // TABLE MODE (existing)
-    // Only run this if table params exist, otherwise return small/empty
-    const hasTableParams = columnFilters || globalFilter || sorting || start !== undefined || size !== undefined;
+    // TABLE MODE
+    const hasTableParams =
+      columnFilters || globalFilter || sorting || start !== undefined || size !== undefined;
+
     if (!hasTableParams) {
       return res.json({ brands: [], meta: { totalRowCount: 0 } });
     }
@@ -90,11 +91,10 @@ brandsRouter.get("/", async (req, res) => {
       totalRowCount = await Brand.countDocuments(mongooseQuery.getFilter());
       mongooseQuery = mongooseQuery.skip(startIndex).limit(pageSize);
     } else {
-      // If no pagination, keep it safe
       mongooseQuery = mongooseQuery.limit(50);
     }
 
-    const brands = await mongooseQuery.exec();
+    const brands = await mongooseQuery.select("_id name slug").lean().exec(); // ✅ include _id
     res.json({ brands, meta: { totalRowCount } });
   } catch (err) {
     console.error("Error in /api/brands:", err);
@@ -104,8 +104,6 @@ brandsRouter.get("/", async (req, res) => {
 
 /**
  * GET /api/brands/recent?limit=20
- * Optional: show something before product is selected.
- * Requires Brand schema to have timestamps (createdAt).
  */
 brandsRouter.get("/recent", async (req, res) => {
   try {
@@ -114,7 +112,7 @@ brandsRouter.get("/recent", async (req, res) => {
     const brands = await Brand.find()
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select("name slug")
+      .select("_id name slug") // ✅ include _id
       .lean();
 
     res.json({ brands, meta: { totalRowCount: brands.length } });
