@@ -29,7 +29,10 @@ const INITIAL_EXPENSE_STATE = {
   registeredDate: null,
   type: "",
   pricePerUnit: 0,
+
+  // ✅ store both id and display name
   variant: "",
+  variantName: "",
 };
 
 const expenseReducer = (state, action) => {
@@ -43,6 +46,23 @@ const expenseReducer = (state, action) => {
     default:
       return state;
   }
+};
+
+// ✅ must be declared before useEffect uses it
+const normalizeVariantValue = (v) => {
+  if (!v) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "object") return String(v._id ?? "").trim(); // populated doc
+  return "";
+};
+
+const normalizeVariantName = (expenseToEdit) => {
+  if (!expenseToEdit) return "";
+  if (expenseToEdit.variantName) return String(expenseToEdit.variantName);
+  if (typeof expenseToEdit.variant === "object" && expenseToEdit.variant?.name) {
+    return String(expenseToEdit.variant.name);
+  }
+  return "";
 };
 
 export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
@@ -77,19 +97,23 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
     setValidationErrors({});
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
 
-   if (isEdit && expenseToEdit?._id) {
-  const init = {
-    ...INITIAL_EXPENSE_STATE,
-    ...expenseToEdit,
-    variant: normalizeVariantValue(expenseToEdit?.variant),
-  };
+    if (isEdit && expenseToEdit?._id) {
+      const init = {
+        ...INITIAL_EXPENSE_STATE,
+        ...expenseToEdit,
 
-  dispatchExpense({
-    type: "INIT",
-    payload: computeDerivedExpense(init),
-  });
-  return;
-}
+        variant: normalizeVariantValue(expenseToEdit?.variant),
+        variantName: normalizeVariantName(expenseToEdit),
+
+        // if backend returns formatted date strings, keep as-is; derived calc uses them anyway
+      };
+
+      dispatchExpense({
+        type: "INIT",
+        payload: computeDerivedExpense(init),
+      });
+      return;
+    }
 
     if (!isDelete) {
       dispatchExpense({
@@ -117,13 +141,6 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
     setValidationErrors({});
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
   }, [storeDispatch]);
-
-  const normalizeVariantValue = (v) => {
-  if (!v) return "";
-  if (typeof v === "string") return v.trim();
-  if (typeof v === "object") return String(v._id ?? "").trim(); // populated doc
-  return "";
-};
 
   const saveMutation = useMutation({
     mutationFn: async (payload) => {
@@ -155,9 +172,12 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
 
     try {
-      // Format the three “mapped” fields the same way you do elsewhere
       const formatted = {
         ...expense,
+
+        // ✅ send only variant id (backend ignores variantName anyway)
+        variant: expense.variant ? String(expense.variant) : "",
+
         productName: formatComponentFields(expense.productName, "expense", "productName"),
         brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
         shopName: formatComponentFields(expense.shopName, "expense", "shopName"),

@@ -90,43 +90,41 @@ const ExpenseDialog = ({
 
   // EDIT: once productOptions available, set selectedProduct to the real option object (one-time init)
   useEffect(() => {
-    if (!open || !isEdit) return;
-    if (didInitSelectedProductRef.current) return;
+  if (!open || !isEdit) return;
+  if (didInitSelectedProductRef.current) return;
 
-    const name = expenseToEdit?.productName;
-    if (!name) return;
+  const name = expenseToEdit?.productName;
+  if (!name) return;
 
-    // Wait for options (if we don't have any yet, keep waiting)
-    if (!productOptions.length) return;
-
-    const match = productOptions.find(
-      (o) => o.name === name || o.value === name,
-    ) ?? {
+  // try to match real product if we have options already
+  const match =
+    productOptions.find((o) => o.name === name || o.value === name) ??
+    {
       label: name,
       value: name,
       name,
 
-      // unknown until real option arrives
-      variants: null,
-      measures: null,
-      brands: null,
+      // ✅ IMPORTANT: use variants/measures from expenseToEdit (from expenses API)
+      variants: Array.isArray(expenseToEdit?.variants) ? expenseToEdit.variants : [],
+      measures: Array.isArray(expenseToEdit?.measures) ? expenseToEdit.measures : [],
 
+      brands: null,
+      category: "",
       measurementUnit: expenseToEdit?.measurementUnit ?? "",
     };
 
-    controller.setSelectedProduct(match);
-
-    // ✅ mark as initialized so we don't overwrite user changes later
-    didInitSelectedProductRef.current = true;
-  }, [
-    open,
-    isEdit,
-    expenseToEdit?.productName,
-    expenseToEdit?.measurementUnit,
-    productOptions,
-    controller.setSelectedProduct,
-  ]);
-
+  controller.setSelectedProduct(match);
+  didInitSelectedProductRef.current = true;
+}, [
+  open,
+  isEdit,
+  expenseToEdit?.productName,
+  expenseToEdit?.measurementUnit,
+  expenseToEdit?.variants,
+  expenseToEdit?.measures,
+  productOptions,
+  controller.setSelectedProduct,
+]);
   /**
    * ✅ A) Keep expense.variant valid for the selected product.
    *

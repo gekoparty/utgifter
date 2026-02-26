@@ -66,14 +66,15 @@ const INITIAL_SELECTED_EXPENSE = {
   registeredDate: null,
   purchaseDate: null,
 
-  // stores variantId
   variant: "",
-
-  // ✅ NEW: display name (from backend)
   variantName: "",
 
   measurementUnit: "",
   pricePerUnit: 0,
+
+  // ✅ add these (from expenses API)
+  variants: [],     // [{_id,name}]
+  measures: [],     // e.g. [0.5, 1, 2]
 };
 
 // Currency formatter (avoid toLocaleString per cell)
@@ -94,7 +95,6 @@ const expenseUrlBuilder = (endpoint, params) => {
 
 // ------------------------------------------------------
 // Transform (keep stable shape for table)
-// ------------------------------------------------------
 const transformExpenseData = (json) => {
   const list = json.expenses || json.data || [];
   return {
@@ -115,14 +115,15 @@ const transformExpenseData = (json) => {
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
 
-      // stores variantId
       variant: x.variant || "",
-
-      // ✅ NEW: backend-provided display name
       variantName: x.variantName || "",
 
       measurementUnit: x.measurementUnit,
       pricePerUnit: x.pricePerUnit,
+
+      // ✅ carry these through so EDIT works even if product not in productOptions page
+      variants: Array.isArray(x.variants) ? x.variants : [],
+      measures: Array.isArray(x.measures) ? x.measures : [],
     })),
     meta: json.meta || { totalRowCount: 0 },
   };
