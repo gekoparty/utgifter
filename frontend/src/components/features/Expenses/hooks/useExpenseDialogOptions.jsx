@@ -15,7 +15,7 @@ export const useExpenseDialogOptions = ({
         value: p.name,
         name: p.name,
 
-        // variants is array (often ids/refs)
+        // variants should be populated [{_id,name}], but keep it safe
         variants: Array.isArray(p.variants) ? p.variants : [],
 
         category: p.category ?? "",
@@ -31,18 +31,21 @@ export const useExpenseDialogOptions = ({
     if (!Array.isArray(variants)) return [];
 
     return variants
-      .map((v) => ({ label: v?.name, value: String(v?._id) }))
-      .filter((o) => o.value && o.label);
+      .map((v) => {
+        // v can be {_id,name} or string id (fallback)
+        const id = typeof v === "string" ? v : String(v?._id ?? "");
+        const name = typeof v === "string" ? "" : String(v?.name ?? "");
+        return {
+          label: name || id, // fallback so UI can still show something
+          value: id,
+          name: name || "",
+        };
+      })
+      .filter((o) => o.value);
   }, [selectedProduct]);
 
-  /**
-   * ✅ IMPORTANT:
-   * - If a product is selected (ADD or EDIT), show ONLY brands for that product.
-   * - If no product selected, show recent brands (optional UX).
-   */
   const brandOptions = useMemo(() => {
     const list = selectedProduct ? brandsForProduct : recentBrands;
-
     const safe = Array.isArray(list) ? list : [];
     return safe.map((b) => ({
       label: b.name,

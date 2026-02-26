@@ -12,19 +12,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import VirtualizedSelect from "../../../../commons/VirtualizedSelect/VirtualizedSelect";
 import ExpenseField from "../../../../commons/ExpenseField/ExpenseField";
 
-/**
- * Fix: allow comma/dot typing without snapping back to 0
- * Approach:
- * - Use text inputs with inputMode="decimal"
- * - Keep raw text locally in state (priceText/volumeText/discountText) OR fall back to formatting numbers
- * - Only write numeric fields when the input parses as a valid number
- *
- * This component expects your expense object to optionally contain:
- * - priceText, volumeText, discountValueText, discountAmountText
- *
- * If they don't exist yet, this component will still work by creating them via setExpense.
- */
-
 const normalizeDecimal = (s) =>
   String(s ?? "")
     .replace(/\s/g, "")
@@ -33,7 +20,6 @@ const normalizeDecimal = (s) =>
 const parseDecimalOrNull = (s) => {
   const t = normalizeDecimal(s);
   if (t === "") return null;
-  // Allow intermediate "." or "-" (don’t commit numeric update yet)
   if (t === "." || t === "-" || t === "-.") return null;
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
@@ -41,9 +27,8 @@ const parseDecimalOrNull = (s) => {
 
 const formatDecimalForInput = (n) => {
   if (n == null) return "";
-  if (typeof n === "string") return n; // in case older code stores strings
+  if (typeof n === "string") return n;
   if (!Number.isFinite(n)) return "";
-  // Keep it simple: show as plain number (no localization) to avoid commas reappearing unexpectedly
   return String(n);
 };
 
@@ -63,7 +48,6 @@ const ExpenseFormFields = ({
   isLoadingShops,
   controller,
 }) => {
-  // Prefer text versions if present, otherwise fall back to numeric values
   const priceInputValue =
     expense.priceText ?? formatDecimalForInput(expense.price);
   const volumeInputValue =
@@ -82,14 +66,11 @@ const ExpenseFormFields = ({
     Boolean(selectedProduct) && (variantOptions?.length ?? 0) > 0;
 
   const handlePriceTextChange = (text) => {
-    // always keep raw text so typing never snaps back
     setExpense((prev) => ({ ...prev, priceText: text }));
 
     const parsed = parseDecimalOrNull(text);
     if (parsed !== null) {
-      // commit numeric update through controller so derived fields update
       controller.handleFieldChange?.("price", parsed);
-      // If controller doesn't expose handleFieldChange, update directly
       if (!controller.handleFieldChange) {
         setExpense((prev) => ({ ...prev, price: parsed }));
       }
@@ -175,11 +156,15 @@ const ExpenseFormFields = ({
               options={brandOptions}
               value={
                 expense.brandName
-                  ? {
+                  ? (brandOptions.find(
+                      (o) =>
+                        o.label === expense.brandName ||
+                        o.name === expense.brandName,
+                    ) ?? {
                       label: expense.brandName,
                       value: expense.brandName,
                       name: expense.brandName,
-                    }
+                    })
                   : null
               }
               onChange={controller.handleBrandSelect}
@@ -194,7 +179,7 @@ const ExpenseFormFields = ({
           </Box>
         </Stack>
 
-        {/* VARIANT */}
+        {/* ✅ VARIANT (FIXED: fallback to expense.variantName) */}
         <Box>
           <VirtualizedSelect
             isClearable
@@ -203,7 +188,10 @@ const ExpenseFormFields = ({
               expense.variant
                 ? ((variantOptions ?? []).find(
                     (o) => o.value === String(expense.variant),
-                  ) ?? null)
+                  ) ?? {
+                    value: String(expense.variant),
+                    label: expense.variantName || "Ukjent variant",
+                  })
                 : null
             }
             onChange={controller.handleVariantSelect}

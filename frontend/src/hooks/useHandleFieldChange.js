@@ -5,20 +5,40 @@ import {
   calculatePricePerUnit,
 } from "../components/commons/Utils/expenseUtils";
 
+const stripUndefined = (obj) => {
+  if (!obj || typeof obj !== "object") return {};
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+};
+
 const useHandleFieldChange = (expense, setExpense) => {
   const updateExpenseValues = (prevExpense, overrides = {}) => {
-    const { price, discountValue, discountAmount, hasDiscount, volume, measurementUnit } = {
+    const cleanOverrides = stripUndefined(overrides);
+
+    const {
+      price,
+      discountValue,
+      discountAmount,
+      hasDiscount,
+      volume,
+      measurementUnit,
+    } = {
       ...prevExpense,
-      ...overrides,
+      ...cleanOverrides,
     };
 
     let newDiscountAmount = discountAmount;
     let newDiscountValue = discountValue;
 
     // Ensure both discount fields are in sync
-    if ("discountValue" in overrides) {
-      newDiscountAmount = hasDiscount ? calculateDiscountAmount(price, discountValue) : 0;
-    } else if ("discountAmount" in overrides && price > 0) {
+    if ("discountValue" in cleanOverrides) {
+      newDiscountAmount = hasDiscount
+        ? calculateDiscountAmount(price, discountValue)
+        : 0;
+    } else if ("discountAmount" in cleanOverrides && price > 0) {
       newDiscountValue = hasDiscount ? (discountAmount / price) * 100 : 0;
     }
 
@@ -27,7 +47,7 @@ const useHandleFieldChange = (expense, setExpense) => {
 
     return {
       ...prevExpense,
-      ...overrides,
+      ...cleanOverrides,
       discountAmount: Number(newDiscountAmount.toFixed(2)),
       discountValue: Number(newDiscountValue.toFixed(2)),
       finalPrice,
@@ -38,7 +58,7 @@ const useHandleFieldChange = (expense, setExpense) => {
   const handleFieldChange = useCallback(
     (field, value, additionalChanges = {}) => {
       setExpense((prevExpense) => {
-        const updatedValues = { [field]: value, ...additionalChanges };
+        const updatedValues = stripUndefined({ [field]: value, ...additionalChanges });
         return updateExpenseValues(prevExpense, updatedValues);
       });
     },
@@ -48,7 +68,9 @@ const useHandleFieldChange = (expense, setExpense) => {
   const handleDiscountAmountChange = useCallback(
     (event) => {
       const value = Number(event.target.value) || 0;
-      setExpense((prevExpense) => updateExpenseValues(prevExpense, { discountAmount: value }));
+      setExpense((prevExpense) =>
+        updateExpenseValues(prevExpense, { discountAmount: value })
+      );
     },
     [setExpense]
   );
@@ -56,7 +78,9 @@ const useHandleFieldChange = (expense, setExpense) => {
   const handleDiscountValueChange = useCallback(
     (event) => {
       const value = Number(event.target.value) || 0;
-      setExpense((prevExpense) => updateExpenseValues(prevExpense, { discountValue: value }));
+      setExpense((prevExpense) =>
+        updateExpenseValues(prevExpense, { discountValue: value })
+      );
     },
     [setExpense]
   );
@@ -75,7 +99,14 @@ const useHandleFieldChange = (expense, setExpense) => {
 
       return prevExpense;
     });
-  }, [expense.price, expense.discountValue, expense.hasDiscount, expense.volume, expense.measurementUnit, setExpense]);
+  }, [
+    expense.price,
+    expense.discountValue,
+    expense.hasDiscount,
+    expense.volume,
+    expense.measurementUnit,
+    setExpense,
+  ]);
 
   return {
     handleFieldChange,
