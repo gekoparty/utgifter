@@ -65,26 +65,30 @@ const INITIAL_SELECTED_EXPENSE = {
   purchased: false,
   registeredDate: null,
   purchaseDate: null,
-
+  shopId: "",
+  locationId: "",
   variant: "",
   variantName: "",
-
   measurementUnit: "",
   pricePerUnit: 0,
-
   // ✅ add these (from expenses API)
-  variants: [],     // [{_id,name}]
-  measures: [],     // e.g. [0.5, 1, 2]
+  variants: [], // [{_id,name}]
+  measures: [], // e.g. [0.5, 1, 2]
 };
 
 // Currency formatter (avoid toLocaleString per cell)
-const NOK = new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK" });
+const NOK = new Intl.NumberFormat("nb-NO", {
+  style: "currency",
+  currency: "NOK",
+});
 
 // ------------------------------------------------------
 // URL builder
 // ------------------------------------------------------
 const expenseUrlBuilder = (endpoint, params) => {
-  const url = new URL(`${API_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`);
+  const url = new URL(
+    `${API_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`,
+  );
   url.searchParams.set("start", params.pageIndex * params.pageSize);
   url.searchParams.set("size", params.pageSize);
   url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
@@ -114,13 +118,15 @@ const transformExpenseData = (json) => {
       purchased: x.purchased,
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
-      productBrandIds: Array.isArray(x.productBrandIds) ? x.productBrandIds : [],
+      productBrandIds: Array.isArray(x.productBrandIds)
+        ? x.productBrandIds
+        : [],
       variant: x.variant || "",
       variantName: x.variantName || "",
-
       measurementUnit: x.measurementUnit,
       pricePerUnit: x.pricePerUnit,
-
+      shopId: x.shop?._id || x.shopId || "", // ✅ add
+      locationId: x.location?._id || x.locationId || "", // ✅ add
       // ✅ carry these through so EDIT works even if product not in productOptions page
       variants: Array.isArray(x.variants) ? x.variants : [],
       measures: Array.isArray(x.measures) ? x.measures : [],
@@ -142,7 +148,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
       setAnchorEl(event.currentTarget);
       setLocalDateRange(column.getFilterValue() || ["", ""]);
     },
-    [column]
+    [column],
   );
 
   const handleClose = useCallback(() => setAnchorEl(null), []);
@@ -156,7 +162,8 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
   }, []);
 
   const applyFilter = useCallback(() => {
-    const valueToSet = !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
+    const valueToSet =
+      !localDateRange[0] && !localDateRange[1] ? undefined : localDateRange;
     column.setFilterValue(valueToSet);
     handleClose();
   }, [column, handleClose, localDateRange]);
@@ -171,7 +178,11 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
 
   return (
     <>
-      <IconButton onClick={handleClick} size="small" color={isActive ? "primary" : "default"}>
+      <IconButton
+        onClick={handleClick}
+        size="small"
+        color={isActive ? "primary" : "default"}
+      >
         <FilterListIcon fontSize="small" />
       </IconButton>
       <Popover
@@ -219,8 +230,14 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
   );
 });
 
-const PriceRangeFilter = React.memo(function PriceRangeFilter({ column, onModeChange }) {
-  const defaultState = useMemo(() => ({ min: "", max: "", mode: "pricePerUnit" }), []);
+const PriceRangeFilter = React.memo(function PriceRangeFilter({
+  column,
+  onModeChange,
+}) {
+  const defaultState = useMemo(
+    () => ({ min: "", max: "", mode: "pricePerUnit" }),
+    [],
+  );
   const filterValue = column.getFilterValue() || defaultState;
 
   const [localState, setLocalState] = useState(filterValue);
@@ -231,7 +248,7 @@ const PriceRangeFilter = React.memo(function PriceRangeFilter({ column, onModeCh
       setAnchorEl(event.currentTarget);
       setLocalState(column.getFilterValue() || defaultState);
     },
-    [column, defaultState]
+    [column, defaultState],
   );
 
   const handleClose = useCallback(() => setAnchorEl(null), []);
@@ -243,7 +260,7 @@ const PriceRangeFilter = React.memo(function PriceRangeFilter({ column, onModeCh
         onModeChange(newMode);
       }
     },
-    [onModeChange]
+    [onModeChange],
   );
 
   const handleRangeChange = useCallback((key, value) => {
@@ -251,7 +268,8 @@ const PriceRangeFilter = React.memo(function PriceRangeFilter({ column, onModeCh
   }, []);
 
   const applyFilter = useCallback(() => {
-    const valueToSet = !localState.min && !localState.max ? undefined : localState;
+    const valueToSet =
+      !localState.min && !localState.max ? undefined : localState;
     column.setFilterValue(valueToSet);
     handleClose();
   }, [column, handleClose, localState]);
@@ -266,7 +284,11 @@ const PriceRangeFilter = React.memo(function PriceRangeFilter({ column, onModeCh
 
   return (
     <>
-      <IconButton onClick={handleClick} size="small" color={isActive ? "primary" : "default"}>
+      <IconButton
+        onClick={handleClick}
+        size="small"
+        color={isActive ? "primary" : "default"}
+      >
         <FilterListIcon fontSize="small" />
       </IconButton>
       <Popover
@@ -361,12 +383,19 @@ const ExpenseScreen = () => {
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
   const [activeModal, setActiveModal] = useState(null); // "ADD" | "EDIT" | "DELETE" | null
-  const [selectedExpense, setSelectedExpense] = useState(INITIAL_SELECTED_EXPENSE);
+  const [selectedExpense, setSelectedExpense] = useState(
+    INITIAL_SELECTED_EXPENSE,
+  );
 
   const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
-  const { snackbarOpen, snackbarMessage, snackbarSeverity, showSnackbar, handleSnackbarClose } =
-    useSnackBar();
+  const {
+    snackbarOpen,
+    snackbarMessage,
+    snackbarSeverity,
+    showSnackbar,
+    handleSnackbarClose,
+  } = useSnackBar();
 
   const fetchParams = useMemo(
     () => ({
@@ -376,10 +405,22 @@ const ExpenseScreen = () => {
       filters: columnFilters,
       globalFilter: deferredGlobalFilter,
     }),
-    [pagination.pageIndex, pagination.pageSize, sorting, columnFilters, deferredGlobalFilter]
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      sorting,
+      columnFilters,
+      deferredGlobalFilter,
+    ],
   );
 
-  const { data: expensesData, isError, isFetching, isLoading, refetch } = usePaginatedData({
+  const {
+    data: expensesData,
+    isError,
+    isFetching,
+    isLoading,
+    refetch,
+  } = usePaginatedData({
     endpoint: "/api/expenses",
     params: fetchParams,
     urlBuilder: expenseUrlBuilder,
@@ -434,7 +475,7 @@ const ExpenseScreen = () => {
       showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
       handleDialogClose();
     },
-    [showSnackbar, handleDialogClose]
+    [showSnackbar, handleDialogClose],
   );
 
   const handleError = useCallback(
@@ -442,7 +483,7 @@ const ExpenseScreen = () => {
       showSnackbar(`Klarte ikke å ${action} utgiften. Prøv igjen.`, "error");
       handleDialogClose();
     },
-    [showSnackbar, handleDialogClose]
+    [showSnackbar, handleDialogClose],
   );
 
   const palette = theme.palette;
@@ -452,14 +493,17 @@ const ExpenseScreen = () => {
       priceDisplayMode === "finalPrice"
         ? { header: "Totalpris", key: "finalPrice" }
         : priceDisplayMode === "price"
-        ? { header: "Registrert Pris", key: "price" }
-        : { header: "Pris per enhet", key: "pricePerUnit" };
+          ? { header: "Registrert Pris", key: "price" }
+          : { header: "Pris per enhet", key: "pricePerUnit" };
 
     return {
       accessorKey: resolvedAccessor.key,
       header: resolvedAccessor.header,
       Filter: ({ column }) => (
-        <PriceRangeFilter column={column} onModeChange={handlePriceFilterModeChange} />
+        <PriceRangeFilter
+          column={column}
+          onModeChange={handlePriceFilterModeChange}
+        />
       ),
       enableColumnFilter: true,
       Cell: ({ row }) => {
@@ -489,7 +533,12 @@ const ExpenseScreen = () => {
         return <PriceBadge value={value} bg={bg} fg={fg} />;
       },
     };
-  }, [priceDisplayMode, priceStatsByType, palette, handlePriceFilterModeChange]);
+  }, [
+    priceDisplayMode,
+    priceStatsByType,
+    palette,
+    handlePriceFilterModeChange,
+  ]);
 
   const dateColumn = useMemo(
     () => ({
@@ -498,9 +547,11 @@ const ExpenseScreen = () => {
       Filter: ({ column }) => <DateRangeFilter column={column} />,
       enableColumnFilter: true,
       Cell: ({ cell }) =>
-        cell.getValue() ? new Date(cell.getValue()).toLocaleDateString("nb-NO") : "—",
+        cell.getValue()
+          ? new Date(cell.getValue()).toLocaleDateString("nb-NO")
+          : "—",
     }),
-    []
+    [],
   );
 
   // ✅ show variantName in table (not variant id)
@@ -512,7 +563,7 @@ const ExpenseScreen = () => {
       { accessorKey: "shopName", header: "Butikk" },
       dateColumn,
     ],
-    [priceColumn, dateColumn]
+    [priceColumn, dateColumn],
   );
 
   const canOpenEditOrDelete = Boolean(selectedExpense?._id);
@@ -533,7 +584,8 @@ const ExpenseScreen = () => {
     setActiveModal("DELETE");
   }, []);
 
-  const dialogOpen = Boolean(activeModal) && (activeModal === "ADD" || canOpenEditOrDelete);
+  const dialogOpen =
+    Boolean(activeModal) && (activeModal === "ADD" || canOpenEditOrDelete);
 
   return (
     <TableLayout>
@@ -607,7 +659,11 @@ const ExpenseScreen = () => {
           onClose={handleSnackbarClose}
           variant="filled"
           action={
-            <IconButton size="small" color="inherit" onClick={handleSnackbarClose}>
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={handleSnackbarClose}
+            >
               <CloseIcon fontSize="small" />
             </IconButton>
           }

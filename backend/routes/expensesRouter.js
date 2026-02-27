@@ -219,17 +219,25 @@ expensesRouter.get("/", async (req, res) => {
 
       // Optional: allow searching by variant name (store variant as id string)
       const regex = new RegExp(globalFilter, "i");
-      const variantIds = await Variant.find({ name: { $regex: regex } }).distinct("_id");
+      const variantIds = await Variant.find({
+        name: { $regex: regex },
+      }).distinct("_id");
 
       query.or([
         { productName: { $in: productIds } },
-        ...(variantIds.length ? [{ variant: { $in: variantIds.map(String) } }] : []),
+        ...(variantIds.length
+          ? [{ variant: { $in: variantIds.map(String) } }]
+          : []),
       ]);
     }
 
     applySorting(query, sorting ? JSON.parse(sorting) : []);
 
-    const { query: paginatedQuery, total, startIndex } = await applyPagination(query, start, size);
+    const {
+      query: paginatedQuery,
+      total,
+      startIndex,
+    } = await applyPagination(query, start, size);
 
     const expenses = await paginatedQuery
       .populate({
@@ -256,6 +264,10 @@ expensesRouter.get("/", async (req, res) => {
 
         return {
           ...expense,
+          shopId: expense.shopName?._id ? String(expense.shopName._id) : "",
+          locationId: expense.locationName?._id
+            ? String(expense.locationName._id)
+            : "",
           productName: expense.productName?.name || "",
           brandName: expense.brandName?.name || "",
           shopName: expense.shopName?.name || "",
@@ -306,6 +318,10 @@ expensesRouter.get("/:id", async (req, res) => {
 
     res.json({
       ...expense,
+      shopId: expense.shopName?._id ? String(expense.shopName._id) : "",
+      locationId: expense.locationName?._id
+        ? String(expense.locationName._id)
+        : "",
       productName: expense.productName?.name || "",
       brandName: expense.brandName?.name || "",
       shopName: expense.shopName?.name || "",
