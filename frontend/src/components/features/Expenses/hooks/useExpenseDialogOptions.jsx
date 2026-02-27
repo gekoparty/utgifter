@@ -8,20 +8,23 @@ export const useExpenseDialogOptions = ({
   shops,
 }) => {
   const productOptions = useMemo(() => {
-    const pages = infiniteData?.pages || [];
-    return pages.flatMap((page) =>
-      (page.products || []).map((p) => ({
-        label: p.name,
-        value: p.name,
-        name: p.name,
-        variants: Array.isArray(p.variants) ? p.variants : [],
-        category: p.category ?? "",
-        measurementUnit: p.measurementUnit ?? "",
-        measures: Array.isArray(p.measures) ? p.measures : [],
-        brands: Array.isArray(p.brands) ? p.brands : [],
-      }))
-    );
-  }, [infiniteData]);
+  const pages = infiniteData?.pages || [];
+
+  return pages.flatMap((page) =>
+    (page.products || []).map((p) => ({
+      label: p.name,
+      value: String(p._id),   // ✅ USE ID
+      id: String(p._id),      // optional but nice
+      name: p.name,
+
+      variants: Array.isArray(p.variants) ? p.variants : [],
+      brands: Array.isArray(p.brands) ? p.brands : [],
+      category: p.category ?? "",
+      measurementUnit: p.measurementUnit ?? "",
+      measures: Array.isArray(p.measures) ? p.measures : [],
+    }))
+  );
+}, [infiniteData]);
 
   const variantOptions = useMemo(() => {
     const variants = selectedProduct?.variants;
@@ -53,13 +56,16 @@ export const useExpenseDialogOptions = ({
   }, [brandsForProduct, recentBrands, selectedProduct]);
 
   const shopOptions = useMemo(() => {
-    const safe = Array.isArray(shops) ? shops : [];
-    return safe.map((s) => ({
-      label: `${s.name}, ${s.locationName}`,
-      value: s.name,
-      locationName: s.locationName,
-    }));
-  }, [shops]);
+  const safe = Array.isArray(shops) ? shops : [];
+
+  return safe.map((s) => ({
+    label: `${s.name}, ${s.locationName}`,
+    value: String(s._id),      // ✅ use ID
+    id: String(s._id),
+    name: s.name,
+    locationName: s.locationName,
+  }));
+}, [shops]);
 
   return { productOptions, brandOptions, shopOptions, variantOptions };
 };

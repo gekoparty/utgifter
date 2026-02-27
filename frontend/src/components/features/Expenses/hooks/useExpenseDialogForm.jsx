@@ -12,6 +12,10 @@ const API_EXPENSES = "/api/expenses";
 const EXPENSES_QUERY_KEY = ["expenses", "paginated"];
 
 const INITIAL_EXPENSE_STATE = {
+  productId: "",      // ✅ NEW
+  brandId: "",        // ✅ NEW
+  shopId: "",         // ✅ NEW
+  locationId: "",     // optional
   measurementUnit: "",
   productName: "",
   shopName: "",
@@ -181,47 +185,55 @@ const clearFieldError = useCallback((field) => {
   });
 
   const handleSaveExpense = useCallback(async () => {
-    setValidationErrors({});
-    storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
+  setValidationErrors({});
+  storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
 
-    try {
-      const formatted = {
-        ...expense,
+  try {
+    const formatted = {
+      ...expense,
 
-        // ✅ send only variant id (backend ignores variantName anyway)
-        variant: expense.variant ? String(expense.variant) : "",
+      // ✅ SEND IDS (PRIMARY RESOLUTION METHOD)
+      productId: expense.productId || "",
+      brandId: expense.brandId || "",
+      shopId: expense.shopId || "",
+      locationId: expense.locationId || "",
 
-        productName: formatComponentFields(expense.productName, "expense", "productName"),
-        brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
-        shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
-        purchaseDate: expense.purchased ? expense.purchaseDate : null,
-        registeredDate: !expense.purchased ? expense.registeredDate : null,
-      };
+      // ✅ Variant should always be id string
+      variant: expense.variant ? String(expense.variant) : "",
 
-      await addExpenseValidationSchema.validate(formatted, { abortEarly: false });
+      // Keep names (optional but fine)
+      productName: formatComponentFields(expense.productName, "expense", "productName"),
+      brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
+      shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
 
-      const saved = await saveMutation.mutateAsync(formatted);
+      purchaseDate: expense.purchased ? expense.purchaseDate : null,
+      registeredDate: !expense.purchased ? expense.registeredDate : null,
+    };
 
-      return {
-        ...saved,
-        productName: saved?.productName || formatted.productName || "Ukjent produkt",
-      };
-    } catch (err) {
-      if (!isMounted.current) return false;
+    await addExpenseValidationSchema.validate(formatted, { abortEarly: false });
 
-      if (err?.name === "ValidationError") {
-        const errors = {};
-        err.inner?.forEach((e) => {
-          if (!e.path) return;
-          errors[e.path] = e.message;
-        });
-        setValidationErrors(errors);
-        return false;
-      }
+    const saved = await saveMutation.mutateAsync(formatted);
 
+    return {
+      ...saved,
+      productName: saved?.productName || formatted.productName || "Ukjent produkt",
+    };
+  } catch (err) {
+    if (!isMounted.current) return false;
+
+    if (err?.name === "ValidationError") {
+      const errors = {};
+      err.inner?.forEach((e) => {
+        if (!e.path) return;
+        errors[e.path] = e.message;
+      });
+      setValidationErrors(errors);
       return false;
     }
-  }, [expense, saveMutation, storeDispatch]);
+
+    return false;
+  }
+}, [expense, saveMutation, storeDispatch]);
 
   const handleDeleteExpense = useCallback(
     async (id) => {
