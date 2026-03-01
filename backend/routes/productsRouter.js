@@ -154,10 +154,34 @@ const cleanupProductVariantOrphans = async (productId) => {
 };
 
 // -------------------- Other helpers --------------------
-const normalizeMeasures = (measures) => {
-  if (!Array.isArray(measures)) return [];
-  return measures.map((m) => String(m).trim()).filter(Boolean);
+const roundTo = (n, decimals = 3) => {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return null;
+  const f = 10 ** decimals;
+  return Math.round(x * f) / f;
 };
+
+const normalizeMeasures = (measures, decimals = 3) => {
+  if (!Array.isArray(measures)) return [];
+  const set = new Set();
+
+  for (const m of measures) {
+    const v = roundTo(m, decimals);
+    if (v === null) continue;
+    set.add(v);
+  }
+
+  return [...set].sort((a, b) => a - b);
+};
+
+const sortByNameAsc = (arr) =>
+  Array.isArray(arr)
+    ? [...arr].sort((a, b) =>
+        String(a?.name ?? "").localeCompare(String(b?.name ?? ""), undefined, {
+          sensitivity: "base",
+        })
+      )
+    : [];
 
 // -------------------- GET --------------------
 productsRouter.get("/", async (req, res) => {
@@ -228,7 +252,7 @@ productsRouter.get("/", async (req, res) => {
 
     const products = await query
       .select("name brands category variants measures measurementUnit")
-      .populate("variants", "name")
+      .populate({ path: "variants", select: "name", options: { sort: { name: 1 } } })
       .lean();
 
       // ✅ NEW: attach expenseCount for the products on this page
@@ -251,18 +275,24 @@ productsRouter.get("/", async (req, res) => {
       (acc, { _id, name }) => ({ ...acc, [_id.toString()]: name }),
       {}
     );
+const enrichedProducts = products.map((product) => {
+  const resolvedBrands = (product.brands ?? []).map(
+    (id) => brandIdToNameMap[id.toString()] || "N/A"
+  );
 
-    const enrichedProducts = products.map((product) => {
-      const resolvedBrands = (product.brands ?? []).map(
-        (id) => brandIdToNameMap[id.toString()] || "N/A"
-      );
+  return {
+    ...product,
 
-      return {
-        ...product,
-        brand: resolvedBrands.join(", "),
-        expenseCount: countMap.get(String(product._id)) ?? 0, // ✅ NEW
-      };
-    });
+    // ✅ Always return sorted + normalized measures
+    measures: normalizeMeasures(product.measures, 3),
+
+    // ✅ Always return sorted variants
+    variants: sortByNameAsc(product.variants),
+
+    brand: resolvedBrands.join(", "),
+    expenseCount: countMap.get(String(product._id)) ?? 0,
+  };
+});
 
     res.json({ products: enrichedProducts, meta: { totalRowCount } });
   } catch (err) {
@@ -277,7 +307,7 @@ productsRouter.post("/", async (req, res) => {
     const { name, brands, measurementUnit, category, measures } = req.body;
 
     const normalizedCategory = String(category ?? "").trim();
-    const normalizedMeasures = normalizeMeasures(measures);
+    const normalizedMeasures = normalizeMeasures(measures, 3);
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ message: "name is required" });
@@ -325,10 +355,10 @@ productsRouter.post("/", async (req, res) => {
     // 4) safety cleanup
     await cleanupProductVariantOrphans(saved._id);
 
-    const populatedProduct = await Product.findById(saved._id)
-      .populate("brands", "name _id")
-      .populate("variants", "name _id")
-      .lean();
+   const populatedProduct = await Product.findById(saved._id)
+  .populate("brands", "name _id")
+  .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
+  .lean();
 
     res.status(201).json(populatedProduct);
   } catch (error) {
@@ -386,7 +416,7 @@ productsRouter.put("/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ message: "Product not found" });
 
     const normalizedCategory = String(category ?? "").trim();
-    const normalizedMeasures = normalizeMeasures(measures);
+   const normalizedMeasures = normalizeMeasures(measures, 3);
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ message: "name is required" });
@@ -442,12 +472,12 @@ productsRouter.put("/:id", async (req, res) => {
     if (!result) return res.status(404).json({ message: "Product not found" });
 
     // cleanup orphan ids (safety net)
-    await cleanupProductVariantOrphans(id);
+    await cleanupProductVariantOrphans(result._id);
 
-    const populatedProduct = await Product.findById(result._id)
-      .populate("brands", "name _id")
-      .populate("variants", "name _id")
-      .lean();
+   const populatedProduct = await Product.findById(result._id)
+  .populate("brands", "name _id")
+  .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
+  .lean();
 
     res.status(200).json(populatedProduct);
   } catch (error) {
