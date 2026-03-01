@@ -1,5 +1,5 @@
 // ExpenseScreen.jsx
-// React 19 + MUI 7 + React Query v5 + MRT v3.2.1 (optimized, unified ExpenseDialog)
+// React 19 + MUI 7 + React Query v5 + MRT v3.2.1
 import React, {
   useMemo,
   useState,
@@ -38,7 +38,9 @@ import { API_URL } from "../components/commons/Consts/constants";
 // Lazy unified dialog + preloading
 // ------------------------------------------------------
 const loadExpenseDialog = () =>
-  import("../components/features/Expenses/components/ExpenseDialog/ExpenseDialog");
+  import(
+    "../components/features/Expenses/components/ExpenseDialog/ExpenseDialog"
+  );
 const ExpenseDialog = lazy(loadExpenseDialog);
 
 // ------------------------------------------------------
@@ -71,9 +73,8 @@ const INITIAL_SELECTED_EXPENSE = {
   variantName: "",
   measurementUnit: "",
   pricePerUnit: 0,
-  // ✅ add these (from expenses API)
-  variants: [], // [{_id,name}]
-  measures: [], // e.g. [0.5, 1, 2]
+  variants: [],
+  measures: [],
 };
 
 // Currency formatter (avoid toLocaleString per cell)
@@ -118,16 +119,13 @@ const transformExpenseData = (json) => {
       purchased: x.purchased,
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
-      productBrandIds: Array.isArray(x.productBrandIds)
-        ? x.productBrandIds
-        : [],
+      productBrandIds: Array.isArray(x.productBrandIds) ? x.productBrandIds : [],
       variant: x.variant || "",
       variantName: x.variantName || "",
       measurementUnit: x.measurementUnit,
       pricePerUnit: x.pricePerUnit,
-      shopId: x.shop?._id || x.shopId || "", // ✅ add
-      locationId: x.location?._id || x.locationId || "", // ✅ add
-      // ✅ carry these through so EDIT works even if product not in productOptions page
+      shopId: x.shop?._id || x.shopId || "",
+      locationId: x.location?._id || x.locationId || "",
       variants: Array.isArray(x.variants) ? x.variants : [],
       measures: Array.isArray(x.measures) ? x.measures : [],
     })),
@@ -136,7 +134,7 @@ const transformExpenseData = (json) => {
 };
 
 // ------------------------------------------------------
-// Filters (memoized for smooth UX)
+// Filters
 // ------------------------------------------------------
 const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
   const filterValue = column.getFilterValue() || ["", ""];
@@ -351,7 +349,7 @@ const PriceRangeFilter = React.memo(function PriceRangeFilter({
 });
 
 // ------------------------------------------------------
-// Memoized badge for price cell
+// Badge
 // ------------------------------------------------------
 const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
   return (
@@ -370,11 +368,43 @@ const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
   );
 });
 
+// Helpers
+const formatDate = (v) =>
+  v ? new Date(v).toLocaleDateString("nb-NO") : "—";
+const formatBool = (v) => (v ? "Ja" : "Nei");
+
 // ------------------------------------------------------
-// MAIN SCREEN (optimized)
+// LocalStorage persistence helpers
+// ------------------------------------------------------
+const VIS_KEY = "expensesTable.columnVisibility.v1";
+
+const readVisibility = (fallback) => {
+  try {
+    const raw = localStorage.getItem(VIS_KEY);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    // must be object
+    if (!parsed || typeof parsed !== "object") return fallback;
+    return { ...fallback, ...parsed }; // merge to include any new columns
+  } catch {
+    return fallback;
+  }
+};
+
+const writeVisibility = (value) => {
+  try {
+    localStorage.setItem(VIS_KEY, JSON.stringify(value));
+  } catch {
+    // ignore
+  }
+};
+
+// ------------------------------------------------------
+// MAIN SCREEN
 // ------------------------------------------------------
 const ExpenseScreen = () => {
   const theme = useTheme();
+  const palette = theme.palette;
 
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -382,7 +412,46 @@ const ExpenseScreen = () => {
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
 
-  const [activeModal, setActiveModal] = useState(null); // "ADD" | "EDIT" | "DELETE" | null
+  // ✅ default visibility (make all price keys true so mode switching never “hides”)
+  const DEFAULT_VISIBILITY = useMemo(
+    () => ({
+      // visible by default
+      productName: true,
+      variantName: true,
+      shopName: true,
+      purchaseDate: true,
+
+      // keep these true due to dynamic price column switching accessorKey
+      pricePerUnit: true,
+      finalPrice: true,
+      price: true,
+
+      // hidden by default
+      brandName: false,
+      quantity: false,
+      volume: false,
+      measurementUnit: false,
+      hasDiscount: false,
+      discountValue: false,
+      discountAmount: false,
+      purchased: false,
+      registeredDate: false,
+      locationName: false,
+    }),
+    [],
+  );
+
+  // ✅ persisted visibility
+  const [columnVisibility, setColumnVisibility] = useState(() =>
+    readVisibility(DEFAULT_VISIBILITY),
+  );
+
+  // persist when it changes
+  useEffect(() => {
+    writeVisibility(columnVisibility);
+  }, [columnVisibility]);
+
+  const [activeModal, setActiveModal] = useState(null);
   const [selectedExpense, setSelectedExpense] = useState(
     INITIAL_SELECTED_EXPENSE,
   );
@@ -486,8 +555,7 @@ const ExpenseScreen = () => {
     [showSnackbar, handleDialogClose],
   );
 
-  const palette = theme.palette;
-
+  // Price Column (dynamic)
   const priceColumn = useMemo(() => {
     const resolvedAccessor =
       priceDisplayMode === "finalPrice"
@@ -508,7 +576,7 @@ const ExpenseScreen = () => {
       enableColumnFilter: true,
       Cell: ({ row }) => {
         const value = row.original[resolvedAccessor.key];
-        const type = row.original.variantName || "Ukjent"; // ✅ use name
+        const type = row.original.variantName || "Ukjent";
         const stats = priceStatsByType[type] || {};
 
         let bg = "transparent";
@@ -546,15 +614,12 @@ const ExpenseScreen = () => {
       header: "Kjøpsdato",
       Filter: ({ column }) => <DateRangeFilter column={column} />,
       enableColumnFilter: true,
-      Cell: ({ cell }) =>
-        cell.getValue()
-          ? new Date(cell.getValue()).toLocaleDateString("nb-NO")
-          : "—",
+      Cell: ({ cell }) => formatDate(cell.getValue()),
     }),
     [],
   );
 
-  // ✅ show variantName in table (not variant id)
+  // ALL columns (toggleable)
   const tableColumns = useMemo(
     () => [
       { accessorKey: "productName", header: "Produktnavn" },
@@ -562,15 +627,61 @@ const ExpenseScreen = () => {
       priceColumn,
       { accessorKey: "shopName", header: "Butikk" },
       dateColumn,
+
+      // extra fields
+      { accessorKey: "brandName", header: "Merke" },
+      {
+        accessorKey: "finalPrice",
+        header: "Total (felt)",
+        Cell: ({ cell }) => NOK.format(cell.getValue() ?? 0),
+      },
+      {
+        accessorKey: "price",
+        header: "Pris (felt)",
+        Cell: ({ cell }) => NOK.format(cell.getValue() ?? 0),
+      },
+      {
+        accessorKey: "quantity",
+        header: "Antall",
+        Cell: ({ cell }) => cell.getValue() ?? 0,
+      },
+      {
+        accessorKey: "volume",
+        header: "Volum",
+        Cell: ({ cell }) => cell.getValue() ?? 0,
+      },
+      { accessorKey: "measurementUnit", header: "Måleenhet" },
+      {
+        accessorKey: "hasDiscount",
+        header: "Har rabatt",
+        Cell: ({ cell }) => formatBool(cell.getValue()),
+      },
+      {
+        accessorKey: "discountValue",
+        header: "Rabatt %",
+        Cell: ({ cell }) => cell.getValue() ?? 0,
+      },
+      {
+        accessorKey: "discountAmount",
+        header: "Rabatt beløp",
+        Cell: ({ cell }) => NOK.format(cell.getValue() ?? 0),
+      },
+      {
+        accessorKey: "purchased",
+        header: "Kjøpt",
+        Cell: ({ cell }) => formatBool(cell.getValue()),
+      },
+      { accessorKey: "locationName", header: "Lokasjon" },
+      {
+        accessorKey: "registeredDate",
+        header: "Registrert dato",
+        Cell: ({ cell }) => formatDate(cell.getValue()),
+      },
     ],
     [priceColumn, dateColumn],
   );
 
   const canOpenEditOrDelete = Boolean(selectedExpense?._id);
-
-  useEffect(() => {
-    // loadExpenseDialog();
-  }, []);
 
   const openAdd = useCallback(() => setActiveModal("ADD"), []);
   const openEdit = useCallback((exp) => {
@@ -619,6 +730,8 @@ const ExpenseScreen = () => {
         renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
         handleEdit={openEdit}
         handleDelete={openDelete}
+        columnVisibility={columnVisibility}
+        setColumnVisibility={setColumnVisibility}
       />
 
       <Suspense fallback={null}>

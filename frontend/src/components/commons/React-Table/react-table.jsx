@@ -5,7 +5,7 @@ import { IconButton, Tooltip, MenuItem } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
 import { useTheme } from "@mui/material/styles";
-import { getTableStyles } from "./tableStyles"
+import { getTableStyles } from "./tableStyles";
 
 const ReactTable = ({
   data,
@@ -24,6 +24,10 @@ const ReactTable = ({
   setSorting,
   setPagination,
 
+  // ✅ NEW
+  columnVisibility,
+  setColumnVisibility,
+
   refetch,
   handleEdit,
   handleDelete,
@@ -37,7 +41,7 @@ const ReactTable = ({
       showColumnFilters: true,
       density: "compact",
     }),
-    []
+    [],
   );
 
   const tableState = useMemo(
@@ -47,11 +51,23 @@ const ReactTable = ({
       sorting,
       pagination,
 
+      // ✅ NEW: controlled column visibility (only if provided)
+      ...(columnVisibility ? { columnVisibility } : {}),
+
       isLoading,
       showAlertBanner: isError,
       showProgressBars: isFetching,
     }),
-    [columnFilters, globalFilter, sorting, pagination, isLoading, isError, isFetching]
+    [
+      columnFilters,
+      globalFilter,
+      sorting,
+      pagination,
+      columnVisibility,
+      isLoading,
+      isError,
+      isFetching,
+    ],
   );
 
   const refreshButton = useCallback(
@@ -72,7 +88,7 @@ const ReactTable = ({
         </IconButton>
       </Tooltip>
     ),
-    [refetch]
+    [refetch],
   );
 
   const renderRowActionMenuItems = useCallback(
@@ -96,10 +112,9 @@ const ReactTable = ({
         Slett
       </MenuItem>,
     ],
-    [handleEdit, handleDelete]
+    [handleEdit, handleDelete],
   );
 
-  // Supports both meta.totalRowCount and meta.total
   const rowCount = meta?.totalRowCount ?? meta?.total ?? 0;
 
   return (
@@ -107,40 +122,28 @@ const ReactTable = ({
       columns={columns}
       data={data}
       localization={MRT_Localization_NO}
-
-      // Server-side
       manualPagination
       manualSorting
       manualFiltering
       rowCount={rowCount}
-
       initialState={initialState}
       state={tableState}
-
       onColumnFiltersChange={setColumnFilters}
       onGlobalFilterChange={setGlobalFilter}
       onSortingChange={setSorting}
       onPaginationChange={setPagination}
-
-      // Top toolbar
+      // ✅ NEW: allow show/hide changes to persist in parent state
+      onColumnVisibilityChange={setColumnVisibility}
       renderTopToolbarCustomActions={refreshButton}
-
-      // Row actions
       enableRowActions
       positionActionsColumn="left"
       renderRowActionMenuItems={renderRowActionMenuItems}
-
-      // Detail panel (optional)
       renderDetailPanel={renderDetailPanel}
-
-      // Toggles
       enableColumnResizing={false}
       enableDensityToggle={false}
       enableFullScreenToggle={false}
       enableHiding
       enableStickyHeader
-
-      // ✅ Styles from helper
       muiTablePaperProps={tableStyles.muiTablePaperProps}
       muiTopToolbarProps={tableStyles.muiTopToolbarProps}
       muiTableHeadRowProps={tableStyles.muiTableHeadRowProps}
