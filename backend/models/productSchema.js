@@ -7,7 +7,6 @@ const productSchema = new mongoose.Schema(
 
     category: { type: String, required: false },
 
-    // ✅ reference Variant collection
     variants: [{ type: mongoose.Schema.Types.ObjectId, ref: "Variant" }],
 
     description: { type: String },
@@ -20,7 +19,8 @@ const productSchema = new mongoose.Schema(
       required: true,
     },
 
-    measures: { type: [String], default: [] },
+    // ✅ CHANGED: store as numbers
+    measures: { type: [Number], default: [] },
 
     brands: [{ type: mongoose.Schema.Types.ObjectId, ref: "Brand" }],
   },
@@ -29,4 +29,3 @@ const productSchema = new mongoose.Schema(
 
 const Product = mongoose.model("Product", productSchema);
 export default Product;
-
