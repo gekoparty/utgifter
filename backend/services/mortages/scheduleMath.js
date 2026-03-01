@@ -13,13 +13,13 @@ export const periodKeyToMonthStart = (pk) => {
   return new Date(y, m - 1, 1);
 };
 
-// ⚠️ Keep UI dueDate clamp-to-28 behavior (same as recurring summary)
+// ⚠️ UI dueDate clamp-to-28 behavior
 export const clampDayInMonth = (y, mIndex0, dueDay) => {
   const day = Math.min(28, Math.max(1, Number(dueDay || 1)));
   return new Date(y, mIndex0, day);
 };
 
-// ✅ bank-style due date for day-count interest: real last day in month
+// ✅ Real due date for interest day-count
 const dueDateForMonthKey = (monthKey, dueDay) => {
   const [y, m] = String(monthKey).split("-").map(Number);
   const base = dayjs(new Date(y, m - 1, 1));

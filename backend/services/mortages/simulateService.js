@@ -59,7 +59,9 @@ const sumExtraActual = (arr) =>
 
 const pickOverrideRate = (rateOverrides, periodKey, fallback) => {
   if (!Array.isArray(rateOverrides) || rateOverrides.length === 0) return fallback;
-  const sorted = [...rateOverrides].sort((a, b) => String(a.from).localeCompare(String(b.from)));
+  const sorted = [...rateOverrides].sort((a, b) =>
+    String(a.from).localeCompare(String(b.from))
+  );
   let chosen = null;
   for (const r of sorted) {
     if (String(r.from) <= periodKey) chosen = r;
@@ -77,12 +79,14 @@ const getOneTimeExtra = (oneTimeExtras, periodKey) => {
 export const simulateMortgagePlan = ({
   expense,
   termsArr,
-  payments, // include actual payments (optional, but useful)
+  payments,
   from,
   months,
   scenario,
 }) => {
   const dueDay = Number(expense.dueDay || 1);
+
+  // ✅ IMPORTANT: treat remainingBalance as balance BEFORE the payment in `from`
   let balance = Number(expense.remainingBalance || expense.initialBalance || 0);
 
   const paymentsByPk = groupPaymentsByPeriodKey(payments);
@@ -119,12 +123,13 @@ export const simulateMortgagePlan = ({
     const paymentTotal = Number(main?.amount ?? baseTerms.amount);
 
     const recurringExtra =
-      recurringExtraAmt > 0 && /^\d{4}-\d{2}$/.test(recurringExtraFrom) && recurringExtraFrom <= pk
+      recurringExtraAmt > 0 &&
+      /^\d{4}-\d{2}$/.test(recurringExtraFrom) &&
+      recurringExtraFrom <= pk
         ? recurringExtraAmt
         : 0;
 
     const oneTimeExtra = getOneTimeExtra(oneTimeExtras, pk);
-
     const extraPrincipal = round2(extraActual + recurringExtra + oneTimeExtra);
 
     const { schedule: row, balanceEnd } = computeMortgageMonth({
@@ -139,7 +144,11 @@ export const simulateMortgagePlan = ({
 
     schedule.push({
       periodKey: pk,
-      dueDate: clampDayInMonth(monthDate.getFullYear(), monthDate.getMonth(), dueDay),
+      dueDate: clampDayInMonth(
+        monthDate.getFullYear(),
+        monthDate.getMonth(),
+        dueDay
+      ),
       schedule: row,
       scenarioApplied: { rate, recurringExtra, oneTimeExtra, extraActual },
     });

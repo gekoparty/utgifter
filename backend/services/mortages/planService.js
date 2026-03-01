@@ -7,7 +7,6 @@ import {
 } from "./scheduleMath.js";
 
 const pickTermsForMonth = ({ expense, termsArr, monthDate }) => {
-  // termsArr must be sorted by fromDate ASC
   let chosen = null;
   for (const t of termsArr) {
     if (new Date(t.fromDate) <= monthDate) chosen = t;
@@ -40,7 +39,6 @@ const groupPaymentsByPeriodKey = (payments) => {
 };
 
 const pickMainPayment = (arr) => {
-  // "main" = latest non-EXTRA, non-SKIPPED payment
   const main =
     (arr || [])
       .filter(
@@ -62,11 +60,13 @@ const sumExtra = (arr) =>
 export const buildMortgagePlan = ({
   expense,
   termsArr,
-  payments, // raw payments list for this mortgage within range
+  payments,
   from,
   months,
 }) => {
   const dueDay = Number(expense.dueDay || 1);
+
+  // ✅ IMPORTANT: treat remainingBalance as balance BEFORE the payment in `from`
   let balance = Number(expense.remainingBalance || expense.initialBalance || 0);
 
   const paymentsByPk = groupPaymentsByPeriodKey(payments);
@@ -107,7 +107,11 @@ export const buildMortgagePlan = ({
 
     schedule.push({
       periodKey: pk,
-      dueDate: clampDayInMonth(monthDate.getFullYear(), monthDate.getMonth(), dueDay),
+      dueDate: clampDayInMonth(
+        monthDate.getFullYear(),
+        monthDate.getMonth(),
+        dueDay
+      ),
       schedule: row,
       payments: {
         main: main
@@ -120,7 +124,9 @@ export const buildMortgagePlan = ({
             }
           : null,
         extraSum: extraPrincipal,
-        extraCount: monthPays.filter((p) => String(p.status).toUpperCase() === "EXTRA").length,
+        extraCount: monthPays.filter(
+          (p) => String(p.status).toUpperCase() === "EXTRA"
+        ).length,
       },
     });
 
