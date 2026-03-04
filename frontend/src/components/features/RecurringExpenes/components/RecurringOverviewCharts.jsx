@@ -142,46 +142,48 @@ export default function RecurringOverviewCharts({
   }, [forecast, expectedColor, paidColor]);
 
   // Band layer between expected min/max
-  const ExpectedBandLayer = ({ xScale, yScale, innerHeight, innerWidth }) => {
-    if (!bandPoints?.length) return null;
+ const ExpectedBandLayer = ({ xScale, yScale, innerHeight, innerWidth }) => {
+  if (!bandPoints?.length) return null;
+  if (!Number.isFinite(innerWidth) || innerWidth <= 0) return null;
+  if (!Number.isFinite(innerHeight) || innerHeight <= 0) return null;
 
-    const top = bandPoints
-      .map((p, i) => {
-        const x = xScale(p.x);
-        const y = yScale(p.max);
-        return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-      })
-      .join(" ");
+  const topCoords = bandPoints.map((p) => {
+    const x = xScale(p.x);
+    const y = yScale(p.max);
+    return { x, y };
+  });
 
-    const bottom = bandPoints
-      .slice()
-      .reverse()
-      .map((p) => {
-        const x = xScale(p.x);
-        const y = yScale(p.min);
-        return `L ${x} ${y}`;
-      })
-      .join(" ");
+  const bottomCoords = [...bandPoints].reverse().map((p) => {
+    const x = xScale(p.x);
+    const y = yScale(p.min);
+    return { x, y };
+  });
 
-    const d = `${top} ${bottom} Z`;
+  const all = [...topCoords, ...bottomCoords];
+  if (all.some((c) => !Number.isFinite(c.x) || !Number.isFinite(c.y))) {
+    console.warn("ExpectedBandLayer: invalid coords", { topCoords, bottomCoords });
+    return null;
+  }
 
-    return (
-      <g>
-        <defs>
-          <clipPath id={clipPathId}>
-            <rect x="0" y="0" width={innerWidth} height={innerHeight} />
-          </clipPath>
-        </defs>
-        <path
-          d={d}
-          clipPath={`url(#${clipPathId})`}
-          fill={bandFill}
-          stroke="none"
-        />
-      </g>
-    );
-  };
+  const top = topCoords
+    .map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`)
+    .join(" ");
 
+  const bottom = bottomCoords.map((c) => `L ${c.x} ${c.y}`).join(" ");
+
+  const d = `${top} ${bottom} Z`;
+
+  return (
+    <g>
+      <defs>
+        <clipPath id={clipPathId}>
+          <rect x="0" y="0" width={innerWidth} height={innerHeight} />
+        </clipPath>
+      </defs>
+      <path d={d} clipPath={`url(#${clipPathId})`} fill={bandFill} stroke="none" />
+    </g>
+  );
+};
   // Overlay dashed paid line ON TOP of normal lines (so we keep the "lines" layer)
   const DashedPaidLineLayer = ({ series }) => {
     const paid = series.find((s) => s.id === "Betalt");

@@ -1,3 +1,4 @@
+// src/components/Charts/ProductPriceChart/echarts/buildOption.js
 import dayjs from "dayjs";
 
 export function buildOption({
@@ -9,6 +10,9 @@ export function buildOption({
   distributionBuckets,
   hiddenSeries,
   highlightSeries,
+
+  // ✅ NEW
+  yearlySeriesData,
 }) {
   const textColor = theme.palette.text.primary;
   const secondaryText = theme.palette.text.secondary;
@@ -17,7 +21,7 @@ export function buildOption({
   const base = {
     backgroundColor: "transparent",
     animation: false,
-    grid: { left: 60, right: mode === "shops" ? 160 : 40, top: 30, bottom: 60 },
+    grid: { left: 60, right: mode === "shops" || mode === "yearly" ? 160 : 40, top: 30, bottom: 60 },
     textStyle: { color: textColor, fontSize: 12 },
     tooltip: {
       trigger: "axis",
@@ -27,20 +31,6 @@ export function buildOption({
       borderWidth: 1,
       textStyle: { color: textColor },
       extraCssText: "box-shadow: 0 6px 20px rgba(0,0,0,0.15); border-radius: 6px;",
-    },
-    xAxis: {
-      type: "time",
-      axisLabel: { color: secondaryText },
-      axisLine: { lineStyle: { color: gridLine } },
-      splitLine: { show: false },
-    },
-    yAxis: {
-      type: "value",
-      axisLabel: { color: secondaryText },
-      axisLine: { lineStyle: { color: gridLine } },
-      splitLine: { lineStyle: { color: gridLine, type: "dashed" } },
-      name: `Kr per ${measurementUnit}`,
-      nameTextStyle: { color: secondaryText },
     },
     dataZoom: [
       { type: "inside", xAxisIndex: 0 },
@@ -55,6 +45,20 @@ export function buildOption({
 
     return {
       ...base,
+      xAxis: {
+        type: "time",
+        axisLabel: { color: secondaryText },
+        axisLine: { lineStyle: { color: gridLine } },
+        splitLine: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { color: secondaryText },
+        axisLine: { lineStyle: { color: gridLine } },
+        splitLine: { lineStyle: { color: gridLine, type: "dashed" } },
+        name: `Kr per ${measurementUnit}`,
+        nameTextStyle: { color: secondaryText },
+      },
       tooltip: {
         ...base.tooltip,
         formatter: (params) => {
@@ -80,34 +84,9 @@ export function buildOption({
         },
       },
       series: [
-        {
-          name: "Min",
-          type: "line",
-          stack: "band",
-          data: minData,
-          showSymbol: false,
-          lineStyle: { opacity: 0 },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "Range",
-          type: "line",
-          stack: "band",
-          data: rangeData,
-          showSymbol: false,
-          lineStyle: { opacity: 0 },
-          areaStyle: { opacity: 0.08 },
-          emphasis: { disabled: true },
-          tooltip: { show: false },
-        },
-        {
-          name: "Median",
-          type: "line",
-          data: medianData,
-          showSymbol: false,
-          lineStyle: { width: 3 },
-        },
+        { name: "Min", type: "line", stack: "band", data: minData, showSymbol: false, lineStyle: { opacity: 0 }, emphasis: { disabled: true }, tooltip: { show: false } },
+        { name: "Range", type: "line", stack: "band", data: rangeData, showSymbol: false, lineStyle: { opacity: 0 }, areaStyle: { opacity: 0.08 }, emphasis: { disabled: true }, tooltip: { show: false } },
+        { name: "Median", type: "line", data: medianData, showSymbol: false, lineStyle: { width: 3 } },
       ],
     };
   }
@@ -122,6 +101,20 @@ export function buildOption({
 
     return {
       ...base,
+      xAxis: {
+        type: "time",
+        axisLabel: { color: secondaryText },
+        axisLine: { lineStyle: { color: gridLine } },
+        splitLine: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { color: secondaryText },
+        axisLine: { lineStyle: { color: gridLine } },
+        splitLine: { lineStyle: { color: gridLine, type: "dashed" } },
+        name: `Kr per ${measurementUnit}`,
+        nameTextStyle: { color: secondaryText },
+      },
       legend: {
         type: "scroll",
         orient: "vertical",
@@ -140,13 +133,16 @@ export function buildOption({
           const y = p.value[1];
           const hasDiscount = !!p.value[2];
           const brand = p.value[3];
+          const variant = p.value[4];
 
           return `
             <div>
               <strong>${p.seriesName}</strong><br/>
               ${dateStr}<br/>
               <span style="font-weight:700">${Number(y).toFixed(2)} kr</span> per ${measurementUnit}<br/>
-              <span style="color:${secondaryText}">Merke: ${brand ?? "—"}</span>
+              <span style="color:${secondaryText}">
+                Merke: ${brand ?? "—"}${variant ? ` / Variant: ${variant}` : ""}
+              </span>
               ${hasDiscount ? `<div><span style="font-weight:700">Tilbud!</span></div>` : ""}
             </div>
           `;
@@ -159,8 +155,117 @@ export function buildOption({
         return {
           name: s.id,
           type: "line",
-          data: s.points.map((p) => [p.x, p.y, p.hasDiscount, p.brand]),
+          data: s.points.map((p) => [p.x, p.y, p.hasDiscount, p.brand, p.variant]),
           showSymbol: false,
+          lineStyle: {
+            width: isHighlighted ? 3 : 2,
+            opacity: isFaded ? 0.18 : 0.95,
+          },
+          emphasis: { focus: "series" },
+        };
+      }),
+    };
+  }
+
+  // ✅ NEW: yearly
+  if (mode === "yearly") {
+    const legendData = yearlySeriesData.map((s) => s.id);
+
+    const selected = {};
+    legendData.forEach((name) => {
+      selected[name] = !hiddenSeries.has(name);
+    });
+
+    // gather all years across series
+    const yearSet = new Set();
+    yearlySeriesData.forEach((s) => s.points.forEach((p) => yearSet.add(p.year)));
+    const years = [...yearSet].sort((a, b) => Number(a) - Number(b));
+
+    return {
+      ...base,
+      dataZoom: [], // yearly is usually small; keep clean
+      xAxis: {
+        type: "category",
+        data: years,
+        axisLabel: { color: secondaryText },
+        axisLine: { lineStyle: { color: gridLine } },
+        splitLine: { show: false },
+      },
+      yAxis: {
+        type: "value",
+        axisLabel: { color: secondaryText },
+        axisLine: { lineStyle: { color: gridLine } },
+        splitLine: { lineStyle: { color: gridLine, type: "dashed" } },
+        name: `Kr per ${measurementUnit}`,
+        nameTextStyle: { color: secondaryText },
+      },
+      legend: {
+        type: "scroll",
+        orient: "vertical",
+        right: 10,
+        top: 30,
+        bottom: 30,
+        textStyle: { color: textColor },
+        data: legendData,
+        selected,
+      },
+      tooltip: {
+        ...base.tooltip,
+        formatter: (params) => {
+          // params: one per visible series at this year
+          if (!Array.isArray(params) || !params.length) return "";
+          const year = params[0].axisValue;
+
+          // show best (lowest) first for readability
+          const sorted = params
+            .slice()
+            .sort((a, b) => (a.value?.[1] ?? Infinity) - (b.value?.[1] ?? Infinity))
+            .slice(0, 12);
+
+          const rows = sorted
+            .map((p) => {
+              const avg = p.value?.[1];
+              const purchases = p.value?.[2];
+              const yoy = p.value?.[3];
+              const since = p.value?.[4];
+
+              const fmt = (n) => (typeof n === "number" ? `${n.toFixed(1)}%` : "—");
+
+              return `
+                <div style="margin-top:6px">
+                  <strong>${p.seriesName}</strong><br/>
+                  <span style="font-weight:700">${Number(avg).toFixed(2)} kr</span> per ${measurementUnit}
+                  <span style="color:${secondaryText}"> (${purchases ?? 0} kjøp)</span><br/>
+                  <span style="color:${secondaryText}">
+                    YoY: ${fmt(yoy)} / Siden start: ${fmt(since)}
+                  </span>
+                </div>
+              `;
+            })
+            .join("");
+
+          return `<div><strong>${year}</strong>${rows}</div>`;
+        },
+      },
+      series: yearlySeriesData.map((s) => {
+        const isHighlighted = !!highlightSeries && s.id === highlightSeries;
+        const isFaded = !!highlightSeries && s.id !== highlightSeries;
+
+        // map to [year, avg, purchases, yoyPct, sinceStartPct]
+        const map = new Map(s.points.map((p) => [p.year, p]));
+        const data = years.map((y) => {
+          const p = map.get(y);
+          if (!p) return [y, null, 0, null, null];
+          return [y, p.avg, p.purchases, p.yoyPct, p.sinceStartPct];
+        });
+
+        return {
+          name: s.id,
+          type: "line",
+          data,
+          connectNulls: true,
+          showSymbol: true,
+          symbolSize: 6,
           lineStyle: {
             width: isHighlighted ? 3 : 2,
             opacity: isFaded ? 0.18 : 0.95,
@@ -184,6 +289,14 @@ export function buildOption({
       axisLabel: { color: secondaryText },
       axisLine: { lineStyle: { color: gridLine } },
       splitLine: { show: false },
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: { color: secondaryText },
+      axisLine: { lineStyle: { color: gridLine } },
+      splitLine: { lineStyle: { color: gridLine, type: "dashed" } },
+      name: `Kr per ${measurementUnit}`,
+      nameTextStyle: { color: secondaryText },
     },
     tooltip: {
       ...base.tooltip,
