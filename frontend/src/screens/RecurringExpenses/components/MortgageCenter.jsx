@@ -168,23 +168,32 @@ export default function MortgageCenter({
 
   const planSchedule = useMemo(
     () => (Array.isArray(plan?.schedule) ? plan.schedule : []),
-    [plan]
+    [plan],
   );
   const simSchedule = useMemo(
     () => (Array.isArray(sim?.schedule) ? sim.schedule : []),
-    [sim]
+    [sim],
   );
 
   const showSchedule = useMemo(
     () => (sim ? simSchedule : planSchedule),
-    [sim, simSchedule, planSchedule]
+    [sim, simSchedule, planSchedule],
   );
   const headRows = useMemo(() => showSchedule.slice(0, 12), [showSchedule]);
 
-  const title = selected?.title || plan?.mortgage?.title || sim?.mortgage?.title || "";
+  const title =
+    selected?.title || plan?.mortgage?.title || sim?.mortgage?.title || "";
 
-  const planTotals = plan?.totals || { totalInterest: 0, totalFees: 0, totalPrincipal: 0 };
-  const simTotals = sim?.totals || { totalInterest: 0, totalFees: 0, totalPrincipal: 0 };
+  const planTotals = plan?.totals || {
+    totalInterest: 0,
+    totalFees: 0,
+    totalPrincipal: 0,
+  };
+  const simTotals = sim?.totals || {
+    totalInterest: 0,
+    totalFees: 0,
+    totalPrincipal: 0,
+  };
 
   const diff = useMemo(() => {
     if (!sim) return null;
@@ -194,11 +203,18 @@ export default function MortgageCenter({
 
     const monthsSaved = planM != null && simM != null ? n(planM) - n(simM) : 0;
 
-    const interestSaved = n(planTotals.totalInterest) - n(simTotals.totalInterest);
+    const interestSaved =
+      n(planTotals.totalInterest) - n(simTotals.totalInterest);
     const feesSaved = n(planTotals.totalFees) - n(simTotals.totalFees);
 
-    const totalPaidPlan = n(planTotals.totalInterest) + n(planTotals.totalFees) + n(planTotals.totalPrincipal);
-    const totalPaidSim = n(simTotals.totalInterest) + n(simTotals.totalFees) + n(simTotals.totalPrincipal);
+    const totalPaidPlan =
+      n(planTotals.totalInterest) +
+      n(planTotals.totalFees) +
+      n(planTotals.totalPrincipal);
+    const totalPaidSim =
+      n(simTotals.totalInterest) +
+      n(simTotals.totalFees) +
+      n(simTotals.totalPrincipal);
     const totalPaidDelta = totalPaidPlan - totalPaidSim;
 
     return {
@@ -270,7 +286,11 @@ export default function MortgageCenter({
       <Card sx={{ mt: 2 }}>
         <CardContent>
           <Stack spacing={2}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
               <Typography fontWeight={900}>Boliglån</Typography>
               <Stack direction="row" spacing={1}>
                 <Button
@@ -299,6 +319,15 @@ export default function MortgageCenter({
                 value={selected ? selectedId : ""}
                 onChange={(e) => setSelectedId(e.target.value)}
                 fullWidth
+                name="mortgageId"
+                id="mortgage-select"
+                slotProps={{
+                  inputLabel: { id: "mortgage-select-label" },
+                  select: {
+                    id: "mortgage-select",
+                    labelId: "mortgage-select-label",
+                  },
+                }}
               >
                 {(mortgages || []).map((m) => (
                   <MenuItem key={String(m._id)} value={String(m._id)}>
@@ -306,7 +335,6 @@ export default function MortgageCenter({
                   </MenuItem>
                 ))}
               </TextField>
-
               <TextField
                 label="Fra måned (YYYY-MM)"
                 value={from}
@@ -320,7 +348,9 @@ export default function MortgageCenter({
                 type="number"
                 value={months}
                 onChange={(e) =>
-                  setMonths(Math.max(1, Math.min(600, Number(e.target.value || 360))))
+                  setMonths(
+                    Math.max(1, Math.min(600, Number(e.target.value || 360))),
+                  )
                 }
                 sx={{ width: { xs: "100%", sm: 140 } }}
               />
@@ -335,10 +365,17 @@ export default function MortgageCenter({
             />
 
             <Stack direction="row" spacing={1}>
-              <Button onClick={loadPlan} disabled={pending || !selectedId || !selected}>
+              <Button
+                onClick={loadPlan}
+                disabled={pending || !selectedId || !selected}
+              >
                 Oppdater plan
               </Button>
-              <Button variant="contained" onClick={runSim} disabled={pending || !selectedId || !selected}>
+              <Button
+                variant="contained"
+                onClick={runSim}
+                disabled={pending || !selectedId || !selected}
+              >
                 Simuler
               </Button>
               <Button
@@ -358,57 +395,99 @@ export default function MortgageCenter({
             {diff && (
               <>
                 <Divider />
-                <Typography fontWeight={900}>Forskjell (Plan vs What-if)</Typography>
+                <Typography fontWeight={900}>
+                  Forskjell (Plan vs What-if)
+                </Typography>
 
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1 }}>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 1,
+                  }}
+                >
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Nedbetalt (plan)</Typography>
-                    <Typography fontWeight={700}>{diff.payoffPlan || "Ikke innen horisont"}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Nedbetalt (plan)
+                    </Typography>
+                    <Typography fontWeight={700}>
+                      {diff.payoffPlan || "Ikke innen horisont"}
+                    </Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Nedbetalt (what-if)</Typography>
-                    <Typography fontWeight={700}>{diff.payoffSim || "Ikke innen horisont"}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Nedbetalt (what-if)
+                    </Typography>
+                    <Typography fontWeight={700}>
+                      {diff.payoffSim || "Ikke innen horisont"}
+                    </Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Måneder til nedbetalt (plan)</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Måneder til nedbetalt (plan)
+                    </Typography>
                     <Typography>{diff.monthsToPayoffPlan ?? "-"}</Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Måneder til nedbetalt (what-if)</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Måneder til nedbetalt (what-if)
+                    </Typography>
                     <Typography>{diff.monthsToPayoffSim ?? "-"}</Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Måneder spart</Typography>
-                    <Typography fontWeight={800}>{monthsDeltaLabel(diff.monthsSaved)}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Måneder spart
+                    </Typography>
+                    <Typography fontWeight={800}>
+                      {monthsDeltaLabel(diff.monthsSaved)}
+                    </Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Renter spart</Typography>
-                    <Typography fontWeight={800}>{deltaLabel(diff.interestSaved, formatCurrency)}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Renter spart
+                    </Typography>
+                    <Typography fontWeight={800}>
+                      {deltaLabel(diff.interestSaved, formatCurrency)}
+                    </Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Gebyr spart</Typography>
-                    <Typography fontWeight={800}>{deltaLabel(diff.feesSaved, formatCurrency)}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Gebyr spart
+                    </Typography>
+                    <Typography fontWeight={800}>
+                      {deltaLabel(diff.feesSaved, formatCurrency)}
+                    </Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Total betalt (plan)</Typography>
-                    <Typography>{formatCurrency(diff.totalPaidPlan)}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total betalt (plan)
+                    </Typography>
+                    <Typography>
+                      {formatCurrency(diff.totalPaidPlan)}
+                    </Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Total betalt (what-if)</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Total betalt (what-if)
+                    </Typography>
                     <Typography>{formatCurrency(diff.totalPaidSim)}</Typography>
                   </Stack>
 
                   <Stack spacing={0.25}>
-                    <Typography variant="body2" color="text.secondary">Forskjell total betalt</Typography>
-                    <Typography fontWeight={800}>{deltaLabel(diff.totalPaidDelta, formatCurrency)}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Forskjell total betalt
+                    </Typography>
+                    <Typography fontWeight={800}>
+                      {deltaLabel(diff.totalPaidDelta, formatCurrency)}
+                    </Typography>
                   </Stack>
                 </Box>
 
@@ -443,7 +522,11 @@ export default function MortgageCenter({
                   const pk = String(r.periodKey || "");
                   const row = r.schedule || {};
                   return (
-                    <Stack key={pk} direction="row" justifyContent="space-between">
+                    <Stack
+                      key={pk}
+                      direction="row"
+                      justifyContent="space-between"
+                    >
                       <Typography variant="body2" sx={{ width: 70 }}>
                         {pk}
                       </Typography>

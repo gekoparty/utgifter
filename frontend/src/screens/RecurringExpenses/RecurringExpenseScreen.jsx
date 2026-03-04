@@ -111,6 +111,34 @@ const doPurgeAll = useCallback(async () => {
     sum3: { min: 0, max: 0, paid: 0 },
   };
 
+  console.log("forecast sample", forecast?.slice?.(0, 2));
+
+  if (forecast?.length) {
+  console.table(
+    forecast.map((m) => ({
+      key: m.key,
+      date: m.date,
+      expectedMin: m.expectedMin,
+      expectedMax: m.expectedMax,
+      paidTotal: m.paidTotal,
+      type_expectedMin: typeof m.expectedMin,
+      type_expectedMax: typeof m.expectedMax,
+      type_paidTotal: typeof m.paidTotal,
+    }))
+  );
+
+  console.log(
+    "items sample",
+    forecast[0]?.items?.map((it) => ({
+      type: it.type,
+      expectedMax: it.expected?.max,
+      expectedFixed: it.expected?.fixed,
+      type_max: typeof it.expected?.max,
+      type_fixed: typeof it.expected?.fixed,
+    }))
+  );
+}
+
   const thisMonthKey = useMemo(() => dayjs().format("YYYY-MM"), []);
   const forecastPast = useMemo(
     () => (forecast || []).filter((m) => m.key < thisMonthKey),
@@ -427,6 +455,7 @@ const doPurgeAll = useCallback(async () => {
 
         {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
           <Box sx={{ mt: 2 }}>
+           
             <RecurringOverviewCharts
               forecast={forecast}
               monthsForTypeSplit={3}

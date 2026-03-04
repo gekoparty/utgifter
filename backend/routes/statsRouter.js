@@ -1,37 +1,15 @@
 // routes/stats.js
-import express from 'express';
-import mongoose from 'mongoose'; 
-import Expense from '../models/expenseSchema.js';
-import Product from '../models/productSchema.js';
-import Shop from '../models/shopSchema.js';
+import express from "express";
+import mongoose from "mongoose";
+import Expense from "../models/expenseSchema.js";
+import Product from "../models/productSchema.js";
+import Shop from "../models/shopSchema.js";
 
 const router = express.Router();
 
 /**
- * GET /api/stats/expenses-by-month
- * Returns an array of:
- *   { month: "YYYY-MM", total: Number }
- */
-/**
  * GET /api/stats/expenses-by-month-summary?year=2025&compare=1
- * Computes 12-month series + YoY comparison + useful stats on backend
- */
-/**
- * GET /api/stats/expenses-by-month-summary?year=2025&compare=1
- *
- * Returns:
- * {
- *   years: ["2026","2025"...],
- *   year: "2025",
- *   compareYear: "2024" | null,
- *   months: [{ monthIndex, month, current, previous, yoyPct }, ... 12],
- *   stats: {
- *     currentSum, previousSum, yoyTotalPct,
- *     avgPerActiveMonth, medianPerMonth, momPct,
- *     volatilityPct, runRate, activeMonths,
- *     maxMonth, minMonth, bestQuarter, worstQuarter
- *   }
- * }
+ * (unchanged)
  */
 router.get("/expenses-by-month-summary", async (req, res, next) => {
   try {
@@ -111,9 +89,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       const mm = String(i + 1).padStart(2, "0");
 
       const current = totalsMap.get(`${year}-${mm}`) || 0;
-
       const previous = doCompare ? totalsMap.get(`${compareYear}-${mm}`) || 0 : null;
-
       const yoyPct = doCompare && previous && previous > 0 ? ((current - previous) / previous) * 100 : null;
 
       months.push({
@@ -145,7 +121,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
     };
     const medianPerMonth = median(currentVals);
 
-    // MoM: last month with spend vs month before it (within selected year)
+    // MoM: last month with spend vs month before it
     const lastIdx = [...months].reverse().find((x) => x.current > 0)?.monthIndex ?? -1;
     let momPct = null;
     if (lastIdx >= 1) {
@@ -215,135 +191,183 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
   }
 });
 
-
-
-router.get('/price-history', async (req, res, next) => {
-    const { productId } = req.query;
-    if (!productId) {
-      return res.status(400).json({ message: 'Missing productId' });
-    }
-  
-    try {
-      const data = await Expense.aggregate([
-        // 1) only expenses for the requested product
-        { 
-          $match: { productName: mongoose.Types.ObjectId(productId) } 
-        },
-  
-        // 2) turn that ObjectId into the actual product doc
-        {
-          $lookup: {
-            from: 'products',               // the Mongo collection name
-            localField: 'productName',
-            foreignField: '_id',
-            as: 'product'
-          }
-        },
-        { $unwind: '$product' },           // we know there's exactly one
-  
-        // 3) project only what we need: 
-        //    - date (purchaseDate or registeredDate)
-        //    - finalPrice
-        //    - product.name (for context)
-        {
-          $project: {
-            _id: 0,
-            date: { $ifNull: ['$purchaseDate', '$registeredDate'] },
-            price: '$finalPrice',
-            productName: '$product.name'
-          }
-        },
-  
-        // 4) sort by date ascending
-        { $sort: { date: 1 } }
-      ]);
-  
-      res.json(data);
-    } catch (err) {
-      console.error('Error in /api/stats/price-history:', err);
-      next(err);
-    }
-  });
-
- router.get('/price-per-unit-history', async (req, res, next) => {
+router.get("/price-history", async (req, res, next) => {
   const { productId } = req.query;
-  if (!productId) {
-    return res.status(400).json({ message: 'Missing productId' });
-  }
+  if (!productId) return res.status(400).json({ message: "Missing productId" });
 
   try {
     const data = await Expense.aggregate([
-      // 1. Match Product
-      {
-        $match: { productName: new mongoose.Types.ObjectId(productId) }
-      },
-      // 2. Join Product (to get name/unit)
+      { $match: { productName: mongoose.Types.ObjectId(productId) } },
       {
         $lookup: {
-          from: 'products',
-          localField: 'productName',
-          foreignField: '_id',
-          as: 'product'
-        }
+          from: "products",
+          localField: "productName",
+          foreignField: "_id",
+          as: "product",
+        },
       },
-      { $unwind: '$product' },
-      // 3. Join Shop (to get shop name)
-      {
-        $lookup: {
-          from: 'shops',
-          localField: 'shopName',
-          foreignField: '_id',
-          as: 'shop'
-        }
-      },
-      { $unwind: '$shop' },
-      // 4. NEW: Join Brand (to get brand name for stats)
-      {
-        $lookup: {
-          from: 'brands',
-          localField: 'brandName',
-          foreignField: '_id',
-          as: 'brand'
-        }
-      },
-      { $unwind: '$brand' },
-      // 5. Project
+      { $unwind: "$product" },
       {
         $project: {
           _id: 0,
-          date: { $ifNull: ['$purchaseDate', '$registeredDate'] },
-          pricePerUnit: 1,
-          finalPrice: 1, // Useful for reference
-          productName: '$product.name',
-          measurementUnit: '$product.measurementUnit',
-          shopName: '$shop.name',
-          brandName: '$brand.name', // NEW
-          hasDiscount: 1,           // NEW
-          discountValue: 1          // NEW (Optional, if you want to show how much %)
-        }
+          date: { $ifNull: ["$purchaseDate", "$registeredDate"] },
+          price: "$finalPrice",
+          productName: "$product.name",
+        },
       },
-      { $sort: { date: 1 } }
+      { $sort: { date: 1 } },
     ]);
 
     res.json(data);
   } catch (err) {
-    console.error('Error in /api/stats/price-per-unit-history:', err);
+    console.error("Error in /api/stats/price-history:", err);
+    next(err);
+  }
+});
+router.get("/price-per-unit-history", async (req, res, next) => {
+  const { productId } = req.query;
+  if (!productId) {
+    return res.status(400).json({ message: "Missing productId" });
+  }
+
+  try {
+    const pid = new mongoose.Types.ObjectId(productId);
+
+    const data = await Expense.aggregate([
+      { $match: { productName: pid } },
+
+      // unify date
+      { $addFields: { actualDate: { $ifNull: ["$purchaseDate", "$registeredDate"] } } },
+
+      // --- IMPORTANT: robust conversions (handles ObjectId OR string OR empty) ---
+      {
+        $addFields: {
+          shopObjId: {
+            $convert: { input: "$shopName", to: "objectId", onError: null, onNull: null },
+          },
+          brandObjId: {
+            $convert: { input: "$brandName", to: "objectId", onError: null, onNull: null },
+          },
+          variantId: { $ifNull: ["$variant", ""] }, // stored as string
+          variantObjId: {
+            $convert: { input: "$variant", to: "objectId", onError: null, onNull: null },
+          },
+        },
+      },
+
+      // Product
+      {
+        $lookup: {
+          from: "products",
+          localField: "productName",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+
+      // Shop (use shopObjId to be robust)
+      {
+        $lookup: {
+          from: "shops",
+          localField: "shopObjId",
+          foreignField: "_id",
+          as: "shop",
+        },
+      },
+      { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+
+      // Brand (use brandObjId)
+      {
+        $lookup: {
+          from: "brands",
+          localField: "brandObjId",
+          foreignField: "_id",
+          as: "brand",
+        },
+      },
+      { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+      // Variant
+      {
+        $lookup: {
+          from: "variants",
+          localField: "variantObjId",
+          foreignField: "_id",
+          as: "variantDoc",
+        },
+      },
+      { $unwind: { path: "$variantDoc", preserveNullAndEmptyArrays: true } },
+
+      // Final projection
+      {
+        $project: {
+          _id: 0,
+          date: "$actualDate",
+          pricePerUnit: 1,
+          finalPrice: 1,
+          price: 1,
+
+          productName: "$product.name",
+          measurementUnit: "$product.measurementUnit",
+
+          shopName: { $ifNull: ["$shop.name", "Ukjent"] },
+          brandName: { $ifNull: ["$brand.name", "Ukjent"] },
+
+          hasDiscount: 1,
+          discountValue: 1,
+
+          // ✅ variants
+          variantId: 1,
+          variantName: {
+            $cond: [
+              { $and: [{ $ne: ["$variantId", ""] }, { $ifNull: ["$variantDoc.name", false] }] },
+              "$variantDoc.name",
+              "Standard",
+            ],
+          },
+        },
+      },
+
+      { $sort: { date: 1 } },
+    ]);
+
+    res.json(data);
+  } catch (err) {
+    console.error("Error in /api/stats/price-per-unit-history:", err);
     next(err);
   }
 });
 
+/**
+ * ✅ UPDATED: /api/stats/product-insights
+ * Adds:
+ * - ?variantIds=id1,id2,id3  (string IDs, matching how you store expense.variant)
+ * - history rows include { variantId, variantName }
+ * - result includes variantStats facet
+ */
 router.get("/product-insights", async (req, res, next) => {
   const { productId } = req.query;
   if (!productId) return res.status(400).json({ message: "Missing productId" });
 
   const includeDiscounts = req.query.includeDiscounts !== "false";
 
+  // Filter by variants (expense.variant stored as string)
+  const variantIds = req.query.variantIds
+    ? String(req.query.variantIds)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+
   try {
     const pid = new mongoose.Types.ObjectId(productId);
 
-    const matchStage = includeDiscounts
-      ? { productName: pid }
-      : { productName: pid, hasDiscount: { $ne: true } };
+    const matchStage = {
+      productName: pid,
+      ...(includeDiscounts ? {} : { hasDiscount: { $ne: true } }),
+      ...(variantIds.length ? { variant: { $in: variantIds } } : {}),
+    };
 
     const [result] = await Expense.aggregate([
       { $match: matchStage },
@@ -352,6 +376,24 @@ router.get("/product-insights", async (req, res, next) => {
       {
         $addFields: {
           actualDate: { $ifNull: ["$purchaseDate", "$registeredDate"] },
+        },
+      },
+
+      // robust conversions (shop/brand can be string or ObjectId)
+      {
+        $addFields: {
+          shopObjId: {
+            $convert: { input: "$shopName", to: "objectId", onError: null, onNull: null },
+          },
+          brandObjId: {
+            $convert: { input: "$brandName", to: "objectId", onError: null, onNull: null },
+          },
+
+          // variant is stored as string (or empty)
+          variantId: { $ifNull: ["$variant", ""] },
+          variantObjId: {
+            $convert: { input: "$variant", to: "objectId", onError: null, onNull: null },
+          },
         },
       },
 
@@ -369,7 +411,7 @@ router.get("/product-insights", async (req, res, next) => {
       {
         $lookup: {
           from: "shops",
-          localField: "shopName",
+          localField: "shopObjId",
           foreignField: "_id",
           as: "shop",
         },
@@ -379,12 +421,36 @@ router.get("/product-insights", async (req, res, next) => {
       {
         $lookup: {
           from: "brands",
-          localField: "brandName",
+          localField: "brandObjId",
           foreignField: "_id",
           as: "brand",
         },
       },
       { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+      // variant lookup
+      {
+        $lookup: {
+          from: "variants",
+          localField: "variantObjId",
+          foreignField: "_id",
+          as: "variantDoc",
+        },
+      },
+      { $unwind: { path: "$variantDoc", preserveNullAndEmptyArrays: true } },
+
+      // resolve variantName (fallback)
+      {
+        $addFields: {
+          variantName: {
+            $cond: [
+              { $and: [{ $ne: ["$variantId", ""] }, { $ifNull: ["$variantDoc.name", false] }] },
+              "$variantDoc.name",
+              "Standard",
+            ],
+          },
+        },
+      },
 
       // robust discount saving per expense
       {
@@ -400,17 +466,14 @@ router.get("/product-insights", async (req, res, next) => {
               },
               in: {
                 $cond: [
-                  // 1) discountAmount if present and > 0
                   { $and: [{ $ne: ["$$discAmt", null] }, { $gt: ["$$discAmt", 0] }] },
                   "$$discAmt",
                   {
                     $cond: [
-                      // 2) price - finalPrice if positive
                       { $gt: ["$$priceSafe", "$$finalSafe"] },
                       { $subtract: ["$$priceSafe", "$$finalSafe"] },
                       {
                         $cond: [
-                          // 3) estimate from discountValue% if needed
                           { $and: ["$$hasDisc", { $gt: ["$$discPct", 0] }, { $gt: ["$$finalSafe", 0] }] },
                           {
                             $let: {
@@ -421,10 +484,7 @@ router.get("/product-insights", async (req, res, next) => {
                                 $cond: [
                                   { $gt: ["$$factor", 0] },
                                   {
-                                    $subtract: [
-                                      { $divide: ["$$finalSafe", "$$factor"] },
-                                      "$$finalSafe",
-                                    ],
+                                    $subtract: [{ $divide: ["$$finalSafe", "$$factor"] }, "$$finalSafe"],
                                   },
                                   0,
                                 ],
@@ -463,6 +523,9 @@ router.get("/product-insights", async (req, res, next) => {
           measurementUnit: "$product.measurementUnit",
           shopName: { $ifNull: ["$shop.name", "Ukjent"] },
           brandName: { $ifNull: ["$brand.name", "Ukjent"] },
+
+          variantId: 1,
+          variantName: 1,
         },
       },
 
@@ -470,7 +533,6 @@ router.get("/product-insights", async (req, res, next) => {
 
       {
         $facet: {
-          // chart history
           history: [
             {
               $project: {
@@ -488,11 +550,42 @@ router.get("/product-insights", async (req, res, next) => {
                 measurementUnit: 1,
                 shopName: 1,
                 brandName: 1,
+                variantId: 1,
+                variantName: 1,
               },
             },
           ],
 
-          // monthly buckets
+          // Variant breakdown
+          variantStats: [
+            {
+              $group: {
+                _id: { variantId: "$variantId", variantName: "$variantName" },
+                purchases: { $sum: 1 },
+                totalSpend: { $sum: "$finalPrice" },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                minPricePerUnit: { $min: "$pricePerUnit" },
+                maxPricePerUnit: { $max: "$pricePerUnit" },
+                totalSavings: { $sum: "$computedSaving" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                variantId: "$_id.variantId",
+                variantName: "$_id.variantName",
+                purchases: 1,
+                totalSpend: 1,
+                avgPricePerUnit: 1,
+                minPricePerUnit: 1,
+                maxPricePerUnit: 1,
+                totalSavings: 1,
+              },
+            },
+            { $sort: { avgPricePerUnit: 1 } },
+          ],
+
+          // Monthly buckets
           monthlySpend: [
             {
               $group: {
@@ -514,6 +607,105 @@ router.get("/product-insights", async (req, res, next) => {
               },
             },
             { $sort: { month: 1 } },
+          ],
+
+          // ✅ NEW: yearly overall avg
+          yearlyOverall: [
+            {
+              $group: {
+                _id: { $year: "$actualDate" },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+                min: { $min: "$pricePerUnit" },
+                max: { $max: "$pricePerUnit" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                year: { $toString: "$_id" },
+                avgPricePerUnit: 1,
+                purchases: 1,
+                min: 1,
+                max: 1,
+              },
+            },
+            { $sort: { year: 1 } },
+          ],
+
+          // ✅ NEW: yearly by shop (all variants)
+          yearlyByShop: [
+            {
+              $group: {
+                _id: { year: { $year: "$actualDate" }, shopName: "$shopName" },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                year: { $toString: "$_id.year" },
+                shopName: "$_id.shopName",
+                avgPricePerUnit: 1,
+                purchases: 1,
+              },
+            },
+            { $sort: { year: 1, shopName: 1 } },
+          ],
+
+          // ✅ NEW: yearly by variant (all shops)
+          yearlyByVariant: [
+            {
+              $group: {
+                _id: {
+                  year: { $year: "$actualDate" },
+                  variantId: "$variantId",
+                  variantName: "$variantName",
+                },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                year: { $toString: "$_id.year" },
+                variantId: "$_id.variantId",
+                variantName: "$_id.variantName",
+                avgPricePerUnit: 1,
+                purchases: 1,
+              },
+            },
+            { $sort: { year: 1, variantName: 1 } },
+          ],
+
+          // ✅ OPTIONAL: yearly by shop + variant (lots of series)
+          yearlyByShopVariant: [
+            {
+              $group: {
+                _id: {
+                  year: { $year: "$actualDate" },
+                  shopName: "$shopName",
+                  variantId: "$variantId",
+                  variantName: "$variantName",
+                },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                year: { $toString: "$_id.year" },
+                shopName: "$_id.shopName",
+                variantId: "$_id.variantId",
+                variantName: "$_id.variantName",
+                avgPricePerUnit: 1,
+                purchases: 1,
+              },
+            },
+            { $sort: { year: 1, shopName: 1, variantName: 1 } },
           ],
 
           // base trend
@@ -598,7 +790,6 @@ router.get("/product-insights", async (req, res, next) => {
             },
           ],
 
-          // top + cheapest avg
           topShopByCount: [
             { $group: { _id: "$shopName", purchases: { $sum: 1 } } },
             { $sort: { purchases: -1 } },
@@ -643,20 +834,64 @@ router.get("/product-insights", async (req, res, next) => {
     const monthlySpend = result?.monthlySpend ?? [];
     const trendBase = result?.trendBase?.[0] ?? null;
     const medianGapDays = result?.gapDays?.[0]?.medianGapDays ?? null;
+    const variantStats = result?.variantStats ?? [];
+
+    // ---- yearly data ----
+    const yearlyOverall = result?.yearlyOverall ?? [];
+    const yearlyByShop = result?.yearlyByShop ?? [];
+    const yearlyByVariant = result?.yearlyByVariant ?? [];
+    const yearlyByShopVariant = result?.yearlyByShopVariant ?? [];
+
+    const addYearChange = (rows, valueKey = "avgPricePerUnit") => {
+      if (!Array.isArray(rows) || !rows.length) return [];
+      const firstVal = rows[0]?.[valueKey];
+      return rows.map((r, i) => {
+        const curr = r?.[valueKey];
+        const prev = i > 0 ? rows[i - 1]?.[valueKey] : null;
+
+        const yoyPct =
+          i > 0 && typeof prev === "number" && prev !== 0 && typeof curr === "number"
+            ? ((curr - prev) / prev) * 100
+            : null;
+
+        const sinceStartPct =
+          typeof firstVal === "number" && firstVal !== 0 && typeof curr === "number"
+            ? ((curr - firstVal) / firstVal) * 100
+            : null;
+
+        return { ...r, yoyPct, sinceStartPct };
+      });
+    };
+
+    const addYearChangeByGroup = (rows, groupKey, valueKey = "avgPricePerUnit") => {
+      if (!Array.isArray(rows) || !rows.length) return [];
+      const grouped = rows.reduce((acc, r) => {
+        const k = r[groupKey] ?? "—";
+        (acc[k] ||= []).push(r);
+        return acc;
+      }, {});
+      return Object.values(grouped).flatMap((arr) => {
+        const sorted = arr.slice().sort((a, b) => Number(a.year) - Number(b.year));
+        return addYearChange(sorted, valueKey);
+      });
+    };
+
+    const yearly = {
+      overall: addYearChange(yearlyOverall),
+      byShop: addYearChangeByGroup(yearlyByShop, "shopName"),
+      byVariant: addYearChangeByGroup(yearlyByVariant, "variantName"),
+      byShopVariant: addYearChangeByGroup(yearlyByShopVariant, "shopName"),
+    };
 
     // ---- helper: weighted avg by purchases ----
     const weightedAvg = (rows) => {
       const totalPurchases = rows.reduce((s, r) => s + (r.purchases ?? 0), 0);
       if (!totalPurchases) return null;
-      const weightedSum = rows.reduce(
-        (s, r) => s + (r.avgPricePerUnit ?? 0) * (r.purchases ?? 0),
-        0
-      );
+      const weightedSum = rows.reduce((s, r) => s + (r.avgPricePerUnit ?? 0) * (r.purchases ?? 0), 0);
       return weightedSum / totalPurchases;
     };
 
-    // ---- 3-month trend (based on last available month in data) ----
-    // We use the last month present in monthlySpend (already sorted YYYY-MM).
+    // ---- 3-month trend ----
     let threeMonth = {
       last3AvgPricePerUnit: null,
       prev3AvgPricePerUnit: null,
@@ -681,9 +916,6 @@ router.get("/product-insights", async (req, res, next) => {
       const last3Spend = last3.reduce((s, r) => s + (r.totalSpend ?? 0), 0);
       const prev3Spend = prev3.reduce((s, r) => s + (r.totalSpend ?? 0), 0);
 
-      const last3Purchases = last3.reduce((s, r) => s + (r.purchases ?? 0), 0);
-      const prev3Purchases = prev3.reduce((s, r) => s + (r.purchases ?? 0), 0);
-
       const pctPrice =
         prev3Avg && prev3Avg !== 0 && last3Avg != null ? ((last3Avg - prev3Avg) / prev3Avg) * 100 : null;
 
@@ -697,14 +929,14 @@ router.get("/product-insights", async (req, res, next) => {
         last3TotalSpend: last3Spend,
         prev3TotalSpend: prev3Spend,
         pctChangeSpend: pctSpend,
-        last3Purchases,
-        prev3Purchases,
+        last3Purchases: last3.reduce((s, r) => s + (r.purchases ?? 0), 0),
+        prev3Purchases: prev3.reduce((s, r) => s + (r.purchases ?? 0), 0),
         last3Months: last3.map((x) => x.month),
         prev3Months: prev3.map((x) => x.month),
       };
     }
 
-    // ---- % change calculations (per purchase) ----
+    // ---- % change calculations ----
     let lastVsPrevPct = null;
     let lastVsFirstPct = null;
 
@@ -732,8 +964,7 @@ router.get("/product-insights", async (req, res, next) => {
       nextPurchaseDate = null;
 
     if (trendBase?.firstDate && trendBase?.lastDate && trendBase?.count) {
-      const rangeMs =
-        new Date(trendBase.lastDate).getTime() - new Date(trendBase.firstDate).getTime();
+      const rangeMs = new Date(trendBase.lastDate).getTime() - new Date(trendBase.firstDate).getTime();
       const rangeDays = Math.max(1, rangeMs / (1000 * 60 * 60 * 24));
 
       perWeek = trendBase.count / (rangeDays / 7);
@@ -759,6 +990,8 @@ router.get("/product-insights", async (req, res, next) => {
       },
       history,
       monthlySpend,
+      variantStats,
+      yearly, // ✅ NEW
       frequency: {
         totalPurchases: trendBase?.count ?? 0,
         perWeek,
@@ -798,3 +1031,4 @@ router.get("/product-insights", async (req, res, next) => {
   }
 });
 export default router;
+

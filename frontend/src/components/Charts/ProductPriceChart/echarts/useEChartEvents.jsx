@@ -1,8 +1,9 @@
+// src/components/Charts/ProductPriceChart/echarts/useEChartEvents.js
 import { useMemo } from "react";
 
 export function useEChartEvents({ mode, setHiddenSeries, setHighlightSeries }) {
   return useMemo(() => {
-    if (mode !== "shops") return undefined;
+    if (mode !== "shops" && mode !== "yearly") return undefined;
 
     return {
       legendselectchanged: (e) => {

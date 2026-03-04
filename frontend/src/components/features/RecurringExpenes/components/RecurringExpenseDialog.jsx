@@ -59,10 +59,10 @@ export default function RecurringExpenseDialog({
   const showMortgage = form.type === "MORTGAGE";
 
   const dialogTitle = isDelete
-  ? "Fullfør fast kostnad"
-  : isEdit
-  ? "Rediger grunnoppsett"
-  : "Ny fast kostnad";
+    ? "Fullfør fast kostnad"
+    : isEdit
+      ? "Rediger grunnoppsett"
+      : "Ny fast kostnad";
 
   const confirmLabel = isDelete ? "Fullfør" : "Lagre";
   const confirmColor = isDelete ? "error" : "primary";
@@ -172,6 +172,7 @@ export default function RecurringExpenseDialog({
             <>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
+                  name="title"
                   label="Tittel"
                   value={form.title}
                   onChange={(e) => setField("title", e.target.value)}
@@ -182,6 +183,7 @@ export default function RecurringExpenseDialog({
 
                 <TextField
                   select
+                  name="type"
                   label="Type"
                   value={form.type}
                   onChange={(e) => setField("type", e.target.value)}
@@ -198,9 +200,10 @@ export default function RecurringExpenseDialog({
               </Stack>
 
               <TextField
+                name="dueDate"
                 label="Forfallsdato"
                 type="date"
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 value={form.dueDate}
                 onChange={(e) => setField("dueDate", e.target.value)}
                 fullWidth
@@ -213,6 +216,7 @@ export default function RecurringExpenseDialog({
 
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
+                  name="billingIntervalMonths"
                   select
                   label="Frekvens"
                   value={form.billingIntervalMonths ?? 1}
@@ -228,6 +232,7 @@ export default function RecurringExpenseDialog({
                 </TextField>
 
                 <TextField
+                  name="startMonth"
                   select
                   label="Startmåned"
                   value={form.startMonth ?? new Date().getMonth() + 1}
@@ -276,6 +281,7 @@ export default function RecurringExpenseDialog({
                   </Stack>
 
                   <TextField
+                    name="mortgageHolder"
                     label="Långiver / bank"
                     value={form.mortgageHolder}
                     onChange={(e) => setField("mortgageHolder", e.target.value)}
@@ -290,6 +296,7 @@ export default function RecurringExpenseDialog({
                     alignItems="flex-start"
                   >
                     <TextField
+                      name="mortgageKind"
                       select
                       label="Type lån"
                       value={form.mortgageKind}
@@ -329,6 +336,7 @@ export default function RecurringExpenseDialog({
 
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                     <TextField
+                      name="remainingBalance"
                       label="Restgjeld (NOK)"
                       type="number"
                       value={form.remainingBalance}
@@ -336,12 +344,15 @@ export default function RecurringExpenseDialog({
                         setField("remainingBalance", Number(e.target.value))
                       }
                       fullWidth
-                      inputProps={{ min: 0 }}
+                      slotProps={{
+                        htmlInput: { min: 0 },
+                      }}
                       error={Boolean(fieldError("remainingBalance"))}
                       helperText={helper("remainingBalance")}
                     />
 
                     <TextField
+                      name="interestRate"
                       label="Rente (%)"
                       type="number"
                       value={form.interestRate}
@@ -349,7 +360,9 @@ export default function RecurringExpenseDialog({
                         setField("interestRate", Number(e.target.value))
                       }
                       fullWidth
-                      inputProps={{ min: 0, step: 0.01 }}
+                      slotProps={{
+                        htmlInput: { min: 0, step: 0.01 },
+                      }}
                       error={Boolean(fieldError("interestRate"))}
                       helperText={helper("interestRate")}
                     />
@@ -361,6 +374,7 @@ export default function RecurringExpenseDialog({
                     alignItems="flex-start"
                   >
                     <TextField
+                      name="amount"
                       label="Månedlig betaling (NOK)"
                       type="number"
                       value={form.amount}
@@ -388,6 +402,7 @@ export default function RecurringExpenseDialog({
                       />
 
                       <TextField
+                        name="monthlyFee"
                         label="Gebyr (NOK)"
                         type="number"
                         value={form.monthlyFee}
@@ -397,7 +412,9 @@ export default function RecurringExpenseDialog({
                         disabled={!form.hasMonthlyFee || busy}
                         fullWidth
                         sx={{ mt: 1 }}
-                        inputProps={{ min: 0 }}
+                        slotProps={{
+    htmlInput: { min: 0 }
+  }}
                         error={Boolean(fieldError("monthlyFee"))}
                         helperText={helper("monthlyFee")}
                       />
@@ -421,6 +438,7 @@ export default function RecurringExpenseDialog({
 
                   <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                     <TextField
+                      name="amount"
                       label="Månedlig beløp (NOK)"
                       type="number"
                       value={form.amount}
@@ -428,12 +446,15 @@ export default function RecurringExpenseDialog({
                         setField("amount", Number(e.target.value))
                       }
                       fullWidth
-                      inputProps={{ min: 0 }}
+                      slotProps={{
+    htmlInput: { min: 0 }
+  }}
                       error={Boolean(fieldError("amount"))}
                       helperText={helper("amount")}
                     />
 
                     <TextField
+                      name="estimateMin"
                       label="Estimat min (NOK)"
                       type="number"
                       value={form.estimateMin}
@@ -441,13 +462,16 @@ export default function RecurringExpenseDialog({
                         setField("estimateMin", Number(e.target.value))
                       }
                       fullWidth
-                      inputProps={{ min: 0 }}
+                      slotProps={{
+    htmlInput: { min: 0 }
+  }}
                       error={Boolean(fieldError("estimateMin"))}
                       helperText={helper("estimateMin")}
                     />
                   </Stack>
 
                   <TextField
+                    name="estimateMax"
                     label="Estimat maks (NOK)"
                     type="number"
                     value={form.estimateMax}
@@ -455,7 +479,9 @@ export default function RecurringExpenseDialog({
                       setField("estimateMax", Number(e.target.value))
                     }
                     fullWidth
-                    inputProps={{ min: 0 }}
+                    slotProps={{
+    htmlInput: { min: 0 }
+  }}
                     error={Boolean(fieldError("estimateMax"))}
                     helperText={helper("estimateMax")}
                   />

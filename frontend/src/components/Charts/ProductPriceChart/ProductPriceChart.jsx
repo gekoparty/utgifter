@@ -1,14 +1,7 @@
+// src/components/Charts/ProductPriceChart/ProductPriceChart.jsx
 import React, { useMemo, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
-import {
-  Paper,
-  Typography,
-  useTheme,
-  Box,
-  Chip,
-  Stack,
-  Grid,
-} from "@mui/material";
+import { Paper, Typography, useTheme, Box, Chip, Grid } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
 
@@ -30,21 +23,34 @@ import { formatCurrency, fmtPct, fmt1, changeChipColor } from "./utils/format";
 export default function ProductPriceChart({ productId }) {
   const theme = useTheme();
 
-  const [mode, setMode] = useState("overview"); // "overview" | "shops" | "distribution"
+  const [mode, setMode] = useState("overview"); // "overview" | "shops" | "distribution" | "yearly"
   const [includeDiscounts, setIncludeDiscounts] = useState(true);
 
+  // shops mode controls
   const [topN, setTopN] = useState(5);
   const [visibleShops, setVisibleShops] = useState([]);
+
+  // shared legend state
   const [hiddenSeries, setHiddenSeries] = useState(() => new Set());
   const [highlightSeries, setHighlightSeries] = useState(null);
 
   const [overviewBucket, setOverviewBucket] = useState("week"); // "week" | "month"
   const [showAllKpis, setShowAllKpis] = useState(false);
 
-  const { data, isLoading, error } = useProductInsights(productId, includeDiscounts);
+  // variant filtering
+  const [selectedVariantIds, setSelectedVariantIds] = useState([]); // [] => all
+
+  // ✅ yearly mode controls
+  const [yearlyBreakdown, setYearlyBreakdown] = useState("overall"); // overall | shop | variant | shopVariant
+  const [yearlyTopN, setYearlyTopN] = useState(5);
+  const [visibleYearSeries, setVisibleYearSeries] = useState([]);
+
+  const { data, isLoading, error } = useProductInsights(productId, includeDiscounts, selectedVariantIds);
 
   const history = data?.history ?? [];
   const monthlySpend = data?.monthlySpend ?? [];
+  const yearly = data?.yearly ?? null;
+
   const freq = data?.frequency ?? {};
   const trend = data?.trend ?? {};
   const threeMonth = trend?.threeMonth ?? {};
@@ -54,19 +60,56 @@ export default function ProductPriceChart({ productId }) {
   const productNameStr = data?.product?.name || history?.[0]?.productName || "Product";
   const measurementUnit = data?.product?.measurementUnit || history?.[0]?.measurementUnit || "unit";
 
-  const { shops, overviewBuckets, shopSeriesData, distributionBuckets } = usePreparedSeries({
+  // available variants for selector (prefer variantStats if present)
+  const availableVariants = useMemo(() => {
+    if (Array.isArray(data?.variantStats) && data.variantStats.length) {
+      return data.variantStats
+        .map((v) => ({ id: String(v.variantId ?? "").trim(), name: String(v.variantName ?? "Standard") }))
+        .filter((v) => v.id); // only true variant IDs
+    }
+    const map = new Map();
+    for (const h of history) {
+      const id = String(h?.variantId ?? "").trim();
+      const name = String(h?.variantName ?? "Standard");
+      if (id) map.set(id, name);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+  }, [data?.variantStats, history]);
+
+  const {
+    shops,
+    overviewBuckets,
+    shopSeriesData,
+    distributionBuckets,
+    yearlySeriesCatalog,
+    yearlySeriesData,
+  } = usePreparedSeries({
     history,
     mode,
     topN,
     visibleShops,
     overviewBucket,
+
+    yearlyBreakdown,
+    yearlyData: yearly,
+    yearlyTopN,
+    visibleYearSeries,
   });
+
+  // yearly overall latest row for KPI
+  const latestYearRow = useMemo(() => {
+    const arr = yearly?.overall ?? [];
+    return arr.length ? arr[arr.length - 1] : null;
+  }, [yearly]);
 
   const stats = useMemo(() => {
     if (!history?.length) return null;
 
-    const cheapestRecord = _.minBy(history.filter((h) => Number.isFinite(h.pricePerUnit)), "pricePerUnit");
-    const mostExpensiveRecord = _.maxBy(history.filter((h) => Number.isFinite(h.pricePerUnit)), "pricePerUnit");
+    const finite = history.filter((h) => Number.isFinite(h.pricePerUnit));
+    const cheapestRecord = _.minBy(finite, "pricePerUnit");
+    const mostExpensiveRecord = _.maxBy(finite, "pricePerUnit");
 
     const shopGroups = _.groupBy(history, "shopName");
     const shopStats = Object.entries(shopGroups)
@@ -88,7 +131,17 @@ export default function ProductPriceChart({ productId }) {
       .filter((b) => Number.isFinite(b.avg))
       .sort((a, b) => a.avg - b.avg);
 
-    return { cheapestRecord, mostExpensiveRecord, shopStats, brandStats };
+    const variantGroups = _.groupBy(history, (h) => h.variantName || "Standard");
+    const variantStats = Object.entries(variantGroups)
+      .map(([name, items]) => ({
+        name,
+        avg: _.meanBy(items.filter((i) => Number.isFinite(i.pricePerUnit)), "pricePerUnit"),
+        count: items.length,
+      }))
+      .filter((v) => Number.isFinite(v.avg))
+      .sort((a, b) => a.avg - b.avg);
+
+    return { cheapestRecord, mostExpensiveRecord, shopStats, brandStats, variantStats };
   }, [history]);
 
   const stopScrollBubble = useCallback((e) => {
@@ -120,7 +173,7 @@ export default function ProductPriceChart({ productId }) {
   }, [freq, trend]);
 
   const kpisSecondary = useMemo(() => {
-    return [
+    const base = [
       {
         label: "3 mnd pris",
         value: fmtPct(threeMonth?.pctChangePricePerUnit),
@@ -137,7 +190,23 @@ export default function ProductPriceChart({ productId }) {
         color: (discount.totalSavings ?? 0) > 0 ? "success" : "default",
       },
     ];
-  }, [threeMonth, discount]);
+
+    // ✅ yearly overall change KPIs
+    if (latestYearRow) {
+      base.push({
+        label: `År ${latestYearRow.year} YoY`,
+        value: fmtPct(latestYearRow.yoyPct),
+        color: changeChipColor(latestYearRow.yoyPct),
+      });
+      base.push({
+        label: "År siden start",
+        value: fmtPct(latestYearRow.sinceStartPct),
+        color: changeChipColor(latestYearRow.sinceStartPct),
+      });
+    }
+
+    return base;
+  }, [threeMonth, discount, latestYearRow]);
 
   const option = useMemo(() => {
     return buildOption({
@@ -149,6 +218,8 @@ export default function ProductPriceChart({ productId }) {
       distributionBuckets,
       hiddenSeries,
       highlightSeries,
+
+      yearlySeriesData,
     });
   }, [
     mode,
@@ -159,6 +230,7 @@ export default function ProductPriceChart({ productId }) {
     distributionBuckets,
     hiddenSeries,
     highlightSeries,
+    yearlySeriesData,
   ]);
 
   const onEvents = useEChartEvents({ mode, setHiddenSeries, setHighlightSeries });
@@ -173,9 +245,16 @@ export default function ProductPriceChart({ productId }) {
         <HeaderControls
           productNameStr={productNameStr}
           mode={mode}
-          setMode={setMode}
+          setMode={(v) => {
+            setMode(v);
+            setHiddenSeries(new Set());
+            setHighlightSeries(null);
+          }}
           includeDiscounts={includeDiscounts}
           setIncludeDiscounts={setIncludeDiscounts}
+          variants={availableVariants}
+          selectedVariantIds={selectedVariantIds}
+          setSelectedVariantIds={setSelectedVariantIds}
         />
 
         {/* KPI grid */}
@@ -225,20 +304,26 @@ export default function ProductPriceChart({ productId }) {
           hiddenSeries={hiddenSeries}
           setHiddenSeries={setHiddenSeries}
           stopScrollBubble={stopScrollBubble}
+          yearlyBreakdown={yearlyBreakdown}
+          setYearlyBreakdown={(v) => {
+            setYearlyBreakdown(v);
+            setVisibleYearSeries([]);
+            setHiddenSeries(new Set());
+            setHighlightSeries(null);
+          }}
+          yearlyTopN={yearlyTopN}
+          setYearlyTopN={setYearlyTopN}
+          yearlySeriesCatalog={yearlySeriesCatalog}
+          visibleYearSeries={visibleYearSeries}
+          setVisibleYearSeries={setVisibleYearSeries}
         />
 
         {/* Chart */}
         <div style={{ height: 420 }}>
-          <ReactECharts
-            option={option}
-            style={{ height: "100%", width: "100%" }}
-            notMerge={true}
-            lazyUpdate={true}
-            onEvents={onEvents}
-          />
+          <ReactECharts option={option} style={{ height: "100%", width: "100%" }} notMerge={true} lazyUpdate={true} onEvents={onEvents} />
         </div>
 
-        {mode === "shops" && (
+        {(mode === "shops" || mode === "yearly") && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
             Tips: Hold musepekeren over legend for å fremheve én serie. Klikk legend for å skjule/vis serie.
           </Typography>

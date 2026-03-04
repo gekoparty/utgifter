@@ -1,3 +1,4 @@
+// src/components/Charts/ProductPriceChart/hooks/usePreparedSeries.js
 import { useMemo } from "react";
 import dayjs from "dayjs";
 import _ from "lodash";
@@ -10,7 +11,14 @@ export function usePreparedSeries({
   topN,
   visibleShops,
   overviewBucket,
+
+  // ✅ NEW for yearly mode
+  yearlyBreakdown, // "overall" | "shop" | "variant" | "shopVariant"
+  yearlyData, // data?.yearly from backend
+  yearlyTopN,
+  visibleYearSeries, // optional selected series IDs
 }) {
+  // --- shops list from history (for shops mode) ---
   const shops = useMemo(() => {
     const counts = _.countBy(history, "shopName");
     return Object.entries(counts)
@@ -33,6 +41,7 @@ export function usePreparedSeries({
       .sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [history]);
 
+  // --- overview buckets ---
   const overviewBuckets = useMemo(() => {
     if (mode !== "overview" || !sortedHistory.length) return [];
     const grouped = _.groupBy(sortedHistory, (d) =>
@@ -61,6 +70,7 @@ export function usePreparedSeries({
       .sort((a, b) => new Date(a.x) - new Date(b.x));
   }, [sortedHistory, mode, overviewBucket]);
 
+  // --- shops series ---
   const shopSeriesData = useMemo(() => {
     if (mode !== "shops") return [];
     const filtered = sortedHistory.filter((h) => activeShops.includes(h.shopName));
@@ -73,15 +83,15 @@ export function usePreparedSeries({
         y: d.pricePerUnit,
         hasDiscount: d.hasDiscount,
         brand: d.brandName,
+        variant: d.variantName || "Standard",
       })),
     }));
   }, [sortedHistory, mode, activeShops]);
 
+  // --- distribution buckets ---
   const distributionBuckets = useMemo(() => {
     if (mode !== "distribution" || !sortedHistory.length) return [];
-    const grouped = _.groupBy(sortedHistory, (d) =>
-      dayjs(d.date).startOf("month").format("YYYY-MM-DD")
-    );
+    const grouped = _.groupBy(sortedHistory, (d) => dayjs(d.date).startOf("month").format("YYYY-MM-DD"));
 
     return Object.entries(grouped)
       .map(([monthStart, items]) => {
@@ -103,6 +113,79 @@ export function usePreparedSeries({
       .sort((a, b) => new Date(a.x) - new Date(b.x));
   }, [sortedHistory, mode]);
 
+  // ✅ NEW: yearly series preparation
+  const yearlySource = useMemo(() => {
+    if (yearlyBreakdown === "overall") return yearlyData?.overall ?? [];
+    if (yearlyBreakdown === "shop") return yearlyData?.byShop ?? [];
+    if (yearlyBreakdown === "variant") return yearlyData?.byVariant ?? [];
+    return yearlyData?.byShopVariant ?? [];
+  }, [yearlyBreakdown, yearlyData]);
+
+  const yearlySeriesCatalog = useMemo(() => {
+    if (mode !== "yearly") return [];
+
+    const counts = new Map(); // seriesId -> purchases sum
+    for (const r of yearlySource) {
+      let id = "Overall";
+      if (yearlyBreakdown === "shop") id = r.shopName ?? "Ukjent";
+      if (yearlyBreakdown === "variant") id = r.variantName ?? "Standard";
+      if (yearlyBreakdown === "shopVariant") {
+        const shop = r.shopName ?? "Ukjent";
+        const v = r.variantName ?? "Standard";
+        id = `${shop} — ${v}`;
+      }
+      counts.set(id, (counts.get(id) || 0) + (r.purchases ?? 0));
+    }
+
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [mode, yearlySource, yearlyBreakdown]);
+
+  const yearlyTopSeries = useMemo(
+    () => yearlySeriesCatalog.slice(0, yearlyTopN).map((s) => s.name),
+    [yearlySeriesCatalog, yearlyTopN]
+  );
+
+  const activeYearSeries = useMemo(() => {
+    if (mode !== "yearly") return [];
+    if (visibleYearSeries?.length) return visibleYearSeries;
+    return yearlyTopSeries;
+  }, [mode, visibleYearSeries, yearlyTopSeries]);
+
+  const yearlySeriesData = useMemo(() => {
+    if (mode !== "yearly") return [];
+
+    const grouped = new Map(); // seriesId -> rows
+    for (const r of yearlySource) {
+      let id = "Overall";
+      if (yearlyBreakdown === "shop") id = r.shopName ?? "Ukjent";
+      if (yearlyBreakdown === "variant") id = r.variantName ?? "Standard";
+      if (yearlyBreakdown === "shopVariant") {
+        const shop = r.shopName ?? "Ukjent";
+        const v = r.variantName ?? "Standard";
+        id = `${shop} — ${v}`;
+      }
+      if (!activeYearSeries.includes(id)) continue;
+      if (!grouped.has(id)) grouped.set(id, []);
+      grouped.get(id).push(r);
+    }
+
+    return [...grouped.entries()].map(([id, rows]) => {
+      const sorted = rows.slice().sort((a, b) => Number(a.year) - Number(b.year));
+      return {
+        id,
+        points: sorted.map((p) => ({
+          year: p.year,
+          avg: p.avgPricePerUnit,
+          purchases: p.purchases,
+          yoyPct: p.yoyPct,
+          sinceStartPct: p.sinceStartPct,
+        })),
+      };
+    });
+  }, [mode, yearlySource, yearlyBreakdown, activeYearSeries]);
+
   return {
     shops,
     topShops,
@@ -111,5 +194,10 @@ export function usePreparedSeries({
     overviewBuckets,
     shopSeriesData,
     distributionBuckets,
+
+    // ✅ yearly
+    yearlySeriesCatalog,
+    activeYearSeries,
+    yearlySeriesData,
   };
 }
