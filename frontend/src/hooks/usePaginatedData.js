@@ -28,7 +28,7 @@ export const usePaginatedData = ({
   const fetchPage = useCallback(
     async ({ p, signal }) => {
       const url = urlBuilder(endpoint, p);
-      const response = await fetch(url.href, { signal });
+      const response = await fetch(url.toString(), { signal });
 
       if (!response.ok) {
         // try to extract server message if present
