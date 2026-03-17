@@ -1,1 +1,15 @@
+# dependencies
 **/node_modules/
+
+# env files
+.env
+.env.*
+!.env.example
+
+# build outputs
+dist
+build
+
+# misc
+.DS_Store
+coverage
