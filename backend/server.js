@@ -1,13 +1,14 @@
 import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
+import helmet from "helmet";
+import cors from "cors";
+import compression from "compression";
+
 import categoriesRouter from "./routes/categoriesRouter.js";
 import shopsRouter from "./routes/shopsRouter.js";
 import locationsRouter from "./routes/locationsRouter.js";
 import brandsRouter from "./routes/brandsRouter.js";
-import helmet from "helmet";
-import cors from "cors";
-import compression from "compression";
 import productsRouter from "./routes/productsRouter.js";
 import expensesRouter from "./routes/expensesRouter.js";
 import statsRouter from "./routes/statsRouter.js";
@@ -27,8 +28,17 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowedExact = allowedOrigins.includes(origin);
+    const isVercelPreview = /^https:\/\/.*\.vercel\.app$/.test(origin);
+
+    if (isAllowedExact || isVercelPreview) {
+      return callback(null, true);
+    }
+
     return callback(new Error("Not allowed by CORS"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
