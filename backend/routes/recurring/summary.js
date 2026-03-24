@@ -44,16 +44,15 @@ const buildSummary = ({
   const start = monthStart(timelineStart);
   const today = new Date(realNow);
 
-  // ✅ Payments indexing (MAIN + EXTRA)
-  const paymentIndex = new Map(); // MAIN
-  const extraIndex = new Map(); // sum of EXTRA
-  const extraPaymentIndex = new Map(); // last EXTRA for UI display
+  // MAIN + EXTRA indexing
+  const paymentIndex = new Map(); // key -> MAIN payment
+  const extraIndex = new Map(); // key -> sum of EXTRA payments
+  const extraPaymentsIndex = new Map(); // key -> array of EXTRA payments
 
   for (const p of paymentsInRange) {
     const expId = String(p.recurringExpenseId);
     const pk = String(p.periodKey);
     const kind = String(p.kind || "").toUpperCase();
-
     const key = `${expId}|${pk}`;
 
     const isExtra =
@@ -62,15 +61,34 @@ const buildSummary = ({
       String(p.note || "").toLowerCase().includes("extra");
 
     if (isExtra) {
-      extraIndex.set(key, round2((extraIndex.get(key) || 0) + Number(p.amount || 0)));
-      // keep last extra for display
-      extraPaymentIndex.set(key, p);
+      extraIndex.set(
+        key,
+        round2((extraIndex.get(key) || 0) + Number(p.amount || 0))
+      );
+
+      const arr = extraPaymentsIndex.get(key) || [];
+      arr.push(p);
+      extraPaymentsIndex.set(key, arr);
     } else {
-      paymentIndex.set(key, p); // last write wins
+      paymentIndex.set(key, p);
     }
   }
 
-  // ✅ Month buckets
+  // Sort extra payments per bucket for stable UI
+  for (const [key, arr] of extraPaymentsIndex.entries()) {
+    arr.sort((a, b) => {
+      const aPaid = new Date(a.paidDate || 0).getTime();
+      const bPaid = new Date(b.paidDate || 0).getTime();
+      if (aPaid !== bPaid) return aPaid - bPaid;
+
+      const aCreated = new Date(a.createdAt || 0).getTime();
+      const bCreated = new Date(b.createdAt || 0).getTime();
+      return aCreated - bCreated;
+    });
+
+    extraPaymentsIndex.set(key, arr);
+  }
+
   const monthBuckets = Array.from({ length: months }, (_, i) => {
     const d = addMonths(start, i);
     return {
@@ -85,7 +103,6 @@ const buildSummary = ({
     };
   });
 
-  // ✅ Running mortgage balance per expenseId through the timeline
   const mortgageBalanceById = new Map();
 
   for (const e of filteredExpenses) {
@@ -99,6 +116,7 @@ const buildSummary = ({
     const startMonthDateBound = startDate
       ? new Date(startDate.getFullYear(), startDate.getMonth(), 1)
       : null;
+
     const endMonthDateBound = endDate
       ? new Date(endDate.getFullYear(), endDate.getMonth(), 1)
       : null;
@@ -128,8 +146,14 @@ const buildSummary = ({
         dueDay
       );
 
-      const mainPay = paymentIndex.get(`${String(e._id)}|${periodKey}`) || null;
-      const extraPay = extraPaymentIndex.get(`${String(e._id)}|${periodKey}`) || null;
+      const mapKey = `${String(e._id)}|${periodKey}`;
+
+      const mainPay = paymentIndex.get(mapKey) || null;
+      const extraPays = extraPaymentsIndex.get(mapKey) || [];
+      const extraPay = extraPays.length > 0 ? extraPays[extraPays.length - 1] : null;
+      const extraPaymentTotal = round2(
+        extraPays.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+      );
 
       let expectedFixed = 0;
       let expectedMin = 0;
@@ -161,13 +185,24 @@ const buildSummary = ({
         if (mainPay && mainPay.status !== "SKIPPED") {
           b.paidTotal += Number(mainPay.amount || 0);
         }
+
+        // include extra payments in paidTotal
+        if (extraPaymentTotal > 0) {
+          b.paidTotal += extraPaymentTotal;
+        }
       }
 
       let status;
-      if (paused) status = "PAUSED";
-      else status = !mainPay ? "UNPAID" : mainPay.status === "SKIPPED" ? "SKIPPED" : "PAID";
+      if (paused) {
+        status = "PAUSED";
+      } else {
+        status = !mainPay
+          ? "UNPAID"
+          : mainPay.status === "SKIPPED"
+            ? "SKIPPED"
+            : "PAID";
+      }
 
-      // ✅ Mortgage schedule (extraIndex affects principal)
       let mortgageMeta = null;
 
       if (isMortgageType(e.type) && terms && !paused) {
@@ -185,9 +220,9 @@ const buildSummary = ({
         const nominell = Number(terms.interestRate || 0);
         const fee = round2(Number(terms.monthlyFee || 0));
         const paymentTotal = round2(Number(terms.amount || 0));
-
         const interest = round2(balanceStart * (nominell / 100) * (days / DAY_BASIS));
-        const extraPrincipal = round2(extraIndex.get(`${expId}|${periodKey}`) || 0);
+
+        const extraPrincipal = round2(extraIndex.get(mapKey) || 0);
 
         const principalBase = paymentTotal - fee - interest;
         const principal = round2(Math.max(0, principalBase) + extraPrincipal);
@@ -237,7 +272,6 @@ const buildSummary = ({
 
         mortgage: mortgageMeta,
 
-        // ✅ MAIN payment
         actual: mainPay
           ? {
               paymentId: String(mainPay._id),
@@ -249,7 +283,7 @@ const buildSummary = ({
             }
           : null,
 
-        // ✅ EXTRA payment (single record for UI; schedule uses sum)
+        // Backward-compatible single extra
         extraPayment: extraPay
           ? {
               paymentId: String(extraPay._id),
@@ -260,6 +294,18 @@ const buildSummary = ({
               kind: String(extraPay.kind || "EXTRA"),
             }
           : null,
+
+        // New: all extra payments for the month
+        extraPayments: extraPays.map((p) => ({
+          paymentId: String(p._id),
+          amount: Number(p.amount || 0),
+          paidDate: p.paidDate,
+          status: p.status,
+          note: p.note || "",
+          kind: String(p.kind || "EXTRA"),
+        })),
+
+        extraPaymentTotal,
 
         status,
 
@@ -272,7 +318,6 @@ const buildSummary = ({
     }
   }
 
-  // next bills horizon
   const horizonDays = 45;
   const horizon = new Date(today);
   horizon.setDate(horizon.getDate() + horizonDays);
@@ -295,6 +340,7 @@ const buildSummary = ({
       }
     }
   }
+
   upcoming.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
   const nextBills = upcoming.slice(0, 10);
 
@@ -319,7 +365,10 @@ const buildSummary = ({
         ? Math.max(0, amount - estInterest - Number(monthlyFee || 0))
         : null;
 
-    return { ...e, derived: { monthsLeft, estInterest, estPrincipal } };
+    return {
+      ...e,
+      derived: { monthsLeft, estInterest, estPrincipal },
+    };
   });
 
   const m0 = monthBuckets[0];
@@ -343,7 +392,12 @@ const buildSummary = ({
     items: b.items,
   }));
 
-  return { expenses: expensesWithDerived, forecast, nextBills, meta: { filter, months, sum3 } };
+  return {
+    expenses: expensesWithDerived,
+    forecast,
+    nextBills,
+    meta: { filter, months, sum3 },
+  };
 };
 
 /* =========================
@@ -373,15 +427,20 @@ router.get("/summary", async (req, res) => {
     const includeInactive = String(req.query.includeInactive || "false") === "true";
     const q = includeInactive ? {} : { isActive: true };
 
-    const expenses = await RecurringExpense.find(q).sort({ type: 1, title: 1 }).lean();
+    const expenses = await RecurringExpense.find(q)
+      .sort({ type: 1, title: 1 })
+      .lean();
 
     const paymentsInRange = await RecurringPayment.find({
       periodKey: { $gte: histFromKey, $lte: toKey },
     }).lean();
 
     const expIds = expenses.map((e) => e._id);
+
     const termsRows = expIds.length
-      ? await RecurringTermsHistory.find({ recurringExpenseId: { $in: expIds } })
+      ? await RecurringTermsHistory.find({
+          recurringExpenseId: { $in: expIds },
+        })
           .sort({ recurringExpenseId: 1, fromDate: 1 })
           .lean()
       : [];
@@ -398,11 +457,20 @@ router.get("/summary", async (req, res) => {
       realNow: now,
     });
 
-    summary.meta = { ...(summary.meta || {}), filter, months: monthsForward, pastMonths };
-    res.json(summary);
+    summary.meta = {
+      ...(summary.meta || {}),
+      filter,
+      months: monthsForward,
+      pastMonths,
+    };
+
+    return res.json(summary);
   } catch (err) {
     console.error("Error in /api/recurring-expenses/summary:", err);
-    res.status(500).json({ message: "Internal Server Error", error: err?.message });
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: err?.message,
+    });
   }
 });
 

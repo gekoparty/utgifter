@@ -1,4 +1,3 @@
-// RecurringExpenseScreen.jsx
 import React, { useCallback, useMemo, useState } from "react";
 import {
   Box,
@@ -35,7 +34,7 @@ import PurgeAllRecurringDialog from "./components/PurgeAllRecurringDialog";
 import ChangeTermsDialog from "./components/ChangeTermsDialog";
 import PauseDialog from "./components/PauseDialog";
 import { recurringApi } from "./api/recurringApi";
-import { mortgageApi } from "./api/mortageApi"
+import { mortgageApi } from "./api/mortageApi";
 
 const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
 
@@ -47,19 +46,21 @@ export default function RecurringExpenseScreen() {
 
   const [purgeOpen, setPurgeOpen] = useState(false);
 
-const doPurgeAll = useCallback(async () => {
-  await recurringApi.purgeAll();
-  setPurgeOpen(false);
-  invalidateSummary();
-  invalidateTemplates();
-}, [invalidateSummary, invalidateTemplates]);
+  const doPurgeAll = useCallback(async () => {
+    await recurringApi.purgeAll();
+    setPurgeOpen(false);
+    invalidateSummary();
+    invalidateTemplates();
+  }, [invalidateSummary, invalidateTemplates]);
 
-  // ✅ templates include pausePeriods (used for edit/unpause UI)
   const templates = useRecurringData({ enabled: true, includeInactive: true });
 
   const mortgages = useMemo(
-    () => (templates.expenses || []).filter((e) => String(e.type).toUpperCase() === "MORTGAGE"),
-    [templates.expenses]
+    () =>
+      (templates.expenses || []).filter(
+        (e) => String(e.type).toUpperCase() === "MORTGAGE",
+      ),
+    [templates.expenses],
   );
 
   const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
@@ -88,8 +89,6 @@ const doPurgeAll = useCallback(async () => {
   } = usePayDialog();
 
   const monthsForward = 12;
-
-  // ✅ slider-controlled history window
   const [monthsBack, setMonthsBack] = useState(12);
 
   const {
@@ -110,34 +109,6 @@ const doPurgeAll = useCallback(async () => {
     nextBills: [],
     sum3: { min: 0, max: 0, paid: 0 },
   };
-
-  console.log("forecast sample", forecast?.slice?.(0, 2));
-
-  if (forecast?.length) {
-  console.table(
-    forecast.map((m) => ({
-      key: m.key,
-      date: m.date,
-      expectedMin: m.expectedMin,
-      expectedMax: m.expectedMax,
-      paidTotal: m.paidTotal,
-      type_expectedMin: typeof m.expectedMin,
-      type_expectedMax: typeof m.expectedMax,
-      type_paidTotal: typeof m.paidTotal,
-    }))
-  );
-
-  console.log(
-    "items sample",
-    forecast[0]?.items?.map((it) => ({
-      type: it.type,
-      expectedMax: it.expected?.max,
-      expectedFixed: it.expected?.fixed,
-      type_max: typeof it.expected?.max,
-      type_fixed: typeof it.expected?.fixed,
-    }))
-  );
-}
 
   const thisMonthKey = useMemo(() => dayjs().format("YYYY-MM"), []);
   const forecastPast = useMemo(
@@ -202,6 +173,7 @@ const doPurgeAll = useCallback(async () => {
 
   const confirmPay = useCallback(async () => {
     const n = Number(payAmount);
+
     if (!Number.isFinite(n) || n < 0) {
       setPayAmountError("Ugyldig beløp");
       return;
@@ -222,9 +194,8 @@ const doPurgeAll = useCallback(async () => {
       return;
     }
 
-    // ✅ IMPORTANT: kind + status rules
-    const kind = payAllowExtra && payIsExtra ? "EXTRA" : "MAIN";
-    const status = kind === "EXTRA" ? "EXTRA" : "PAID";
+    const nextKind = payAllowExtra && payIsExtra ? "EXTRA" : "MAIN";
+    const nextStatus = nextKind === "EXTRA" ? "EXTRA" : "PAID";
 
     if (payMode === "EDIT") {
       if (!payDraft?.paymentId) {
@@ -232,17 +203,23 @@ const doPurgeAll = useCallback(async () => {
         return;
       }
 
-      const originalPk = payDraft.originalPeriodKey;
+      const originalPeriodKey = String(payDraft.originalPeriodKey || "");
+      const originalKind = String(payDraft.paymentKind || "MAIN").toUpperCase();
 
-      if (originalPk && originalPk !== payPeriodKey) {
+      const periodChanged =
+        Boolean(originalPeriodKey) && originalPeriodKey !== payPeriodKey;
+
+      const kindChanged = originalKind !== nextKind;
+
+      if (periodChanged || kindChanged) {
         try {
           await payments.createPayment.mutateAsync({
             recurringExpenseId: payDraft.recurringExpenseId,
             periodKey: payPeriodKey,
             amount: n,
             paidDate: payPaidDate,
-            kind,
-            status,
+            kind: nextKind,
+            status: nextStatus,
           });
 
           await payments.deletePayment.mutateAsync({
@@ -252,14 +229,29 @@ const doPurgeAll = useCallback(async () => {
           closePayDialog();
           return;
         } catch {
-          setPayAmountError("Kunne ikke flytte betalingen");
+          setPayAmountError(
+            periodChanged && kindChanged
+              ? "Kunne ikke flytte og endre betalingstypen"
+              : periodChanged
+                ? "Kunne ikke flytte betalingen"
+                : "Kunne ikke endre betalingstypen",
+          );
           return;
         }
       }
 
       payments.updatePayment.mutate(
-        { paymentId: payDraft.paymentId, amount: n, paidDate: payPaidDate, status },
-        { onSuccess: () => closePayDialog() },
+        {
+          paymentId: payDraft.paymentId,
+          amount: n,
+          paidDate: payPaidDate,
+          kind: nextKind,
+          status: nextStatus,
+        },
+        {
+          onSuccess: () => closePayDialog(),
+          onError: () => setPayAmountError("Kunne ikke oppdatere betalingen"),
+        },
       );
       return;
     }
@@ -270,10 +262,13 @@ const doPurgeAll = useCallback(async () => {
         periodKey: payPeriodKey,
         amount: n,
         paidDate: payPaidDate,
-        kind,
-        status,
+        kind: nextKind,
+        status: nextStatus,
       },
-      { onSuccess: () => closePayDialog() },
+      {
+        onSuccess: () => closePayDialog(),
+        onError: () => setPayAmountError("Kunne ikke opprette betalingen"),
+      },
     );
   }, [
     payAmount,
@@ -296,13 +291,12 @@ const doPurgeAll = useCallback(async () => {
 
     payments.deletePayment.mutate(
       { paymentId: payDraft.paymentId },
-      { onSuccess: () => closePayDialog() },
+      {
+        onSuccess: () => closePayDialog(),
+        onError: () => setPayAmountError("Kunne ikke slette betalingen"),
+      },
     );
   }, [payDraft, payments, closePayDialog, setPayAmountError]);
-
-  /* =========================
-     ✅ Terms dialog state
-  ========================= */
 
   const [termsOpen, setTermsOpen] = useState(false);
   const [termsItem, setTermsItem] = useState(null);
@@ -333,12 +327,8 @@ const doPurgeAll = useCallback(async () => {
     [termsItem, closeTerms, invalidateSummary, invalidateTemplates],
   );
 
-  /* =========================
-     ✅ Pause dialog state
-  ========================= */
-
   const [pauseOpen, setPauseOpen] = useState(false);
-  const [pauseMode, setPauseMode] = useState("CREATE"); // CREATE | EDIT
+  const [pauseMode, setPauseMode] = useState("CREATE");
   const [pauseItem, setPauseItem] = useState(null);
   const [pauseInitial, setPauseInitial] = useState(null);
 
@@ -396,12 +386,15 @@ const doPurgeAll = useCallback(async () => {
     [invalidateSummary, invalidateTemplates],
   );
 
-  const onHardDeleteMortgage = useCallback(async (mortgageId) => {
-    if (!mortgageId) return;
-    await mortgageApi.hardDelete({ mortgageId: String(mortgageId) });
-    invalidateSummary();
-    invalidateTemplates();
-  }, [invalidateSummary, invalidateTemplates]);
+  const onHardDeleteMortgage = useCallback(
+    async (mortgageId) => {
+      if (!mortgageId) return;
+      await mortgageApi.hardDelete({ mortgageId: String(mortgageId) });
+      invalidateSummary();
+      invalidateTemplates();
+    },
+    [invalidateSummary, invalidateTemplates],
+  );
 
   const onPurgeMortgages = useCallback(async () => {
     await mortgageApi.purgeAllMortgages();
@@ -422,17 +415,24 @@ const doPurgeAll = useCallback(async () => {
         />
 
         <Card sx={{ mt: 2 }}>
-  <CardContent>
-    <Stack direction="row" justifyContent="space-between" alignItems="center">
-      <Typography fontWeight={800}>Admin</Typography>
-      <Button color="error" variant="contained" onClick={() => setPurgeOpen(true)}>
-        Purge ALT
-      </Button>
-    </Stack>
-  </CardContent>
-</Card>
+          <CardContent>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Typography fontWeight={800}>Admin</Typography>
+              <Button
+                color="error"
+                variant="contained"
+                onClick={() => setPurgeOpen(true)}
+              >
+                Purge ALT
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
 
-        {/* ✅ Mortgage center (dropdown + plan + what-if + hard delete) */}
         <MortgageCenter
           mortgages={mortgages}
           formatCurrency={formatCurrency}
@@ -440,7 +440,6 @@ const doPurgeAll = useCallback(async () => {
           onPurgeMortgages={onPurgeMortgages}
         />
 
-        {/* ✅ Past months slider */}
         <Card sx={{ mt: 2 }}>
           <CardContent>
             <Stack spacing={1}>
@@ -455,7 +454,6 @@ const doPurgeAll = useCallback(async () => {
 
         {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
           <Box sx={{ mt: 2 }}>
-           
             <RecurringOverviewCharts
               forecast={forecast}
               monthsForTypeSplit={3}
@@ -603,12 +601,12 @@ const doPurgeAll = useCallback(async () => {
         onSubmit={submitPause}
         initial={pauseInitial}
       />
-<PurgeAllRecurringDialog
-  open={purgeOpen}
-  onClose={() => setPurgeOpen(false)}
-  onConfirm={doPurgeAll}
-/>
 
+      <PurgeAllRecurringDialog
+        open={purgeOpen}
+        onClose={() => setPurgeOpen(false)}
+        onConfirm={doPurgeAll}
+      />
     </Box>
   );
 }

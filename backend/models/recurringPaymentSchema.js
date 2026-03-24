@@ -28,7 +28,6 @@ const RecurringPaymentSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // ✅ allow EXTRA
     status: {
       type: String,
       enum: ["PAID", "PARTIAL", "SKIPPED", "EXTRA"],
@@ -36,7 +35,6 @@ const RecurringPaymentSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ NEW: explicit kind
     kind: {
       type: String,
       enum: ["MAIN", "EXTRA"],
@@ -49,10 +47,13 @@ const RecurringPaymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ allow one MAIN + one EXTRA per month
+// only one MAIN per month
 RecurringPaymentSchema.index(
-  { recurringExpenseId: 1, periodKey: 1, kind: 1 },
-  { unique: true }
+  { recurringExpenseId: 1, periodKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { kind: "MAIN" },
+  }
 );
 
 export default mongoose.model("RecurringPayment", RecurringPaymentSchema);
