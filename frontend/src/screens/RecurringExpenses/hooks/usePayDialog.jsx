@@ -3,8 +3,12 @@ import { useCallback, useMemo, useState } from "react";
 const toISODate = (d) => {
   if (!d) return new Date().toISOString().slice(0, 10);
   if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+
   const x = new Date(d);
-  if (Number.isNaN(x.getTime())) return new Date().toISOString().slice(0, 10);
+  if (Number.isNaN(x.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
   return x.toISOString().slice(0, 10);
 };
 
@@ -13,12 +17,15 @@ const toPeriodKey = (d) => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }
+
   if (typeof d === "string" && /^\d{4}-\d{2}$/.test(d)) return d;
+
   const x = new Date(d);
   if (Number.isNaN(x.getTime())) {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }
+
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}`;
 };
 
@@ -31,28 +38,47 @@ export function usePayDialog() {
   const [periodKey, setPeriodKey] = useState(toPeriodKey());
   const [error, setError] = useState("");
 
-  // ✅ extra payment toggle state (UI)
   const [isExtra, setIsExtra] = useState(false);
 
   const mode = useMemo(() => (draft?.paymentId ? "EDIT" : "CREATE"), [draft]);
   const allowExtra = useMemo(() => Boolean(draft?.isMortgage), [draft]);
 
   const openDialog = useCallback((item) => {
-    const desiredKind = String(item?.paymentKind || "MAIN").toUpperCase(); // MAIN | EXTRA
+    const desiredKind = String(item?.paymentKind || "MAIN").toUpperCase();
     const isMortgage = String(item?.type || "").toUpperCase() === "MORTGAGE";
     const pk = item?.periodKey ? String(item.periodKey) : toPeriodKey(new Date());
 
-    // ✅ choose which payment object to edit
-    const actualObj = desiredKind === "EXTRA" ? item?.extraPayment : item?.actual;
+    const mainPayment = item?.actual || null;
 
-    const hasPayment = Boolean(actualObj?.paymentId);
-    const paymentId = hasPayment ? String(actualObj.paymentId) : null;
+    let selectedExtraPayment = null;
+
+    if (item?.extraPayment?.paymentId) {
+      selectedExtraPayment = item.extraPayment;
+    } else if (Array.isArray(item?.extraPayments) && item.extraPayments.length > 0) {
+      selectedExtraPayment = item.extraPayments[item.extraPayments.length - 1];
+    }
+
+    const selectedPayment =
+      desiredKind === "EXTRA" ? selectedExtraPayment : mainPayment;
+
+    const hasPayment = Boolean(selectedPayment?.paymentId);
+    const paymentId = hasPayment ? String(selectedPayment.paymentId) : null;
 
     const expectedDefault =
-      item?.expected?.max ?? item?.expected?.fixed ?? item?.expected?.min ?? 0;
+      item?.expected?.max ??
+      item?.expected?.fixed ??
+      item?.expected?.min ??
+      0;
 
-    const startingAmount = hasPayment ? Number(actualObj.amount || 0) : Number(expectedDefault || 0);
-    const startingPaidDate = hasPayment ? toISODate(actualObj.paidDate) : toISODate(new Date());
+    const startingAmount = hasPayment
+      ? Number(selectedPayment.amount || 0)
+      : desiredKind === "EXTRA"
+        ? 0
+        : Number(expectedDefault || 0);
+
+    const startingPaidDate = hasPayment
+      ? toISODate(selectedPayment.paidDate)
+      : toISODate(new Date());
 
     setDraft({
       recurringExpenseId: item?.recurringExpenseId,
@@ -61,14 +87,12 @@ export function usePayDialog() {
       isMortgage,
       paymentId,
       paymentKind: desiredKind, // MAIN | EXTRA
-      originalPeriodKey: paymentId ? pk : null,
+      originalPeriodKey: hasPayment ? pk : null,
     });
 
     setAmount(String(Number(startingAmount) || 0));
     setPaidDate(startingPaidDate);
     setPeriodKey(pk);
-
-    // ✅ checkbox follows the kind we opened
     setIsExtra(isMortgage && desiredKind === "EXTRA");
 
     setError("");
