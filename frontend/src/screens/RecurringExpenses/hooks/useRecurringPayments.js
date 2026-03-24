@@ -8,16 +8,35 @@ export function useRecurringPayments() {
   const { invalidateSummary } = useRecurringInvalidation();
 
   const createPayment = useMutation({
-    mutationFn: async ({ recurringExpenseId, periodKey, amount, paidDate, kind = "MAIN" }) => {
+    mutationFn: async ({
+      recurringExpenseId,
+      periodKey,
+      amount,
+      paidDate,
+      kind = "MAIN",
+      status,
+      note = "",
+    }) => {
       const url = `${API_URL}/api/recurring-payments`;
+
+      const normalizedKind = String(kind || "MAIN").toUpperCase();
+      const normalizedStatus =
+        normalizedKind === "EXTRA"
+          ? "EXTRA"
+          : String(status || "PAID").toUpperCase();
+
       const payload = {
         recurringExpenseId,
         periodKey,
         amount: Number(amount || 0),
-        paidDate: paidDate ? new Date(paidDate).toISOString() : new Date().toISOString(),
-        kind,
-        status: kind === "EXTRA" ? "EXTRA" : "PAID",
+        paidDate: paidDate
+          ? new Date(paidDate).toISOString()
+          : new Date().toISOString(),
+        kind: normalizedKind,
+        status: normalizedStatus,
+        note: String(note || "").trim(),
       };
+
       const res = await axios.post(url, payload);
       return res.data;
     },
@@ -25,14 +44,29 @@ export function useRecurringPayments() {
   });
 
   const updatePayment = useMutation({
-    mutationFn: async ({ paymentId, amount, paidDate, kind = "MAIN" }) => {
+    mutationFn: async ({
+      paymentId,
+      amount,
+      paidDate,
+      kind = "MAIN",
+      status,
+      note = "",
+    }) => {
       const url = `${API_URL}/api/recurring-payments/${paymentId}`;
+
+      const normalizedKind = String(kind || "MAIN").toUpperCase();
+      const normalizedStatus =
+        normalizedKind === "EXTRA"
+          ? "EXTRA"
+          : String(status || "PAID").toUpperCase();
+
       const payload = {
         amount: Number(amount || 0),
         paidDate: new Date(paidDate).toISOString(),
-        kind,
-        status: kind === "EXTRA" ? "EXTRA" : "PAID",
+        status: normalizedStatus,
+        note: String(note || "").trim(),
       };
+
       const res = await axios.put(url, payload);
       return res.data;
     },
@@ -48,8 +82,16 @@ export function useRecurringPayments() {
     onSuccess: () => invalidateSummary(),
   });
 
-  const pending = createPayment.isPending || updatePayment.isPending || deletePayment.isPending;
-  const error = createPayment.isError || updatePayment.isError || deletePayment.isError;
+  const pending =
+    createPayment.isPending ||
+    updatePayment.isPending ||
+    deletePayment.isPending;
+
+  const error =
+    createPayment.error ||
+    updatePayment.error ||
+    deletePayment.error ||
+    null;
 
   return useMemo(
     () => ({
@@ -59,6 +101,6 @@ export function useRecurringPayments() {
       pending,
       error,
     }),
-    [createPayment, updatePayment, deletePayment, pending, error],
+    [createPayment, updatePayment, deletePayment, pending, error]
   );
 }
