@@ -26,7 +26,7 @@ import {
 import FilterListIcon from "@mui/icons-material/FilterList";
 import CloseIcon from "@mui/icons-material/Close";
 import { useTheme } from "@mui/material/styles";
-
+import ExpenseDashboard from "../components/features/Expenses/components/ExpenseDashboard/ExpenseDashboard";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
@@ -701,14 +701,11 @@ const ExpenseScreen = () => {
   return (
     <TableLayout>
       <Box sx={{ mb: 2 }}>
-        <Button
-          variant="contained"
-          onMouseEnter={loadExpenseDialog}
-          onFocus={loadExpenseDialog}
-          onClick={openAdd}
-        >
-          Legg til ny utgift
-        </Button>
+       <ExpenseDashboard
+  expenses={tableData}
+  totalRowCount={metaData?.totalRowCount ?? 0}
+  onAdd={openAdd}
+/>
       </Box>
 
       <ReactTable
