@@ -35,23 +35,19 @@ const ProductForm = ({
   inputValue,
 }) => {
   const formattedBrandOptions = useMemo(
-    () =>
-      (brandOptions ?? []).map((b) => ({
-        label: b.name,
-        value: b.name,
-      })),
-    [brandOptions],
-  );
+  () =>
+    (brandOptions ?? []).map((b) => ({
+      label: b.name,
+      value: String(b._id),
+    })),
+  [brandOptions],
+);
 
-  const selectedBrandValues = useMemo(() => {
-    const names =
-      product?.brandNames ??
-      (Array.isArray(product?.brands) && typeof product.brands[0] === "string"
-        ? product.brands
-        : []);
+const selectedBrandValues = useMemo(() => {
+  return product?.brandSelections ?? [];
+}, [product?.brandSelections]);
 
-    return names.map((name) => ({ label: name, value: name }));
-  }, [product?.brandNames, product?.brands]);
+  
 
   // ✅ product.variants is array of ids -> map ids to option objects
   // If options haven't loaded yet, show fallback {label:id,value:id}, then swap to names once options arrive.

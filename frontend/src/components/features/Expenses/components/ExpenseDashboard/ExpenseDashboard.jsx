@@ -1,236 +1,274 @@
-// src/components/features/Expenses/components/ExpenseDashboard/ExpenseDashboard.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box,
   Card,
   CardContent,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
-  Button,
+  useTheme,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  Tooltip,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 
 const NOK = new Intl.NumberFormat("nb-NO", {
   style: "currency",
   currency: "NOK",
+  maximumFractionDigits: 2,
 });
 
-const COLORS = ["#3b82f6", "#8b5cf6", "#22c55e", "#f59e0b", "#94a3b8"];
+const chartColors = ["#3b82f6", "#22c55e", "#8b5cf6", "#f59e0b", "#94a3b8"];
 
-const StatCard = ({ title, value, subtitle, icon }) => (
-  <Card
-    sx={{
-      minWidth: 0,
-      height: "100%",
-      borderRadius: 4,
-      background:
-        "linear-gradient(135deg, rgba(35,42,68,.96), rgba(18,23,38,.96))",
-      border: "1px solid rgba(255,255,255,.08)",
-      boxShadow: "0 18px 45px rgba(0,0,0,.25)",
-    }}
-  >
-    <CardContent>
-      <Stack direction="row" justifyContent="space-between" spacing={2}>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography color="text.secondary" variant="body2" noWrap>
-            {title}
-          </Typography>
+const startOfDay = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
 
-          <Typography
-            variant="h4"
-            fontWeight={900}
+function StatCard({ label, value, subtext, icon }) {
+  return (
+    <Card
+      sx={{
+        borderRadius: 3,
+        bgcolor: "rgba(30, 41, 59, 0.72)",
+        border: "1px solid rgba(148, 163, 184, 0.18)",
+        height: "100%",
+      }}
+    >
+      <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
+        <Stack direction="row" justifyContent="space-between" spacing={1.5}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="caption" color="text.secondary">
+              {label}
+            </Typography>
+
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 900,
+                letterSpacing: "-0.04em",
+                lineHeight: 1.1,
+                mt: 0.5,
+              }}
+            >
+              {value}
+            </Typography>
+
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: "block",
+                mt: 0.75,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {subtext}
+            </Typography>
+          </Box>
+
+          <Box
             sx={{
-              mt: 1,
-              lineHeight: 1.1,
-              wordBreak: "break-word",
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              flexShrink: 0,
             }}
           >
-            {value}
-          </Typography>
+            {icon}
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
 
-          <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
-            {subtitle}
-          </Typography>
-        </Box>
-
-        <Box
-          sx={{
-            flexShrink: 0,
-            width: 44,
-            height: 44,
-            borderRadius: 3,
-            display: "grid",
-            placeItems: "center",
-            bgcolor: "primary.main",
-            color: "primary.contrastText",
-            boxShadow: "0 10px 25px rgba(47, 102, 246, .35)",
-          }}
+function ChartCard({ title, action, children }) {
+  return (
+    <Card
+      sx={{
+        borderRadius: 3,
+        bgcolor: "rgba(30, 41, 59, 0.62)",
+        border: "1px solid rgba(148, 163, 184, 0.18)",
+        height: "100%",
+      }}
+    >
+      <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{ mb: 1 }}
         >
-          {icon}
-        </Box>
-      </Stack>
-    </CardContent>
-  </Card>
-);
+          <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+            {title}
+          </Typography>
+          {action}
+        </Stack>
 
-const ChartCard = ({ title, children }) => (
-  <Card
-    sx={{
-      borderRadius: 4,
-      minHeight: 340,
-      background:
-        "linear-gradient(135deg, rgba(30,36,58,.94), rgba(16,21,34,.94))",
-      border: "1px solid rgba(255,255,255,.08)",
-      boxShadow: "0 18px 45px rgba(0,0,0,.25)",
-    }}
-  >
-    <CardContent sx={{ height: "100%" }}>
-      <Typography variant="h6" fontWeight={900} sx={{ mb: 2 }}>
-        {title}
-      </Typography>
-      {children}
-    </CardContent>
-  </Card>
-);
+        <Box sx={{ height: 180 }}>{children}</Box>
+      </CardContent>
+    </Card>
+  );
+}
 
-const ExpenseDashboard = ({ expenses = [], totalRowCount = 0, onAdd }) => {
+export default function ExpenseDashboard({
+  expenses = [],
+  totalRowCount = 0,
+}) {
+  const theme = useTheme();
+  const [period, setPeriod] = useState("week");
+
+  const filteredByPeriod = useMemo(() => {
+    const now = startOfDay(new Date());
+    const daysBack = period === "week" ? 7 : 30;
+
+    const from = new Date(now);
+    from.setDate(from.getDate() - daysBack + 1);
+
+    return expenses.filter((item) => {
+      if (!item.purchaseDate) return false;
+      const date = startOfDay(item.purchaseDate);
+      return date >= from && date <= now;
+    });
+  }, [expenses, period]);
+
   const stats = useMemo(() => {
     const total = expenses.reduce(
-      (sum, x) => sum + Number(x.finalPrice || 0),
+      (sum, item) => sum + Number(item.finalPrice || item.price || 0),
       0,
     );
 
     const average = expenses.length ? total / expenses.length : 0;
 
     const highest = expenses.reduce(
-      (max, x) =>
-        Number(x.finalPrice || 0) > Number(max.finalPrice || 0) ? x : max,
-      expenses[0] || {},
+      (max, item) => {
+        const value = Number(item.finalPrice || item.price || 0);
+        return value > max.value
+          ? { value, name: item.productName || "Ukjent produkt" }
+          : max;
+      },
+      { value: 0, name: "Ingen" },
     );
 
     return { total, average, highest };
   }, [expenses]);
 
-  const chartData = useMemo(() => {
-    const map = new Map();
+  const shopData = useMemo(() => {
+    const grouped = expenses.reduce((acc, item) => {
+      const shop = item.shopName || "Ukjent";
+      const value = Number(item.finalPrice || item.price || 0);
+      acc[shop] = (acc[shop] || 0) + value;
+      return acc;
+    }, {});
 
-    expenses.forEach((x) => {
-      const key = x.purchaseDate
-        ? new Date(x.purchaseDate).toLocaleDateString("nb-NO", {
-            day: "2-digit",
-            month: "short",
-          })
-        : "Ukjent";
-
-      map.set(key, (map.get(key) || 0) + Number(x.finalPrice || 0));
-    });
-
-    return Array.from(map.entries()).map(([date, amount]) => ({
-      date,
-      amount,
-    }));
-  }, [expenses]);
-
-  const categoryData = useMemo(() => {
-    const map = new Map();
-
-    expenses.forEach((x) => {
-      const key = x.shopName || "Ukjent";
-      map.set(key, (map.get(key) || 0) + Number(x.finalPrice || 0));
-    });
-
-    return Array.from(map.entries())
+    return Object.entries(grouped)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
   }, [expenses]);
 
+  const timeData = useMemo(() => {
+    const days = period === "week" ? 7 : 30;
+    const today = startOfDay(new Date());
+
+    const base = Array.from({ length: days }, (_, index) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (days - 1 - index));
+
+      const key = date.toISOString().slice(0, 10);
+      const label = date.toLocaleDateString("nb-NO", {
+        day: "2-digit",
+        month: "short",
+      });
+
+      return { key, date: label, value: 0 };
+    });
+
+    const byKey = Object.fromEntries(base.map((item) => [item.key, item]));
+
+    filteredByPeriod.forEach((item) => {
+      if (!item.purchaseDate) return;
+
+      const key = startOfDay(item.purchaseDate).toISOString().slice(0, 10);
+      const value = Number(item.finalPrice || item.price || 0);
+
+      if (byKey[key]) {
+        byKey[key].value += value;
+      }
+    });
+
+    return base;
+  }, [filteredByPeriod, period]);
+
   return (
-    <Box sx={{ mb: 3 }}>
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", md: "flex-start" }}
-        spacing={2}
-        sx={{ mb: 3 }}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={900}>
-            Utgifter
-          </Typography>
-          <Typography color="text.secondary">
-            Oversikt og håndtering av dine utgifter
-          </Typography>
-        </Box>
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
-          sx={{
-            borderRadius: 999,
-            px: 4,
-            py: 1.5,
-            alignSelf: { xs: "stretch", md: "flex-start" },
-            fontWeight: 800,
-          }}
-        >
-          Legg til ny utgift
-        </Button>
-      </Stack>
-
+    <Box
+      sx={{
+        borderRadius: 4,
+        p: 2,
+        bgcolor: "rgba(15, 23, 42, 0.78)",
+        border: "1px solid rgba(148, 163, 184, 0.16)",
+      }}
+    >
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            sm: "repeat(2, minmax(0, 1fr))",
-            lg: "repeat(4, minmax(0, 1fr))",
+            sm: "repeat(2, 1fr)",
+            lg: "repeat(4, 1fr)",
           },
-          gap: 2,
-          mb: 2,
+          gap: 1.5,
+          mb: 1.5,
         }}
       >
         <StatCard
-          title="Totale utgifter"
+          label="Totale utgifter"
           value={NOK.format(stats.total)}
-          subtitle="Synlige rader"
-          icon={<ReceiptLongIcon />}
+          subtext="Synlige rader"
+          icon={<ReceiptLongIcon fontSize="small" />}
         />
 
         <StatCard
-          title="Gjennomsnitt"
+          label="Gjennomsnitt"
           value={NOK.format(stats.average)}
-          subtitle="Per utgift"
-          icon={<TrendingUpIcon />}
+          subtext="Per utgift"
+          icon={<TrendingUpIcon fontSize="small" />}
         />
 
         <StatCard
-          title="Antall transaksjoner"
-          value={totalRowCount || expenses.length}
-          subtitle={`${expenses.length} vist nå`}
-          icon={<ShoppingCartIcon />}
+          label="Antall transaksjoner"
+          value={totalRowCount}
+          subtext={`${expenses.length} vist nå`}
+          icon={<ShoppingCartIcon fontSize="small" />}
         />
 
         <StatCard
-          title="Høyeste utgift"
-          value={NOK.format(stats.highest?.finalPrice || 0)}
-          subtitle={stats.highest?.productName || "Ingen data"}
-          icon={<TrendingUpIcon />}
+          label="Høyeste utgift"
+          value={NOK.format(stats.highest.value)}
+          subtext={stats.highest.name}
+          icon={<StorefrontIcon fontSize="small" />}
         />
       </Box>
 
@@ -239,43 +277,101 @@ const ExpenseDashboard = ({ expenses = [], totalRowCount = 0, onAdd }) => {
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            lg: "minmax(360px, 0.8fr) minmax(0, 1.2fr)",
+            lg: "0.8fr 1.2fr",
           },
-          gap: 2,
+          gap: 1.5,
         }}
       >
         <ChartCard title="Utgifter per butikk">
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={75}
-                outerRadius={110}
-                paddingAngle={4}
-              >
-                {categoryData.map((_, index) => (
-                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => NOK.format(value)} />
-            </PieChart>
-          </ResponsiveContainer>
+          {shopData.length ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={shopData}
+                  innerRadius={45}
+                  outerRadius={72}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {shopData.map((entry, index) => (
+                    <Cell
+                      key={entry.name}
+                      fill={chartColors[index % chartColors.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => NOK.format(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <Typography color="text.secondary">Ingen data å vise</Typography>
+          )}
         </ChartCard>
 
-        <ChartCard title="Utgifter over tid">
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={chartData}>
-              <XAxis dataKey="date" />
-              <YAxis tickFormatter={(v) => `${v} kr`} />
+        <ChartCard
+          title="Utgifter over tid"
+          action={
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={period}
+              onChange={(event, value) => {
+                if (value) setPeriod(value);
+              }}
+              sx={{
+                "& .MuiToggleButton-root": {
+                  px: 1.25,
+                  py: 0.35,
+                  textTransform: "none",
+                  fontWeight: 700,
+                },
+              }}
+            >
+              <ToggleButton value="week">Uke</ToggleButton>
+              <ToggleButton value="month">Måned</ToggleButton>
+            </ToggleButtonGroup>
+          }
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={timeData}>
+              <defs>
+                <linearGradient
+                  id="expenseGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor={theme.palette.primary.main}
+                    stopOpacity={0.45}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={theme.palette.primary.main}
+                    stopOpacity={0.04}
+                  />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid strokeDasharray="3 3" opacity={0.14} />
+              <XAxis dataKey="date" fontSize={11} />
+              <YAxis
+                fontSize={11}
+                width={46}
+                tickFormatter={(value) => `${value} kr`}
+              />
               <Tooltip formatter={(value) => NOK.format(value)} />
+
               <Area
                 type="monotone"
-                dataKey="amount"
-                stroke="#3b82f6"
-                fill="#3b82f6"
-                fillOpacity={0.22}
+                dataKey="value"
+                stroke={theme.palette.primary.main}
+                fill="url(#expenseGradient)"
+                strokeWidth={2.5}
+                dot={{ r: 2.5 }}
+                activeDot={{ r: 5 }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -283,6 +379,4 @@ const ExpenseDashboard = ({ expenses = [], totalRowCount = 0, onAdd }) => {
       </Box>
     </Box>
   );
-};
-
-export default React.memo(ExpenseDashboard);
+}
