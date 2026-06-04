@@ -98,35 +98,38 @@ const ProductDialog = ({
   }, [validationError, displayError, resetValidationErrors, resetServerError]);
 
   const handleBrandChange = useCallback(
-    (selectedOptions) => {
-      const arr = selectedOptions ?? [];
+  (selectedOptions) => {
+    setProduct((prev) => ({
+      ...prev,
+      brandSelections: selectedOptions ?? [],
+    }));
 
-      setProduct((prev) => ({
-        ...prev,
-        brandNames: arr.map((b) => b.value),
-      }));
-
-      setBrandSearch("");
-      clearProductErrorsIfAny();
-    },
-    [setProduct, clearProductErrorsIfAny],
-  );
+    setBrandSearch("");
+    clearProductErrorsIfAny();
+  },
+  [setProduct, clearProductErrorsIfAny],
+);
 
   const handleBrandCreate = useCallback(
-    (inputValue) => {
-      const trimmed = inputValue.trim();
-      if (!trimmed) return;
+  (inputValue) => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
 
-      setProduct((prev) => ({
-        ...prev,
-        brandNames: [...(prev.brandNames ?? []), trimmed],
-      }));
+    const newOption = {
+      label: trimmed,
+      value: trimmed,
+    };
 
-      setBrandSearch("");
-     clearProductErrorsIfAny();
-    },
-    [setProduct, clearProductErrorsIfAny],
-  );
+    setProduct((prev) => ({
+      ...prev,
+      brandSelections: [...(prev.brandSelections ?? []), newOption],
+    }));
+
+    setBrandSearch("");
+    clearProductErrorsIfAny();
+  },
+  [setProduct, clearProductErrorsIfAny],
+);
 
   // ✅ Variants: store ids in product.variants
   const handleVariantsChange = useCallback(

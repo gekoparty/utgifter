@@ -24,20 +24,41 @@ const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const isHexObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
 
 // -------------------- Brand helpers --------------------
-const resolveBrandIds = async (brandNames) => {
-  if (!Array.isArray(brandNames)) throw new Error("Brands must be an array");
+const resolveBrandIds = async (brands) => {
+  if (!Array.isArray(brands)) {
+    throw new Error("Brands must be an array");
+  }
 
   const ids = await Promise.all(
-    brandNames.map(async (name) => {
-      const trimmedName = String(name ?? "").trim();
-      if (!trimmedName) return null;
+    brands.map(async (raw) => {
+      const value = String(raw ?? "").trim();
 
-      const slug = createSlug(trimmedName);
+      if (!value) return null;
+
+      // Existing brand id
+      if (isHexObjectId(value)) {
+        const existing = await Brand.findById(value)
+          .select("_id")
+          .lean();
+
+        return existing?._id ?? null;
+      }
+
+      // New brand name
+      const slug = createSlug(value);
 
       const brand = await Brand.findOneAndUpdate(
-        { slug, name: trimmedName },
-        { $setOnInsert: { name: trimmedName, slug } },
-        { new: true, upsert: true }
+        { name: value },
+        {
+          $setOnInsert: {
+            name: value,
+            slug,
+          },
+        },
+        {
+          new: true,
+          upsert: true,
+        }
       );
 
       return brand._id;

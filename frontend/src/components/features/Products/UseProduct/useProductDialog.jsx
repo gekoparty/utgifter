@@ -8,7 +8,7 @@ import { addProductValidationSchema } from "../../../../validation/validationSch
 
 const INITIAL_PRODUCT_STATE = {
   name: "",
-  brandNames: [],
+  brandSelections: [],
   measures: [],
   measurementUnit: "",
   category: "",
@@ -18,27 +18,31 @@ const INITIAL_PRODUCT_STATE = {
 const PRODUCTS_QUERY_KEY = ["products", "paginated"];
 const BRANDS_QUERY_KEY = ["brands", "paginated"];
 
-const normalizeBrandNames = (p) => {
+const normalizeBrandSelections = (p) => {
   if (
     Array.isArray(p?.brands) &&
     p.brands.length > 0 &&
     typeof p.brands[0] === "object"
   ) {
-    return p.brands.map((b) => b?.name).filter(Boolean);
+    return p.brands
+      .map((b) => ({
+        label: b?.name,
+        value: String(b?._id ?? ""),
+      }))
+      .filter((b) => b.label && b.value);
   }
+
   if (typeof p?.brand === "string") {
     return p.brand
       .split(",")
       .map((s) => s.trim())
-      .filter(Boolean);
+      .filter(Boolean)
+      .map((name) => ({
+        label: name,
+        value: name,
+      }));
   }
-  if (
-    Array.isArray(p?.brands) &&
-    p.brands.length > 0 &&
-    typeof p.brands[0] === "string"
-  ) {
-    return p.brands.map((s) => s.trim()).filter(Boolean);
-  }
+
   return [];
 };
 
@@ -75,7 +79,7 @@ const buildFormStateFromInitial = (initialProduct) => {
   return {
     ...INITIAL_PRODUCT_STATE,
     ...initialProduct,
-    brandNames: normalizeBrandNames(initialProduct),
+    brandSelections: normalizeBrandSelections(initialProduct),
     measures: initialProduct.measures ?? [],
     measurementUnit: initialProduct.measurementUnit ?? "",
     category: initialProduct.category ?? "",
@@ -140,8 +144,6 @@ const useProductDialog = (initialProduct = null) => {
     resetValidationErrors();
   }, [initialProduct, resetServerError, resetValidationErrors]);
 
-  
-
   const saveProductMutation = useMutation({
     mutationFn: async (payload) => {
       const url = productId ? `/api/products/${productId}` : "/api/products";
@@ -204,8 +206,17 @@ const useProductDialog = (initialProduct = null) => {
       const formatted = {
         name: formatComponentFields(product.name, "product", "name"),
 
-        brands: (product.brandNames ?? [])
-          .map((b) => formatComponentFields(b, "product", "brands"))
+        brands: (product.brandSelections ?? [])
+          .map((b) => {
+            const value = String(b?.value ?? "").trim();
+            const label = String(b?.label ?? "").trim();
+
+            // Existing brand: send ObjectId
+            if (/^[a-f\d]{24}$/i.test(value)) return value;
+
+            // New brand: send name
+            return formatComponentFields(label || value, "product", "brands");
+          })
           .filter(Boolean),
 
         measurementUnit: product.measurementUnit ?? "",
@@ -288,7 +299,7 @@ const useProductDialog = (initialProduct = null) => {
   const isFormValid = useCallback(() => {
     return (
       product?.name?.trim().length > 0 &&
-      (product?.brandNames?.length ?? 0) > 0 &&
+      (product?.brandSelections?.length ?? 0) > 0 &&
       product?.measurementUnit?.trim().length > 0 &&
       product?.category?.trim().length > 0 &&
       !validationError?.name &&

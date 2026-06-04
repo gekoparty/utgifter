@@ -24,7 +24,10 @@ import {
   Divider,
 } from "@mui/material";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
+import Collapse from "@mui/material/Collapse";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import { useTheme } from "@mui/material/styles";
 import ExpenseDashboard from "../components/features/Expenses/components/ExpenseDashboard/ExpenseDashboard";
 import ReactTable from "../components/commons/React-Table/react-table";
@@ -38,9 +41,7 @@ import { API_URL } from "../components/commons/Consts/constants";
 // Lazy unified dialog + preloading
 // ------------------------------------------------------
 const loadExpenseDialog = () =>
-  import(
-    "../components/features/Expenses/components/ExpenseDialog/ExpenseDialog"
-  );
+  import("../components/features/Expenses/components/ExpenseDialog/ExpenseDialog");
 const ExpenseDialog = lazy(loadExpenseDialog);
 
 // ------------------------------------------------------
@@ -119,7 +120,9 @@ const transformExpenseData = (json) => {
       purchased: x.purchased,
       registeredDate: x.registeredDate,
       purchaseDate: x.purchaseDate,
-      productBrandIds: Array.isArray(x.productBrandIds) ? x.productBrandIds : [],
+      productBrandIds: Array.isArray(x.productBrandIds)
+        ? x.productBrandIds
+        : [],
       variant: x.variant || "",
       variantName: x.variantName || "",
       measurementUnit: x.measurementUnit,
@@ -369,8 +372,7 @@ const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
 });
 
 // Helpers
-const formatDate = (v) =>
-  v ? new Date(v).toLocaleDateString("nb-NO") : "—";
+const formatDate = (v) => (v ? new Date(v).toLocaleDateString("nb-NO") : "—");
 const formatBool = (v) => (v ? "Ja" : "Nei");
 
 // ------------------------------------------------------
@@ -411,6 +413,7 @@ const ExpenseScreen = () => {
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  const [dashboardOpen, setDashboardOpen] = useState();
 
   // ✅ default visibility (make all price keys true so mode switching never “hides”)
   const DEFAULT_VISIBILITY = useMemo(
@@ -700,13 +703,74 @@ const ExpenseScreen = () => {
 
   return (
     <TableLayout>
-      <Box sx={{ mb: 2 }}>
-       <ExpenseDashboard
-  expenses={tableData}
-  totalRowCount={metaData?.totalRowCount ?? 0}
-  onAdd={openAdd}
-/>
+      <Box
+        sx={{
+          mb: 2,
+          p: 1.5,
+          borderRadius: 3,
+          bgcolor: "background.paper",
+          border: `1px solid ${palette.divider}`,
+        }}
+      >
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1.5}
+          justifyContent="space-between"
+          alignItems={{ xs: "stretch", sm: "center" }}
+        >
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+              Utgifter
+            </Typography>
+
+            <Typography variant="body2" color="text.secondary">
+              {metaData?.totalRowCount ?? 0} registrerte utgifter
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Button
+              size="small"
+              variant={dashboardOpen ? "contained" : "outlined"}
+              startIcon={<DashboardIcon />}
+              onClick={() => setDashboardOpen((v) => !v)}
+              sx={{
+                borderRadius: 999,
+                textTransform: "none",
+                fontWeight: 700,
+                px: 2,
+              }}
+            >
+              {dashboardOpen ? "Skjul statistikk" : "Vis statistikk"}
+            </Button>
+
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={openAdd}
+              sx={{
+                borderRadius: 999,
+                textTransform: "none",
+                fontWeight: 800,
+                px: 2,
+              }}
+            >
+              Ny utgift
+            </Button>
+          </Stack>
+        </Stack>
       </Box>
+
+      <Collapse in={dashboardOpen} timeout={350} unmountOnExit>
+        <Box sx={{ mb: 2 }}>
+          <ExpenseDashboard
+            expenses={tableData}
+            totalRowCount={metaData?.totalRowCount ?? 0}
+            onAdd={openAdd}
+          />
+        </Box>
+      </Collapse>
 
       <ReactTable
         data={tableData}
