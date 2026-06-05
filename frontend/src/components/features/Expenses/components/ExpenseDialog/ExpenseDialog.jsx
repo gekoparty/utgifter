@@ -260,7 +260,15 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       <form onSubmit={handleSubmit}>
         {body}
 
-        <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 3 }}>
+        <Stack
+          direction={{ xs: "column-reverse", sm: "row" }}
+          spacing={1.5}
+          justifyContent="flex-end"
+          sx={{
+            mt: 3,
+            "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
+          }}
+        >
           <Button onClick={handleClose} disabled={loading}>
             Avbryt
           </Button>

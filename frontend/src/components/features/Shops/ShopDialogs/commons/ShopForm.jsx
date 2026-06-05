@@ -105,6 +105,7 @@ const ShopForm = ({
       <Stack spacing={0.5}>
         <TextField
           size="small"
+          fullWidth
           label="Butikk"
           value={shop?.name || ""}
           error={Boolean(validationError?.name)}

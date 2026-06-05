@@ -144,6 +144,7 @@ const BrandScreen = () => {
           onFocus={loadBrandDialog}
           variant="contained"
           onClick={() => setActiveModal("ADD")}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           Nytt Merke
         </Button>

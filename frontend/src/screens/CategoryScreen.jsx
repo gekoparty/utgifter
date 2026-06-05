@@ -138,13 +138,14 @@ const CategoryScreen = () => {
           onMouseEnter={loadCategoryDialog}
           onFocus={loadCategoryDialog}
           onClick={() => setActiveModal("ADD")}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           Ny Kategori
         </Button>
       </Box>
 
       {/* Table */}
-      <Box sx={{ flexGrow: 1, width: "100%", minWidth: 600 }}>
+      <Box sx={{ flexGrow: 1, width: "100%", minWidth: 0 }}>
         <ReactTable
           data={tableData}
           columns={tableColumns}

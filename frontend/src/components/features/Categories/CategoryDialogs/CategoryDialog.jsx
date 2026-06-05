@@ -99,7 +99,14 @@ const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onErro
         <Stack spacing={2} sx={{ mt: 2 }}>
           {renderBody()}
 
-          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+          <Stack
+            direction={{ xs: "column-reverse", sm: "row" }}
+            justifyContent="flex-end"
+            spacing={1.5}
+            sx={{
+              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
+            }}
+          >
             <Button onClick={handleClose} disabled={loading}>
               Avbryt
             </Button>

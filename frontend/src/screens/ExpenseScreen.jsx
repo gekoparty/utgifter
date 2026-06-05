@@ -728,7 +728,12 @@ const ExpenseScreen = () => {
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            justifyContent="flex-end"
+            sx={{ "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } } }}
+          >
             <Button
               size="small"
               variant={dashboardOpen ? "contained" : "outlined"}

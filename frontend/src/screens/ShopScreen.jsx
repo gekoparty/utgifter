@@ -153,6 +153,7 @@ const ShopScreen = () => {
           onFocus={loadShopDialog}
           variant="contained"
           onClick={() => setActiveModal("ADD")}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           Ny Butikk
         </Button>
