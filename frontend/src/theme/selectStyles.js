@@ -12,13 +12,15 @@ export const getSelectStyles = (theme) => {
       backgroundColor: isDark ? theme.palette.background.paper : "#fff",
       color: isDark ? "#fff" : "#000",
       border: `1px solid ${isDark ? theme.palette.divider : "#ddd"}`,
-      // optional: make menu a bit wider than control so long names fit better
-      minWidth: 420,
+      width: "100%",
+      minWidth: "min(420px, calc(100vw - 24px))",
+      maxWidth: "calc(100vw - 24px)",
     }),
 
     control: (base, state) => ({
       ...base,
       width: "100%",
+      minHeight: 42,
       backgroundColor: isDark ? theme.palette.background.default : "#fff",
       color: isDark ? "#fff" : "#000",
       borderColor: state.isFocused ? theme.palette.primary.main : theme.palette.divider,
@@ -45,6 +47,7 @@ export const getSelectStyles = (theme) => {
     input: (base) => ({
       ...base,
       color: isDark ? "#fff" : "#000",
+      minWidth: 0,
     }),
 
     placeholder: (base) => ({
@@ -53,6 +56,7 @@ export const getSelectStyles = (theme) => {
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis",
+      fontSize: "0.95rem",
     }),
 
     // ✅ dropdown option: force one line + ellipsis (no wrap)

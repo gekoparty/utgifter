@@ -166,6 +166,7 @@ const ProductScreen = () => {
           onMouseEnter={preloadDialog}
           onFocus={preloadDialog}
           onClick={() => openModal("ADD")}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           Nytt Produkt
         </Button>

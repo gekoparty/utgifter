@@ -106,6 +106,7 @@ const LocationScreen = () => {
           onMouseEnter={loadLocationDialog}
           onFocus={loadLocationDialog}
           onClick={() => setActiveModal("ADD")}
+          sx={{ width: { xs: "100%", sm: "auto" } }}
         >
           Nytt sted
         </Button>

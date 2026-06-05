@@ -7,6 +7,8 @@ import { MRT_Localization_NO } from "material-react-table/locales/no";
 import { useTheme } from "@mui/material/styles";
 import { getTableStyles } from "./tableStyles";
 
+const ACTIONS_COLUMN_ID = "mrt-row-actions";
+
 const ReactTable = ({
   data,
   columns,
@@ -40,6 +42,9 @@ const ReactTable = ({
     () => ({
       showColumnFilters: true,
       density: "compact",
+      columnPinning: {
+        left: [ACTIONS_COLUMN_ID],
+      },
     }),
     [],
   );
@@ -50,6 +55,9 @@ const ReactTable = ({
       globalFilter,
       sorting,
       pagination,
+      columnPinning: {
+        left: [ACTIONS_COLUMN_ID],
+      },
 
       // ✅ NEW: controlled column visibility (only if provided)
       ...(columnVisibility ? { columnVisibility } : {}),
@@ -136,16 +144,19 @@ const ReactTable = ({
       onColumnVisibilityChange={setColumnVisibility}
       renderTopToolbarCustomActions={refreshButton}
       enableRowActions
-      positionActionsColumn="left"
+      positionActionsColumn="first"
       renderRowActionMenuItems={renderRowActionMenuItems}
       renderDetailPanel={renderDetailPanel}
+      enableColumnPinning
       enableColumnResizing={false}
       enableDensityToggle={false}
       enableFullScreenToggle={false}
       enableHiding
       enableStickyHeader
+      displayColumnDefOptions={tableStyles.displayColumnDefOptions}
       muiTablePaperProps={tableStyles.muiTablePaperProps}
       muiTopToolbarProps={tableStyles.muiTopToolbarProps}
+      muiBottomToolbarProps={tableStyles.muiBottomToolbarProps}
       muiTableHeadRowProps={tableStyles.muiTableHeadRowProps}
       muiTableHeadCellProps={tableStyles.muiTableHeadCellProps}
       muiTableBodyCellProps={tableStyles.muiTableBodyCellProps}
