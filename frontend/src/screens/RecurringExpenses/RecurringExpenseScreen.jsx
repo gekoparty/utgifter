@@ -6,7 +6,14 @@ import {
   Typography,
   Stack,
   Button,
+  Tabs,
+  Tab,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
 } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import dayjs from "dayjs";
 
 import { useRecurringController } from "../../components/features/RecurringExpenes/hooks/useRecurringController";
@@ -43,6 +50,7 @@ export default function RecurringExpenseScreen() {
   const payments = useRecurringPayments();
   const { invalidateSummary, invalidateTemplates } = useRecurringInvalidation();
   const [showFinished, setShowFinished] = useState(false);
+  const [activeSection, setActiveSection] = useState("overview");
 
   const [purgeOpen, setPurgeOpen] = useState(false);
 
@@ -406,7 +414,7 @@ export default function RecurringExpenseScreen() {
     <Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
       <HeaderBar onAdd={ctrl.openAdd} />
 
-      <Box sx={{ px: { xs: 2, md: 3 }, pb: 2 }}>
+      <Box sx={{ px: { xs: 1.5, md: 3 }, pb: { xs: 2, md: 3 } }}>
         <FiltersSummaryCard
           filter={ctrl.filter}
           onFilter={onFilter}
@@ -414,59 +422,12 @@ export default function RecurringExpenseScreen() {
           formatCurrency={formatCurrency}
         />
 
-        <Card sx={{ mt: 2 }}>
-          <CardContent>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography fontWeight={800}>Admin</Typography>
-              <Button
-                color="error"
-                variant="contained"
-                onClick={() => setPurgeOpen(true)}
-              >
-                Purge ALT
-              </Button>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        <MortgageCenter
-          mortgages={mortgages}
-          formatCurrency={formatCurrency}
-          onHardDeleteMortgage={onHardDeleteMortgage}
-          onPurgeMortgages={onPurgeMortgages}
-        />
-
-        <Card sx={{ mt: 2 }}>
-          <CardContent>
-            <Stack spacing={1}>
-              <Typography fontWeight={800}>Historikk</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Vis {monthsBack} måneder bakover
-              </Typography>
-              <PastMonthsSelect value={monthsBack} onChange={setMonthsBack} />
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
-          <Box sx={{ mt: 2 }}>
-            <RecurringOverviewCharts
-              forecast={forecast}
-              monthsForTypeSplit={3}
-            />
-          </Box>
-        )}
-
         {(isLoading || isError) && (
           <Card sx={{ mt: 2 }}>
             <CardContent>
               {isLoading && (
                 <Typography color="text.secondary">
-                  Laster faste kostnader…
+                  Laster faste kostnader...
                 </Typography>
               )}
               {isError && (
@@ -478,68 +439,157 @@ export default function RecurringExpenseScreen() {
             </CardContent>
           </Card>
         )}
-      </Box>
 
-      <Box sx={{ px: { xs: 2, md: 3 }, pb: { xs: 2, md: 3 } }}>
-        <Box
-          sx={{
-            display: "grid",
-            gap: 3,
-            gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" },
-            alignItems: "start",
-          }}
-        >
-          <ForecastSection
-            title="Kommende måneder"
-            forecast={forecastFuture}
-            tab={ctrl.tab}
-            onTab={onTab}
-            onOpenMonth={onOpenMonth}
-            maxRef={maxRef}
-            formatCurrency={formatCurrency}
-          />
+        <Card sx={{ mt: 2 }}>
+          <CardContent sx={{ p: { xs: 1, sm: 1.5 } }}>
+            <Tabs
+              value={activeSection}
+              onChange={(_, value) => setActiveSection(value)}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+            >
+              <Tab value="overview" label="Oversikt" />
+              <Tab value="months" label="Måneder" />
+              <Tab value="templates" label="Avtaler" />
+              <Tab value="mortgages" label="Boliglån" />
+            </Tabs>
+          </CardContent>
+        </Card>
 
-          <NextBillsCard
-            nextBills={nextBills}
-            formatCurrency={formatCurrency}
-          />
+        {activeSection === "overview" && (
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
+              <RecurringOverviewCharts
+                forecast={forecast}
+                monthsForTypeSplit={3}
+              />
+            )}
 
-          <ForecastSection
-            title="Historikk"
-            forecast={forecastPast}
-            tab={ctrl.tab}
-            onTab={onTab}
-            onOpenMonth={onOpenMonth}
-            maxRef={maxRef}
-            formatCurrency={formatCurrency}
-          />
+            <NextBillsCard
+              nextBills={nextBills}
+              formatCurrency={formatCurrency}
+            />
+          </Stack>
+        )}
 
-          <ExpenseTemplatesSection
-            expenses={templates.expenses}
-            templates={templates.expenses}
-            formatCurrency={formatCurrency}
-            onEdit={ctrl.openEdit}
-            onDelete={ctrl.openDelete}
-            showFinished={showFinished}
-            onToggleShowFinished={() => setShowFinished((v) => !v)}
-            onFinish={async (id) => {
-              if (!id) return;
-              await recurringApi.archiveExpense(String(id));
-              invalidateSummary();
-              invalidateTemplates();
-            }}
-            onRestore={async (id) => {
-              if (!id) return;
-              await recurringApi.restoreExpense(String(id));
-              invalidateSummary();
-              invalidateTemplates();
-            }}
-            onOpenTerms={openTerms}
-            onOpenPauseCreate={openPauseCreate}
-            onOpenPauseEdit={openPauseEdit}
-            onUnpause={unpause}
-          />
-        </Box>
+        {activeSection === "months" && (
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <Card>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2.25 } }}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
+                  spacing={2}
+                >
+                  <Box>
+                    <Typography fontWeight={900}>Periode</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Vis {monthsBack} måneder bakover og 12 måneder frem.
+                    </Typography>
+                  </Box>
+                  <PastMonthsSelect value={monthsBack} onChange={setMonthsBack} />
+                </Stack>
+              </CardContent>
+            </Card>
+
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" },
+                alignItems: "start",
+              }}
+            >
+              <ForecastSection
+                title="Kommende måneder"
+                forecast={forecastFuture}
+                tab={ctrl.tab}
+                onTab={onTab}
+                onOpenMonth={onOpenMonth}
+                maxRef={maxRef}
+                formatCurrency={formatCurrency}
+              />
+
+              <ForecastSection
+                title="Historikk"
+                forecast={forecastPast}
+                tab={ctrl.tab}
+                onTab={onTab}
+                onOpenMonth={onOpenMonth}
+                maxRef={maxRef}
+                formatCurrency={formatCurrency}
+                pastMonths={monthsBack}
+                setPastMonths={setMonthsBack}
+                monthsForward={monthsForward}
+              />
+            </Box>
+          </Stack>
+        )}
+
+        {activeSection === "templates" && (
+          <Box sx={{ mt: 2 }}>
+            <ExpenseTemplatesSection
+              expenses={templates.expenses}
+              templates={templates.expenses}
+              formatCurrency={formatCurrency}
+              onEdit={ctrl.openEdit}
+              onDelete={ctrl.openDelete}
+              showFinished={showFinished}
+              onToggleShowFinished={() => setShowFinished((v) => !v)}
+              onFinish={async (id) => {
+                if (!id) return;
+                await recurringApi.archiveExpense(String(id));
+                invalidateSummary();
+                invalidateTemplates();
+              }}
+              onRestore={async (id) => {
+                if (!id) return;
+                await recurringApi.restoreExpense(String(id));
+                invalidateSummary();
+                invalidateTemplates();
+              }}
+              onOpenTerms={openTerms}
+              onOpenPauseCreate={openPauseCreate}
+              onOpenPauseEdit={openPauseEdit}
+              onUnpause={unpause}
+            />
+          </Box>
+        )}
+
+        {activeSection === "mortgages" && (
+          <Stack spacing={2} sx={{ mt: 2 }}>
+            <MortgageCenter
+              mortgages={mortgages}
+              formatCurrency={formatCurrency}
+              onHardDeleteMortgage={onHardDeleteMortgage}
+              onPurgeMortgages={onPurgeMortgages}
+            />
+          </Stack>
+        )}
+
+        <Accordion sx={{ mt: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography fontWeight={900}>Avansert</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                Bruk dette kun når du vil rydde all historikk og alle faste kostnader.
+              </Typography>
+              <Divider />
+              <Button
+                color="error"
+                variant="outlined"
+                onClick={() => setPurgeOpen(true)}
+                sx={{ alignSelf: { sm: "flex-start" }, width: { xs: "100%", sm: "auto" } }}
+              >
+                Slett alt
+              </Button>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
       </Box>
 
       <MonthDrawer
