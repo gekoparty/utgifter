@@ -6,13 +6,13 @@ import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
 
 const router = express.Router();
+const CONFIRM_PURGE = "PURGE";
 
 const isMortgageType = (t) => {
   const s = String(t || "").toUpperCase();
   return s === "MORTGAGE" || s === "HOUSING";
 };
 
-// DELETE /api/mortgages/:id/hard
 router.delete("/:id/hard", async (req, res) => {
   try {
     const { id } = req.params;
@@ -21,11 +21,8 @@ router.delete("/:id/hard", async (req, res) => {
     if (!exp) return res.status(404).json({ message: "Not found" });
     if (!isMortgageType(exp.type)) return res.status(400).json({ message: "Not a mortgage" });
 
-    // Delete history tied to this recurringExpenseId
     await RecurringPayment.deleteMany({ recurringExpenseId: exp._id });
     await RecurringTermsHistory.deleteMany({ recurringExpenseId: exp._id });
-
-    // Finally delete the expense itself
     await RecurringExpense.findByIdAndDelete(exp._id);
 
     return res.status(204).send();
@@ -35,7 +32,6 @@ router.delete("/:id/hard", async (req, res) => {
   }
 });
 
-// DELETE /api/mortgages/purge-all  (DEV/TEST ONLY)
 router.delete("/purge-all", async (req, res) => {
   try {
     if (process.env.NODE_ENV === "production") {
@@ -43,8 +39,10 @@ router.delete("/purge-all", async (req, res) => {
     }
 
     const confirm = String(req.headers["x-confirm-purge"] || "");
-    if (confirm !== "PURGE") {
-      return res.status(400).json({ message: "Missing x-confirm-purge: PURGE" });
+    if (confirm !== CONFIRM_PURGE) {
+      return res.status(400).json({
+        message: `Missing x-confirm-purge: ${CONFIRM_PURGE}`,
+      });
     }
 
     const mortgageExpenses = await RecurringExpense.find({

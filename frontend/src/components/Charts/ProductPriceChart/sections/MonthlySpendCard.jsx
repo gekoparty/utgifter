@@ -4,21 +4,31 @@ import { formatCurrency } from "../utils/format";
 
 export default function MonthlySpendCard({ monthlySpend, top }) {
   return (
-    <Card elevation={3} sx={{ height: "100%" }}>
+    <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
       <CardContent>
-        <Typography variant="overline" color="text.secondary">
-          Total spend per måned
+        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
+          Forbruk per måned
         </Typography>
 
-        <Box sx={{ mt: 1 }}>
-          {monthlySpend.slice(-12).map((m) => (
+        <Box sx={{ mt: 1.5, display: "grid", gap: 0.75 }}>
+          {monthlySpend.slice(-12).map((month) => (
             <Box
-              key={m.month}
-              sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.75 }}
+              key={month.month}
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+                py: 0.75,
+                borderBottom: "1px solid",
+                borderColor: "divider",
+              }}
             >
-              <Typography variant="body2">{m.month}</Typography>
-              <Typography variant="body2" fontWeight="bold">
-                {formatCurrency(m.totalSpend)}
+              <Typography variant="body2" color="text.secondary">
+                {month.month}
+              </Typography>
+              <Typography variant="body2" fontWeight={800}>
+                {formatCurrency(month.totalSpend)}
               </Typography>
             </Box>
           ))}
@@ -31,7 +41,7 @@ export default function MonthlySpendCard({ monthlySpend, top }) {
 
         <Divider sx={{ my: 2 }} />
 
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
           {top.shopMostOften && <Chip label={`Mest kjøpt: ${top.shopMostOften.name} (${top.shopMostOften.purchases})`} />}
           {top.shopCheapestAvg && (
             <Chip

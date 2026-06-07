@@ -1,7 +1,7 @@
 import express from "express";
 import slugify from "slugify";
 import Shop from "../models/shopSchema.js";
-import Location from "../models/locationScema.js";
+import Location from "../models/locationSchema.js";
 import Category from "../models/categorySchema.js";
 import mongoose from "mongoose";
 
@@ -37,9 +37,6 @@ const resolveCategoryId = async (categoryName) => {
 
   return cat._id;
 };
-
-const isObjectIdString = (v) =>
-  typeof v === "string" && mongoose.Types.ObjectId.isValid(v);
 
 /**
  * Enrich ONLY the shops returned (small list) with location/category names.
@@ -175,7 +172,17 @@ shopsRouter.get("/", async (req, res) => {
 
 shopsRouter.post("/", async (req, res) => {
   try {
-    const { name, locationName, categoryName } = req.body;
+    const name = String(req.body?.name ?? "").trim();
+    const locationName = String(req.body?.locationName ?? "").trim();
+    const categoryName = String(req.body?.categoryName ?? "").trim();
+
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
+
+    if (!locationName) {
+      return res.status(400).json({ message: "locationName is required" });
+    }
 
     const locationId = await resolveLocationId(locationName);
     const categoryId = await resolveCategoryId(categoryName);
@@ -214,7 +221,21 @@ shopsRouter.post("/", async (req, res) => {
 shopsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, locationName, categoryName } = req.body;
+    const name = String(req.body?.name ?? "").trim();
+    const locationName = String(req.body?.locationName ?? "").trim();
+    const categoryName = String(req.body?.categoryName ?? "").trim();
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid shop id" });
+    }
+
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
+
+    if (!locationName) {
+      return res.status(400).json({ message: "locationName is required" });
+    }
 
     const locationId = await resolveLocationId(locationName);
     const categoryId = await resolveCategoryId(categoryName);
@@ -250,6 +271,10 @@ shopsRouter.put("/:id", async (req, res) => {
 
 shopsRouter.delete("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).send({ error: "Invalid shop id" });
+    }
+
     const shop = await Shop.findByIdAndDelete(req.params.id);
     if (!shop) return res.status(404).send({ error: "Shop not found" });
     res.send(shop);

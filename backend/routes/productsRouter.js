@@ -376,10 +376,10 @@ productsRouter.post("/", async (req, res) => {
     // 4) safety cleanup
     await cleanupProductVariantOrphans(saved._id);
 
-   const populatedProduct = await Product.findById(saved._id)
-  .populate("brands", "name _id")
-  .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
-  .lean();
+    const populatedProduct = await Product.findById(saved._id)
+      .populate("brands", "name _id")
+      .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
+      .lean();
 
     res.status(201).json(populatedProduct);
   } catch (error) {
@@ -437,7 +437,7 @@ productsRouter.put("/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ message: "Product not found" });
 
     const normalizedCategory = String(category ?? "").trim();
-   const normalizedMeasures = normalizeMeasures(measures, 3);
+    const normalizedMeasures = normalizeMeasures(measures, 3);
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ message: "name is required" });
@@ -495,10 +495,10 @@ productsRouter.put("/:id", async (req, res) => {
     // cleanup orphan ids (safety net)
     await cleanupProductVariantOrphans(result._id);
 
-   const populatedProduct = await Product.findById(result._id)
-  .populate("brands", "name _id")
-  .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
-  .lean();
+    const populatedProduct = await Product.findById(result._id)
+      .populate("brands", "name _id")
+      .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
+      .lean();
 
     res.status(200).json(populatedProduct);
   } catch (error) {

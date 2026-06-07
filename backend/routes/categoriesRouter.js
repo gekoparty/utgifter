@@ -1,12 +1,12 @@
 import express from "express";
 import Category from "../models/categorySchema.js";
 import slugify from "slugify";
+import mongoose from "mongoose";
 
 const categoriesRouter = express.Router();
 
 categoriesRouter.get("/", async (req, res) => {
   try {
-    console.log("Categories GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     let query = Category.find();
@@ -37,7 +37,6 @@ categoriesRouter.get("/", async (req, res) => {
           acc[id] = desc ? -1 : 1;
           return acc;
         }, {});
-        console.log("Applying sort:", sortObject);
         query = query.sort(sortObject);
       }
     }
@@ -48,13 +47,11 @@ categoriesRouter.get("/", async (req, res) => {
       const startIndex = parseInt(start, 10);
       const pageSize = parseInt(size, 10);
       totalRowCount = await Category.countDocuments(query.getFilter());
-      console.log("Total matching categories:", totalRowCount);
       query = query.skip(startIndex).limit(pageSize);
     }
 
     // Execute the query
     const categories = await query.exec();
-    console.log("Fetched categories:", categories);
 
     res.json({ categories, meta: { totalRowCount } });
   } catch (err) {
@@ -65,6 +62,10 @@ categoriesRouter.get("/", async (req, res) => {
 
 categoriesRouter.get("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid category id" });
+    }
+
     const category = await Category.findById(req.params.id);
     if (!category) {
       return res.status(404).json({ error: "Category not found" });
@@ -76,20 +77,13 @@ categoriesRouter.get("/:id", async (req, res) => {
   }
 });
 
-categoriesRouter.get("/:id", async (req, res) => {
-  try {
-    const category = await Category.findById(req.params.id);
-    res.json(category);
-  } catch (error) {
-    console.error("Error fetching category:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
 categoriesRouter.post("/", async (req, res) => {
-  
   try {
-    const { name } = req.body;
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
+
     const slug = slugify(name, { lower: true });
 
     const existingCategory = await Category.findOne({ slug });
@@ -111,9 +105,11 @@ categoriesRouter.post("/", async (req, res) => {
 });
 
 categoriesRouter.delete("/:id", async (req, res) => {
-  const { id } = req.params;
- 
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).send({ error: "Invalid category id" });
+    }
+
     const category = await Category.findByIdAndDelete(req.params.id);
     if (!category) {
       return res.status(404).send({ error: "Category not found" });
@@ -127,9 +123,17 @@ categoriesRouter.delete("/:id", async (req, res) => {
 
 categoriesRouter.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const name = String(req.body?.name ?? "").trim();
 
   try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send({ error: "Invalid category id" });
+    }
+
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
+
     // Check if the slug already exists for a different brand
     const existingCategoryWithSlug = await Category.findOne({
       slug: slugify(name, { lower: true }),

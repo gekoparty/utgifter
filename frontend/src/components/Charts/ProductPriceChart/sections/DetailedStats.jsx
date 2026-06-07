@@ -1,8 +1,36 @@
-// src/components/Charts/ProductPriceChart/sections/DetailedStats.jsx
 import React from "react";
 import { Grid, Card, CardContent, Typography, Box, Divider } from "@mui/material";
 import dayjs from "dayjs";
 import { formatCurrency } from "../utils/format";
+
+const StatList = ({ rows }) => (
+  <Box sx={{ mt: 1, maxHeight: 150, overflow: "auto", pr: 1, display: "grid", gap: 0.5 }}>
+    {rows.map((row) => (
+      <Box
+        key={row.name}
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 2,
+          py: 0.45,
+        }}
+      >
+        <Typography variant="body2" sx={{ minWidth: 0 }}>
+          {row.name}{" "}
+          {row.count != null && (
+            <Typography component="span" variant="caption" color="text.secondary">
+              ({row.count})
+            </Typography>
+          )}
+        </Typography>
+        <Typography variant="body2" fontWeight={800} sx={{ whiteSpace: "nowrap" }}>
+          {formatCurrency(row.avg)}
+        </Typography>
+      </Box>
+    ))}
+  </Box>
+);
 
 export default function DetailedStats({ stats }) {
   if (!stats) return null;
@@ -12,14 +40,14 @@ export default function DetailedStats({ stats }) {
     stats?.variantStats?.length ? stats.variantStats[stats.variantStats.length - 1] : null;
 
   return (
-    <Grid container spacing={3}>
+    <Grid container spacing={2.5}>
       <Grid item xs={12} md={4}>
-        <Card elevation={3} sx={{ height: "100%" }}>
+        <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
           <CardContent>
-            <Typography variant="overline" color="text.secondary">
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
               Billigste registrering
             </Typography>
-            <Typography variant="h4" color="success.main">
+            <Typography variant="h4" color="success.main" sx={{ fontWeight: 900, mt: 0.5 }}>
               {formatCurrency(stats.cheapestRecord?.pricePerUnit)}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
@@ -28,19 +56,19 @@ export default function DetailedStats({ stats }) {
             <Typography variant="caption" color="text.secondary">
               {stats.cheapestRecord?.date ? dayjs(stats.cheapestRecord.date).format("DD. MMM YYYY") : "—"}
               {stats.cheapestRecord?.hasDiscount && " (Tilbud)"}
-              {stats.cheapestRecord?.variantName ? ` — ${stats.cheapestRecord.variantName}` : ""}
+              {stats.cheapestRecord?.variantName ? ` · ${stats.cheapestRecord.variantName}` : ""}
             </Typography>
           </CardContent>
         </Card>
       </Grid>
 
       <Grid item xs={12} md={4}>
-        <Card elevation={3} sx={{ height: "100%" }}>
+        <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
           <CardContent>
-            <Typography variant="overline" color="text.secondary">
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
               Dyreste registrering
             </Typography>
-            <Typography variant="h4" color="error.main">
+            <Typography variant="h4" color="error.main" sx={{ fontWeight: 900, mt: 0.5 }}>
               {formatCurrency(stats.mostExpensiveRecord?.pricePerUnit)}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
@@ -48,54 +76,36 @@ export default function DetailedStats({ stats }) {
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {stats.mostExpensiveRecord?.date ? dayjs(stats.mostExpensiveRecord.date).format("DD. MMM YYYY") : "—"}
-              {stats.mostExpensiveRecord?.variantName ? ` — ${stats.mostExpensiveRecord.variantName}` : ""}
+              {stats.mostExpensiveRecord?.variantName ? ` · ${stats.mostExpensiveRecord.variantName}` : ""}
             </Typography>
           </CardContent>
         </Card>
       </Grid>
 
       <Grid item xs={12} md={4}>
-        <Card elevation={3} sx={{ height: "100%" }}>
+        <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
           <CardContent>
-            <Typography variant="overline" color="text.secondary">
-              Snittpris per butikk
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
+              Snittpriser
             </Typography>
-            <Box sx={{ mt: 1, maxHeight: 140, overflow: "auto", pr: 1 }}>
-              {stats.shopStats.map((shop) => (
-                <Box key={shop.name} sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="body2">{shop.name}</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {formatCurrency(shop.avg)}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
 
-            <Divider sx={{ my: 2 }} />
-
-            <Typography variant="overline" color="text.secondary">
-              Snittpris per merke
+            <Typography variant="subtitle2" sx={{ mt: 1.25 }}>
+              Per butikk
             </Typography>
-            <Box sx={{ mt: 1, maxHeight: 140, overflow: "auto", pr: 1 }}>
-              {stats.brandStats.map((brand) => (
-                <Box key={brand.name} sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="body2">{brand.name}</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {formatCurrency(brand.avg)}
-                  </Typography>
-                </Box>
-              ))}
-            </Box>
+            <StatList rows={stats.shopStats} />
+
+            <Divider sx={{ my: 1.75 }} />
+
+            <Typography variant="subtitle2">Per merke</Typography>
+            <StatList rows={stats.brandStats} />
 
             {!!stats.variantStats?.length && (
               <>
-                <Divider sx={{ my: 2 }} />
+                <Divider sx={{ my: 1.75 }} />
 
-                <Typography variant="overline" color="text.secondary">
-                  Snittpris per variant
-                </Typography>
+                <Typography variant="subtitle2">Per variant</Typography>
 
-                <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
+                <Box sx={{ mt: 0.75, display: "grid", gap: 0.5 }}>
                   {cheapestVariant && (
                     <Typography variant="caption" color="text.secondary">
                       Billigst: <strong>{cheapestVariant.name}</strong> ({formatCurrency(cheapestVariant.avg)})
@@ -108,18 +118,7 @@ export default function DetailedStats({ stats }) {
                   )}
                 </Box>
 
-                <Box sx={{ mt: 1, maxHeight: 160, overflow: "auto", pr: 1 }}>
-                  {stats.variantStats.map((v) => (
-                    <Box key={v.name} sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                      <Typography variant="body2">
-                        {v.name} <span style={{ opacity: 0.7 }}>({v.count})</span>
-                      </Typography>
-                      <Typography variant="body2" fontWeight="bold">
-                        {formatCurrency(v.avg)}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
+                <StatList rows={stats.variantStats} />
               </>
             )}
           </CardContent>

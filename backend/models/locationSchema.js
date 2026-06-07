@@ -10,7 +10,7 @@ const locationSchema = new mongoose.Schema(
     description: {
       type: String,
     },
-    slug: {  // Add the 'slug' field to the schema
+    slug: {
       type: String,
       required: true,
       unique: true,

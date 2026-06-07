@@ -1,4 +1,3 @@
-// src/components/Charts/ProductPriceChart/ui/ModeControls.jsx
 import React from "react";
 import {
   Box,
@@ -14,12 +13,8 @@ import {
 
 export default function ModeControls({
   mode,
-
-  // overview
   overviewBucket,
   setOverviewBucket,
-
-  // shops
   topN,
   setTopN,
   shops,
@@ -28,20 +23,38 @@ export default function ModeControls({
   hiddenSeries,
   setHiddenSeries,
   stopScrollBubble,
-
-  // ✅ yearly
   yearlyBreakdown,
   setYearlyBreakdown,
   yearlyTopN,
   setYearlyTopN,
-  yearlySeriesCatalog, // [{name,count}]
+  yearlySeriesCatalog,
   visibleYearSeries,
   setVisibleYearSeries,
 }) {
   return (
-    <Stack direction="row" spacing={2} sx={{ mb: 2, flexWrap: "wrap", alignItems: "center" }}>
+    <Stack
+      direction="row"
+      spacing={1.5}
+      useFlexGap
+      sx={{
+        mb: 2,
+        flexWrap: "wrap",
+        alignItems: "center",
+        p: 1.25,
+        border: "1px solid",
+        borderColor: "divider",
+        borderRadius: 2,
+        bgcolor: "background.default",
+      }}
+    >
       {mode === "overview" && (
-        <ToggleButtonGroup size="small" value={overviewBucket} exclusive onChange={(_, v) => v && setOverviewBucket(v)}>
+        <ToggleButtonGroup
+          size="small"
+          value={overviewBucket}
+          exclusive
+          onChange={(_, value) => value && setOverviewBucket(value)}
+          sx={{ "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 700 } }}
+        >
           <ToggleButton value="week">Uke</ToggleButton>
           <ToggleButton value="month">Måned</ToggleButton>
         </ToggleButtonGroup>
@@ -49,13 +62,13 @@ export default function ModeControls({
 
       {mode === "shops" && (
         <>
-          <Box sx={{ width: 220 }}>
+          <Box sx={{ width: { xs: "100%", sm: 220 } }}>
             <Typography variant="caption" color="text.secondary">
-              Top N butikker (standardvisning)
+              Antall butikker
             </Typography>
             <Slider
               value={topN}
-              onChange={(_, v) => setTopN(v)}
+              onChange={(_, value) => setTopN(value)}
               step={1}
               min={1}
               max={Math.min(12, shops.length || 12)}
@@ -67,14 +80,14 @@ export default function ModeControls({
             multiple
             size="small"
             disablePortal
-            options={shops.map((s) => s.name)}
+            options={shops.map((shop) => shop.name)}
             value={visibleShops}
-            onChange={(_, v) => setVisibleShops(v)}
-            renderInput={(params) => <TextField {...params} label="Velg butikker (valgfritt)" />}
-            sx={{ minWidth: 320 }}
+            onChange={(_, value) => setVisibleShops(value)}
+            renderInput={(params) => <TextField {...params} label="Velg butikker" />}
+            sx={{ width: { xs: "100%", sm: 340 } }}
             ListboxProps={{
               onWheel: stopScrollBubble,
-              onTouchMove: (e) => e.stopPropagation(),
+              onTouchMove: (event) => event.stopPropagation(),
               style: { maxHeight: 320, overflow: "auto" },
             }}
           />
@@ -87,32 +100,35 @@ export default function ModeControls({
 
       {mode === "distribution" && (
         <Typography variant="body2" color="text.secondary">
-          Månedlig fordeling (min / kvartiler / median / maks)
+          Månedlig fordeling med minimum, kvartiler, median og maksimum.
         </Typography>
       )}
 
-      {/* ✅ yearly */}
       {mode === "yearly" && (
         <>
           <ToggleButtonGroup
             size="small"
             value={yearlyBreakdown}
             exclusive
-            onChange={(_, v) => v && setYearlyBreakdown(v)}
+            onChange={(_, value) => value && setYearlyBreakdown(value)}
+            sx={{
+              flexWrap: "wrap",
+              "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 700 },
+            }}
           >
             <ToggleButton value="overall">Total</ToggleButton>
             <ToggleButton value="shop">Butikk</ToggleButton>
             <ToggleButton value="variant">Variant</ToggleButton>
-            <ToggleButton value="shopVariant">Butikk+Variant</ToggleButton>
+            <ToggleButton value="shopVariant">Butikk + variant</ToggleButton>
           </ToggleButtonGroup>
 
-          <Box sx={{ width: 240 }}>
+          <Box sx={{ width: { xs: "100%", sm: 230 } }}>
             <Typography variant="caption" color="text.secondary">
-              Top N serier (standardvisning)
+              Antall serier
             </Typography>
             <Slider
               value={yearlyTopN}
-              onChange={(_, v) => setYearlyTopN(v)}
+              onChange={(_, value) => setYearlyTopN(value)}
               step={1}
               min={1}
               max={Math.min(12, yearlySeriesCatalog.length || 12)}
@@ -124,14 +140,14 @@ export default function ModeControls({
             multiple
             size="small"
             disablePortal
-            options={yearlySeriesCatalog.map((s) => s.name)}
+            options={yearlySeriesCatalog.map((series) => series.name)}
             value={visibleYearSeries}
-            onChange={(_, v) => setVisibleYearSeries(v)}
-            renderInput={(params) => <TextField {...params} label="Velg serier (valgfritt)" />}
-            sx={{ minWidth: 360 }}
+            onChange={(_, value) => setVisibleYearSeries(value)}
+            renderInput={(params) => <TextField {...params} label="Velg serier" />}
+            sx={{ width: { xs: "100%", sm: 360 } }}
             ListboxProps={{
               onWheel: stopScrollBubble,
-              onTouchMove: (e) => e.stopPropagation(),
+              onTouchMove: (event) => event.stopPropagation(),
               style: { maxHeight: 320, overflow: "auto" },
             }}
           />

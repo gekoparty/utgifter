@@ -165,7 +165,7 @@ export default function ProductPriceChart({ productId }) {
       { label: "Per mnd", value: fmt1(freq.perMonth) },
       { label: "Per år", value: fmt1(freq.perYear) },
       freq.nextPurchaseDate
-        ? { label: "Neste kjøp (est.)", value: dayjs(freq.nextPurchaseDate).format("DD. MMM YYYY"), color: "primary" }
+        ? { label: "Neste kjøp", value: dayjs(freq.nextPurchaseDate).format("DD. MMM YYYY"), color: "primary" }
         : null,
       { label: "Sist vs forrige", value: fmtPct(trend.lastVsPrevPct), color: changeChipColor(trend.lastVsPrevPct) },
       { label: "Sist vs første", value: fmtPct(trend.lastVsFirstPct), color: changeChipColor(trend.lastVsFirstPct) },
@@ -180,7 +180,7 @@ export default function ProductPriceChart({ productId }) {
         color: changeChipColor(threeMonth?.pctChangePricePerUnit),
       },
       {
-        label: "3 mnd spend",
+        label: "3 mnd forbruk",
         value: fmtPct(threeMonth?.pctChangeSpend),
         color: changeChipColor(threeMonth?.pctChangeSpend),
       },
@@ -235,13 +235,13 @@ export default function ProductPriceChart({ productId }) {
 
   const onEvents = useEChartEvents({ mode, setHiddenSeries, setHighlightSeries });
 
-  if (!productId) return <Typography>Select a product above.</Typography>;
-  if (isLoading) return <Typography>Loading...</Typography>;
-  if (error) return <Typography color="error">Error loading history</Typography>;
+  if (!productId) return <Typography>Velg et produkt over.</Typography>;
+  if (isLoading) return <Typography>Laster prishistorikk...</Typography>;
+  if (error) return <Typography color="error">Kunne ikke laste prishistorikk.</Typography>;
 
   return (
     <Box>
-      <Paper sx={{ p: 3, mb: 4 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 3, borderRadius: 2 }}>
         <HeaderControls
           productNameStr={productNameStr}
           mode={mode}
@@ -319,13 +319,23 @@ export default function ProductPriceChart({ productId }) {
         />
 
         {/* Chart */}
-        <div style={{ height: 420 }}>
-          <ReactECharts option={option} style={{ height: "100%", width: "100%" }} notMerge={true} lazyUpdate={true} onEvents={onEvents} />
-        </div>
+        <Box
+          sx={{
+            height: { xs: 340, md: 430 },
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            overflow: "hidden",
+            bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+            p: { xs: 0.5, md: 1 },
+          }}
+        >
+          <ReactECharts option={option} style={{ height: "100%", width: "100%" }} notMerge lazyUpdate onEvents={onEvents} />
+        </Box>
 
         {(mode === "shops" || mode === "yearly") && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-            Tips: Hold musepekeren over legend for å fremheve én serie. Klikk legend for å skjule/vis serie.
+            Tips: Hold musepekeren over forklaringen for å fremheve én serie. Klikk for å skjule eller vise serien.
           </Typography>
         )}
       </Paper>

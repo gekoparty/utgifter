@@ -1,4 +1,4 @@
-import { format, parse, isValid, parseISO } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 const TIME_ZONE = "Europe/Oslo";

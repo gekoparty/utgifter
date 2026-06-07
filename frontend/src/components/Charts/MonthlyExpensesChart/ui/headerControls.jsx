@@ -26,20 +26,25 @@ export default function HeaderControls({
       direction="row"
       justifyContent="space-between"
       alignItems="center"
-      mb={1.5}
+      mb={2.5}
       gap={2}
       flexWrap="wrap"
     >
-      <Box>
-        <Typography variant="h6" fontWeight={600}>
-          Monthly Expenses
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="h5" fontWeight={900} sx={{ lineHeight: 1.15 }}>
+          Månedlige utgifter
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {doCompare ? `Comparing ${selectedYear} vs. ${previousYearKey}` : `Data for the year ${selectedYear}`}
+          {doCompare ? `${selectedYear} sammenlignet med ${previousYearKey}` : `Tall for ${selectedYear}`}
         </Typography>
       </Box>
 
-      <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        alignItems={{ xs: "stretch", sm: "center" }}
+        sx={{ width: { xs: "100%", sm: "auto" } }}
+      >
         <FormControlLabel
           control={
             <Switch
@@ -49,17 +54,25 @@ export default function HeaderControls({
               disabled={!canComparePrev}
             />
           }
-          label="Compare Previous Year"
-          sx={{ color: "text.secondary" }}
+          label="Sammenlign med fjoråret"
+          sx={{
+            color: "text.secondary",
+            m: 0,
+            px: 1.25,
+            py: 0.5,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
         />
 
-        <FormControl variant="outlined" size="small" sx={{ minWidth: 120 }}>
-          <InputLabel id="year-select-label">Year</InputLabel>
+        <FormControl variant="outlined" size="small" sx={{ minWidth: { xs: "100%", sm: 130 } }}>
+          <InputLabel id="year-select-label">År</InputLabel>
           <Select
             labelId="year-select-label"
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            label="Year"
+            label="År"
           >
             {availableYears.map((year) => (
               <MenuItem key={year} value={year}>

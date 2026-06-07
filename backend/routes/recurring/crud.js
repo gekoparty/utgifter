@@ -5,9 +5,16 @@ import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
 
 const router = express.Router();
 
-const clampDueDay = (d) => Math.min(28, Math.max(1, Number(d || 1)));
+const clampDueDay = (d, type) => {
+  const maxDueDay = type === "MORTGAGE" ? 31 : 28;
+  return Math.min(maxDueDay, Math.max(1, Number(d || 1)));
+};
 const clampMonth = (m) => Math.min(12, Math.max(1, Number(m || 1)));
 const clampInterval = (v) => ([1, 3, 6, 12].includes(Number(v)) ? Number(v) : 1);
+const normalizeFirstPaymentMonth = (value) => {
+  const periodKey = String(value || "").trim();
+  return /^\d{4}-\d{2}$/.test(periodKey) ? periodKey : "";
+};
 
 const normalizePayload = (body = {}) => {
   const type = body.type === "HOUSING" ? "MORTGAGE" : body.type;
@@ -15,7 +22,7 @@ const normalizePayload = (body = {}) => {
   const payload = {
     title: String(body.title ?? "").trim(),
     type,
-    dueDay: clampDueDay(body.dueDay),
+    dueDay: clampDueDay(body.dueDay, type),
 
     billingIntervalMonths: clampInterval(body.billingIntervalMonths ?? 1),
     startMonth: clampMonth(body.startMonth ?? new Date().getMonth() + 1),
@@ -30,6 +37,7 @@ const normalizePayload = (body = {}) => {
     interestRate: Number(body.interestRate ?? 0),
     hasMonthlyFee: Boolean(body.hasMonthlyFee),
     monthlyFee: Boolean(body.hasMonthlyFee) ? Number(body.monthlyFee ?? 0) : 0,
+    firstPaymentMonth: normalizeFirstPaymentMonth(body.firstPaymentMonth),
 
     isActive: body.isActive === undefined ? true : Boolean(body.isActive),
     endDate: body.endDate ? new Date(body.endDate) : null,
@@ -45,6 +53,7 @@ const normalizePayload = (body = {}) => {
     payload.interestRate = 0;
     payload.hasMonthlyFee = false;
     payload.monthlyFee = 0;
+    payload.firstPaymentMonth = "";
   } else {
     payload.billingIntervalMonths = 1;
     payload.estimateMin = 0;

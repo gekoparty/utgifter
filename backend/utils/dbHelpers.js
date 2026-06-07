@@ -2,7 +2,8 @@ import slugify from "slugify";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
-import Location from "../models/locationScema.js";
+import Location from "../models/locationSchema.js";
+import { convertToUTC } from "./dateUtils.js";
 
 export async function findOrCreate(Model, name) {
   if (!name) return null;

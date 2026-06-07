@@ -1,12 +1,12 @@
 import express from "express";
 import slugify from "slugify";
-import Location from "../models/locationScema.js";
+import Location from "../models/locationSchema.js";
+import mongoose from "mongoose";
 
 const locationsRouter = express.Router();
 
 locationsRouter.get("/", async (req, res) => {
   try {
-    console.log("Locations GET params:", req.query);
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
     let query = Location.find();
@@ -61,9 +61,12 @@ locationsRouter.get("/", async (req, res) => {
 });
 
 locationsRouter.post("/", async (req, res) => {
-  console.log("Expense data received:", req.body);
   try {
-    const { name } = req.body;
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
+
     const slug = slugify(name, { lower: true });
 
     const existingLocation = await Location.findOne({ slug });
@@ -82,9 +85,17 @@ locationsRouter.post("/", async (req, res) => {
 
 locationsRouter.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
+  const name = String(req.body?.name ?? "").trim();
 
   try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid location id" });
+    }
+
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
+
     const slug = slugify(name, { lower: true });
 
     // Check for duplicate locations
@@ -112,6 +123,10 @@ locationsRouter.put("/:id", async (req, res) => {
 
 locationsRouter.get("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid location id" });
+    }
+
     const location = await Location.findById(req.params.id);
     if (!location) {
       return res.status(404).json({ message: "Location not found" });
@@ -125,6 +140,10 @@ locationsRouter.get("/:id", async (req, res) => {
 
 locationsRouter.delete("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid location id" });
+    }
+
     const location = await Location.findByIdAndDelete(req.params.id);
     if (!location) {
       return res.status(404).json({ message: "Location not found" });

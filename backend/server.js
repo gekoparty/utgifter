@@ -55,10 +55,12 @@ app.use(express.json());
 mongoose.set("strictQuery", false);
 connectToDB();
 
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+if (process.env.LOG_REQUESTS === "true") {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+}
 
 app.get("/", (req, res) => {
   res.send("API is running.");
@@ -102,10 +104,7 @@ process.on("unhandledRejection", (err) => {
 
 async function connectToDB() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log("Connected to DB");
   } catch (err) {
     console.error("Database connection error:", err.message);
