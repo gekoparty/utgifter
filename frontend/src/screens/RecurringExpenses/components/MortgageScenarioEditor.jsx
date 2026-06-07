@@ -211,7 +211,7 @@ export default function MortgageScenarioEditor({ from, value, onChange }) {
       >
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Stack spacing={0.25} sx={{ width: "100%" }}>
-            <Typography fontWeight={900}>What-if simulering</Typography>
+            <Typography fontWeight={900}>Scenario</Typography>
             <Typography variant="caption" color="text.secondary">
               {hasAnyWhatIf ? "Aktivert (endringer lagt inn)" : "Klikk for å åpne"}
             </Typography>

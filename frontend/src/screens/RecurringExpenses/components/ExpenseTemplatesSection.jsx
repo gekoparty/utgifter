@@ -79,18 +79,18 @@ function ExpenseTemplatesSection({
           sx={{ mb: 1.25 }}
         >
           <Typography variant="h6" fontWeight={950}>
-            Grunnoppsett
+            Avtaler og faste kostnader
           </Typography>
 
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
             <Typography variant="body2" color="text.secondary">
-              Administrer pause og prisendringer her – historikk beholdes.
+              Endre beløp, legg inn pause eller avslutt faste kostnader.
             </Typography>
 
             <Button size="small" variant="outlined" onClick={onToggleShowFinished}>
               {showFinished
-                ? "Skjul fullførte"
-                : `Vis fullførte${finishedCount ? ` (${finishedCount})` : ""}`}
+                ? "Skjul avsluttede"
+                : `Vis avsluttede${finishedCount ? ` (${finishedCount})` : ""}`}
             </Button>
           </Stack>
         </Stack>
@@ -98,6 +98,12 @@ function ExpenseTemplatesSection({
         <Divider sx={{ mb: 1.5 }} />
 
         <Box sx={{ display: "grid", gap: 1.25 }}>
+          {visibleRows.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Ingen faste kostnader i denne visningen.
+            </Typography>
+          )}
+
           {visibleRows.map((e) => {
             const id = String(e._id || e.id);
             const typeKey = normalizeRecurringType(e.type);
@@ -135,7 +141,7 @@ function ExpenseTemplatesSection({
                           </Typography>
 
                           <Chip size="small" label={typeLabel} variant="outlined" />
-                          {!e.isActive && <Chip size="small" color="success" label="Fullført" />}
+                          {!e.isActive && <Chip size="small" color="success" label="Avsluttet" />}
                         </Stack>
 
                         <Typography variant="body2" color="text.secondary">
@@ -161,7 +167,7 @@ function ExpenseTemplatesSection({
         variant="outlined"
         onClick={() => onOpenTerms?.({ ...e, recurringExpenseId: id }, dayjs().format("YYYY-MM"))}
       >
-        Endre pris fra måned
+        Endre beløp
       </Button>
 
       <Button
@@ -174,11 +180,11 @@ function ExpenseTemplatesSection({
       </Button>
 
       <Button size="small" onClick={() => onEdit?.(e)}>
-        Rediger grunnoppsett
+        Rediger
       </Button>
 
       <Button size="small" color="error" onClick={() => onFinish?.(id)}>
-        Fullfør
+        Avslutt
       </Button>
     </>
   ) : (

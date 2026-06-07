@@ -22,7 +22,7 @@ export const mainNavbarItems = [
   {
     id: 7, // or whatever the next index is
     icon: <AccountBalanceIcon />,
-    label: "Fixed Costs",
+    label: "Faste kostnader",
     route: "/recurring-expenses",
   },
   // stats is outside sidebar layout, still navigable from drawer if you want

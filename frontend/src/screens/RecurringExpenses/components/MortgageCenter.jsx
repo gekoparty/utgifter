@@ -262,7 +262,7 @@ export default function MortgageCenter({
       setSim(null);
       setSelectedId("");
     } catch (e) {
-      setErr(e?.message || "Kunne ikke purge");
+      setErr(e?.message || "Kunne ikke slette alle");
     } finally {
       setPending(false);
     }
@@ -307,7 +307,7 @@ export default function MortgageCenter({
                   onClick={() => setPurgeOpen(true)}
                   disabled={pending}
                 >
-                  Purge alle
+                  Slett alle
                 </Button>
               </Stack>
             </Stack>
@@ -386,7 +386,7 @@ export default function MortgageCenter({
                 }}
                 disabled={pending}
               >
-                Nullstill what-if
+                Nullstill scenario
               </Button>
             </Stack>
 
@@ -396,7 +396,7 @@ export default function MortgageCenter({
               <>
                 <Divider />
                 <Typography fontWeight={900}>
-                  Forskjell (Plan vs What-if)
+                  Forskjell (plan vs scenario)
                 </Typography>
 
                 <Box
@@ -417,7 +417,7 @@ export default function MortgageCenter({
 
                   <Stack spacing={0.25}>
                     <Typography variant="body2" color="text.secondary">
-                      Nedbetalt (what-if)
+                      Nedbetalt (scenario)
                     </Typography>
                     <Typography fontWeight={700}>
                       {diff.payoffSim || "Ikke innen horisont"}
@@ -433,7 +433,7 @@ export default function MortgageCenter({
 
                   <Stack spacing={0.25}>
                     <Typography variant="body2" color="text.secondary">
-                      Måneder til nedbetalt (what-if)
+                      Måneder til nedbetalt (scenario)
                     </Typography>
                     <Typography>{diff.monthsToPayoffSim ?? "-"}</Typography>
                   </Stack>
@@ -476,7 +476,7 @@ export default function MortgageCenter({
 
                   <Stack spacing={0.25}>
                     <Typography variant="body2" color="text.secondary">
-                      Total betalt (what-if)
+                      Total betalt (scenario)
                     </Typography>
                     <Typography>{formatCurrency(diff.totalPaidSim)}</Typography>
                   </Stack>
@@ -492,7 +492,7 @@ export default function MortgageCenter({
                 </Box>
 
                 <Typography variant="caption" color="text.secondary">
-                  (Bruker backend totals + monthsToPayoff)
+                  Beregnet fra låneplanen.
                 </Typography>
               </>
             )}
@@ -500,7 +500,7 @@ export default function MortgageCenter({
             <Divider />
 
             <Typography fontWeight={800}>
-              {sim ? "Simulering" : "Plan"}
+              {sim ? "Scenario" : "Plan"}
               {title ? `: ${title}` : ""}
             </Typography>
 
@@ -569,7 +569,7 @@ export default function MortgageCenter({
         onClose={() => setPurgeOpen(false)}
         onConfirm={doPurge}
         title="ALLE boliglån"
-        confirmWord="PURGE"
+        confirmWord="SLETT"
       />
     </>
   );

@@ -6,8 +6,19 @@ export default function Layout() {
   const location = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
 
+  const routeTitles = {
+    "/": "Hjem",
+    "/expenses": "Utgifter",
+    "/categories": "Kategorier",
+    "/shops": "Butikker",
+    "/brands": "Merker",
+    "/locations": "Steder",
+    "/products": "Produkter",
+    "/recurring-expenses": "Faste kostnader",
+  };
+
   const title = useMemo(
-    () => location.pathname.replace(/\W/g, " "),
+    () => routeTitles[location.pathname] ?? location.pathname.replace(/\W/g, " "),
     [location.pathname]
   );
 
