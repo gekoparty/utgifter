@@ -2,6 +2,7 @@ import express from "express";
 import Brand from "../models/brandSchema.js";
 import Product from "../models/productSchema.js";
 import slugify from "slugify";
+import mongoose from "mongoose";
 
 const brandsRouter = express.Router();
 
@@ -124,6 +125,10 @@ brandsRouter.get("/recent", async (req, res) => {
 
 brandsRouter.get("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).send({ error: "Invalid brand id" });
+    }
+
     const brand = await Brand.findById(req.params.id);
     if (!brand) return res.status(404).send({ error: "Brand not found" });
     res.json(brand);
@@ -135,7 +140,10 @@ brandsRouter.get("/:id", async (req, res) => {
 
 brandsRouter.post("/", async (req, res) => {
   try {
-    const { name } = req.body;
+    const name = String(req.body?.name ?? "").trim();
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
 
     const slug = slugify(name, { lower: true });
     const existingBrand = await Brand.findOne({ slug });
@@ -156,6 +164,10 @@ brandsRouter.post("/", async (req, res) => {
 
 brandsRouter.delete("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).send({ error: "Invalid brand id" });
+    }
+
     const deletedBrand = await Brand.findByIdAndDelete(req.params.id);
     if (!deletedBrand) return res.status(404).send({ error: "Brand not found" });
 
@@ -179,7 +191,15 @@ brandsRouter.delete("/:id", async (req, res) => {
 brandsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const name = String(req.body?.name ?? "").trim();
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).send({ error: "Invalid brand id" });
+    }
+
+    if (!name) {
+      return res.status(400).json({ message: "name is required" });
+    }
 
     const newSlug = slugify(name, { lower: true });
 

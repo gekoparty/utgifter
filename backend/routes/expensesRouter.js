@@ -5,7 +5,7 @@ import Expense from "../models/expenseSchema.js";
 import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
-import Location from "../models/locationScema.js";
+import Location from "../models/locationSchema.js";
 import Variant from "../models/variantSchema.js";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { format } from "date-fns";
@@ -318,6 +318,10 @@ expensesRouter.get("/", async (req, res) => {
 // GET Expense by ID
 expensesRouter.get("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid expense id" });
+    }
+
     const expense = await Expense.findById(req.params.id)
       .populate({
         path: "productName",
@@ -454,6 +458,10 @@ expensesRouter.post("/", async (req, res) => {
 // PUT Expense
 expensesRouter.put("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid expense id" });
+    }
+
     const {
       productName,
       brandName,
@@ -532,6 +540,10 @@ expensesRouter.put("/:id", async (req, res) => {
 // DELETE Expense
 expensesRouter.delete("/:id", async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid expense id" });
+    }
+
     const deleted = await Expense.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ error: "Expense not found" });
     res.json(deleted);

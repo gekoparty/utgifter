@@ -7,13 +7,12 @@ import crud from "./crud.js";
 
 const router = express.Router();
 
-// ✅ static/special routes first (so they don't get caught by "/:id")
 router.use("/", purge);
 router.use("/", summary);
 router.use("/", terms);
 router.use("/", pause);
 
-// ✅ CRUD last (contains "/:id")
+// CRUD routes include "/:id", so they must stay last.
 router.use("/", crud);
 
 export default router;

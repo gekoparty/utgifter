@@ -8,10 +8,9 @@ import {
   Typography,
   Container,
   Box,
-  Button,
-  ButtonGroup,
+  ToggleButton,
+  ToggleButtonGroup,
   useTheme,
-  Paper,
   Stack,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -103,7 +102,7 @@ export default function BareLayout() {
               letterSpacing: "-0.5px",
             }}
           >
-            Statistics
+            Statistikk
           </Typography>
         </Toolbar>
       </AppBar>
@@ -123,39 +122,34 @@ export default function BareLayout() {
             alignItems="center"
             justifyContent="space-between"
           >
-            <ButtonGroup
-              variant="outlined"
+            <ToggleButtonGroup
               size="small"
-              aria-label="view switcher"
-              sx={{ boxShadow: "none" }}
+              exclusive
+              value={view}
+              onChange={(_, nextView) => {
+                if (!nextView) return;
+                setView(nextView);
+                setProductId("");
+              }}
+              aria-label="statistikkvisning"
+              sx={{
+                width: { xs: "100%", sm: "auto" },
+                "& .MuiToggleButton-root": {
+                  flex: { xs: 1, sm: "initial" },
+                  px: { xs: 1.5, sm: 3 },
+                  textTransform: "none",
+                  fontWeight: 700,
+                },
+              }}
             >
-              <Button
-                variant={view === "expenses" ? "contained" : "outlined"}
-                onClick={() => {
-                  setView("expenses");
-                  setProductId("");
-                }}
-                sx={{ px: 3 }}
-              >
-                Monthly
-              </Button>
-
-              <Button
-                variant={view === "price" ? "contained" : "outlined"}
-                onClick={() => {
-                  setView("price");
-                  setProductId("");
-                }}
-                sx={{ px: 3 }}
-              >
-                Price History
-              </Button>
-            </ButtonGroup>
+              <ToggleButton value="expenses">Måneder</ToggleButton>
+              <ToggleButton value="price">Prishistorikk</ToggleButton>
+            </ToggleButtonGroup>
 
             <Box
               sx={{
                 width: { xs: "100%", sm: 300 },
-                visibility: view === "price" ? "visible" : "hidden",
+                display: view === "price" ? "block" : "none",
               }}
             >
               <VirtualizedSelect
@@ -165,7 +159,7 @@ export default function BareLayout() {
                 onChange={(opt) => setProductId(opt?.value || "")}
                 onInputChange={handleInputChange}
                 isLoading={isLoadingProducts}
-                placeholder="Search products..."
+                placeholder="Søk etter produkt..."
                 menuPortalTarget={menuPortalTarget}
                 styles={selectStyles}
                 hasNextPage={hasNextPage}
@@ -177,18 +171,19 @@ export default function BareLayout() {
       </Box>
 
       {/* Content */}
-      <Box component="main" sx={{ flexGrow: 1, py: 4 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          py: { xs: 2.5, md: 4 },
+          background:
+            theme.palette.mode === "dark"
+              ? "linear-gradient(180deg, rgba(255,255,255,0.02), transparent 260px)"
+              : "linear-gradient(180deg, rgba(25,118,210,0.05), transparent 280px)",
+        }}
+      >
         <Container maxWidth="lg">
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 2, md: 4 },
-              borderRadius: 3,
-              border: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <Outlet context={{ view, productId }} />
-          </Paper>
+          <Outlet context={{ view, productId }} />
         </Container>
       </Box>
     </Box>

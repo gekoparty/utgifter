@@ -6,13 +6,9 @@ import dayjs from "dayjs";
 import { useExpensesByMonthSummary } from "./hooks/useExpensesByMonth";
 import { buildOption } from "./echarts/buildOption";
 
-import HeaderControls from "./ui/headerControls"
+import HeaderControls from "./ui/headerControls";
 import StatsStrip from "./ui/StatsStrip";
 
-/**
- * Optional: pass onMonthClick={(yyyyMm) => ...}
- * Example: onMonthClick("2025-03")
- */
 export default function MonthlyExpensesChart({ onMonthClick }) {
   const theme = useTheme();
 
@@ -49,22 +45,15 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
     });
   }, [theme, months, doCompare, year, compareYear]);
 
-  // ✅ Drilldown click handler
   const onEvents = useMemo(() => {
     return {
-      click: (e) => {
-        // Only react to bar clicks
-        if (e?.componentType !== "series") return;
-        if (typeof e?.dataIndex !== "number") return;
+      click: (event) => {
+        if (event?.componentType !== "series") return;
+        if (typeof event?.dataIndex !== "number") return;
 
-        const monthIndex = e.dataIndex; // 0..11
-        const mm = String(monthIndex + 1).padStart(2, "0");
+        const mm = String(event.dataIndex + 1).padStart(2, "0");
         const yyyyMm = `${year}-${mm}`;
 
-        // default action: log
-        console.log("MonthlyExpensesChart drilldown:", yyyyMm);
-
-        // optional callback
         if (typeof onMonthClick === "function") {
           onMonthClick(yyyyMm);
         }
@@ -74,31 +63,38 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
 
   if (isLoading) {
     return (
-      <Box p={3} sx={{ textAlign: "center" }}>
+      <Paper variant="outlined" sx={{ p: 4, borderRadius: 2, textAlign: "center" }}>
         <CircularProgress />
-        <Typography>Laster data for sammenligning...</Typography>
-      </Box>
+        <Typography color="text.secondary" sx={{ mt: 1 }}>
+          Laster statistikk...
+        </Typography>
+      </Paper>
     );
   }
 
-  if (error) return <Typography color="error" p={3}>Error loading stats</Typography>;
+  if (error) {
+    return (
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Typography color="error">Kunne ikke laste statistikk.</Typography>
+      </Paper>
+    );
+  }
 
   if (!years.length) {
     return (
-      <Box p={3}>
-        <Typography color="text.secondary">No data available.</Typography>
-      </Box>
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
+        <Typography color="text.secondary">Ingen data tilgjengelig.</Typography>
+      </Paper>
     );
   }
 
   return (
     <Paper
-      elevation={2}
+      variant="outlined"
       sx={{
-        p: 3,
-        mb: 4,
+        p: { xs: 2, md: 3 },
         borderRadius: 2,
-        background: `linear-gradient(to bottom right, ${theme.palette.background.paper}, ${theme.palette.background.default})`,
+        bgcolor: "background.paper",
       }}
     >
       <HeaderControls
@@ -114,10 +110,21 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
 
       <StatsStrip stats={stats} doCompare={doCompare} />
 
-      <Box sx={{ height: 350 }}>
+      <Box
+        sx={{
+          height: { xs: 320, md: 390 },
+          minWidth: 0,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+          overflow: "hidden",
+          bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+          p: { xs: 0.5, md: 1 },
+        }}
+      >
         <ReactECharts
           option={option}
-          onEvents={onEvents}   // ✅ attach here
+          onEvents={onEvents}
           style={{ height: "100%", width: "100%" }}
           notMerge
           lazyUpdate

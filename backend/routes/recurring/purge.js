@@ -7,11 +7,8 @@ import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
 
 const router = express.Router();
 
-/**
- * DELETE /api/recurring-expenses/purge-all
- * DEV/TEST ONLY
- * Deletes ALL recurring "mal", payments and terms history.
- */
+const CONFIRM_PURGE = "PURGE";
+
 router.delete("/purge-all", async (req, res) => {
   try {
     if (process.env.NODE_ENV === "production") {
@@ -19,8 +16,10 @@ router.delete("/purge-all", async (req, res) => {
     }
 
     const confirm = String(req.headers["x-confirm-purge"] || "");
-    if (confirm !== "PURGE") {
-      return res.status(400).json({ message: "Missing x-confirm-purge: PURGE" });
+    if (confirm !== CONFIRM_PURGE) {
+      return res.status(400).json({
+        message: `Missing x-confirm-purge: ${CONFIRM_PURGE}`,
+      });
     }
 
     const [payments, terms, expenses] = await Promise.all([

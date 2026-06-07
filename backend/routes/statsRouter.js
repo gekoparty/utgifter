@@ -2,8 +2,6 @@
 import express from "express";
 import mongoose from "mongoose";
 import Expense from "../models/expenseSchema.js";
-import Product from "../models/productSchema.js";
-import Shop from "../models/shopSchema.js";
 
 const router = express.Router();
 
@@ -194,10 +192,13 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
 router.get("/price-history", async (req, res, next) => {
   const { productId } = req.query;
   if (!productId) return res.status(400).json({ message: "Missing productId" });
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return res.status(400).json({ message: "Invalid productId" });
+  }
 
   try {
     const data = await Expense.aggregate([
-      { $match: { productName: mongoose.Types.ObjectId(productId) } },
+      { $match: { productName: new mongoose.Types.ObjectId(productId) } },
       {
         $lookup: {
           from: "products",
@@ -228,6 +229,9 @@ router.get("/price-per-unit-history", async (req, res, next) => {
   const { productId } = req.query;
   if (!productId) {
     return res.status(400).json({ message: "Missing productId" });
+  }
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return res.status(400).json({ message: "Invalid productId" });
   }
 
   try {
@@ -349,6 +353,9 @@ router.get("/price-per-unit-history", async (req, res, next) => {
 router.get("/product-insights", async (req, res, next) => {
   const { productId } = req.query;
   if (!productId) return res.status(400).json({ message: "Missing productId" });
+  if (!mongoose.Types.ObjectId.isValid(productId)) {
+    return res.status(400).json({ message: "Invalid productId" });
+  }
 
   const includeDiscounts = req.query.includeDiscounts !== "false";
 
