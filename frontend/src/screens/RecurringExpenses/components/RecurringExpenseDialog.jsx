@@ -1,4 +1,4 @@
-// src/components/features/RecurringExpenes/components/RecurringExpenseDialog.jsx
+// src/screens/RecurringExpenses/components/RecurringExpenseDialog.jsx
 import React, { useCallback, useState } from "react";
 import PropTypes from "prop-types";
 import {
@@ -14,9 +14,9 @@ import {
   Divider,
   Chip,
 } from "@mui/material";
-import BasicDialog from "../../../commons/BasicDialog/BasicDialog";
+import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
 import useRecurringDialog from "../hooks/useRecurringDialog";
-import useSnackBar from "../../../../hooks/useSnackBar";
+import useSnackBar from "../../../hooks/useSnackBar";
 
 const TYPES = [
   { value: "MORTGAGE", label: "Lån" },

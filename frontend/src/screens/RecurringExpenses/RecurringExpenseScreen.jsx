@@ -1,113 +1,68 @@
 import React, { useCallback, useMemo, useState } from "react";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  Stack,
-  Button,
-  Tabs,
-  Tab,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Divider,
+  Stack,
+  Tab,
+  Tabs,
+  Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import dayjs from "dayjs";
 
-import { useRecurringController } from "../../components/features/RecurringExpenes/hooks/useRecurringController";
-import RecurringExpenseDialog from "../../components/features/RecurringExpenes/components/RecurringExpenseDialog";
-import {
-  useRecurringInvalidation,
-  useRecurringData,
-} from "../../components/features/RecurringExpenes/hooks/useRecurringData";
-import RecurringOverviewCharts from "../../components/features/RecurringExpenes/components/RecurringOverviewCharts";
-
+import HeaderBar from "./components/HeaderBar";
+import FiltersSummaryCard from "./components/FiltersSummaryCard";
+import RecurringOverviewCharts from "./components/RecurringOverviewCharts";
+import NextBillsCard from "./components/NextBillsCard";
+import PastMonthsSelect from "./components/PastMonthsSelect";
+import ForecastSection from "./components/ForecastSection";
+import ExpenseTemplatesSection from "./components/ExpenseTemplatesSection";
 import MortgageCenter from "./components/MortgageCenter";
+import MonthDrawer from "./components/MonthDrawer";
+import RecurringExpenseDialog from "./components/RecurringExpenseDialog";
+import PayDialog from "./components/PayDialog";
+import ChangeTermsDialog from "./components/ChangeTermsDialog";
+import PauseDialog from "./components/PauseDialog";
+import PurgeAllRecurringDialog from "./components/PurgeAllRecurringDialog";
+import { useRecurringController } from "./hooks/useRecurringController";
+import {
+  useRecurringData,
+  useRecurringInvalidation,
+} from "./hooks/useRecurringData";
 import { useRecurringSummary } from "./hooks/useRecurringSummary";
 import { usePayDialog } from "./hooks/usePayDialog";
 import { useRecurringPayments } from "./hooks/useRecurringPayments";
+import { useRecurringPaymentActions } from "./hooks/useRecurringPaymentActions";
+import { useRecurringMaintenanceActions } from "./hooks/useRecurringMaintenanceActions";
 import { makeCurrencyFormatter } from "./utils/recurringFormatters";
-import PastMonthsSelect from "./components/PastMonthsSelect";
-import HeaderBar from "./components/HeaderBar";
-import FiltersSummaryCard from "./components/FiltersSummaryCard";
-import ForecastSection from "./components/ForecastSection";
-import NextBillsCard from "./components/NextBillsCard";
-import ExpenseTemplatesSection from "./components/ExpenseTemplatesSection";
-import MonthDrawer from "./components/MonthDrawer";
-import PayDialog from "./components/PayDialog";
-import PurgeAllRecurringDialog from "./components/PurgeAllRecurringDialog";
-import ChangeTermsDialog from "./components/ChangeTermsDialog";
-import PauseDialog from "./components/PauseDialog";
-import { recurringApi } from "./api/recurringApi";
-import { mortgageApi } from "./api/mortageApi";
 
-const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
+const MONTHS_FORWARD = 12;
 
 export default function RecurringExpenseScreen() {
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
+  const payDialog = usePayDialog();
   const { invalidateAllRecurring, invalidateSummary, invalidateTemplates } =
     useRecurringInvalidation();
-  const [showFinished, setShowFinished] = useState(false);
+  const maintenance = useRecurringMaintenanceActions({
+    invalidateSummary,
+    invalidateTemplates,
+  });
+
   const [activeSection, setActiveSection] = useState("overview");
-
-  const [purgeOpen, setPurgeOpen] = useState(false);
-
-  const doPurgeAll = useCallback(async () => {
-    await recurringApi.purgeAll();
-    setPurgeOpen(false);
-    invalidateSummary();
-    invalidateTemplates();
-  }, [invalidateSummary, invalidateTemplates]);
-
-  const templates = useRecurringData({ enabled: true, includeInactive: true });
-
-  const mortgages = useMemo(
-    () =>
-      (templates.expenses || []).filter(
-        (e) => String(e.type).toUpperCase() === "MORTGAGE",
-      ),
-    [templates.expenses],
-  );
-
-  const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
-  const formatCurrency = useCallback(
-    (val) => currencyFormatter.format(Number(val || 0)),
-    [currencyFormatter],
-  );
-
-  const {
-    open: payDialogOpen,
-    draft: payDraft,
-    mode: payMode,
-    amount: payAmount,
-    paidDate: payPaidDate,
-    periodKey: payPeriodKey,
-    isExtra: payIsExtra,
-    allowExtra: payAllowExtra,
-    error: payAmountError,
-    setAmount: setPayAmount,
-    setPaidDate: setPayPaidDate,
-    setPeriodKey: setPayPeriodKey,
-    setIsExtra: setPayIsExtra,
-    setError: setPayAmountError,
-    openDialog: openPayDialog,
-    closeDialog: closePayDialog,
-  } = usePayDialog();
-
-  const monthsForward = 12;
+  const [showFinished, setShowFinished] = useState(false);
   const [monthsBack, setMonthsBack] = useState(12);
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error: loadError,
-  } = useRecurringSummary({
+  const templates = useRecurringData({ enabled: true, includeInactive: true });
+  const { data, isLoading, isError, error } = useRecurringSummary({
     filter: ctrl.filter,
-    months: monthsForward,
+    months: MONTHS_FORWARD,
     pastMonths: monthsBack,
     enabled: true,
   });
@@ -119,297 +74,62 @@ export default function RecurringExpenseScreen() {
     sum3: { min: 0, max: 0, paid: 0 },
   };
 
+  const mortgages = useMemo(
+    () =>
+      (templates.expenses || []).filter(
+        (expense) => String(expense.type).toUpperCase() === "MORTGAGE",
+      ),
+    [templates.expenses],
+  );
+
   const thisMonthKey = useMemo(() => dayjs().format("YYYY-MM"), []);
   const forecastPast = useMemo(
-    () => (forecast || []).filter((m) => m.key < thisMonthKey),
+    () => (forecast || []).filter((month) => month.key < thisMonthKey),
     [forecast, thisMonthKey],
   );
   const forecastFuture = useMemo(
-    () => (forecast || []).filter((m) => m.key >= thisMonthKey),
+    () => (forecast || []).filter((month) => month.key >= thisMonthKey),
     [forecast, thisMonthKey],
   );
 
-  const selected = useMemo(() => {
+  const selectedMonth = useMemo(() => {
     if (!ctrl.selectedMonthKey) return null;
-    return forecast.find((m) => m.key === ctrl.selectedMonthKey) ?? null;
+    return forecast.find((month) => month.key === ctrl.selectedMonthKey) ?? null;
   }, [forecast, ctrl.selectedMonthKey]);
 
   const maxRef = useMemo(() => {
-    const vals = (forecast || []).map((x) =>
-      ctrl.tab === 1 ? x.paidTotal : x.expectedMax,
+    const values = (forecast || []).map((month) =>
+      ctrl.tab === 1 ? month.paidTotal : month.expectedMax,
     );
-    return Math.max(...vals, 1) || 1;
+    return Math.max(...values, 1) || 1;
   }, [forecast, ctrl.tab]);
 
-  const onFilter = useCallback((f) => ctrl.setFilter(f), [ctrl.setFilter]);
-  const onTab = useCallback((v) => ctrl.setTab(v), [ctrl.setTab]);
-  const onOpenMonth = useCallback(
-    (key) => ctrl.openMonth(key),
-    [ctrl.openMonth],
+  const currencyFormatter = useMemo(() => makeCurrencyFormatter(), []);
+  const formatCurrency = useCallback(
+    (value) => currencyFormatter.format(Number(value || 0)),
+    [currencyFormatter],
   );
 
-  const onAmount = useCallback(
-    (v) => {
-      setPayAmount(v);
-      setPayAmountError("");
-    },
-    [setPayAmount, setPayAmountError],
-  );
+  const paymentActions = useRecurringPaymentActions({ payDialog, payments });
 
-  const onPaidDate = useCallback(
-    (v) => {
-      setPayPaidDate(v);
-      setPayAmountError("");
-    },
-    [setPayPaidDate, setPayAmountError],
-  );
-
-  const onPeriodKey = useCallback(
-    (v) => {
-      setPayPeriodKey(v);
-      setPayAmountError("");
-    },
-    [setPayPeriodKey, setPayAmountError],
-  );
-
-  const onIsExtra = useCallback(
-    (v) => {
-      setPayIsExtra(Boolean(v));
-      setPayAmountError("");
-    },
-    [setPayIsExtra, setPayAmountError],
-  );
-
-  const confirmPay = useCallback(async () => {
-    const n = Number(payAmount);
-
-    if (!Number.isFinite(n) || n < 0) {
-      setPayAmountError("Ugyldig beløp");
-      return;
-    }
-
-    if (!payDraft?.recurringExpenseId) {
-      setPayAmountError("Mangler recurringExpenseId");
-      return;
-    }
-
-    if (!payPeriodKey || !isPeriodKey(payPeriodKey)) {
-      setPayAmountError("Ugyldig måned (YYYY-MM)");
-      return;
-    }
-
-    if (!payPaidDate) {
-      setPayAmountError("Mangler betalt dato");
-      return;
-    }
-
-    const nextKind = payAllowExtra && payIsExtra ? "EXTRA" : "MAIN";
-    const nextStatus = nextKind === "EXTRA" ? "EXTRA" : "PAID";
-
-    if (payMode === "EDIT") {
-      if (!payDraft?.paymentId) {
-        setPayAmountError("Mangler paymentId");
-        return;
-      }
-
-      const originalPeriodKey = String(payDraft.originalPeriodKey || "");
-      const originalKind = String(payDraft.paymentKind || "MAIN").toUpperCase();
-
-      const periodChanged =
-        Boolean(originalPeriodKey) && originalPeriodKey !== payPeriodKey;
-
-      const kindChanged = originalKind !== nextKind;
-
-      if (periodChanged || kindChanged) {
-        try {
-          await payments.createPayment.mutateAsync({
-            recurringExpenseId: payDraft.recurringExpenseId,
-            periodKey: payPeriodKey,
-            amount: n,
-            paidDate: payPaidDate,
-            kind: nextKind,
-            status: nextStatus,
-          });
-
-          await payments.deletePayment.mutateAsync({
-            paymentId: payDraft.paymentId,
-          });
-
-          closePayDialog();
-          return;
-        } catch {
-          setPayAmountError(
-            periodChanged && kindChanged
-              ? "Kunne ikke flytte og endre betalingstypen"
-              : periodChanged
-                ? "Kunne ikke flytte betalingen"
-                : "Kunne ikke endre betalingstypen",
-          );
-          return;
-        }
-      }
-
-      payments.updatePayment.mutate(
-        {
-          paymentId: payDraft.paymentId,
-          amount: n,
-          paidDate: payPaidDate,
-          kind: nextKind,
-          status: nextStatus,
-        },
-        {
-          onSuccess: () => closePayDialog(),
-          onError: () => setPayAmountError("Kunne ikke oppdatere betalingen"),
-        },
-      );
-      return;
-    }
-
-    payments.createPayment.mutate(
-      {
-        recurringExpenseId: payDraft.recurringExpenseId,
-        periodKey: payPeriodKey,
-        amount: n,
-        paidDate: payPaidDate,
-        kind: nextKind,
-        status: nextStatus,
-      },
-      {
-        onSuccess: () => closePayDialog(),
-        onError: () => setPayAmountError("Kunne ikke opprette betalingen"),
-      },
+  const renderStatusCard = () =>
+    (isLoading || isError) && (
+      <Card sx={{ mt: 2 }}>
+        <CardContent>
+          {isLoading && (
+            <Typography color="text.secondary">
+              Laster faste kostnader...
+            </Typography>
+          )}
+          {isError && (
+            <Typography color="error">
+              Kunne ikke hente faste kostnader
+              {error?.message ? `: ${error.message}` : "."}
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
     );
-  }, [
-    payAmount,
-    payDraft,
-    payPaidDate,
-    payPeriodKey,
-    payMode,
-    payAllowExtra,
-    payIsExtra,
-    payments,
-    closePayDialog,
-    setPayAmountError,
-  ]);
-
-  const deletePay = useCallback(() => {
-    if (!payDraft?.paymentId) {
-      setPayAmountError("Mangler paymentId");
-      return;
-    }
-
-    payments.deletePayment.mutate(
-      { paymentId: payDraft.paymentId },
-      {
-        onSuccess: () => closePayDialog(),
-        onError: () => setPayAmountError("Kunne ikke slette betalingen"),
-      },
-    );
-  }, [payDraft, payments, closePayDialog, setPayAmountError]);
-
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [termsItem, setTermsItem] = useState(null);
-  const [termsPk, setTermsPk] = useState("");
-
-  const openTerms = useCallback((it, monthKey) => {
-    setTermsItem(it);
-    setTermsPk(monthKey);
-    setTermsOpen(true);
-  }, []);
-
-  const closeTerms = useCallback(() => {
-    setTermsOpen(false);
-    setTermsItem(null);
-    setTermsPk("");
-  }, []);
-
-  const submitTerms = useCallback(
-    async (payload) => {
-      await recurringApi.setTermsFromMonth(
-        termsItem.recurringExpenseId,
-        payload,
-      );
-      closeTerms();
-      invalidateSummary();
-      invalidateTemplates();
-    },
-    [termsItem, closeTerms, invalidateSummary, invalidateTemplates],
-  );
-
-  const [pauseOpen, setPauseOpen] = useState(false);
-  const [pauseMode, setPauseMode] = useState("CREATE");
-  const [pauseItem, setPauseItem] = useState(null);
-  const [pauseInitial, setPauseInitial] = useState(null);
-
-  const openPauseCreate = useCallback((it, monthKey) => {
-    setPauseMode("CREATE");
-    setPauseItem(it);
-    setPauseInitial({ from: monthKey, to: monthKey, note: "" });
-    setPauseOpen(true);
-  }, []);
-
-  const openPauseEdit = useCallback((it, range) => {
-    setPauseMode("EDIT");
-    setPauseItem(it);
-    setPauseInitial(
-      range || { from: it.periodKey, to: it.periodKey, note: "" },
-    );
-    setPauseOpen(true);
-  }, []);
-
-  const closePause = useCallback(() => {
-    setPauseOpen(false);
-    setPauseItem(null);
-    setPauseInitial(null);
-  }, []);
-
-  const submitPause = useCallback(
-    async (payload) => {
-      if (!pauseItem) return;
-
-      if (pauseMode === "EDIT") {
-        if (!pauseItem.pauseId) return;
-        await recurringApi.updatePause(
-          pauseItem.recurringExpenseId,
-          pauseItem.pauseId,
-          payload,
-        );
-      } else {
-        await recurringApi.createPause(pauseItem.recurringExpenseId, payload);
-      }
-
-      closePause();
-      invalidateSummary();
-      invalidateTemplates();
-    },
-    [pauseItem, pauseMode, closePause, invalidateSummary, invalidateTemplates],
-  );
-
-  const unpause = useCallback(
-    async (it) => {
-      if (!it?.recurringExpenseId || !it?.pauseId) return;
-      await recurringApi.deletePause(it.recurringExpenseId, it.pauseId);
-      invalidateSummary();
-      invalidateTemplates();
-    },
-    [invalidateSummary, invalidateTemplates],
-  );
-
-  const onHardDeleteMortgage = useCallback(
-    async (mortgageId) => {
-      if (!mortgageId) return;
-      await mortgageApi.hardDelete({ mortgageId: String(mortgageId) });
-      invalidateSummary();
-      invalidateTemplates();
-    },
-    [invalidateSummary, invalidateTemplates],
-  );
-
-  const onPurgeMortgages = useCallback(async () => {
-    await mortgageApi.purgeAllMortgages();
-    invalidateSummary();
-    invalidateTemplates();
-  }, [invalidateSummary, invalidateTemplates]);
 
   return (
     <Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
@@ -418,28 +138,12 @@ export default function RecurringExpenseScreen() {
       <Box sx={{ px: { xs: 1.5, md: 3 }, pb: { xs: 2, md: 3 } }}>
         <FiltersSummaryCard
           filter={ctrl.filter}
-          onFilter={onFilter}
+          onFilter={ctrl.setFilter}
           sum3={sum3}
           formatCurrency={formatCurrency}
         />
 
-        {(isLoading || isError) && (
-          <Card sx={{ mt: 2 }}>
-            <CardContent>
-              {isLoading && (
-                <Typography color="text.secondary">
-                  Laster faste kostnader...
-                </Typography>
-              )}
-              {isError && (
-                <Typography color="error">
-                  Kunne ikke hente faste kostnader
-                  {loadError?.message ? `: ${loadError.message}` : "."}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        )}
+        {renderStatusCard()}
 
         <Card sx={{ mt: 2 }}>
           <CardContent sx={{ p: { xs: 1, sm: 1.5 } }}>
@@ -466,7 +170,6 @@ export default function RecurringExpenseScreen() {
                 monthsForTypeSplit={3}
               />
             )}
-
             <NextBillsCard
               nextBills={nextBills}
               formatCurrency={formatCurrency}
@@ -490,7 +193,10 @@ export default function RecurringExpenseScreen() {
                       Vis {monthsBack} måneder bakover og 12 måneder frem.
                     </Typography>
                   </Box>
-                  <PastMonthsSelect value={monthsBack} onChange={setMonthsBack} />
+                  <PastMonthsSelect
+                    value={monthsBack}
+                    onChange={setMonthsBack}
+                  />
                 </Stack>
               </CardContent>
             </Card>
@@ -507,8 +213,8 @@ export default function RecurringExpenseScreen() {
                 title="Kommende måneder"
                 forecast={forecastFuture}
                 tab={ctrl.tab}
-                onTab={onTab}
-                onOpenMonth={onOpenMonth}
+                onTab={ctrl.setTab}
+                onOpenMonth={ctrl.openMonth}
                 maxRef={maxRef}
                 formatCurrency={formatCurrency}
               />
@@ -517,13 +223,13 @@ export default function RecurringExpenseScreen() {
                 title="Historikk"
                 forecast={forecastPast}
                 tab={ctrl.tab}
-                onTab={onTab}
-                onOpenMonth={onOpenMonth}
+                onTab={ctrl.setTab}
+                onOpenMonth={ctrl.openMonth}
                 maxRef={maxRef}
                 formatCurrency={formatCurrency}
                 pastMonths={monthsBack}
                 setPastMonths={setMonthsBack}
-                monthsForward={monthsForward}
+                monthsForward={MONTHS_FORWARD}
               />
             </Box>
           </Stack>
@@ -538,23 +244,13 @@ export default function RecurringExpenseScreen() {
               onEdit={ctrl.openEdit}
               onDelete={ctrl.openDelete}
               showFinished={showFinished}
-              onToggleShowFinished={() => setShowFinished((v) => !v)}
-              onFinish={async (id) => {
-                if (!id) return;
-                await recurringApi.archiveExpense(String(id));
-                invalidateSummary();
-                invalidateTemplates();
-              }}
-              onRestore={async (id) => {
-                if (!id) return;
-                await recurringApi.restoreExpense(String(id));
-                invalidateSummary();
-                invalidateTemplates();
-              }}
-              onOpenTerms={openTerms}
-              onOpenPauseCreate={openPauseCreate}
-              onOpenPauseEdit={openPauseEdit}
-              onUnpause={unpause}
+              onToggleShowFinished={() => setShowFinished((value) => !value)}
+              onFinish={maintenance.archiveExpense}
+              onRestore={maintenance.restoreExpense}
+              onOpenTerms={maintenance.openTerms}
+              onOpenPauseCreate={maintenance.openPauseCreate}
+              onOpenPauseEdit={maintenance.openPauseEdit}
+              onUnpause={maintenance.unpause}
             />
           </Box>
         )}
@@ -564,8 +260,8 @@ export default function RecurringExpenseScreen() {
             <MortgageCenter
               mortgages={mortgages}
               formatCurrency={formatCurrency}
-              onHardDeleteMortgage={onHardDeleteMortgage}
-              onPurgeMortgages={onPurgeMortgages}
+              onHardDeleteMortgage={maintenance.hardDeleteMortgage}
+              onPurgeMortgages={maintenance.purgeMortgages}
             />
           </Stack>
         )}
@@ -577,14 +273,18 @@ export default function RecurringExpenseScreen() {
           <AccordionDetails>
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                Bruk dette kun når du vil rydde all historikk og alle faste kostnader.
+                Bruk dette kun når du vil rydde all historikk og alle faste
+                kostnader.
               </Typography>
               <Divider />
               <Button
                 color="error"
                 variant="outlined"
-                onClick={() => setPurgeOpen(true)}
-                sx={{ alignSelf: { sm: "flex-start" }, width: { xs: "100%", sm: "auto" } }}
+                onClick={() => maintenance.setPurgeOpen(true)}
+                sx={{
+                  alignSelf: { sm: "flex-start" },
+                  width: { xs: "100%", sm: "auto" },
+                }}
               >
                 Slett alt
               </Button>
@@ -596,13 +296,13 @@ export default function RecurringExpenseScreen() {
       <MonthDrawer
         open={ctrl.monthDrawerOpen}
         onClose={ctrl.closeMonth}
-        selected={selected}
+        selected={selectedMonth}
         expenses={templates.expenses}
-        onOpenPay={openPayDialog}
-        onOpenTerms={openTerms}
-        onOpenPauseCreate={openPauseCreate}
-        onOpenPauseEdit={openPauseEdit}
-        onUnpause={unpause}
+        onOpenPay={payDialog.openDialog}
+        onOpenTerms={maintenance.openTerms}
+        onOpenPauseCreate={maintenance.openPauseCreate}
+        onOpenPauseEdit={maintenance.openPauseEdit}
+        onUnpause={maintenance.unpause}
         registerPaymentPending={payments.pending}
         registerPaymentError={payments.error}
         formatCurrency={formatCurrency}
@@ -618,45 +318,45 @@ export default function RecurringExpenseScreen() {
       />
 
       <PayDialog
-        open={payDialogOpen}
-        onClose={closePayDialog}
-        title={payDraft?.title}
-        amount={payAmount}
-        onAmount={onAmount}
-        paidDate={payPaidDate}
-        onPaidDate={onPaidDate}
-        periodKey={payPeriodKey}
-        onPeriodKey={onPeriodKey}
-        isExtra={payIsExtra}
-        onIsExtra={onIsExtra}
-        allowExtra={payAllowExtra}
-        error={payAmountError}
-        onConfirm={confirmPay}
-        onDelete={payMode === "EDIT" ? deletePay : undefined}
+        open={payDialog.open}
+        onClose={payDialog.closeDialog}
+        title={payDialog.draft?.title}
+        amount={payDialog.amount}
+        onAmount={paymentActions.onAmount}
+        paidDate={payDialog.paidDate}
+        onPaidDate={paymentActions.onPaidDate}
+        periodKey={payDialog.periodKey}
+        onPeriodKey={paymentActions.onPeriodKey}
+        isExtra={payDialog.isExtra}
+        onIsExtra={paymentActions.onIsExtra}
+        allowExtra={payDialog.allowExtra}
+        error={payDialog.error}
+        onConfirm={paymentActions.confirmPay}
+        onDelete={payDialog.mode === "EDIT" ? paymentActions.deletePay : undefined}
         pending={payments.pending}
-        mode={payMode}
+        mode={payDialog.mode}
       />
 
       <ChangeTermsDialog
-        open={termsOpen}
-        onClose={closeTerms}
-        onSubmit={submitTerms}
-        expense={termsItem}
-        periodKey={termsPk}
+        open={maintenance.termsOpen}
+        onClose={maintenance.closeTerms}
+        onSubmit={maintenance.submitTerms}
+        expense={maintenance.termsItem}
+        periodKey={maintenance.termsPk}
       />
 
       <PauseDialog
-        open={pauseOpen}
-        mode={pauseMode}
-        onClose={closePause}
-        onSubmit={submitPause}
-        initial={pauseInitial}
+        open={maintenance.pauseOpen}
+        mode={maintenance.pauseMode}
+        onClose={maintenance.closePause}
+        onSubmit={maintenance.submitPause}
+        initial={maintenance.pauseInitial}
       />
 
       <PurgeAllRecurringDialog
-        open={purgeOpen}
-        onClose={() => setPurgeOpen(false)}
-        onConfirm={doPurgeAll}
+        open={maintenance.purgeOpen}
+        onClose={() => maintenance.setPurgeOpen(false)}
+        onConfirm={maintenance.doPurgeAll}
       />
     </Box>
   );

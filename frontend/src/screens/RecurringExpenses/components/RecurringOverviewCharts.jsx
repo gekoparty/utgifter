@@ -1,4 +1,4 @@
-// src/components/features/RecurringExpenes/components/RecurringOverviewCharts.jsx
+// src/screens/RecurringExpenses/components/RecurringOverviewCharts.jsx
 import React, { useMemo, useId } from "react";
 import PropTypes from "prop-types";
 import { Box, Card, CardContent, Typography, Divider } from "@mui/material";
@@ -10,7 +10,7 @@ import {
   RECURRING_TYPES,
   TYPE_META_BY_KEY,
   normalizeRecurringType,
-} from "../../../../screens/RecurringExpenses/utils/recurringTypes"; // ensure this path is correct
+} from "../utils/recurringTypes";
 
 const monthLabel = (d) =>
   new Date(d).toLocaleDateString("nb-NO", { month: "short", year: "2-digit" });

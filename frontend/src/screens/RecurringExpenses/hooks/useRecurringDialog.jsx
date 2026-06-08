@@ -1,10 +1,10 @@
-// src/components/features/RecurringExpenes/hooks/useRecurringDialog.js
+// src/screens/RecurringExpenses/hooks/useRecurringDialog.js
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import useCustomHttp from "../../../../hooks/useHttp";
-import { StoreContext } from "../../../../Store/Store";
-import { formatComponentFields } from "../../../commons/Utils/FormatUtil";
-import { recurringExpenseValidationSchema } from "../../../../validation/validationSchema";
+import useCustomHttp from "../../../hooks/useHttp";
+import { StoreContext } from "../../../Store/Store";
+import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
+import { recurringExpenseValidationSchema } from "../../../validation/validationSchema";
 import {
   RECURRING_EXPENSES_QUERY_KEY,
   RECURRING_EXPENSES_SUMMARY_ROOT_KEY,

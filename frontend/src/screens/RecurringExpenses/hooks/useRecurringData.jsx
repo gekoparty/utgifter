@@ -1,6 +1,6 @@
 import { useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import useCustomHttp from "../../../../hooks/useHttp";
+import useCustomHttp from "../../../hooks/useHttp";
 
 export const RECURRING_EXPENSES_QUERY_KEY = ["recurring-expenses"];
 export const RECURRING_EXPENSES_SUMMARY_ROOT_KEY = [
