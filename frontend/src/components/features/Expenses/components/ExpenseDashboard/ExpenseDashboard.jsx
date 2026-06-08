@@ -36,6 +36,7 @@ const chartColors = ["#3b82f6", "#22c55e", "#8b5cf6", "#f59e0b", "#94a3b8"];
 
 const startOfDay = (date) => {
   const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return d;
 };
@@ -150,6 +151,7 @@ export default function ExpenseDashboard({
     return expenses.filter((item) => {
       if (!item.purchaseDate) return false;
       const date = startOfDay(item.purchaseDate);
+      if (!date) return false;
       return date >= from && date <= now;
     });
   }, [expenses, period]);
@@ -211,7 +213,10 @@ export default function ExpenseDashboard({
     filteredByPeriod.forEach((item) => {
       if (!item.purchaseDate) return;
 
-      const key = startOfDay(item.purchaseDate).toISOString().slice(0, 10);
+      const date = startOfDay(item.purchaseDate);
+      if (!date) return;
+
+      const key = date.toISOString().slice(0, 10);
       const value = Number(item.finalPrice || item.price || 0);
 
       if (byKey[key]) {
