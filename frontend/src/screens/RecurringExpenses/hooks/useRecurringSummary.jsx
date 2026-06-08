@@ -4,7 +4,7 @@ import { API_URL } from "../../../components/commons/Consts/constants";
 import {
   recurringSummaryKey,
   DEFAULT_PAST_MONTHS,
-} from "../../../components/features/RecurringExpenes/hooks/useRecurringData";
+} from "./useRecurringData";
 
 const EMPTY = Object.freeze({
   expenses: [],

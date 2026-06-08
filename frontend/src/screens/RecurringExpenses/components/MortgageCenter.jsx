@@ -13,7 +13,7 @@ import {
   Box,
 } from "@mui/material";
 import dayjs from "dayjs";
-import { mortgageApi } from "../api/mortageApi";
+import { mortgageApi } from "../api/mortgageApi";
 import MortgageScenarioEditor from "./MortgageScenarioEditor";
 import HardDeleteMortgageDialog from "./HardDeleteMortgageDialog";
 

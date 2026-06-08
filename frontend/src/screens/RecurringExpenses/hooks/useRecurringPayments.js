@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
 import { API_URL } from "../../../components/commons/Consts/constants";
-import { useRecurringInvalidation } from "../../../components/features/RecurringExpenes/hooks/useRecurringData";
+import { useRecurringInvalidation } from "./useRecurringData";
 
 export function useRecurringPayments() {
   const { invalidateSummary } = useRecurringInvalidation();
