@@ -42,8 +42,13 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
     e.preventDefault();
 
     if (isDelete) {
-      const ok = await handleDeleteBrand(brandToEdit, onSuccess, onError);
-      if (ok) handleClose();
+      const ok = await handleDeleteBrand(brandToEdit);
+      if (ok) {
+        onSuccess(brandToEdit);
+        handleClose();
+      } else {
+        onError?.();
+      }
       return;
     }
 

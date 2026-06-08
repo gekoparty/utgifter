@@ -164,7 +164,7 @@ const applyFilters = async (query, filters) => {
 
     if (["purchaseDate", "registeredDate"].includes(id)) {
       dateFilters.push({ id, value });
-    } else if (["price", "pricePerUnit", "finalPrice", "volume"].includes(id)) {
+    } else if (["price", "pricePerUnit", "finalPrice", "displayPrice", "volume"].includes(id)) {
       filterByRange(query, id, value);
     } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
       referenceFilters.push({ id, value });
@@ -303,6 +303,8 @@ expensesRouter.get("/", async (req, res) => {
           productBrandIds,
           variant: variantId,
           variantName,
+          purchaseDateRaw: expense.purchaseDate,
+          registeredDateRaw: expense.registeredDate,
           purchaseDate: formatDate(expense.purchaseDate),
           registeredDate: formatDate(expense.registeredDate),
         };
@@ -363,6 +365,8 @@ expensesRouter.get("/:id", async (req, res) => {
       productBrandIds,
       variant: variantId,
       variantName,
+      purchaseDateRaw: expense.purchaseDate,
+      registeredDateRaw: expense.registeredDate,
       purchaseDate: formatDate(expense.purchaseDate),
       registeredDate: formatDate(expense.registeredDate),
     });

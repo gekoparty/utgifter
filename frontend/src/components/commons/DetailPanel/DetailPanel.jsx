@@ -16,7 +16,9 @@ const DetailPanel = ({ expense }) => {
     shopName,
     volume,
     registeredDate,
+    registeredDateDisplay,
     purchaseDate,
+    purchaseDateDisplay,
     finalPrice,
     type,
     brandName,
@@ -64,8 +66,8 @@ const DetailPanel = ({ expense }) => {
             </Typography>
             <Typography variant="body1"><b>Type:</b> {type || "Ikke spesifisert"}</Typography>
             <Typography variant="body1"><b>Volum:</b> {volume || "N/A"}</Typography>
-            <Typography variant="body1"><b>Kjøpt Dato:</b> {purchaseDate || "Ikke oppgitt"}</Typography>
-            <Typography variant="body1"><b>Registrert Dato:</b> {registeredDate || "Ikke registrert"}</Typography>
+            <Typography variant="body1"><b>Kjøpt dato:</b> {purchaseDateDisplay || purchaseDate || "Ikke oppgitt"}</Typography>
+            <Typography variant="body1"><b>Registrert dato:</b> {registeredDateDisplay || registeredDate || "Ikke registrert"}</Typography>
           </Grid>
         </Grid>
       </CardContent>

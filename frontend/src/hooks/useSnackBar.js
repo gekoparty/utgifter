@@ -1,30 +1,42 @@
-import { useState, useRef, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const useSnackBar = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-  
-  // Track if component is mounted
+
   const isMounted = useRef(true);
+  const reopenTimer = useRef(null);
 
   useEffect(() => {
     return () => {
       isMounted.current = false;
+      if (reopenTimer.current) {
+        clearTimeout(reopenTimer.current);
+      }
     };
   }, []);
 
-  const handleSnackbarClose = (event, reason) => {
+  const handleSnackbarClose = useCallback((event, reason) => {
     if (reason === "clickaway") return;
     setSnackbarOpen(false);
-  };
+  }, []);
 
-  const showSnackbar = (message, severity = "success") => {
+  const showSnackbar = useCallback((message, severity = "success") => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
-    setSnackbarOpen(false); // Force close before reopening
-    setTimeout(() => setSnackbarOpen(true), 100); // Ensure re-triggering
-  };
+    setSnackbarOpen(false);
+
+    if (reopenTimer.current) {
+      clearTimeout(reopenTimer.current);
+    }
+
+    reopenTimer.current = setTimeout(() => {
+      if (isMounted.current) {
+        setSnackbarOpen(true);
+      }
+    }, 100);
+  }, []);
 
   return {
     snackbarOpen,

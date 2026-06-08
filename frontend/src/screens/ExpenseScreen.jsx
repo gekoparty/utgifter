@@ -35,7 +35,7 @@ import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 import { usePaginatedData } from "../hooks/usePaginatedData";
-import { API_URL } from "../components/commons/Consts/constants";
+import { buildPaginatedUrl } from "../components/commons/EntityTableScreen/buildPaginatedUrl";
 
 // ------------------------------------------------------
 // Lazy unified dialog + preloading
@@ -85,21 +85,6 @@ const NOK = new Intl.NumberFormat("nb-NO", {
 });
 
 // ------------------------------------------------------
-// URL builder
-// ------------------------------------------------------
-const expenseUrlBuilder = (endpoint, params) => {
-  const url = new URL(
-    `${API_URL.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`,
-  );
-  url.searchParams.set("start", params.pageIndex * params.pageSize);
-  url.searchParams.set("size", params.pageSize);
-  url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));
-  url.searchParams.set("columnFilters", JSON.stringify(params.filters ?? []));
-  url.searchParams.set("globalFilter", params.globalFilter ?? "");
-  return url;
-};
-
-// ------------------------------------------------------
 // Transform (keep stable shape for table)
 const transformExpenseData = (json) => {
   const list = json.expenses || json.data || [];
@@ -118,8 +103,10 @@ const transformExpenseData = (json) => {
       quantity: x.quantity,
       hasDiscount: x.hasDiscount,
       purchased: x.purchased,
-      registeredDate: x.registeredDate,
-      purchaseDate: x.purchaseDate,
+      registeredDate: x.registeredDateRaw || x.registeredDate,
+      registeredDateDisplay: x.registeredDate,
+      purchaseDate: x.purchaseDateRaw || x.purchaseDate,
+      purchaseDateDisplay: x.purchaseDate,
       productBrandIds: Array.isArray(x.productBrandIds)
         ? x.productBrandIds
         : [],
@@ -372,7 +359,15 @@ const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
 });
 
 // Helpers
-const formatDate = (v) => (v ? new Date(v).toLocaleDateString("nb-NO") : "—");
+const formatDate = (value, displayValue) => {
+  if (displayValue) return displayValue;
+  if (!value) return "—";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+
+  return date.toLocaleDateString("nb-NO");
+};
 const formatBool = (v) => (v ? "Ja" : "Nei");
 
 // ------------------------------------------------------
@@ -413,7 +408,7 @@ const ExpenseScreen = () => {
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(INITIAL_PAGINATION);
-  const [dashboardOpen, setDashboardOpen] = useState();
+  const [dashboardOpen, setDashboardOpen] = useState(false);
 
   // ✅ default visibility (make all price keys true so mode switching never “hides”)
   const DEFAULT_VISIBILITY = useMemo(
@@ -423,6 +418,7 @@ const ExpenseScreen = () => {
       variantName: true,
       shopName: true,
       purchaseDate: true,
+      displayPrice: true,
 
       // keep these true due to dynamic price column switching accessorKey
       pricePerUnit: true,
@@ -495,7 +491,7 @@ const ExpenseScreen = () => {
   } = usePaginatedData({
     endpoint: "/api/expenses",
     params: fetchParams,
-    urlBuilder: expenseUrlBuilder,
+    urlBuilder: buildPaginatedUrl,
     baseQueryKey: EXPENSES_QUERY_KEY,
     transformFn: transformExpenseData,
   });
@@ -568,7 +564,8 @@ const ExpenseScreen = () => {
           : { header: "Pris per enhet", key: "pricePerUnit" };
 
     return {
-      accessorKey: resolvedAccessor.key,
+      id: "displayPrice",
+      accessorFn: (row) => row[resolvedAccessor.key],
       header: resolvedAccessor.header,
       Filter: ({ column }) => (
         <PriceRangeFilter
@@ -577,6 +574,7 @@ const ExpenseScreen = () => {
         />
       ),
       enableColumnFilter: true,
+      enableSorting: false,
       Cell: ({ row }) => {
         const value = row.original[resolvedAccessor.key];
         const type = row.original.variantName || "Ukjent";
@@ -617,7 +615,8 @@ const ExpenseScreen = () => {
       header: "Kjøpsdato",
       Filter: ({ column }) => <DateRangeFilter column={column} />,
       enableColumnFilter: true,
-      Cell: ({ cell }) => formatDate(cell.getValue()),
+      Cell: ({ row }) =>
+        formatDate(row.original.purchaseDate, row.original.purchaseDateDisplay),
     }),
     [],
   );
@@ -678,7 +677,11 @@ const ExpenseScreen = () => {
       {
         accessorKey: "registeredDate",
         header: "Registrert dato",
-        Cell: ({ cell }) => formatDate(cell.getValue()),
+        Cell: ({ row }) =>
+          formatDate(
+            row.original.registeredDate,
+            row.original.registeredDateDisplay,
+          ),
       },
     ],
     [priceColumn, dateColumn],

@@ -48,7 +48,8 @@ const isPeriodKey = (v) => /^\d{4}-\d{2}$/.test(String(v || ""));
 export default function RecurringExpenseScreen() {
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
-  const { invalidateSummary, invalidateTemplates } = useRecurringInvalidation();
+  const { invalidateAllRecurring, invalidateSummary, invalidateTemplates } =
+    useRecurringInvalidation();
   const [showFinished, setShowFinished] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
 
@@ -612,7 +613,7 @@ export default function RecurringExpenseScreen() {
         mode={ctrl.dialogMode}
         expense={ctrl.expenseTarget}
         onClose={ctrl.closeDialog}
-        onSuccess={() => invalidateSummary()}
+        onSuccess={invalidateAllRecurring}
         onError={() => {}}
       />
 
