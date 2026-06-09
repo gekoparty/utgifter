@@ -19,7 +19,7 @@ const BasicDialog = ({
   cancelButton,
   confirmButton,
   dialogTitle,
-  maxWidth = "lg",
+  maxWidth = "sm",
 }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
@@ -53,7 +53,6 @@ const BasicDialog = ({
           sx: {
             m: { xs: 0, sm: 4 },
             width: { xs: "100%", sm: "calc(100% - 64px)" },
-            maxWidth: { xs: "100%", sm: undefined },
             borderRadius: { xs: 0, sm: 2 },
             bgcolor: "background.paper",
             backgroundImage:

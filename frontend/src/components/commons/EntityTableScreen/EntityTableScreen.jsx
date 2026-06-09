@@ -81,12 +81,13 @@ const EntityTableScreen = ({
     ],
   );
 
-  const { data, isError, isFetching, isLoading, refetch } = usePaginatedData({
-    endpoint,
-    params: fetchParams,
-    urlBuilder,
-    baseQueryKey: queryKey,
-  });
+  const { data, error, isError, isFetching, isLoading, refetch } =
+    usePaginatedData({
+      endpoint,
+      params: fetchParams,
+      urlBuilder,
+      baseQueryKey: queryKey,
+    });
 
   const tableData = getData(data);
   const meta = getMeta(data);
@@ -163,6 +164,7 @@ const EntityTableScreen = ({
           data={tableData}
           columns={columns}
           meta={meta}
+          error={error}
           isError={isError}
           isFetching={!activeModal && isFetching}
           isLoading={isLoading}
@@ -177,6 +179,7 @@ const EntityTableScreen = ({
           setPagination={setPagination}
           handleEdit={(record) => openModal("EDIT", record)}
           handleDelete={(record) => openModal("DELETE", record)}
+          resource={queryKey?.[0]}
         />
       )}
 

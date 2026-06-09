@@ -208,8 +208,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
       const method = isEdit ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, payload);
-      if (error)
-        throw new Error(error.message || "Kunne ikke lagre fast kostnad");
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -225,7 +224,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: RESOURCE,
         showError: true,
       });
@@ -238,8 +237,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
         `/api/recurring-expenses/${deleteId}`,
         "DELETE",
       );
-      if (error)
-        throw new Error(error.message || "Kunne ikke slette fast kostnad");
+      if (error) throw error;
       return deleteId;
     },
     onSuccess: () => {
@@ -254,7 +252,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: RESOURCE,
         showError: true,
       });

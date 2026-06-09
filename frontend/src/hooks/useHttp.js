@@ -55,14 +55,22 @@ const useCustomHttp = (initialUrl, options = {}) => {
       } catch (error) {
         const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
         const resource = getResourceFromUrl(url);
-        const errKey = error?.response?.data?.message || error?.message || "server";
+        const responseData = error?.response?.data;
+        const serverMessage = responseData?.message || responseData?.error;
+        const errKey =
+          typeof serverMessage === "string"
+            ? serverMessage
+            : typeof error?.message === "string"
+              ? error.message
+              : "server";
 
         setHttpState({
           data: null,
           loading: false,
           error: {
-            message: error?.response?.data || error?.message,
+            message: errKey,
             status: error?.response?.status,
+            data: responseData,
             url: fullUrl,
           },
           resource: fullUrl,
@@ -75,7 +83,7 @@ const useCustomHttp = (initialUrl, options = {}) => {
             error: {
               message: errKey,
               status: error?.response?.status,
-              data: error?.response?.data,
+              data: responseData,
             },
             showError: true,
             lastRequest: { url: fullUrl, method, payload },
@@ -87,7 +95,7 @@ const useCustomHttp = (initialUrl, options = {}) => {
           error: {
             message: errKey,
             status: error?.response?.status,
-            data: error?.response?.data,
+            data: responseData,
           },
         };
       }

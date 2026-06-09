@@ -236,7 +236,12 @@ const ProductDialog = ({
   const showBusy = loading || isLoadingBrands || isLoadingVariants;
 
   return (
-    <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
+    <BasicDialog
+      open={open}
+      onClose={handleClose}
+      dialogTitle={dialogTitle}
+      maxWidth={isDelete ? "sm" : "md"}
+    >
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           {isDelete && (

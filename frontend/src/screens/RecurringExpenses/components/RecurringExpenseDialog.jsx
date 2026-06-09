@@ -155,7 +155,12 @@ export default function RecurringExpenseDialog({
   const helper = (path) => fieldError(path)?.message || "";
 
   return (
-    <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
+    <BasicDialog
+      open={open}
+      onClose={handleClose}
+      dialogTitle={dialogTitle}
+      maxWidth={isDelete ? "sm" : "md"}
+    >
       <form onSubmit={submit}>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           {isDelete ? (

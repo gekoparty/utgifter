@@ -66,7 +66,7 @@ const useBrandDialog = (initialBrand = null) => {
       const method = isEditMode ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, formattedBrand);
-      if (error) throw new Error(data?.error || error);
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -75,7 +75,7 @@ const useBrandDialog = (initialBrand = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "brands",
         showError: true,
       });
@@ -85,7 +85,7 @@ const useBrandDialog = (initialBrand = null) => {
   const deleteBrandMutation = useMutation({
     mutationFn: async (brandId) => {
       const { error } = await sendRequest(`/api/brands/${brandId}`, "DELETE");
-      if (error) throw new Error("Could not delete brand");
+      if (error) throw error;
       return brandId;
     },
     onSuccess: () => {
@@ -94,7 +94,7 @@ const useBrandDialog = (initialBrand = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "brands",
         showError: true,
       });

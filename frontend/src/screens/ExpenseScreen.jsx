@@ -484,6 +484,7 @@ const ExpenseScreen = () => {
 
   const {
     data: expensesData,
+    error,
     isError,
     isFetching,
     isLoading,
@@ -784,6 +785,7 @@ const ExpenseScreen = () => {
         data={tableData}
         columns={tableColumns}
         meta={metaData}
+        error={error}
         isError={isError}
         isLoading={isLoading}
         isFetching={!activeModal && isFetching}
@@ -801,6 +803,7 @@ const ExpenseScreen = () => {
         handleDelete={openDelete}
         columnVisibility={columnVisibility}
         setColumnVisibility={setColumnVisibility}
+        resource="expenses"
       />
 
       <Suspense fallback={null}>
