@@ -17,12 +17,12 @@ const DetailRow = ({ label, value }) => (
 export default function ForecastCard({ freq, discount, top }) {
   return (
     <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-      <CardContent>
+      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
           Prognose og rabatter
         </Typography>
 
-        <Box sx={{ mt: 1.5 }}>
+        <Box sx={{ mt: 1 }}>
           <DetailRow
             label="Sist kjøpt"
             value={freq.lastPurchaseDate ? dayjs(freq.lastPurchaseDate).format("DD. MMM YYYY") : "—"}
@@ -37,7 +37,7 @@ export default function ForecastCard({ freq, discount, top }) {
           />
         </Box>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.25 }} />
 
         <Box>
           <DetailRow label="Rabattkjøp" value={discount.discountedPurchases ?? 0} />
@@ -45,7 +45,7 @@ export default function ForecastCard({ freq, discount, top }) {
           <DetailRow label="Sparerate" value={fmtPct(discount.savingsRate)} />
         </Box>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.25 }} />
 
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
           {top.brandMostOften && <Chip label={`Vanligste merke: ${top.brandMostOften.name} (${top.brandMostOften.purchases})`} />}

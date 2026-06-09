@@ -6,6 +6,7 @@ import Category from "../models/categorySchema.js";
 import mongoose from "mongoose";
 
 const shopsRouter = express.Router();
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const createSlug = (name) =>
   slugify(name, { lower: true, strict: true, remove: /[*+~.()'"!:@]/g });
@@ -16,7 +17,7 @@ const resolveLocationId = async (locationName) => {
 
   const slug = createSlug(trimmed);
   const loc = await Location.findOneAndUpdate(
-    { slug, name: trimmed },
+    { slug },
     { $setOnInsert: { name: trimmed, slug } },
     { new: true, upsert: true }
   );
@@ -30,7 +31,7 @@ const resolveCategoryId = async (categoryName) => {
 
   const slug = createSlug(trimmed);
   const cat = await Category.findOneAndUpdate(
-    { slug, name: trimmed },
+    { slug },
     { $setOnInsert: { name: trimmed, slug } },
     { new: true, upsert: true }
   );
@@ -100,7 +101,7 @@ shopsRouter.get("/", async (req, res) => {
         return res.json({ shops: [], meta: { totalRowCount: 0 } });
       }
 
-      const query = Shop.find({ name: { $regex: search, $options: "i" } })
+      const query = Shop.find({ name: { $regex: escapeRegex(search), $options: "i" } })
         .select("name location category slugifiedName") // keep it light
         .limit(limit);
 
@@ -125,7 +126,7 @@ shopsRouter.get("/", async (req, res) => {
         if (!id || (!value && value !== 0)) return;
 
         if (id === "name") {
-          query = query.where("name").regex(new RegExp(value, "i"));
+          query = query.where("name").regex(new RegExp(escapeRegex(value), "i"));
         } else if (id === "location" || id === "category") {
           // allow filtering by id or name slug if you later support it
           query = query.where(id).equals(value);
@@ -135,7 +136,7 @@ shopsRouter.get("/", async (req, res) => {
 
     // Global Filter
     if (globalFilter) {
-      const globalFilterRegex = new RegExp(globalFilter, "i");
+      const globalFilterRegex = new RegExp(escapeRegex(globalFilter), "i");
       query = query.or([{ name: globalFilterRegex }]);
     }
 

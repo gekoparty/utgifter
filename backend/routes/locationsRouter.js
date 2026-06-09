@@ -4,6 +4,7 @@ import Location from "../models/locationSchema.js";
 import mongoose from "mongoose";
 
 const locationsRouter = express.Router();
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 locationsRouter.get("/", async (req, res) => {
   try {
@@ -17,7 +18,7 @@ locationsRouter.get("/", async (req, res) => {
       filters.forEach(({ id, value }) => {
         if (id && value) {
           if (id === "name") {
-            query = query.where("name").regex(new RegExp(value, "i"));
+            query = query.where("name").regex(new RegExp(escapeRegex(value), "i"));
           }
         }
       });
@@ -25,7 +26,7 @@ locationsRouter.get("/", async (req, res) => {
 
     // Global Filter
     if (globalFilter) {
-      const globalFilterRegex = new RegExp(globalFilter, "i");
+      const globalFilterRegex = new RegExp(escapeRegex(globalFilter), "i");
       query = query.or([{ name: globalFilterRegex }]);
     }
 

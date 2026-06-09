@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import ReactECharts from "echarts-for-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as echarts from "echarts";
 import { Paper, Typography, useTheme, Box, CircularProgress } from "@mui/material";
 import dayjs from "dayjs";
 
@@ -11,6 +11,8 @@ import StatsStrip from "./ui/StatsStrip";
 
 export default function MonthlyExpensesChart({ onMonthClick }) {
   const theme = useTheme();
+  const chartInstanceRef = useRef(null);
+  const chartBoxRef = useRef(null);
 
   const [comparePreviousYear, setComparePreviousYear] = useState(true);
   const [selectedYear, setSelectedYear] = useState(dayjs().year().toString());
@@ -45,21 +47,65 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
     });
   }, [theme, months, doCompare, year, compareYear]);
 
-  const onEvents = useMemo(() => {
-    return {
-      click: (event) => {
-        if (event?.componentType !== "series") return;
-        if (typeof event?.dataIndex !== "number") return;
+  useEffect(() => {
+    const element = chartBoxRef.current;
+    if (!element) return undefined;
 
-        const mm = String(event.dataIndex + 1).padStart(2, "0");
-        const yyyyMm = `${year}-${mm}`;
+    const chart = echarts.init(element);
+    chartInstanceRef.current = chart;
 
-        if (typeof onMonthClick === "function") {
-          onMonthClick(yyyyMm);
-        }
-      },
+    return () => {
+      chartInstanceRef.current = null;
+      if (!chart.isDisposed()) chart.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart || chart.isDisposed()) return;
+
+    chart.setOption(option, { notMerge: true, lazyUpdate: true });
+  }, [option]);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart || chart.isDisposed()) return undefined;
+
+    const handleClick = (event) => {
+      if (event?.componentType !== "series") return;
+      if (typeof event?.dataIndex !== "number") return;
+
+      const mm = String(event.dataIndex + 1).padStart(2, "0");
+      const yyyyMm = `${year}-${mm}`;
+
+      if (typeof onMonthClick === "function") {
+        onMonthClick(yyyyMm);
+      }
+    };
+
+    chart.on("click", handleClick);
+
+    return () => {
+      if (!chart.isDisposed()) chart.off("click", handleClick);
     };
   }, [onMonthClick, year]);
+
+  useEffect(() => {
+    const element = chartBoxRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return undefined;
+
+    const observer = new ResizeObserver(() => {
+      const chart = chartInstanceRef.current;
+      if (!chart || chart.isDisposed?.()) return;
+      chart.resize();
+    });
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -111,6 +157,7 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
       <StatsStrip stats={stats} doCompare={doCompare} />
 
       <Box
+        ref={chartBoxRef}
         sx={{
           height: { xs: 320, md: 390 },
           minWidth: 0,
@@ -121,15 +168,7 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
           bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
           p: { xs: 0.5, md: 1 },
         }}
-      >
-        <ReactECharts
-          option={option}
-          onEvents={onEvents}
-          style={{ height: "100%", width: "100%" }}
-          notMerge
-          lazyUpdate
-        />
-      </Box>
+      />
     </Paper>
   );
 }

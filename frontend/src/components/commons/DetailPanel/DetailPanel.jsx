@@ -33,7 +33,7 @@ const DetailPanel = ({ expense }) => {
       <CardContent>
         <Grid container spacing={2}>
           {/* Column 1: Shop, Brand, Location */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="h6" gutterBottom>
               Butikk Informasjon
             </Typography>
@@ -43,7 +43,7 @@ const DetailPanel = ({ expense }) => {
           </Grid>
 
           {/* Column 2: Prices and Discounts */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="h6" gutterBottom>
               Priser og Rabatter
             </Typography>
@@ -60,7 +60,7 @@ const DetailPanel = ({ expense }) => {
           </Grid>
 
           {/* Column 3: Type, Volume, Dates */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Typography variant="h6" gutterBottom>
               Detaljer
             </Typography>

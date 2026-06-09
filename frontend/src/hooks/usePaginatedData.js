@@ -35,7 +35,11 @@ export const usePaginatedData = ({
         let msg = "Network response was not ok";
         try {
           const text = await response.text();
-          if (text) msg = text;
+          if (text) {
+            msg = text;
+            const parsed = JSON.parse(text);
+            msg = parsed?.message || parsed?.error || text;
+          }
         } catch {}
         throw new Error(msg);
       }

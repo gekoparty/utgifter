@@ -13,7 +13,7 @@ export function usePreparedSeries({
   overviewBucket,
 
   // ✅ NEW for yearly mode
-  yearlyBreakdown, // "overall" | "shop" | "variant" | "shopVariant"
+  yearlyBreakdown, // "overall" | "brand" | "shop" | "variant" | "shopVariant"
   yearlyData, // data?.yearly from backend
   yearlyTopN,
   visibleYearSeries, // optional selected series IDs
@@ -116,6 +116,7 @@ export function usePreparedSeries({
   // ✅ NEW: yearly series preparation
   const yearlySource = useMemo(() => {
     if (yearlyBreakdown === "overall") return yearlyData?.overall ?? [];
+    if (yearlyBreakdown === "brand") return yearlyData?.byBrand ?? [];
     if (yearlyBreakdown === "shop") return yearlyData?.byShop ?? [];
     if (yearlyBreakdown === "variant") return yearlyData?.byVariant ?? [];
     return yearlyData?.byShopVariant ?? [];
@@ -127,6 +128,7 @@ export function usePreparedSeries({
     const counts = new Map(); // seriesId -> purchases sum
     for (const r of yearlySource) {
       let id = "Overall";
+      if (yearlyBreakdown === "brand") id = r.brandName ?? "Ukjent";
       if (yearlyBreakdown === "shop") id = r.shopName ?? "Ukjent";
       if (yearlyBreakdown === "variant") id = r.variantName ?? "Standard";
       if (yearlyBreakdown === "shopVariant") {
@@ -159,6 +161,7 @@ export function usePreparedSeries({
     const grouped = new Map(); // seriesId -> rows
     for (const r of yearlySource) {
       let id = "Overall";
+      if (yearlyBreakdown === "brand") id = r.brandName ?? "Ukjent";
       if (yearlyBreakdown === "shop") id = r.shopName ?? "Ukjent";
       if (yearlyBreakdown === "variant") id = r.variantName ?? "Standard";
       if (yearlyBreakdown === "shopVariant") {

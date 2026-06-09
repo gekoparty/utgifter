@@ -12,7 +12,7 @@ export default function KpiTile({ label, value, color = "default" }) {
         flexDirection: "column",
         justifyContent: "center",
         gap: 0.35,
-        minHeight: 76,
+        minHeight: 62,
         bgcolor: color === "primary" ? "primary.main" : "background.paper",
         color: color === "primary" ? "primary.contrastText" : "text.primary",
       }}
@@ -37,7 +37,7 @@ export default function KpiTile({ label, value, color = "default" }) {
           ...(color === "success" && { color: "success.main" }),
           ...(color === "error" && { color: "error.main" }),
           ...(color === "warning" && { color: "warning.main" }),
-          ...(color === "primary" && { color: "primary.main" }),
+          ...(color === "primary" && { color: "inherit" }),
         }}
       >
         {value}

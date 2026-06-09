@@ -662,6 +662,26 @@ router.get("/product-insights", async (req, res, next) => {
           ],
 
           // ✅ NEW: yearly by variant (all shops)
+          yearlyByBrand: [
+            {
+              $group: {
+                _id: { year: { $year: "$actualDate" }, brandName: "$brandName" },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                year: { $toString: "$_id.year" },
+                brandName: "$_id.brandName",
+                avgPricePerUnit: 1,
+                purchases: 1,
+              },
+            },
+            { $sort: { year: 1, brandName: 1 } },
+          ],
+
           yearlyByVariant: [
             {
               $group: {
@@ -846,6 +866,7 @@ router.get("/product-insights", async (req, res, next) => {
     // ---- yearly data ----
     const yearlyOverall = result?.yearlyOverall ?? [];
     const yearlyByShop = result?.yearlyByShop ?? [];
+    const yearlyByBrand = result?.yearlyByBrand ?? [];
     const yearlyByVariant = result?.yearlyByVariant ?? [];
     const yearlyByShopVariant = result?.yearlyByShopVariant ?? [];
 
@@ -886,6 +907,7 @@ router.get("/product-insights", async (req, res, next) => {
     const yearly = {
       overall: addYearChange(yearlyOverall),
       byShop: addYearChangeByGroup(yearlyByShop, "shopName"),
+      byBrand: addYearChangeByGroup(yearlyByBrand, "brandName"),
       byVariant: addYearChangeByGroup(yearlyByVariant, "variantName"),
       byShopVariant: addYearChangeByGroup(yearlyByShopVariant, "shopName"),
     };

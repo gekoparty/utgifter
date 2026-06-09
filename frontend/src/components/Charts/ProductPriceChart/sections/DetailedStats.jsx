@@ -40,10 +40,10 @@ export default function DetailedStats({ stats }) {
     stats?.variantStats?.length ? stats.variantStats[stats.variantStats.length - 1] : null;
 
   return (
-    <Grid container spacing={2.5}>
-      <Grid item xs={12} md={4}>
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-          <CardContent>
+          <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
               Billigste registrering
             </Typography>
@@ -62,9 +62,9 @@ export default function DetailedStats({ stats }) {
         </Card>
       </Grid>
 
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-          <CardContent>
+          <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
               Dyreste registrering
             </Typography>
@@ -82,9 +82,9 @@ export default function DetailedStats({ stats }) {
         </Card>
       </Grid>
 
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-          <CardContent>
+          <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
               Snittpriser
             </Typography>

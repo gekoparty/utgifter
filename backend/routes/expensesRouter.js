@@ -16,6 +16,7 @@ const TIME_ZONE = "Europe/Oslo";
 // --- Utilities ---
 const formatDate = (date) => (date ? format(new Date(date), "dd MMMM yyyy") : "");
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const isHexObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
 
 // ✅ NEW: sort numeric arrays (handles numbers + numeric strings, drops invalid)
 const roundTo = (n, decimals = 3) => {
@@ -48,12 +49,12 @@ const sortByNameAsc = (arr) =>
 // Parallelized Reference Lookup
 const getReferenceIds = async (model, field, value) => {
   if (!value) return [];
-  return model.find({ [field]: new RegExp(value, "i") }).distinct("_id");
+  return model.find({ [field]: new RegExp(escapeRegex(value), "i") }).distinct("_id");
 };
 
 // Accept either IDs OR names (case-insensitive exact match on name)
 const resolveByIdOrName = async (Model, id, name) => {
-  if (id && mongoose.Types.ObjectId.isValid(id)) return Model.findById(id);
+  if (id && isHexObjectId(id)) return Model.findById(id);
   if (!name) return null;
   const safe = escapeRegex(name);
   return Model.findOne({ name: new RegExp(`^${safe}$`, "i") });
@@ -61,7 +62,7 @@ const resolveByIdOrName = async (Model, id, name) => {
 
 const normalizeVariantId = (v) => {
   const s = String(v ?? "").trim();
-  return mongoose.Types.ObjectId.isValid(s) ? s : "";
+  return isHexObjectId(s) ? s : "";
 };
 
 const validateVariantForProduct = (product, variantId) => {
@@ -177,7 +178,7 @@ const applyFilters = async (query, filters) => {
   dateFilters.forEach(({ id, value }) => filterByDate(query, id, value));
 
   regexFilters.forEach(({ id, value }) => {
-    query.where(id).regex(new RegExp(value, "i"));
+    query.where(id).regex(new RegExp(escapeRegex(value), "i"));
   });
 
   if (referenceFilters.length > 0) {
@@ -241,7 +242,7 @@ expensesRouter.get("/", async (req, res) => {
       const productIds = await getReferenceIds(Product, "name", globalFilter);
 
       // Optional: allow searching by variant name (store variant as id string)
-      const regex = new RegExp(globalFilter, "i");
+      const regex = new RegExp(escapeRegex(globalFilter), "i");
       const variantIds = await Variant.find({
         name: { $regex: regex },
       }).distinct("_id");

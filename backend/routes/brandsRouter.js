@@ -5,6 +5,7 @@ import slugify from "slugify";
 import mongoose from "mongoose";
 
 const brandsRouter = express.Router();
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * GET /api/brands
@@ -39,7 +40,7 @@ brandsRouter.get("/", async (req, res) => {
       const lim = Math.min(Number(limit) || 20, 50);
       if (q.length < 2) return res.json({ brands: [], meta: { totalRowCount: 0 } });
 
-      const brands = await Brand.find({ name: { $regex: q, $options: "i" } })
+      const brands = await Brand.find({ name: { $regex: escapeRegex(q), $options: "i" } })
         .select("_id name slug") // ✅ include _id
         .limit(lim)
         .lean();
@@ -62,14 +63,14 @@ brandsRouter.get("/", async (req, res) => {
       filters.forEach(({ id, value }) => {
         if (id && value) {
           if (id === "name") {
-            mongooseQuery = mongooseQuery.where("name").regex(new RegExp(value, "i"));
+            mongooseQuery = mongooseQuery.where("name").regex(new RegExp(escapeRegex(value), "i"));
           }
         }
       });
     }
 
     if (globalFilter) {
-      const globalFilterRegex = new RegExp(globalFilter, "i");
+      const globalFilterRegex = new RegExp(escapeRegex(globalFilter), "i");
       mongooseQuery = mongooseQuery.or([{ name: globalFilterRegex }]);
     }
 

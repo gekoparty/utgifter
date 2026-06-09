@@ -48,7 +48,7 @@ const resolveBrandIds = async (brands) => {
       const slug = createSlug(value);
 
       const brand = await Brand.findOneAndUpdate(
-        { name: value },
+        { slug },
         {
           $setOnInsert: {
             name: value,
@@ -218,19 +218,19 @@ productsRouter.get("/", async (req, res) => {
         if (!id || value === undefined || value === null || value === "") continue;
 
         if (id === "name") {
-          query = query.where("name").regex(new RegExp(value, "i"));
+          query = query.where("name").regex(new RegExp(escapeRegex(value), "i"));
         } else if (id === "brand") {
           const matchingBrands = await Brand.find({
-            name: { $regex: new RegExp(value, "i") },
+            name: { $regex: new RegExp(escapeRegex(value), "i") },
           }).select("_id");
 
           const brandIds = matchingBrands.map((b) => b._id);
           query = query.where("brands").in(brandIds.length > 0 ? brandIds : []);
         } else if (id === "type" || id === "category") {
-          query = query.where("category").regex(new RegExp(value, "i"));
+          query = query.where("category").regex(new RegExp(escapeRegex(value), "i"));
         } else if (id === "variant" || id === "variants") {
           // ✅ Filter products by variant NAME (product-scoped variants, but search is global)
-          const regex = new RegExp(value, "i");
+          const regex = new RegExp(escapeRegex(value), "i");
           const variantDocs = await Variant.find({ name: { $regex: regex } }).select("_id");
           const variantIds = variantDocs.map((v) => v._id);
           query = query.where("variants").in(variantIds.length ? variantIds : []);
@@ -239,7 +239,7 @@ productsRouter.get("/", async (req, res) => {
     }
 
     if (globalFilter) {
-      const regex = new RegExp(globalFilter, "i");
+      const regex = new RegExp(escapeRegex(globalFilter), "i");
 
       const variantDocs = await Variant.find({ name: { $regex: regex } }).select("_id");
       const variantIds = variantDocs.map((v) => v._id);
@@ -267,7 +267,7 @@ productsRouter.get("/", async (req, res) => {
     const pageSize = Number(size) || 10;
 
     if (startIndex >= 0 && pageSize > 0) {
-      totalRowCount = await Product.countDocuments(query.clone());
+      totalRowCount = await Product.countDocuments(query.getFilter());
       query = query.skip(startIndex).limit(pageSize);
     }
 
@@ -345,10 +345,7 @@ productsRouter.post("/", async (req, res) => {
     const brandIds = await resolveBrandIds(brands);
     const productSlug = createSlug(name);
 
-    const existingProduct = await Product.findOne({
-      slug: productSlug,
-      brands: { $all: brandIds },
-    });
+    const existingProduct = await Product.findOne({ slug: productSlug });
 
     if (existingProduct) {
       return res.status(400).json({ message: "duplicate" });
@@ -456,7 +453,6 @@ productsRouter.put("/:id", async (req, res) => {
 
     const duplicateProduct = await Product.findOne({
       slug: productSlug,
-      brands: { $all: brandIds },
       _id: { $ne: id },
     });
 

@@ -37,10 +37,10 @@ export default function ModeControls({
       spacing={1.5}
       useFlexGap
       sx={{
-        mb: 2,
+        mb: 1.5,
         flexWrap: "wrap",
         alignItems: "center",
-        p: 1.25,
+        p: 1,
         border: "1px solid",
         borderColor: "divider",
         borderRadius: 2,
@@ -117,6 +117,7 @@ export default function ModeControls({
             }}
           >
             <ToggleButton value="overall">Total</ToggleButton>
+            <ToggleButton value="brand">Merke</ToggleButton>
             <ToggleButton value="shop">Butikk</ToggleButton>
             <ToggleButton value="variant">Variant</ToggleButton>
             <ToggleButton value="shopVariant">Butikk + variant</ToggleButton>
