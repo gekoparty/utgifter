@@ -27,9 +27,7 @@ const openedWidth = 240;
 const closedWidth = 70;
 const ROW_HEIGHT = 48;
 
-const StyledDrawer = styled(Drawer, {
-  shouldForwardProp: (prop) => prop !== "open",
-})(({ theme, open }) => ({
+const StyledDrawer = styled(Drawer)(({ theme, open }) => ({
   width: open ? openedWidth : closedWidth,
   flexShrink: 0,
   whiteSpace: "nowrap",
@@ -79,18 +77,27 @@ export default function MiniVariantDrawer({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const handleToggle = React.useCallback(() => {
-    setIsDrawerOpen((prev) => !prev);
-  }, [setIsDrawerOpen]);
-
-  React.useEffect(() => {
     if (isMobile) {
-      setIsDrawerOpen(false);
+      setMobileOpen((prev) => !prev);
+      return;
     }
+
+    setIsDrawerOpen((prev) => !prev);
   }, [isMobile, setIsDrawerOpen]);
 
+  const handleCloseMobile = React.useCallback(() => {
+    setMobileOpen(false);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isMobile) setMobileOpen(false);
+  }, [isMobile]);
+
   const drawerWidth = isMobile ? 0 : isDrawerOpen ? openedWidth : closedWidth;
+  const drawerOpen = isMobile ? mobileOpen : isDrawerOpen;
 
   // Active index: supports nested routes like /products/123 -> /products
   const activeIndex = React.useMemo(() => {
@@ -121,6 +128,7 @@ export default function MiniVariantDrawer({
           ml: `${drawerWidth}px`,
           backgroundColor: "background.paper",
           opacity: 0.85,
+          zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
         <Toolbar sx={{ gap: 1, minWidth: 0 }}>
@@ -130,7 +138,7 @@ export default function MiniVariantDrawer({
               onClick={handleToggle}
               color="inherit"
               aria-label="Open menu"
-              sx={{ flexShrink: 0 }}
+              sx={{ flexShrink: 0, position: "relative", zIndex: 2 }}
             >
               <MenuIcon />
             </IconButton>
@@ -150,11 +158,11 @@ export default function MiniVariantDrawer({
       {/* Drawer */}
       <StyledDrawer
         variant={isMobile ? "temporary" : "permanent"}
-        open={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
+        open={drawerOpen}
+        onClose={handleCloseMobile}
         ModalProps={{ keepMounted: true }}
         sx={{
-          width: { xs: 0, sm: isDrawerOpen ? openedWidth : closedWidth },
+          width: { xs: "auto", sm: isDrawerOpen ? openedWidth : closedWidth },
           "& .MuiDrawer-paper": {
             width: {
               xs: "min(82vw, 300px)",
@@ -166,7 +174,7 @@ export default function MiniVariantDrawer({
         <Toolbar
           sx={{
             display: "flex",
-            justifyContent: isDrawerOpen ? "flex-end" : "center",
+            justifyContent: drawerOpen ? "flex-end" : "center",
           }}
         >
           <IconButton
@@ -174,7 +182,7 @@ export default function MiniVariantDrawer({
             color="inherit"
             aria-label="Toggle drawer"
           >
-            {isDrawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+            {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
         </Toolbar>
 
@@ -185,7 +193,7 @@ export default function MiniVariantDrawer({
             <ActiveBubble
               sx={{
                 transform: `translateY(${activeIndex * ROW_HEIGHT}px)`,
-                opacity: isDrawerOpen ? 1 : 0.5,
+                opacity: drawerOpen ? 1 : 0.5,
               }}
             />
           )}
@@ -201,11 +209,11 @@ export default function MiniVariantDrawer({
                   component={Link}
                   to={route} // ✅ absolute routes
                   onClick={() => {
-                    if (isMobile) setIsDrawerOpen(false);
+                    if (isMobile) handleCloseMobile();
                   }}
                   sx={{
                     minHeight: ROW_HEIGHT,
-                    justifyContent: isDrawerOpen ? "initial" : "center",
+                    justifyContent: drawerOpen ? "initial" : "center",
                     px: 2.5,
                     position: "relative",
                     zIndex: 2,
@@ -219,7 +227,7 @@ export default function MiniVariantDrawer({
                   <ListItemIcon
                     sx={{
                       minWidth: 0,
-                      mr: isDrawerOpen ? 2 : "auto",
+                      mr: drawerOpen ? 2 : "auto",
                       justifyContent: "center",
                       color: "inherit",
                     }}
@@ -227,7 +235,7 @@ export default function MiniVariantDrawer({
                     {icon}
                   </ListItemIcon>
 
-                  {isDrawerOpen && (
+                  {drawerOpen && (
                     <ListItemText
                       primary={label}
                       sx={{ opacity: 1, transition: "opacity 0.25s" }}
