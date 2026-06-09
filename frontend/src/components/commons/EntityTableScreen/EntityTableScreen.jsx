@@ -10,10 +10,14 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   IconButton,
   LinearProgress,
   Snackbar,
+  Stack,
+  Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -34,18 +38,22 @@ const ACTION_LABELS = {
 const EntityTableScreen = ({
   addButtonLabel,
   columns,
+  description,
   DialogComponent,
   dialogRecordProp,
   endpoint,
   getData,
   getMeta,
+  getPreviewLabel = (record) => record?.name ?? "",
   getRecordName = (record) => record?.name ?? "",
+  IconComponent,
   initialSelectedRecord,
   initialSorting = [{ id: "name", desc: false }],
   loadDialog,
   loadingLabel,
   queryKey,
   resourceLabel,
+  screenTitle,
   urlBuilder = buildPaginatedUrl,
 }) => {
   const [columnFilters, setColumnFilters] = useState([]);
@@ -91,6 +99,21 @@ const EntityTableScreen = ({
 
   const tableData = getData(data);
   const meta = getMeta(data);
+  const totalRowCount = meta?.totalRowCount ?? meta?.total ?? tableData.length;
+  const activeFilterCount =
+    columnFilters.length + (deferredGlobalFilter ? 1 : 0);
+  const pageNumber = pagination.pageIndex + 1;
+  const previewItems = tableData
+    .slice(0, 6)
+    .map((record) => getPreviewLabel(record))
+    .filter(Boolean);
+
+  const summaryItems = [
+    { label: "Totalt", value: totalRowCount },
+    { label: "Viser", value: tableData.length },
+    { label: "Filtre", value: activeFilterCount },
+    { label: "Side", value: pageNumber },
+  ];
 
   const preloadDialog = useCallback(() => {
     loadDialog();
@@ -141,17 +164,122 @@ const EntityTableScreen = ({
 
   return (
     <TableLayout>
-      <Box sx={{ mb: 2 }}>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onMouseEnter={preloadDialog}
-          onFocus={preloadDialog}
-          onClick={() => openModal("ADD")}
-          sx={{ width: { xs: "100%", sm: "auto" } }}
+      <Box
+        sx={(theme) => ({
+          mb: 2,
+          p: { xs: 2, md: 2.5 },
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 2,
+          background: `linear-gradient(135deg, ${alpha(
+            theme.palette.primary.main,
+            0.14,
+          )}, ${alpha(theme.palette.background.paper, 0.56)} 62%)`,
+        })}
+      >
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={2}
+          alignItems={{ xs: "stretch", md: "flex-start" }}
+          justifyContent="space-between"
         >
-          {addButtonLabel}
-        </Button>
+          <Stack direction="row" spacing={1.5} alignItems="flex-start">
+            {IconComponent ? (
+              <Box
+                sx={(theme) => ({
+                  display: "grid",
+                  placeItems: "center",
+                  flex: "0 0 auto",
+                  width: 44,
+                  height: 44,
+                  borderRadius: 1.5,
+                  color: "primary.contrastText",
+                  bgcolor: "primary.main",
+                  boxShadow: `0 10px 28px ${alpha(
+                    theme.palette.primary.main,
+                    0.26,
+                  )}`,
+                })}
+              >
+                <IconComponent fontSize="small" />
+              </Box>
+            ) : null}
+
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                {screenTitle ?? resourceLabel}
+              </Typography>
+              {description ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mt: 0.75, maxWidth: 720 }}
+                >
+                  {description}
+                </Typography>
+              ) : null}
+            </Box>
+          </Stack>
+
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onMouseEnter={preloadDialog}
+            onFocus={preloadDialog}
+            onClick={() => openModal("ADD")}
+            sx={{
+              alignSelf: { xs: "stretch", md: "flex-start" },
+              whiteSpace: "nowrap",
+            }}
+          >
+            {addButtonLabel}
+          </Button>
+        </Stack>
+
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          flexWrap="wrap"
+          sx={{ mt: 2 }}
+        >
+          {summaryItems.map((item) => (
+            <Chip
+              key={item.label}
+              label={`${item.label}: ${item.value}`}
+              variant={item.value ? "filled" : "outlined"}
+              sx={{
+                borderRadius: 1.5,
+                fontWeight: 700,
+                bgcolor: item.value ? "action.selected" : "transparent",
+              }}
+            />
+          ))}
+        </Stack>
+
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          flexWrap="wrap"
+          sx={{ mt: 1.5 }}
+        >
+          {previewItems.length ? (
+            previewItems.map((label) => (
+              <Chip
+                key={label}
+                label={label}
+                size="small"
+                variant="outlined"
+                sx={{ maxWidth: 240 }}
+              />
+            ))
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Ingen treff ennå.
+            </Typography>
+          )}
+        </Stack>
       </Box>
 
       {isLoading ? (

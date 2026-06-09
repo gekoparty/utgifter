@@ -1,4 +1,5 @@
 import React, { lazy } from "react";
+import PlaceIcon from "@mui/icons-material/Place";
 
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 
@@ -14,16 +15,19 @@ const LocationScreen = () => (
   <EntityTableScreen
     addButtonLabel="Nytt sted"
     columns={COLUMNS}
+    description="Steder hjelper deg å skille butikker med samme navn og gir bedre grupperinger i butikkhistorikken."
     DialogComponent={LocationDialog}
     dialogRecordProp="locationToEdit"
     endpoint="/api/locations"
     getData={(data) => data?.locations ?? []}
     getMeta={(data) => data?.meta ?? {}}
+    IconComponent={PlaceIcon}
     initialSelectedRecord={INITIAL_SELECTED_LOCATION}
     loadDialog={loadLocationDialog}
     loadingLabel="Laster steder..."
     queryKey={QUERY_KEY}
     resourceLabel="Sted"
+    screenTitle="Steder"
   />
 );
 
