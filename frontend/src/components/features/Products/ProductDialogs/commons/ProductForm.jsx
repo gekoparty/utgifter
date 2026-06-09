@@ -6,6 +6,7 @@ import CategorySelect from "./CategorySelect";
 import MeasurementUnitSelect from "./MeasurementUnitSelect";
 import MeasuresInput from "./MeasuresInput";
 import VariantsInput from "./VariantsInput";
+import ProductVariantManager from "./ProductVariantManager";
 import ErrorHandling from "../../../../commons/ErrorHandling/ErrorHandling";
 import {
   predefinedTypes as predefinedCategories,
@@ -19,8 +20,13 @@ const ProductForm = ({
   onBrandCreate,
   // ✅ variants
   variantOptions,
+  showVariantManager,
+  variantActionError,
+  busyVariantId,
   onVariantsChange,
   onVariantCreate,
+  onVariantRename,
+  onVariantDelete,
   onProductCategoryChange,
   onMeasurementUnitChange,
   onMeasuresChange,
@@ -82,6 +88,17 @@ const selectedBrandValues = useMemo(() => {
           selectStyles={selectStyles}
           isLoading={loading}
         />
+
+        {showVariantManager && (
+          <ProductVariantManager
+            variants={selectedVariantValues}
+            disabled={loading}
+            error={variantActionError}
+            busyVariantId={busyVariantId}
+            onRename={onVariantRename}
+            onDelete={onVariantDelete}
+          />
+        )}
 
         {(displayError || validationError) && (
           <ErrorHandling

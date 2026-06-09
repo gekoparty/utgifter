@@ -3,11 +3,26 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { useQueryClient } from "@tanstack/react-query";
 import BasicDialog from "../../../commons/BasicDialog/BasicDialog";
 import ProductForm from "./commons/ProductForm";
 import useProductDialog from "../UseProduct/useProductDialog";
 import useInfiniteBrands from "../../../../hooks/useInfiniteBrands";
+import useCustomHttp from "../../../../hooks/useHttp";
 import { getSelectStyles } from "../../../../theme/selectStyles";
+
+const QUERY_KEY = ["products", "paginated"];
+
+const getVariantActionMessage = (error) => {
+  const message = String(error?.message ?? "").trim();
+  if (message === "duplicate") {
+    return "Denne varianten finnes allerede på dette produktet.";
+  }
+  if (message === "variant_in_use") {
+    return "Varianten brukes i utgifter. Endre navnet i stedet for å slette den.";
+  }
+  return message || "Kunne ikke oppdatere varianten.";
+};
 
 const ProductDialog = ({
   open,
@@ -20,7 +35,10 @@ const ProductDialog = ({
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
   const theme = useTheme();
+  const queryClient = useQueryClient();
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
+  const { sendRequest: sendVariantRequest, loading: isSavingVariant } =
+    useCustomHttp("/api/variants", { auto: false });
 
   const {
     product,
@@ -42,6 +60,8 @@ const ProductDialog = ({
   // ✅ Variants options (from /api/variants)
   const [variantOptions, setVariantOptions] = useState([]);
   const [isLoadingVariants, setIsLoadingVariants] = useState(false);
+  const [variantActionError, setVariantActionError] = useState("");
+  const [busyVariantId, setBusyVariantId] = useState("");
 
   // Infinite brands
   const {
@@ -63,6 +83,8 @@ const ProductDialog = ({
 
     resetFormAndErrors();
     setBrandSearch("");
+    setVariantActionError("");
+    setBusyVariantId("");
 
     // ✅ EDIT: use the product's populated variants as options (names!)
     if (mode === "EDIT") {
@@ -181,6 +203,80 @@ const ProductDialog = ({
     [product?.variants, clearProductErrorsIfAny, setProduct],
   );
 
+  const refreshProductLists = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  }, [queryClient]);
+
+  const handleVariantRename = useCallback(
+    async (variantId, name) => {
+      const id = String(variantId ?? "").trim();
+      const nextName = String(name ?? "").trim();
+      if (!id || !nextName) return false;
+
+      setVariantActionError("");
+      setBusyVariantId(id);
+
+      const { data, error } = await sendVariantRequest(
+        `/api/variants/${id}`,
+        "PUT",
+        { name: nextName },
+      );
+
+      setBusyVariantId("");
+
+      if (error) {
+        setVariantActionError(getVariantActionMessage(error));
+        return false;
+      }
+
+      const updated = data?.variant;
+      const label = String(updated?.name ?? nextName);
+      const value = String(updated?._id ?? id);
+
+      setVariantOptions((prev) =>
+        (prev ?? []).map((option) =>
+          String(option.value) === id ? { ...option, label, value } : option,
+        ),
+      );
+
+      refreshProductLists();
+      return true;
+    },
+    [refreshProductLists, sendVariantRequest],
+  );
+
+  const handleVariantDelete = useCallback(
+    async (variantId) => {
+      const id = String(variantId ?? "").trim();
+      if (!id) return false;
+
+      setVariantActionError("");
+      setBusyVariantId(id);
+
+      const { error } = await sendVariantRequest(`/api/variants/${id}`, "DELETE");
+
+      setBusyVariantId("");
+
+      if (error) {
+        setVariantActionError(getVariantActionMessage(error));
+        return false;
+      }
+
+      setVariantOptions((prev) =>
+        (prev ?? []).filter((option) => String(option.value) !== id),
+      );
+      setProduct((prev) => ({
+        ...prev,
+        variants: (prev.variants ?? []).filter((value) => String(value) !== id),
+      }));
+
+      refreshProductLists();
+      return true;
+    },
+    [refreshProductLists, sendVariantRequest, setProduct],
+  );
+
   const handleInputChange = useCallback((inputValue, meta) => {
     if (meta?.action === "input-change") setBrandSearch(inputValue);
   }, []);
@@ -233,7 +329,8 @@ const ProductDialog = ({
   const confirmLabel = isDelete ? "Slett" : "Lagre";
   const confirmColor = isDelete ? "error" : "primary";
 
-  const showBusy = loading || isLoadingBrands || isLoadingVariants;
+  const showBusy =
+    loading || isLoadingBrands || isLoadingVariants || isSavingVariant;
 
   return (
     <BasicDialog
@@ -259,6 +356,9 @@ const ProductDialog = ({
           {!isDelete && (
             <ProductForm
               product={product}
+              showVariantManager={isEdit}
+              variantActionError={variantActionError}
+              busyVariantId={busyVariantId}
               brandOptions={brandOptions}
               variantOptions={variantOptions} // ✅ NEW
               selectStyles={selectStyles}
@@ -266,7 +366,8 @@ const ProductDialog = ({
                 loading ||
                 isLoadingBrands ||
                 isFetchingNextPage ||
-                isLoadingVariants
+                isLoadingVariants ||
+                isSavingVariant
               }
               validationError={validationError}
               displayError={displayError}
@@ -280,6 +381,8 @@ const ProductDialog = ({
                 clearProductErrorsIfAny();
               }}
               onVariantsChange={handleVariantsChange}
+              onVariantRename={handleVariantRename}
+              onVariantDelete={handleVariantDelete}
               onVariantCreate={handleVariantCreate} // ✅ creates variant doc
               onProductCategoryChange={(opt) => {
                 setProduct((p) => ({ ...p, category: opt?.value ?? "" }));

@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import slugify from "slugify";
 import Variant from "../models/variantSchema.js";
 import Product from "../models/productSchema.js";
+import Expense from "../models/expenseSchema.js";
 
 const variantsRouter = express.Router();
 
@@ -164,6 +165,11 @@ variantsRouter.delete("/:id", async (req, res) => {
 
     const variant = await Variant.findById(id).select("_id product").lean();
     if (!variant) return res.status(404).json({ message: "Variant not found" });
+
+    const inUse = await Expense.exists({ variant: String(variant._id) });
+    if (inUse) {
+      return res.status(400).json({ message: "variant_in_use" });
+    }
 
     await Variant.deleteOne({ _id: variant._id });
 
