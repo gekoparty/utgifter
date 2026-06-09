@@ -5,13 +5,13 @@ import { formatCurrency } from "../utils/format";
 export default function MonthlySpendCard({ monthlySpend, top }) {
   return (
     <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-      <CardContent>
+      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
           Forbruk per måned
         </Typography>
 
-        <Box sx={{ mt: 1.5, display: "grid", gap: 0.75 }}>
-          {monthlySpend.slice(-12).map((month) => (
+        <Box sx={{ mt: 1, display: "grid", gap: 0.25, maxHeight: 240, overflow: "auto", pr: 0.5 }}>
+          {monthlySpend.slice(-8).map((month) => (
             <Box
               key={month.month}
               sx={{
@@ -19,7 +19,7 @@ export default function MonthlySpendCard({ monthlySpend, top }) {
                 justifyContent: "space-between",
                 alignItems: "center",
                 gap: 2,
-                py: 0.75,
+                py: 0.5,
                 borderBottom: "1px solid",
                 borderColor: "divider",
               }}
@@ -39,7 +39,7 @@ export default function MonthlySpendCard({ monthlySpend, top }) {
           )}
         </Box>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.5 }} />
 
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
           {top.shopMostOften && <Chip label={`Mest kjøpt: ${top.shopMostOften.name} (${top.shopMostOften.purchases})`} />}

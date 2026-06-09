@@ -1,6 +1,6 @@
 // src/components/Charts/ProductPriceChart/ProductPriceChart.jsx
-import React, { useMemo, useState, useCallback } from "react";
-import ReactECharts from "echarts-for-react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import * as echarts from "echarts";
 import { Paper, Typography, useTheme, Box, Chip, Grid } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
@@ -17,11 +17,14 @@ import ModeControls from "./ui/ModeControls";
 import MonthlySpendCard from "./sections/MonthlySpendCard";
 import ForecastCard from "./sections/ForecastCard";
 import DetailedStats from "./sections/DetailedStats";
+import YearlyIncreaseCard from "./sections/YearlyIncreaseCard";
 
 import { formatCurrency, fmtPct, fmt1, changeChipColor } from "./utils/format";
 
 export default function ProductPriceChart({ productId }) {
   const theme = useTheme();
+  const chartBoxRef = useRef(null);
+  const chartInstanceRef = useRef(null);
 
   const [mode, setMode] = useState("overview"); // "overview" | "shops" | "distribution" | "yearly"
   const [includeDiscounts, setIncludeDiscounts] = useState(true);
@@ -41,7 +44,7 @@ export default function ProductPriceChart({ productId }) {
   const [selectedVariantIds, setSelectedVariantIds] = useState([]); // [] => all
 
   // ✅ yearly mode controls
-  const [yearlyBreakdown, setYearlyBreakdown] = useState("overall"); // overall | shop | variant | shopVariant
+  const [yearlyBreakdown, setYearlyBreakdown] = useState("overall"); // overall | brand | shop | variant | shopVariant
   const [yearlyTopN, setYearlyTopN] = useState(5);
   const [visibleYearSeries, setVisibleYearSeries] = useState([]);
 
@@ -235,13 +238,66 @@ export default function ProductPriceChart({ productId }) {
 
   const onEvents = useEChartEvents({ mode, setHiddenSeries, setHighlightSeries });
 
+  useEffect(() => {
+    const element = chartBoxRef.current;
+    if (!element || !productId || isLoading || error) return undefined;
+
+    const chart = echarts.init(element);
+    chartInstanceRef.current = chart;
+
+    return () => {
+      chartInstanceRef.current = null;
+      if (!chart.isDisposed()) chart.dispose();
+    };
+  }, [productId, isLoading, error]);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart || chart.isDisposed()) return;
+
+    chart.setOption(option, { notMerge: true, lazyUpdate: true });
+  }, [option]);
+
+  useEffect(() => {
+    const chart = chartInstanceRef.current;
+    if (!chart || chart.isDisposed()) return undefined;
+
+    Object.entries(onEvents ?? {}).forEach(([eventName, handler]) => {
+      if (typeof handler === "function") chart.on(eventName, handler);
+    });
+
+    return () => {
+      if (chart.isDisposed()) return;
+      Object.entries(onEvents ?? {}).forEach(([eventName, handler]) => {
+        if (typeof handler === "function") chart.off(eventName, handler);
+      });
+    };
+  }, [onEvents]);
+
+  useEffect(() => {
+    const element = chartBoxRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return undefined;
+
+    const observer = new ResizeObserver(() => {
+      const chart = chartInstanceRef.current;
+      if (!chart || chart.isDisposed?.()) return;
+      chart.resize();
+    });
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [productId, isLoading, error]);
+
   if (!productId) return <Typography>Velg et produkt over.</Typography>;
   if (isLoading) return <Typography>Laster prishistorikk...</Typography>;
   if (error) return <Typography color="error">Kunne ikke laste prishistorikk.</Typography>;
 
   return (
     <Box>
-      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 3, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2 }}>
         <HeaderControls
           productNameStr={productNameStr}
           mode={mode}
@@ -257,8 +313,7 @@ export default function ProductPriceChart({ productId }) {
           setSelectedVariantIds={setSelectedVariantIds}
         />
 
-        {/* KPI grid */}
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Box
             sx={{
               display: "grid",
@@ -318,20 +373,30 @@ export default function ProductPriceChart({ productId }) {
           setVisibleYearSeries={setVisibleYearSeries}
         />
 
-        {/* Chart */}
-        <Box
-          sx={{
-            height: { xs: 340, md: 430 },
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
-            overflow: "hidden",
-            bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
-            p: { xs: 0.5, md: 1 },
-          }}
-        >
-          <ReactECharts option={option} style={{ height: "100%", width: "100%" }} notMerge lazyUpdate onEvents={onEvents} />
-        </Box>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, lg: 8 }}>
+            <Box
+              ref={chartBoxRef}
+              sx={{
+                height: { xs: 320, md: 390 },
+                border: "1px solid",
+                borderColor: "divider",
+                borderRadius: 2,
+                overflow: "hidden",
+                bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+                p: { xs: 0.5, md: 1 },
+              }}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Box sx={{ display: "grid", gap: 2, height: "100%" }}>
+              <YearlyIncreaseCard yearly={yearly} />
+              <MonthlySpendCard monthlySpend={monthlySpend} top={top} />
+              <ForecastCard freq={freq} discount={discount} top={top} />
+            </Box>
+          </Grid>
+        </Grid>
 
         {(mode === "shops" || mode === "yearly") && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
@@ -339,16 +404,6 @@ export default function ProductPriceChart({ productId }) {
           </Typography>
         )}
       </Paper>
-
-      {/* Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <MonthlySpendCard monthlySpend={monthlySpend} top={top} />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <ForecastCard freq={freq} discount={discount} top={top} />
-        </Grid>
-      </Grid>
 
       <DetailedStats stats={stats} />
     </Box>

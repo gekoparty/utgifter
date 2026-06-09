@@ -37,7 +37,7 @@ export default function HeaderControls({
         justifyContent: "space-between",
         alignItems: { xs: "stretch", md: "center" },
         flexDirection: { xs: "column", md: "row" },
-        mb: 2.5,
+        mb: 1.5,
         gap: 2,
       }}
     >

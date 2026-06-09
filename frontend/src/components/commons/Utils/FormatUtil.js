@@ -2,11 +2,11 @@ const isObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
 
 const formatComponentFields = (name, componentName, fieldName) => {
   const nameMappings = {
-    shop: ["name", "location", "category"],
+    shop: ["name", "location", "locationName", "category", "categoryName"],
     brand: ["name"],
     location: ["name"],
     category: ["name"],
-    product: ["name", "brands", "variants"],
+    product: ["name", "brands", "category", "variants"],
     expense: ["productName", "brandName", "shopName"],
   };
 

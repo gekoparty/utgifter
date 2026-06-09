@@ -1,88 +1,89 @@
-// api.js (or any appropriate file)
 import { API_URL } from "../Consts/constants";
 
+const requestJson = async (url, { signal } = {}) => {
+  const response = await fetch(url.href, { signal });
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      data?.message ||
+      data?.error ||
+      response.statusText ||
+      "Network response was not ok";
+    throw new Error(message);
+  }
+
+  return data;
+};
+
+const asArray = (data, key) => {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.[key])) return data[key];
+  return [];
+};
 
 export const fetchLocations = async ({ signal }) => {
-    const fetchURL = new URL("/api/locations", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href, { signal });
-    const data = await response.json();
-    return data;
-  };
+  const fetchURL = new URL("/api/locations", API_URL);
+  return requestJson(fetchURL, { signal });
+};
   
-  export const fetchShops = async ({ signal }) => {
-    try {
-      const fetchShopsURL = new URL("/api/shops", API_URL);
-      const shopsResponse = await fetch(fetchShopsURL.href, { signal });
-      const shopsData = await shopsResponse.json();
+export const fetchShops = async ({ signal }) => {
+  const fetchShopsURL = new URL("/api/shops", API_URL);
+  const shopsData = await requestJson(fetchShopsURL, { signal });
   
-      const fetchLocationsURL = new URL("/api/locations", API_URL);
-      const locationsResponse = await fetch(fetchLocationsURL.href, { signal });
-      const locationsData = await locationsResponse.json();
+  const fetchLocationsURL = new URL("/api/locations", API_URL);
+  const locationsData = await requestJson(fetchLocationsURL, { signal });
   
-      const shopsWithData = shopsData.map(shop => {
-        const location = locationsData.find(location => location._id === shop.location);
-        const locationName = location ? location.name : 'Unknown Location';
-        return { ...shop, locationName };
-      });
-  
-      console.log('Shops with location names:', shopsWithData);
-      return shopsWithData;
-    } catch (error) {
-      console.error('Error fetching shops:', error);
-      return [];
-    }
+  const shops = asArray(shopsData, "shops");
+  const locations = asArray(locationsData, "locations");
+
+  return shops.map((shop) => {
+    const location = locations.find(
+      (location) => String(location._id) === String(shop.location)
+    );
+    const locationName = location ? location.name : "Unknown Location";
+    return { ...shop, locationName };
+  });
 };
 
 export const fetchProducts = async ({ signal }) => {
-    const fetchURL = new URL("/api/products", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href, { signal });
-    const data = await response.json();
-    return data;
-  };
+  const fetchURL = new URL("/api/products", API_URL);
+  return requestJson(fetchURL, { signal });
+};
 
 
-  export const fetchCategories = async ({ signal }) => {
-    const fetchURL = new URL("/api/categories", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href, { signal });
-    const data = await response.json();
-    return data;
-  };
+export const fetchCategories = async ({ signal }) => {
+  const fetchURL = new URL("/api/categories", API_URL);
+  return requestJson(fetchURL, { signal });
+};
 
-  export const fetchBrands = async ({ infinite = false, page, search, signal } = {}) => {
-    const fetchURL = new URL("/api/brands", API_URL);
+export const fetchBrands = async ({ infinite = false, page, search, signal } = {}) => {
+  const fetchURL = new URL("/api/brands", API_URL);
     
-    if (infinite) {
-      // Convert to backend's expected parameters
-      fetchURL.searchParams.set("page", page);
-      fetchURL.searchParams.set("limit", 20);
-    }
+  if (infinite) {
+    fetchURL.searchParams.set("start", String((Number(page) || 0) * 20));
+    fetchURL.searchParams.set("size", "20");
+  }
     
-    if (search) {
-      // Match backend's parameter name for search
-      fetchURL.searchParams.set("search", search);
-    }
+  if (search) {
+    fetchURL.searchParams.set("query", search);
+  }
   
-    const response = await fetch(fetchURL.href, { signal });
-    const data = await response.json();
-    
-    console.log('Brands API Call:', {
-      url: fetchURL.href,
-      receivedPage: page,
-      response: data
-    });
-    
-    return data;
-  };
+  return requestJson(fetchURL, { signal });
+};
   
 
-  export const fetchExpenses = async ({ signal }) => {
-    const fetchURL = new URL("/api/expenses", API_URL); // Replace with your actual endpoint
-    const response = await fetch(fetchURL.href, { signal });
-    const data = await response.json();
-    return data;
-  };
+export const fetchExpenses = async ({ signal }) => {
+  const fetchURL = new URL("/api/expenses", API_URL);
+  return requestJson(fetchURL, { signal });
+};
 
-  // utils/apiUtils.js
 export const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter, API_URL) => {
   const fetchURL = new URL("/api/products", API_URL);
   fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
@@ -110,8 +111,8 @@ export const prefetchPageData = async (
     globalFilter,
     API_URL
   );
-  queryClient.prefetchQuery(
-    [
+  queryClient.prefetchQuery({
+    queryKey: [
       "products",
       columnFilters,
       globalFilter,
@@ -119,11 +120,7 @@ export const prefetchPageData = async (
       pagination.pageSize,
       sorting,
     ],
-    async ({ signal }) => {
-      const response = await fetch(fetchURL.href, { signal });
-      const json = await response.json();
-      return json;
-    }
-  );
+    queryFn: ({ signal }) => requestJson(fetchURL, { signal }),
+  });
 };
 
