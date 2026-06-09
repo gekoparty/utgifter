@@ -256,7 +256,12 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
   );
 
   return (
-    <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
+    <BasicDialog
+      open={open}
+      onClose={handleClose}
+      dialogTitle={dialogTitle}
+      maxWidth={isDelete ? "sm" : "lg"}
+    >
       <form onSubmit={handleSubmit}>
         {body}
 

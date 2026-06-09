@@ -64,7 +64,7 @@ const useShopDialog = (initialShop = null) => {
       const method = shopId ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, payload);
-      if (error) throw new Error(error.message || "Could not save shop");
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -81,7 +81,7 @@ const useShopDialog = (initialShop = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "shops",
         showError: true,
       });
@@ -91,7 +91,7 @@ const useShopDialog = (initialShop = null) => {
   const deleteShopMutation = useMutation({
     mutationFn: async (id) => {
       const { error } = await sendRequest(`/api/shops/${id}`, "DELETE");
-      if (error) throw new Error(error.message || "Could not delete shop");
+      if (error) throw error;
       return id;
     },
     onSuccess: () => {
@@ -104,7 +104,7 @@ const useShopDialog = (initialShop = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "shops",
         showError: true,
       });

@@ -84,7 +84,7 @@ export const useRecurringData = ({
       const { data, error } = await sendRequest(url, "GET");
 
       if (error) {
-        throw new Error(error.message || "Kunne ikke hente faste kostnader");
+        throw error;
       }
 
       const list = Array.isArray(data)

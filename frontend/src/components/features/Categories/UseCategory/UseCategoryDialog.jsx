@@ -58,7 +58,7 @@ const useCategoryDialog = (initialCategory = null) => {
       const method = isEditMode ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, formattedCategory);
-      if (error) throw new Error(data?.error || error);
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -67,7 +67,7 @@ const useCategoryDialog = (initialCategory = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "categories",
         showError: true,
       });
@@ -80,7 +80,7 @@ const useCategoryDialog = (initialCategory = null) => {
         `/api/categories/${categoryId}`,
         "DELETE"
       );
-      if (error) throw new Error("Could not delete category");
+      if (error) throw error;
       return categoryId;
     },
     onSuccess: () => {
@@ -89,7 +89,7 @@ const useCategoryDialog = (initialCategory = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "categories",
         showError: true,
       });

@@ -1,31 +1,46 @@
 import React, { Component } from "react";
-import ErrorHandling from "./commons/ErrorHandling/ErrorHandling";
+import { Alert, Box, Button, Typography } from "@mui/material";
+import { getFriendlyErrorMessage } from "./commons/ErrorHandling/errorMessages";
 
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = {
+      error: null,
       hasError: false,
     };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true };
+    return { error, hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    // You can log the error or send it to an error tracking service
     console.error("Error caught in ErrorBoundary:", error, errorInfo);
   }
+
+  handleReset = () => {
+    this.setState({ error: null, hasError: false });
+  };
 
   render() {
     if (this.state.hasError) {
       return (
-        <ErrorHandling
-          resource="global" // Set a global resource name for the ErrorHandling component
-          loading={false} // Pass default value if no specific loading state is available
-          field="" // Pass default value if no specific field is available
-        />
+        <Box sx={{ p: 3, minHeight: "100vh", bgcolor: "background.default" }}>
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={this.handleReset}>
+                Prøv igjen
+              </Button>
+            }
+          >
+            <Typography fontWeight={800} sx={{ mb: 0.5 }}>
+              Appen støtte på en feil.
+            </Typography>
+            {getFriendlyErrorMessage(this.state.error, "global")}
+          </Alert>
+        </Box>
       );
     }
 

@@ -12,6 +12,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "@mui/material/styles";
 import { dashboardTheme } from "./theme/dashboardTheme";
 import CssBaseline from "@mui/material/CssBaseline";
+import GlobalErrorBanner from "./components/commons/ErrorHandling/GlobalErrorBanner.jsx";
 
 // Create a QueryClient instance for React Query v5
 const queryClient = new QueryClient({
@@ -33,6 +34,7 @@ function App({ children }) {
         <StoreProvider>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
             <QueryClientProvider client={queryClient}>
+              <GlobalErrorBanner />
               {children}
               <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
             </QueryClientProvider>

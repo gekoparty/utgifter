@@ -150,7 +150,7 @@ const useProductDialog = (initialProduct = null) => {
       const method = productId ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, payload);
-      if (error) throw new Error(error.message || "Could not save product");
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -166,7 +166,7 @@ const useProductDialog = (initialProduct = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "products",
         showError: true,
       });
@@ -176,7 +176,7 @@ const useProductDialog = (initialProduct = null) => {
   const deleteProductMutation = useMutation({
     mutationFn: async (id) => {
       const { error } = await sendRequest(`/api/products/${id}`, "DELETE");
-      if (error) throw new Error(error.message || "Could not delete product");
+      if (error) throw error;
       return id;
     },
     onSuccess: () => {
@@ -189,7 +189,7 @@ const useProductDialog = (initialProduct = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "products",
         showError: true,
       });

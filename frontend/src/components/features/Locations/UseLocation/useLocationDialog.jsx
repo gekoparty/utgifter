@@ -49,7 +49,7 @@ const useLocationDialog = (initialLocation = null) => {
       const method = isEditMode ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, formattedLocation);
-      if (error) throw new Error(data?.error || error);
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -58,7 +58,7 @@ const useLocationDialog = (initialLocation = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "locations",
         showError: true,
       });
@@ -68,7 +68,7 @@ const useLocationDialog = (initialLocation = null) => {
   const deleteLocationMutation = useMutation({
     mutationFn: async (locationId) => {
       const { error } = await sendRequest(`/api/locations/${locationId}`, "DELETE");
-      if (error) throw new Error("Could not delete location");
+      if (error) throw error;
       return locationId;
     },
     onSuccess: () => {
@@ -77,7 +77,7 @@ const useLocationDialog = (initialLocation = null) => {
     onError: (error) => {
       dispatch({
         type: "SET_ERROR",
-        error: error.message,
+        error,
         resource: "locations",
         showError: true,
       });

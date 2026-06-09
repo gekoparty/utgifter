@@ -165,7 +165,7 @@ const clearFieldError = useCallback((field) => {
       const method = isEdit ? "PUT" : "POST";
 
       const { data, error } = await sendRequest(url, method, payload);
-      if (error) throw new Error(error.message || "Lagring feilet");
+      if (error) throw error;
       return data;
     },
     onSuccess: () => {
@@ -176,7 +176,7 @@ const clearFieldError = useCallback((field) => {
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
       const { error } = await sendRequest(`${API_EXPENSES}/${id}`, "DELETE");
-      if (error) throw new Error(error.message || "Sletting feilet");
+      if (error) throw error;
       return id;
     },
     onSuccess: () => {

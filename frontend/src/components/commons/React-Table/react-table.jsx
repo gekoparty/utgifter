@@ -6,6 +6,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
 import { useTheme } from "@mui/material/styles";
 import { getTableStyles } from "./tableStyles";
+import { getFriendlyErrorMessage } from "../ErrorHandling/errorMessages";
 
 const ACTIONS_COLUMN_ID = "mrt-row-actions";
 
@@ -18,6 +19,7 @@ const ReactTable = ({
   pagination,
   meta,
   isError,
+  error,
   isLoading,
   isFetching,
 
@@ -34,6 +36,7 @@ const ReactTable = ({
   handleEdit,
   handleDelete,
   renderDetailPanel,
+  resource,
 }) => {
   const theme = useTheme();
   const tableStyles = useMemo(() => getTableStyles(theme), [theme]);
@@ -124,6 +127,7 @@ const ReactTable = ({
   );
 
   const rowCount = meta?.totalRowCount ?? meta?.total ?? 0;
+  const errorMessage = getFriendlyErrorMessage(error, resource);
 
   return (
     <MaterialReactTable
@@ -153,6 +157,14 @@ const ReactTable = ({
       enableFullScreenToggle={false}
       enableHiding
       enableStickyHeader
+      muiToolbarAlertBannerProps={
+        isError
+          ? {
+              color: "error",
+              children: errorMessage,
+            }
+          : undefined
+      }
       displayColumnDefOptions={tableStyles.displayColumnDefOptions}
       muiTablePaperProps={tableStyles.muiTablePaperProps}
       muiTopToolbarProps={tableStyles.muiTopToolbarProps}
