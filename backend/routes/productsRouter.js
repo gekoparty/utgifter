@@ -468,6 +468,13 @@ productsRouter.put("/:id", async (req, res) => {
     const nextIds = nextVariantIds.map((x) => String(x));
     const removedIds = prevIds.filter((x) => !nextIds.includes(x));
 
+    if (removedIds.length) {
+      const usedRemovedVariant = await Expense.exists({ variant: { $in: removedIds } });
+      if (usedRemovedVariant) {
+        return res.status(400).json({ message: "variant_in_use" });
+      }
+    }
+
     // delete removed variant docs for this product
     await deleteVariantsForProduct(id, removedIds);
 
