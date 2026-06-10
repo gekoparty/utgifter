@@ -1,6 +1,9 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  Alert,
   Box,
+  Button,
+  Collapse,
   Stack,
   InputAdornment,
   Checkbox,
@@ -78,6 +81,8 @@ const formatDecimalForInput = (n) => {
   return String(n);
 };
 
+const roundMoney = (value) => Number(value.toFixed(2));
+
 const ExpenseFormFields = ({
   expense,
   setExpense,
@@ -96,6 +101,11 @@ const ExpenseFormFields = ({
   validationErrors,
   clearFieldError,
 }) => {
+  const [discountCalculatorOpen, setDiscountCalculatorOpen] = useState(false);
+  const [knownDiscountedPrice, setKnownDiscountedPrice] = useState("");
+  const [knownDiscountPercent, setKnownDiscountPercent] = useState("");
+  const [discountCalculatorError, setDiscountCalculatorError] = useState("");
+
   const priceInputValue =
     expense.priceText ?? formatDecimalForInput(expense.price);
   const volumeInputValue =
@@ -151,6 +161,46 @@ const ExpenseFormFields = ({
     const parsed = parseDecimalOrNull(text);
     if (parsed !== null)
       controller.handleFieldChange?.("discountAmount", parsed);
+  };
+
+  const calculatedOriginalPrice = useMemo(() => {
+    const discounted = parseDecimalOrNull(knownDiscountedPrice);
+    const percent = parseDecimalOrNull(knownDiscountPercent);
+
+    if (discounted == null || percent == null || percent <= 0 || percent >= 100) {
+      return null;
+    }
+
+    return roundMoney(discounted / (1 - percent / 100));
+  }, [knownDiscountedPrice, knownDiscountPercent]);
+
+  const applyDiscountCalculator = () => {
+    const discounted = parseDecimalOrNull(knownDiscountedPrice);
+    const percent = parseDecimalOrNull(knownDiscountPercent);
+
+    if (discounted == null || discounted <= 0) {
+      setDiscountCalculatorError("Skriv inn sluttprisen du faktisk betalte.");
+      return;
+    }
+
+    if (percent == null || percent <= 0 || percent >= 100) {
+      setDiscountCalculatorError("Rabattprosenten må være mellom 0 og 100.");
+      return;
+    }
+
+    const originalPrice = roundMoney(discounted / (1 - percent / 100));
+    const discountAmount = roundMoney(originalPrice - discounted);
+
+    controller.handleFieldChange?.("price", originalPrice, {
+      hasDiscount: true,
+      discountValue: percent,
+      discountAmount,
+      priceText: String(originalPrice),
+      discountValueText: String(percent),
+      discountAmountText: String(discountAmount),
+    });
+
+    setDiscountCalculatorError("");
   };
 
   return (
@@ -401,6 +451,99 @@ const ExpenseFormFields = ({
             {expense.hasDiscount && (
               <>
                 <Divider sx={{ borderStyle: "dashed" }} />
+
+                <Box>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setDiscountCalculatorOpen((open) => !open)}
+                    sx={{
+                      alignSelf: "flex-start",
+                      borderRadius: 2,
+                      textTransform: "none",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Regn ut førpris
+                  </Button>
+
+                  <Collapse in={discountCalculatorOpen} timeout={220}>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        mt: 1.5,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: "rgba(255,255,255,0.035)",
+                      }}
+                    >
+                      <Stack spacing={1.5}>
+                        <Typography variant="body2" color="text.secondary">
+                          Bruk denne når du bare vet sluttprisen og rabattprosenten.
+                        </Typography>
+
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+                          <ExpenseField
+                            label="Sluttpris betalt"
+                            type="text"
+                            value={knownDiscountedPrice}
+                            onChange={(e) => {
+                              setKnownDiscountedPrice(e.target.value);
+                              setDiscountCalculatorError("");
+                            }}
+                            inputProps={{ inputMode: "decimal" }}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">Kr</InputAdornment>
+                              ),
+                            }}
+                            fullWidth
+                          />
+
+                          <ExpenseField
+                            label="Rabatt"
+                            type="text"
+                            value={knownDiscountPercent}
+                            onChange={(e) => {
+                              setKnownDiscountPercent(e.target.value);
+                              setDiscountCalculatorError("");
+                            }}
+                            inputProps={{ inputMode: "decimal" }}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">%</InputAdornment>
+                              ),
+                            }}
+                            fullWidth
+                          />
+                        </Stack>
+
+                        {calculatedOriginalPrice != null && (
+                          <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                            Førpris: {calculatedOriginalPrice} kr
+                          </Typography>
+                        )}
+
+                        {discountCalculatorError && (
+                          <Alert severity="warning">{discountCalculatorError}</Alert>
+                        )}
+
+                        <Button
+                          variant="contained"
+                          onClick={applyDiscountCalculator}
+                          sx={{
+                            alignSelf: { xs: "stretch", sm: "flex-start" },
+                            borderRadius: 2,
+                            textTransform: "none",
+                            fontWeight: 800,
+                          }}
+                        >
+                          Bruk i skjemaet
+                        </Button>
+                      </Stack>
+                    </Paper>
+                  </Collapse>
+                </Box>
 
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
                   <ExpenseField
