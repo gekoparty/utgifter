@@ -1,5 +1,6 @@
 // src/components/Charts/ProductPriceChart/hooks/useProductInsights.js
 import { useQuery } from "@tanstack/react-query";
+import { API_URL } from "../../../commons/Consts/constants";
 
 export function useProductInsights(productId, includeDiscounts, variantIds = []) {
   return useQuery({
@@ -12,7 +13,13 @@ export function useProductInsights(productId, includeDiscounts, variantIds = [])
         params.set("variantIds", variantIds.join(","));
       }
 
-      const r = await fetch(`/api/stats/product-insights?${params.toString()}`);
+      const url = new URL(
+        "/api/stats/product-insights",
+        API_URL || window.location.origin
+      );
+      url.search = params.toString();
+
+      const r = await fetch(url.toString());
       if (!r.ok) throw new Error("Network response was not ok");
       return r.json();
     },
