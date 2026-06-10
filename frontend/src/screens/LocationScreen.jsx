@@ -4,7 +4,7 @@ import PlaceIcon from "@mui/icons-material/Place";
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 
 const loadLocationDialog = () =>
-  import("../components/features/Locations/LocationDialogs/LocationDialog");
+  import("../features/Locations/LocationDialogs/LocationDialog");
 const LocationDialog = lazy(loadLocationDialog);
 
 const COLUMNS = [{ accessorKey: "name", header: "Steder" }];

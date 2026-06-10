@@ -3,7 +3,7 @@
 import React, { useContext } from "react";
 import PropTypes from "prop-types";
 import { Typography } from "@mui/material";
-import { StoreContext } from "../../../Store/Store";
+import { StoreContext } from "../../../store/Store";
 import {
   getFriendlyErrorMessage,
   getValidationMessage,

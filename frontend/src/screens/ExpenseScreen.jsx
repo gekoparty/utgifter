@@ -29,7 +29,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import Collapse from "@mui/material/Collapse";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import { useTheme } from "@mui/material/styles";
-import ExpenseDashboard from "../components/features/Expenses/components/ExpenseDashboard/ExpenseDashboard";
+import ExpenseDashboard from "../features/Expenses/components/ExpenseDashboard/ExpenseDashboard";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
@@ -41,7 +41,7 @@ import { buildPaginatedUrl } from "../components/commons/EntityTableScreen/build
 // Lazy unified dialog + preloading
 // ------------------------------------------------------
 const loadExpenseDialog = () =>
-  import("../components/features/Expenses/components/ExpenseDialog/ExpenseDialog");
+  import("../features/Expenses/components/ExpenseDialog/ExpenseDialog");
 const ExpenseDialog = lazy(loadExpenseDialog);
 
 // ------------------------------------------------------

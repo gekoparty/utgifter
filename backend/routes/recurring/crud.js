@@ -1,74 +1,21 @@
 import express from "express";
-import slugify from "slugify";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
-import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import {
+  createInitialTermsSnapshot,
+  normalizeRecurringExpensePayload,
+} from "../../services/recurring/expenseService.js";
 
 const router = express.Router();
-
-const clampDueDay = (d, type) => {
-  const maxDueDay = type === "MORTGAGE" ? 31 : 28;
-  return Math.min(maxDueDay, Math.max(1, Number(d || 1)));
-};
-const clampMonth = (m) => Math.min(12, Math.max(1, Number(m || 1)));
-const clampInterval = (v) => ([1, 3, 6, 12].includes(Number(v)) ? Number(v) : 1);
-const normalizeFirstPaymentMonth = (value) => {
-  const periodKey = String(value || "").trim();
-  return /^\d{4}-\d{2}$/.test(periodKey) ? periodKey : "";
-};
-
-const normalizePayload = (body = {}) => {
-  const type = body.type === "HOUSING" ? "MORTGAGE" : body.type;
-
-  const payload = {
-    title: String(body.title ?? "").trim(),
-    type,
-    dueDay: clampDueDay(body.dueDay, type),
-
-    billingIntervalMonths: clampInterval(body.billingIntervalMonths ?? 1),
-    startMonth: clampMonth(body.startMonth ?? new Date().getMonth() + 1),
-
-    amount: Number(body.amount ?? 0),
-    estimateMin: Number(body.estimateMin ?? 0),
-    estimateMax: Number(body.estimateMax ?? 0),
-
-    mortgageHolder: String(body.mortgageHolder ?? "").trim(),
-    mortgageKind: String(body.mortgageKind ?? "").trim(),
-    remainingBalance: Number(body.remainingBalance ?? 0),
-    interestRate: Number(body.interestRate ?? 0),
-    hasMonthlyFee: Boolean(body.hasMonthlyFee),
-    monthlyFee: Boolean(body.hasMonthlyFee) ? Number(body.monthlyFee ?? 0) : 0,
-    firstPaymentMonth: normalizeFirstPaymentMonth(body.firstPaymentMonth),
-
-    isActive: body.isActive === undefined ? true : Boolean(body.isActive),
-    endDate: body.endDate ? new Date(body.endDate) : null,
-    startDate: body.startDate ? new Date(body.startDate) : null,
-  };
-
-  payload.slug = slugify(payload.title, { lower: true, strict: true });
-
-  if (payload.type !== "MORTGAGE") {
-    payload.mortgageHolder = "";
-    payload.mortgageKind = "";
-    payload.remainingBalance = 0;
-    payload.interestRate = 0;
-    payload.hasMonthlyFee = false;
-    payload.monthlyFee = 0;
-    payload.firstPaymentMonth = "";
-  } else {
-    payload.billingIntervalMonths = 1;
-    payload.estimateMin = 0;
-    payload.estimateMax = 0;
-  }
-
-  return payload;
-};
 
 router.get("/", async (req, res) => {
   try {
     const includeInactive = String(req.query.includeInactive || "false") === "true";
-    const q = includeInactive ? {} : { isActive: true };
+    const query = includeInactive ? {} : { isActive: true };
 
-    const expenses = await RecurringExpense.find(q).sort({ type: 1, title: 1 }).lean();
+    const expenses = await RecurringExpense.find(query)
+      .sort({ type: 1, title: 1 })
+      .lean();
+
     res.json({ expenses, meta: { totalRowCount: expenses.length } });
   } catch (err) {
     console.error("Error in /api/recurring-expenses:", err);
@@ -78,50 +25,34 @@ router.get("/", async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
-    const exp = await RecurringExpense.findById(req.params.id).lean();
-    if (!exp) return res.status(404).json({ message: "Not found" });
-    res.json(exp);
+    const expense = await RecurringExpense.findById(req.params.id).lean();
+    if (!expense) return res.status(404).json({ message: "Not found" });
+    res.json(expense);
   } catch (err) {
-    console.error(err);
+    console.error("Error in GET /api/recurring-expenses/:id:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
 router.post("/", async (req, res) => {
   try {
-    const payload = normalizePayload(req.body);
-    if (!payload.title) return res.status(400).json({ message: "Tittel er påkrevd" });
+    const payload = normalizeRecurringExpensePayload(req.body);
+    if (!payload.title) {
+      return res.status(400).json({ message: "Tittel er påkrevd" });
+    }
 
-    const existing = await RecurringExpense.findOne({ slug: payload.slug, type: payload.type });
+    const existing = await RecurringExpense.findOne({
+      slug: payload.slug,
+      type: payload.type,
+    });
     if (existing) return res.status(400).json({ message: "duplicate" });
 
     const created = await RecurringExpense.create(payload);
-
-    const from = new Date();
-    const monthFrom = new Date(from.getFullYear(), from.getMonth(), 1);
-
-    await RecurringTermsHistory.findOneAndUpdate(
-      { recurringExpenseId: created._id, fromDate: monthFrom },
-      {
-        $set: {
-          recurringExpenseId: created._id,
-          fromDate: monthFrom,
-          amount: created.amount,
-          estimateMin: created.estimateMin,
-          estimateMax: created.estimateMax,
-          interestRate: created.interestRate,
-          hasMonthlyFee: created.hasMonthlyFee,
-          monthlyFee: created.monthlyFee,
-          remainingBalance: created.remainingBalance,
-          note: "Auto snapshot from create",
-        },
-      },
-      { upsert: true, new: true }
-    );
+    await createInitialTermsSnapshot(created);
 
     res.status(201).json(created);
   } catch (err) {
-    console.error(err);
+    console.error("Error in POST /api/recurring-expenses:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -129,9 +60,11 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const payload = normalizePayload(req.body);
+    const payload = normalizeRecurringExpensePayload(req.body);
 
-    if (!payload.title) return res.status(400).json({ message: "Tittel er påkrevd" });
+    if (!payload.title) {
+      return res.status(400).json({ message: "Tittel er påkrevd" });
+    }
 
     const existing = await RecurringExpense.findOne({
       slug: payload.slug,
@@ -140,28 +73,32 @@ router.put("/:id", async (req, res) => {
     });
     if (existing) return res.status(400).json({ message: "duplicate" });
 
-    const updated = await RecurringExpense.findByIdAndUpdate(id, { $set: payload }, { new: true }).lean();
-    if (!updated) return res.status(404).json({ message: "Not found" });
+    const updated = await RecurringExpense.findByIdAndUpdate(
+      id,
+      { $set: payload },
+      { new: true },
+    ).lean();
 
+    if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   } catch (err) {
-    console.error(err);
+    console.error("Error in PUT /api/recurring-expenses/:id:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
 router.post("/:id/archive", async (req, res) => {
   try {
-    const exp = await RecurringExpense.findById(req.params.id);
-    if (!exp) return res.status(404).json({ message: "Not found" });
+    const expense = await RecurringExpense.findById(req.params.id);
+    if (!expense) return res.status(404).json({ message: "Not found" });
 
-    exp.isActive = false;
-    exp.endDate = new Date();
-    await exp.save();
+    expense.isActive = false;
+    expense.endDate = new Date();
+    await expense.save();
 
-    res.json(exp.toObject());
+    res.json(expense.toObject());
   } catch (err) {
-    console.error(err);
+    console.error("Error in POST /api/recurring-expenses/:id/archive:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
@@ -171,13 +108,13 @@ router.patch("/:id/restore", async (req, res) => {
     const updated = await RecurringExpense.findByIdAndUpdate(
       req.params.id,
       { $set: { isActive: true, endDate: null } },
-      { new: true }
+      { new: true },
     ).lean();
 
     if (!updated) return res.status(404).json({ message: "Not found" });
     res.json(updated);
   } catch (err) {
-    console.error(err);
+    console.error("Error in PATCH /api/recurring-expenses/:id/restore:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });

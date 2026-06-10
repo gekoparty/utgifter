@@ -1,8 +1,8 @@
 import React from "react";
-import "./App.css";
+import "./styles/App.css";
 import "@fontsource/roboto/300.css";
 // ... all other font imports ...
-import { StoreProvider } from "./Store/Store";
+import { StoreProvider } from "./store/Store";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "dayjs/locale/nb";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "@mui/material/styles";
-import { dashboardTheme } from "./theme/dashboardTheme";
+import { dashboardTheme } from "./styles/theme/dashboardTheme";
 import CssBaseline from "@mui/material/CssBaseline";
 import GlobalErrorBanner from "./components/commons/ErrorHandling/GlobalErrorBanner.jsx";
 

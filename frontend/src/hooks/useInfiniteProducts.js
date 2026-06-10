@@ -1,12 +1,12 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { API_URL } from '../components/commons/Consts/constants';
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { API_URL } from "../components/commons/Consts/constants";
 
 const buildApiUrl = (globalFilter, pageParam) =>
-  `${API_URL}/api/products?globalFilter=${encodeURIComponent(globalFilter || '')}&start=${pageParam}&size=10`;
+  `${API_URL}/api/products?globalFilter=${encodeURIComponent(globalFilter || "")}&start=${pageParam}&size=10`;
 
 const useInfiniteProducts = (globalFilter, options = {}) => {
-  const queryKey = useMemo(() => ['products', globalFilter], [globalFilter]);
+  const queryKey = useMemo(() => ["products", globalFilter], [globalFilter]);
 
   const fetchProducts = async ({ pageParam = 0, signal }) => {
     const response = await fetch(buildApiUrl(globalFilter, pageParam), { signal });
@@ -39,9 +39,7 @@ const useInfiniteProducts = (globalFilter, options = {}) => {
     enabled: options.enabled ?? true,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    onError: (error) => {
-      console.error("Infinite query error:", error);
-    }
+    placeholderData: (old) => old,
   });
 };
 

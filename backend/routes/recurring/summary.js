@@ -2,6 +2,10 @@ import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import {
+  buildPaymentHistoryIndex,
+  estimateExpectedExpense,
+} from "../../services/recurring/expectedExpenseService.js";
 
 import {
   DAY_BASIS,
@@ -17,7 +21,7 @@ import {
   pickRecurringTermsForMonth,
   estimateMonthsLeft,
   isDueInMonth,
-} from "./_shared.js";
+} from "../../services/recurring/scheduleService.js";
 
 const router = express.Router();
 
@@ -39,6 +43,7 @@ const buildSummary = ({
 
   const start = monthStart(timelineStart);
   const today = new Date(realNow);
+  const paymentHistoryIndex = buildPaymentHistoryIndex(paymentsInRange);
 
   // MAIN payment by expense+month
   const paymentIndex = new Map();
@@ -157,6 +162,11 @@ const buildSummary = ({
       let expectedMin = 0;
       let expectedMax = 0;
       let estimateSource = paused ? "PAUSED" : "TERMS_HISTORY";
+      let expectedMeta = {
+        confidence: 0,
+        sampleSize: 0,
+        seasonalSampleSize: 0,
+      };
 
       let terms = null;
       if (!paused) {
@@ -167,14 +177,22 @@ const buildSummary = ({
           monthStartDate: b.date,
         });
 
-        expectedFixed = Number(terms.amount ?? 0);
-        expectedMin = Number(terms.estimateMin ?? 0);
-        expectedMax = Number(terms.estimateMax ?? 0);
+        const expected = estimateExpectedExpense({
+          expense: e,
+          terms,
+          periodKey,
+          paymentHistoryIndex,
+        });
 
-        if (expectedMin === 0 && expectedMax === 0) {
-          expectedMin = expectedFixed;
-          expectedMax = expectedFixed;
-        }
+        expectedFixed = expected.fixed;
+        expectedMin = expected.min;
+        expectedMax = expected.max;
+        estimateSource = expected.source;
+        expectedMeta = {
+          confidence: expected.confidence ?? 0,
+          sampleSize: expected.sampleSize ?? 0,
+          seasonalSampleSize: expected.seasonalSampleSize ?? 0,
+        };
 
         b.expectedFixedTotal += expectedFixed;
         b.expectedMin += expectedMin;
@@ -267,6 +285,7 @@ const buildSummary = ({
           min: expectedMin,
           max: expectedMax,
           source: estimateSource,
+          ...expectedMeta,
         },
 
         mortgage: mortgageMeta,
@@ -403,7 +422,7 @@ router.get("/summary", async (req, res) => {
     const totalMonths = pastMonths + monthsForward;
 
     const toKey = yyyymmKey(addMonths(timelineStart, totalMonths - 1));
-    const histFromKey = yyyymmKey(addMonths(timelineStart, -12));
+    const histFromKey = yyyymmKey(addMonths(timelineStart, -36));
 
     const includeInactive = String(req.query.includeInactive || "false") === "true";
     const q = includeInactive ? {} : { isActive: true };

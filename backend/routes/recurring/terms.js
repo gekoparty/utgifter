@@ -1,7 +1,7 @@
 import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
-import { periodKeyToMonthStart } from "./_shared.js";
+import { periodKeyToMonthStart } from "../../services/recurring/scheduleService.js";
 
 const router = express.Router();
 

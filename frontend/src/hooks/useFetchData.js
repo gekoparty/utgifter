@@ -1,11 +1,15 @@
+import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { API_URL } from "../components/commons/Consts/constants";
 
-const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
-  const transformData = transformDataProp ?? ((data) => data);
-  const stableQueryKey = Array.isArray(queryKey) ? queryKey : [queryKey];
+const identityTransform = (data) => data;
 
-  const fetchData = async ({ signal }) => {
+const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
+  const transformData = transformDataProp ?? identityTransform;
+  const stableQueryKey = Array.isArray(queryKey) ? queryKey : [queryKey];
+  const { useErrorBoundary, throwOnError, ...queryOptions } = options;
+
+  const fetchData = useCallback(async ({ signal }) => {
     const fullUrl = new URL(
       url.startsWith("/") ? url.slice(1) : url,
       API_URL.endsWith("/") ? API_URL : `${API_URL}/`
@@ -25,7 +29,7 @@ const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
 
     const data = await response.json();
     return transformData(data, signal);
-  };
+  }, [transformData, url]);
 
   const queryResult = useQuery({
     queryKey: stableQueryKey,
@@ -34,8 +38,8 @@ const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
     retry: options.retry ?? 3,
     staleTime: options.staleTime ?? 5 * 60 * 1000,
     gcTime: options.gcTime ?? 10 * 60 * 1000,
-    useErrorBoundary: options.useErrorBoundary ?? false,
-    ...options,
+    throwOnError: throwOnError ?? useErrorBoundary ?? false,
+    ...queryOptions,
   });
 
   return {

@@ -14,7 +14,7 @@ import expensesRouter from "./routes/expensesRouter.js";
 import statsRouter from "./routes/statsRouter.js";
 import recurringPaymentsRouter from "./routes/recurringPaymentsRouter.js";
 import recurringRouter from "./routes/recurring/index.js";
-import mortgagesRouter from "./routes/mortages/index.js";
+import mortgagesRouter from "./routes/mortgages/index.js";
 
 dotenv.config();
 
