@@ -10,135 +10,125 @@ import {
   RECURRING_EXPENSES_SUMMARY_ROOT_KEY,
 } from "./useRecurringData";
 
+const currentMonth = () => new Date().getMonth() + 1;
+
 const INITIAL = {
   title: "",
   type: "UTILITY",
-  amount: 0,
-  estimateMin: 0,
-  estimateMax: 0,
+  amountMode: "FIXED",
+  amount: "",
+  estimateMin: "",
+  estimateMax: "",
   dueDate: "",
- 
-billingIntervalMonths: 1,
-startMonth: new Date().getMonth() + 1,
+  billingIntervalMonths: 1,
+  startMonth: currentMonth(),
   mortgageHolder: "",
   mortgageKind: "Hus",
-  remainingBalance: 0,
-  interestRate: 0,
+  remainingBalance: "",
+  interestRate: "",
   hasMonthlyFee: false,
-  monthlyFee: 0,
+  monthlyFee: "",
 };
 
-// resource name for StoreContext errors
 const RESOURCE = "recurring-expenses";
 
-const clampDueDay = (d, type) => {
+const toNumber = (value) => {
+  if (value === "" || value == null) return 0;
+  return Number(value);
+};
+
+const clampDueDay = (day, type) => {
   const max = type === "MORTGAGE" ? 31 : 28;
-  return Math.min(max, Math.max(1, Number(d || 1)));
+  return Math.min(max, Math.max(1, Number(day || 1)));
+};
+
+const dateFromDueDay = (dueDay, type) => {
+  if (!dueDay) return "";
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), clampDueDay(dueDay, type))
+    .toISOString()
+    .slice(0, 10);
 };
 
 const dueDateToDueDay = (dueDateStr, type) => {
   if (!dueDateStr) return 1;
-  const d = new Date(dueDateStr);
-  if (Number.isNaN(d.getTime())) return 1;
-  return clampDueDay(d.getDate(), type);
+  const date = new Date(dueDateStr);
+  if (Number.isNaN(date.getTime())) return 1;
+  return clampDueDay(date.getDate(), type);
+};
+
+const getAmountMode = (initial) => {
+  const amount = Number(initial?.amount ?? initial?.monthlyPayment ?? initial?.total ?? 0);
+  const estimateMin = Number(initial?.estimateMin ?? initial?.estimate?.min ?? 0);
+  const estimateMax = Number(initial?.estimateMax ?? initial?.estimate?.max ?? 0);
+  return amount > 0 || (!estimateMin && !estimateMax) ? "FIXED" : "ESTIMATE";
 };
 
 const buildFormFromInitial = (initial) => {
-  if (!initial) return { ...INITIAL };
+  if (!initial) return { ...INITIAL, startMonth: currentMonth() };
 
   const id = initial._id || initial.id;
-
-const baseAmount =
-initial.amount ?? initial.monthlyPayment ?? initial.total ?? 0;
-
-  // backend might store dueDay; convert to a stable date for the date input
-  const dueDate =
-    initial.dueDate ||
-    (initial.dueDay
-      ? new Date(
-          new Date().getFullYear(),
-          new Date().getMonth(),
-          clampDueDay(initial.dueDay),
-        )
-          .toISOString()
-          .slice(0, 10)
-      : "");
+  const type = initial.type === "HOUSING" ? "MORTGAGE" : (initial.type ?? "UTILITY");
+  const amount = initial.amount ?? initial.monthlyPayment ?? initial.total ?? "";
+  const dueDate = initial.dueDate || dateFromDueDay(initial.dueDay, type);
 
   return {
     ...INITIAL,
     ...initial,
-    _id: id, // keep for edit
+    _id: id,
     id,
-
     title: initial.title ?? "",
-    type: initial.type === "HOUSING" ? "MORTGAGE" : (initial.type ?? "UTILITY"),
-
-    amount: Number(baseAmount || 0),
-    estimateMin: Number(initial.estimateMin ?? initial.estimate?.min ?? 0),
-    estimateMax: Number(initial.estimateMax ?? initial.estimate?.max ?? 0),
-
+    type,
+    amountMode: getAmountMode(initial),
+    amount: amount === 0 ? "" : amount,
+    estimateMin: initial.estimateMin ?? initial.estimate?.min ?? "",
+    estimateMax: initial.estimateMax ?? initial.estimate?.max ?? "",
     dueDate,
-
+    billingIntervalMonths: Number(initial.billingIntervalMonths || 1),
+    startMonth: Number(initial.startMonth || currentMonth()),
     mortgageHolder: initial.mortgageHolder ?? "",
     mortgageKind: initial.mortgageKind ?? "Hus",
-    remainingBalance: Number(
-      initial.remainingBalance ?? initial.remaining ?? 0,
-    ),
-    interestRate: Number(initial.interestRate ?? 0),
+    remainingBalance: initial.remainingBalance ?? initial.remaining ?? "",
+    interestRate: initial.interestRate ?? "",
     hasMonthlyFee: Boolean(
       initial.hasMonthlyFee ?? Number(initial.monthlyFee || 0) > 0,
     ),
-    monthlyFee: Number(initial.monthlyFee ?? 0),
+    monthlyFee: initial.monthlyFee ?? "",
   };
 };
 
 const buildBackendPayload = (form) => {
+  const isMortgage = form.type === "MORTGAGE";
+  const usesEstimate = !isMortgage && form.amountMode === "ESTIMATE";
+
   const payload = {
     title: formatComponentFields(form.title, "category", "name"),
     type: form.type,
-
-    // ✅ store day-of-month
     dueDay: dueDateToDueDay(form.dueDate, form.type),
-
-    // ✅ mortgage: store explicit first payment month for MortgageCenter
     firstPaymentMonth:
-      form.type === "MORTGAGE" && String(form.dueDate || "").length >= 7
-        ? String(form.dueDate).slice(0, 7) // "YYYY-MM"
+      isMortgage && String(form.dueDate || "").length >= 7
+        ? String(form.dueDate).slice(0, 7)
         : "",
-
-    amount: Number(form.amount || 0),
-    estimateMin: Number(form.estimateMin || 0),
-    estimateMax: Number(form.estimateMax || 0),
-
-    billingIntervalMonths: Number(form.billingIntervalMonths || 1),
-    startMonth: Number(form.startMonth || new Date().getMonth() + 1),
-
+    amount: usesEstimate ? 0 : toNumber(form.amount),
+    estimateMin: usesEstimate ? toNumber(form.estimateMin) : 0,
+    estimateMax: usesEstimate ? toNumber(form.estimateMax) : 0,
+    billingIntervalMonths: isMortgage ? 1 : Number(form.billingIntervalMonths || 1),
+    startMonth: Number(form.startMonth || currentMonth()),
     mortgageHolder: formatComponentFields(form.mortgageHolder, "brand", "name"),
     mortgageKind: formatComponentFields(form.mortgageKind, "category", "name"),
-    remainingBalance: Number(form.remainingBalance || 0),
-    interestRate: Number(form.interestRate || 0),
+    remainingBalance: toNumber(form.remainingBalance),
+    interestRate: toNumber(form.interestRate),
     hasMonthlyFee: Boolean(form.hasMonthlyFee),
-    monthlyFee: form.hasMonthlyFee ? Number(form.monthlyFee || 0) : 0,
+    monthlyFee: form.hasMonthlyFee ? toNumber(form.monthlyFee) : 0,
   };
 
-  // clean fields by type
-  if (payload.type !== "MORTGAGE") {
+  if (!isMortgage) {
     delete payload.mortgageHolder;
     delete payload.mortgageKind;
     delete payload.remainingBalance;
     delete payload.interestRate;
     delete payload.hasMonthlyFee;
     delete payload.monthlyFee;
-
-    // not used for non-mortgages
-    payload.firstPaymentMonth = "";
-  } else {
-    // mortgage does not use estimate range
-    payload.estimateMin = 0;
-    payload.estimateMax = 0;
-
-    // mortgage is monthly
-    payload.billingIntervalMonths = 1;
   }
 
   return payload;
@@ -155,7 +145,6 @@ export default function useRecurringDialog({ open, mode, initial }) {
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
-
   const id = initial?._id || initial?.id;
   const initKey = id || "ADD";
 
@@ -176,8 +165,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
   }, [open, initKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!open) return;
-    if (!id) return;
+    if (!open || !id) return;
     if (!hasInitialized && !isDirty) {
       _setForm(buildFormFromInitial(initial));
       setHasInitialized(true);
@@ -200,24 +188,23 @@ export default function useRecurringDialog({ open, mode, initial }) {
     resetValidationErrors();
   }, [initial, resetServerError, resetValidationErrors]);
 
+  const refreshRecurringQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: RECURRING_EXPENSES_QUERY_KEY });
+    queryClient.invalidateQueries({
+      queryKey: RECURRING_EXPENSES_SUMMARY_ROOT_KEY,
+    });
+  }, [queryClient]);
+
   const saveMutation = useMutation({
     mutationFn: async (payload) => {
-         const url = isEdit
-       ? `/api/recurring-expenses/${id}`
-               : "/api/recurring-expenses";
+      const url = isEdit ? `/api/recurring-expenses/${id}` : "/api/recurring-expenses";
       const method = isEdit ? "PUT" : "POST";
-
       const { data, error } = await sendRequest(url, method, payload);
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: RECURRING_EXPENSES_QUERY_KEY });
-           // ✅ also refresh the summary screen data
-     queryClient.invalidateQueries({
-       queryKey: RECURRING_EXPENSES_SUMMARY_ROOT_KEY,
-      });
-
+      refreshRecurringQueries();
       resetServerError();
       resetValidationErrors();
     },
@@ -241,11 +228,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
       return deleteId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: RECURRING_EXPENSES_QUERY_KEY });
-            // ✅ also refresh the summary screen data
-     queryClient.invalidateQueries({
-        queryKey: RECURRING_EXPENSES_SUMMARY_ROOT_KEY,
-      });
+      refreshRecurringQueries();
       resetServerError();
       resetValidationErrors();
     },
@@ -271,9 +254,8 @@ export default function useRecurringDialog({ open, mode, initial }) {
       });
       const saved = await saveMutation.mutateAsync(payload);
 
-      // ADD: reset
       if (!isEdit) {
-        setForm({ ...INITIAL });
+        setForm({ ...INITIAL, startMonth: currentMonth() });
       }
 
       return saved;
@@ -330,46 +312,39 @@ export default function useRecurringDialog({ open, mode, initial }) {
   const validationError = state.validationErrors?.[RESOURCE];
 
   const isFormValid = useCallback(() => {
-    // fast UI gate; Yup is ultimate
-    if (!form.title?.trim()) return false;
-    if (!form.dueDate) return false;
+    if (!form.title?.trim() || !form.dueDate) return false;
 
     if (form.type === "MORTGAGE") {
-      if (!form.mortgageHolder?.trim()) return false;
-      if (!form.mortgageKind?.trim()) return false;
-      if (Number(form.amount || 0) <= 0) return false;
-      if (Number(form.remainingBalance || 0) <= 0) return false;
-      if (Number(form.interestRate ?? -1) < 0) return false;
-      if (form.hasMonthlyFee && Number(form.monthlyFee || 0) < 0) return false;
+      if (!form.mortgageHolder?.trim() || !form.mortgageKind?.trim()) return false;
+      if (toNumber(form.amount) <= 0) return false;
+      if (toNumber(form.remainingBalance) <= 0) return false;
+      if (toNumber(form.interestRate) < 0) return false;
+      if (form.hasMonthlyFee && toNumber(form.monthlyFee) < 0) return false;
       return true;
     }
 
-    const amountOk = Number(form.amount || 0) > 0;
-    const estOk =
-      Number(form.estimateMin || 0) > 0 &&
-      Number(form.estimateMax || 0) >= Number(form.estimateMin || 0);
-    return amountOk || estOk;
+    if (form.amountMode === "ESTIMATE") {
+      return toNumber(form.estimateMin) > 0 &&
+        toNumber(form.estimateMax) >= toNumber(form.estimateMin);
+    }
+
+    return toNumber(form.amount) > 0;
   }, [form]);
 
-    const loading =
-    httpLoading || saveMutation.isPending || deleteMutation.isPending;
+  const loading = httpLoading || saveMutation.isPending || deleteMutation.isPending;
 
   return useMemo(
     () => ({
       form,
       setForm,
-
       loading,
       isEdit,
       isDelete,
-
       displayError,
       validationError,
-
       isFormValid,
       handleSave,
       handleDelete,
-
       resetFormAndErrors,
       resetServerError,
       resetValidationErrors,
