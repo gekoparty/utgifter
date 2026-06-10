@@ -34,8 +34,10 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
     }
   }, [years, selectedYear]);
 
-  const canComparePrev = !!compareYear;
+  const previousYearKey = String(Number(year) - 1);
+  const canComparePrev = years.includes(previousYearKey);
   const doCompare = comparePreviousYear && canComparePrev;
+  const activeCompareYear = doCompare ? compareYear ?? previousYearKey : null;
 
   const option = useMemo(() => {
     return buildOption({
@@ -43,9 +45,9 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
       months,
       doCompare,
       selectedYear: year,
-      compareYear,
+      compareYear: activeCompareYear,
     });
-  }, [theme, months, doCompare, year, compareYear]);
+  }, [theme, months, doCompare, year, activeCompareYear]);
 
   useEffect(() => {
     const element = chartBoxRef.current;
@@ -155,7 +157,7 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
         setComparePreviousYear={setComparePreviousYear}
         canComparePrev={canComparePrev}
         doCompare={doCompare}
-        previousYearKey={compareYear ?? String(Number(year) - 1)}
+        previousYearKey={previousYearKey}
       />
 
       <StatsStrip stats={stats} doCompare={doCompare} />
