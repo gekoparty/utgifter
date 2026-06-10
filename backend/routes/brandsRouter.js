@@ -6,6 +6,12 @@ import mongoose from "mongoose";
 
 const brandsRouter = express.Router();
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const createSlug = (name) =>
+  slugify(name, {
+    lower: true,
+    strict: true,
+    remove: /[*+~.()'"!:@]/g,
+  });
 
 /**
  * GET /api/brands
@@ -142,19 +148,60 @@ brandsRouter.get("/:id", async (req, res) => {
 brandsRouter.post("/", async (req, res) => {
   try {
     const name = String(req.body?.name ?? "").trim();
+    const productId = String(req.body?.productId ?? "").trim();
     if (!name) {
       return res.status(400).json({ message: "name is required" });
     }
 
-    const slug = slugify(name, { lower: true });
+    let product = null;
+    if (productId) {
+      if (!mongoose.Types.ObjectId.isValid(productId)) {
+        return res.status(400).json({ message: "Invalid product id" });
+      }
+
+      product = await Product.findById(productId).select("_id").lean();
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+    }
+
+    const slug = createSlug(name);
     const existingBrand = await Brand.findOne({ slug });
 
     if (existingBrand) {
+      if (product) {
+        await Promise.all([
+          Product.updateOne(
+            { _id: product._id },
+            { $addToSet: { brands: existingBrand._id } }
+          ),
+          Brand.updateOne(
+            { _id: existingBrand._id },
+            { $addToSet: { products: product._id } }
+          ),
+        ]);
+
+        return res.status(200).json(existingBrand);
+      }
+
       return res.status(400).json({ message: "duplicate" });
     }
 
     const brand = new Brand({ name, slug });
     await brand.save();
+
+    if (product) {
+      await Promise.all([
+        Product.updateOne(
+          { _id: product._id },
+          { $addToSet: { brands: brand._id } }
+        ),
+        Brand.updateOne(
+          { _id: brand._id },
+          { $addToSet: { products: product._id } }
+        ),
+      ]);
+    }
 
     res.status(201).json(brand);
   } catch (error) {

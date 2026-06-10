@@ -28,7 +28,7 @@ import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import Collapse from "@mui/material/Collapse";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
@@ -53,6 +53,12 @@ const EXPENSES_QUERY_KEY = ["expenses", "paginated"];
 
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 const INITIAL_SORTING = [{ id: "purchaseDate", desc: true }];
+
+const PRICE_MODE_LABELS = {
+  pricePerUnit: "Enhet",
+  finalPrice: "Total",
+  price: "Pris",
+};
 
 const INITIAL_SELECTED_EXPENSE = {
   _id: "",
@@ -94,6 +100,7 @@ const transformExpenseData = (json) => {
     expenses: list.map((x) => ({
       _id: x._id,
       productName: x.product?.name || x.productName || "N/A",
+      productId: x.product?._id || x.productId || "",
       brandName: x.brand?.name || x.brandName || "N/A",
       shopName: x.shop?.name || x.shopName || "N/A",
       locationName: x.location?.name || x.locationName || "N/A",
@@ -343,20 +350,117 @@ const PriceRangeFilter = React.memo(function PriceRangeFilter({
 // ------------------------------------------------------
 // Badge
 // ------------------------------------------------------
-const PriceBadge = React.memo(function PriceBadge({ value, bg, fg }) {
+const PriceBadge = React.memo(function PriceBadge({ value, tone = "neutral" }) {
   return (
     <Box
-      sx={{
-        backgroundColor: bg,
-        color: fg,
-        px: 0.5,
-        py: 0.25,
-        borderRadius: 1,
-        display: "inline-block",
+      sx={(t) => {
+        const colors = {
+          success: t.palette.success.main,
+          warning: t.palette.warning.main,
+          error: t.palette.error.main,
+          neutral: t.palette.text.secondary,
+        };
+        const color = colors[tone] || colors.neutral;
+
+        return {
+          alignItems: "center",
+          backgroundColor: alpha(
+            color,
+            t.palette.mode === "dark" ? 0.16 : 0.08,
+          ),
+          border: "1px solid",
+          borderColor: alpha(color, t.palette.mode === "dark" ? 0.34 : 0.22),
+          borderRadius: 999,
+          color: tone === "neutral" ? t.palette.text.primary : color,
+          display: "inline-flex",
+          fontVariantNumeric: "tabular-nums",
+          fontWeight: 800,
+          gap: 0.75,
+          lineHeight: 1,
+          minWidth: 92,
+          justifyContent: "flex-end",
+          px: 1,
+          py: 0.55,
+          whiteSpace: "nowrap",
+          "&::before": {
+            content: '""',
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            backgroundColor: color,
+            flex: "0 0 auto",
+          },
+        };
       }}
     >
       {NOK.format(typeof value === "number" ? value : 0)}
     </Box>
+  );
+});
+
+const TextCell = React.memo(function TextCell({ primary, secondary }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography
+        component="span"
+        sx={{
+          display: "block",
+          fontSize: "0.86rem",
+          fontWeight: 750,
+          lineHeight: 1.25,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {primary || "N/A"}
+      </Typography>
+      {secondary ? (
+        <Typography
+          component="span"
+          color="text.secondary"
+          sx={{
+            display: "block",
+            fontSize: "0.74rem",
+            lineHeight: 1.2,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {secondary}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+});
+
+const MutedCell = React.memo(function MutedCell({ value }) {
+  return (
+    <Typography
+      component="span"
+      color="text.secondary"
+      sx={{ fontSize: "0.84rem", fontWeight: 650 }}
+    >
+      {value || "N/A"}
+    </Typography>
+  );
+});
+
+const DateCell = React.memo(function DateCell({ value }) {
+  return (
+    <Typography
+      component="span"
+      sx={{
+        fontSize: "0.84rem",
+        px: 0.5,
+        py: 0.25,
+        borderRadius: 1,
+        bgcolor: "action.hover",
+        fontVariantNumeric: "tabular-nums",
+        fontWeight: 700,
+      }}
+    >
+      {value}
+    </Typography>
   );
 });
 
@@ -534,12 +638,23 @@ const ExpenseScreen = () => {
   }, []);
 
   const handlePriceFilterModeChange = useCallback((newMode) => {
-    if (["pricePerUnit", "finalPrice", "price", "all"].includes(newMode)) {
+    if (newMode === "all") return;
+
+    if (["pricePerUnit", "finalPrice", "price"].includes(newMode)) {
       setPriceDisplayMode(newMode);
     } else {
       setPriceDisplayMode("pricePerUnit");
     }
   }, []);
+
+  const handlePriceModeChange = useCallback(
+    (event, newMode) => {
+      if (newMode) {
+        handlePriceFilterModeChange(newMode);
+      }
+    },
+    [handlePriceFilterModeChange],
+  );
 
   const handleSuccess = useCallback(
     (action, expenseName) => {
@@ -583,32 +698,27 @@ const ExpenseScreen = () => {
         const type = row.original.variantName || "Ukjent";
         const stats = priceStatsByType[type] || {};
 
-        let bg = "transparent";
-        let fg = palette.text.primary;
+        let tone = "neutral";
 
         if (resolvedAccessor.key === "pricePerUnit" && stats.median != null) {
           const rangeLow = stats.min + (stats.median - stats.min) / 2;
           const rangeHigh = stats.max - (stats.max - stats.median) / 2;
 
           if (value <= rangeLow) {
-            bg = palette.success.main;
-            fg = palette.success.contrastText;
+            tone = "success";
           } else if (value >= rangeHigh) {
-            bg = palette.error.main;
-            fg = palette.error.contrastText;
+            tone = "error";
           } else {
-            bg = palette.warning.main;
-            fg = palette.warning.contrastText;
+            tone = "warning";
           }
         }
 
-        return <PriceBadge value={value} bg={bg} fg={fg} />;
+        return <PriceBadge value={value} tone={tone} />;
       },
     };
   }, [
     priceDisplayMode,
     priceStatsByType,
-    palette,
     handlePriceFilterModeChange,
   ]);
 
@@ -619,7 +729,12 @@ const ExpenseScreen = () => {
       Filter: ({ column }) => <DateRangeFilter column={column} />,
       enableColumnFilter: true,
       Cell: ({ row }) =>
-        formatDate(row.original.purchaseDate, row.original.purchaseDateDisplay),
+        <DateCell
+          value={formatDate(
+            row.original.purchaseDate,
+            row.original.purchaseDateDisplay,
+          )}
+        />,
     }),
     [],
   );
@@ -627,10 +742,32 @@ const ExpenseScreen = () => {
   // ALL columns (toggleable)
   const tableColumns = useMemo(
     () => [
-      { accessorKey: "productName", header: "Produktnavn" },
-      { accessorKey: "variantName", header: "Variant" },
+      {
+        accessorKey: "productName",
+        header: "Produktnavn",
+        size: 220,
+        Cell: ({ row }) => (
+          <TextCell
+            primary={row.original.productName}
+            secondary={
+              row.original.brandName !== "N/A" ? row.original.brandName : ""
+            }
+          />
+        ),
+      },
+      {
+        accessorKey: "variantName",
+        header: "Variant",
+        size: 150,
+        Cell: ({ cell }) => <MutedCell value={cell.getValue()} />,
+      },
       priceColumn,
-      { accessorKey: "shopName", header: "Butikk" },
+      {
+        accessorKey: "shopName",
+        header: "Butikk",
+        size: 150,
+        Cell: ({ cell }) => <MutedCell value={cell.getValue()} />,
+      },
       dateColumn,
 
       // extra fields
@@ -738,8 +875,50 @@ const ExpenseScreen = () => {
             direction={{ xs: "column", sm: "row" }}
             spacing={1}
             justifyContent="flex-end"
-            sx={{ "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } } }}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            sx={{
+              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
+            }}
           >
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={priceDisplayMode}
+              onChange={handlePriceModeChange}
+              aria-label="Prisvisning"
+              sx={(t) => ({
+                alignSelf: { xs: "stretch", sm: "center" },
+                bgcolor:
+                  t.palette.mode === "dark"
+                    ? "rgba(255,255,255,0.04)"
+                    : "rgba(15,23,42,0.035)",
+                border: "1px solid",
+                borderColor: t.palette.divider,
+                borderRadius: 999,
+                p: 0.25,
+                "& .MuiToggleButton-root": {
+                  border: 0,
+                  borderRadius: 999,
+                  color: "text.secondary",
+                  fontWeight: 800,
+                  px: 1.5,
+                  textTransform: "none",
+                  width: { xs: "33.333%", sm: "auto" },
+                  "&.Mui-selected": {
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    "&:hover": { bgcolor: "primary.dark" },
+                  },
+                },
+              })}
+            >
+              {Object.entries(PRICE_MODE_LABELS).map(([mode, label]) => (
+                <ToggleButton key={mode} value={mode}>
+                  {label}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+
             <Button
               size="small"
               variant={dashboardOpen ? "contained" : "outlined"}

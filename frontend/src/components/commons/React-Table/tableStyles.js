@@ -6,12 +6,12 @@ export const getTableStyles = (theme) => {
   const borderSoft = isDark
     ? "rgba(255,255,255,0.06)"
     : "rgba(15,23,42,0.07)";
-  const surface = isDark ? "rgba(36,36,52,0.96)" : "rgba(255,255,255,0.98)";
-  const pinnedSurface = isDark ? "rgb(36,36,52)" : "rgb(255,255,255)";
+  const surface = isDark ? "rgba(31,32,46,0.98)" : "rgba(255,255,255,0.99)";
+  const pinnedSurface = isDark ? "rgb(31,32,46)" : "rgb(255,255,255)";
   const surfaceMuted = isDark
     ? "rgba(255,255,255,0.035)"
     : "rgba(248,250,252,0.92)";
-  const headerBg = isDark ? "rgba(48,52,74,0.98)" : "rgba(241,245,249,0.98)";
+  const headerBg = isDark ? "rgba(42,45,65,0.98)" : "rgba(248,250,252,0.98)";
   const headerText = isDark ? "#F8FAFC" : "#0F172A";
   const rowOddBg = isDark ? "rgba(255,255,255,0.018)" : "rgba(15,23,42,0.012)";
   const rowHoverBg = isDark ? "rgba(59,130,246,0.14)" : "rgba(37,99,235,0.07)";
@@ -28,8 +28,8 @@ export const getTableStyles = (theme) => {
             backgroundColor: headerBg,
             borderRight: `1px solid ${border}`,
             boxShadow: isDark
-              ? "8px 0 14px rgba(0,0,0,0.22)"
-              : "8px 0 14px rgba(15,23,42,0.08)",
+              ? "6px 0 12px rgba(0,0,0,0.18)"
+              : "6px 0 12px rgba(15,23,42,0.06)",
             minWidth: 56,
             width: 56,
             zIndex: 5,
@@ -40,8 +40,8 @@ export const getTableStyles = (theme) => {
             backgroundColor: pinnedSurface,
             borderRight: `1px solid ${borderSoft}`,
             boxShadow: isDark
-              ? "8px 0 14px rgba(0,0,0,0.16)"
-              : "8px 0 14px rgba(15,23,42,0.06)",
+              ? "6px 0 12px rgba(0,0,0,0.14)"
+              : "6px 0 12px rgba(15,23,42,0.045)",
             minWidth: 56,
             width: 56,
             zIndex: 4,
@@ -55,11 +55,11 @@ export const getTableStyles = (theme) => {
       sx: {
         bgcolor: surface,
         backgroundImage: "none",
-        borderRadius: 2,
+        borderRadius: 1.5,
         border: `1px solid ${border}`,
         boxShadow: isDark
-          ? "0 18px 42px rgba(0,0,0,0.30)"
-          : "0 16px 34px rgba(15,23,42,0.08)",
+          ? "0 10px 26px rgba(0,0,0,0.24)"
+          : "0 10px 24px rgba(15,23,42,0.06)",
         overflow: "hidden",
         "& .MuiTablePagination-root": {
           color: theme.palette.text.secondary,
@@ -83,12 +83,13 @@ export const getTableStyles = (theme) => {
 
     muiTopToolbarProps: {
       sx: {
-        minHeight: 58,
+        minHeight: 52,
         px: 1.25,
-        py: 1,
+        py: 0.75,
         bgcolor: surfaceMuted,
         borderBottom: `1px solid ${border}`,
         gap: 1,
+        flexWrap: "wrap",
         "& .MuiInputBase-root": {
           boxShadow: "none",
         },
@@ -97,7 +98,7 @@ export const getTableStyles = (theme) => {
 
     muiBottomToolbarProps: {
       sx: {
-        minHeight: 54,
+        minHeight: 50,
         px: 1,
         bgcolor: surfaceMuted,
         borderTop: `1px solid ${border}`,
@@ -117,11 +118,11 @@ export const getTableStyles = (theme) => {
         borderColor: borderSoft,
         borderBottom: `1px solid ${border}`,
         boxShadow: "none",
-        fontSize: "0.75rem",
+        fontSize: "0.72rem",
         fontWeight: 800,
         letterSpacing: 0,
         lineHeight: 1.2,
-        py: 1,
+        py: 0.85,
         textTransform: "uppercase",
         "& .Mui-TableHeadCell-Content": {
           alignItems: "center",
@@ -133,6 +134,9 @@ export const getTableStyles = (theme) => {
         "& .MuiButtonBase-root": {
           color: theme.palette.text.secondary,
         },
+        "& .MuiTableSortLabel-root:hover": {
+          color: theme.palette.text.primary,
+        },
       },
     },
 
@@ -140,9 +144,11 @@ export const getTableStyles = (theme) => {
       sx: {
         color: theme.palette.text.primary,
         borderColor: borderSoft,
-        fontSize: "0.875rem",
+        fontSize: "0.84rem",
         lineHeight: 1.45,
-        py: 1.05,
+        py: 0.95,
+        verticalAlign: "middle",
+        whiteSpace: "nowrap",
         "&:first-of-type": {
           borderLeft: 0,
         },
@@ -156,7 +162,7 @@ export const getTableStyles = (theme) => {
         transition: "background-color 140ms ease, box-shadow 140ms ease",
         "&:hover": {
           backgroundColor: rowHoverBg,
-          boxShadow: `inset 3px 0 0 ${theme.palette.primary.main}`,
+          boxShadow: `inset 2px 0 0 ${theme.palette.primary.main}`,
         },
         "&.Mui-selected, &.Mui-selected:hover": {
           backgroundColor: isDark
