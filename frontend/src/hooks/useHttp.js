@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useContext } from "react";
-import PropTypes from "prop-types";
 import { API_URL } from "../components/commons/Consts/constants";
 import axios from "axios";
-import { StoreContext } from "../Store/Store";
+import { StoreContext } from "../store/Store";
 
 const useCustomHttp = (initialUrl, options = {}) => {
   const { auto = false } = options;
@@ -38,6 +37,7 @@ const useCustomHttp = (initialUrl, options = {}) => {
         const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
 
         const response = await axios.request({
+          ...config,
           url: fullUrl,
           method,
           data: payload,
@@ -109,10 +109,6 @@ const useCustomHttp = (initialUrl, options = {}) => {
   }, [auto, initialUrl, sendRequest]);
 
   return { ...httpState, sendRequest };
-};
-
-useCustomHttp.propTypes = {
-  initialUrl: PropTypes.string,
 };
 
 export default useCustomHttp;

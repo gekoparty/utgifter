@@ -4,7 +4,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 
 const loadCategoryDialog = () =>
-  import("../components/features/Categories/CategoryDialogs/CategoryDialog");
+  import("../features/Categories/CategoryDialogs/CategoryDialog");
 const CategoryDialog = lazy(loadCategoryDialog);
 
 const COLUMNS = [

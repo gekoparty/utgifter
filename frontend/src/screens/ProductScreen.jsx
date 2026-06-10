@@ -1,10 +1,10 @@
 import React, { lazy, useMemo } from "react";
 
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
-import ChipsOverflow from "./CellUtils/ChipsOverflow";
+import ChipsOverflow from "../components/tableCells/ChipsOverflow";
 
 const loadProductDialog = () =>
-  import("../components/features/Products/ProductDialogs/ProductDialog");
+  import("../features/Products/ProductDialogs/ProductDialog");
 const ProductDialog = lazy(loadProductDialog);
 
 const QUERY_KEY = ["products", "paginated"];

@@ -4,7 +4,7 @@ import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 
 const loadBrandDialog = () =>
-  import("../components/features/Brands/BrandDialogs/BrandDialog");
+  import("../features/Brands/BrandDialogs/BrandDialog");
 const BrandDialog = lazy(loadBrandDialog);
 
 const COLUMNS = [{ accessorKey: "name", header: "Merkenavn" }];

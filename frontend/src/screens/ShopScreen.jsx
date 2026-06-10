@@ -4,7 +4,7 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 
 const loadShopDialog = () =>
-  import("../components/features/Shops/ShopDialogs/ShopDialog");
+  import("../features/Shops/ShopDialogs/ShopDialog");
 const ShopDialog = lazy(loadShopDialog);
 
 const COLUMNS = [

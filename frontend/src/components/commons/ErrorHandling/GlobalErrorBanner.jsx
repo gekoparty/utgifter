@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
 import { Alert, Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { StoreContext } from "../../../Store/Store";
+import { StoreContext } from "../../../store/Store";
 import { getFriendlyErrorMessage } from "./errorMessages";
 
 const GlobalErrorBanner = () => {
