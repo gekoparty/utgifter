@@ -123,8 +123,12 @@ export const recurringExpenseValidationSchema = Yup.object()
 
     dueDay: Yup.number()
       .required("Forfallsdag er påkrevd")
-      .min(1, "Forfallsdag må være mellom 1 og 28")
-      .max(28, "Forfallsdag må være mellom 1 og 28"),
+      .min(1, "Forfallsdag må være minst 1")
+      .when("type", {
+        is: "MORTGAGE",
+        then: (s) => s.max(31, "Forfallsdag må være mellom 1 og 31"),
+        otherwise: (s) => s.max(28, "Forfallsdag må være mellom 1 og 28"),
+      }),
 
     amount: Yup.number()
       .required("Månedlig beløp er påkrevd")
