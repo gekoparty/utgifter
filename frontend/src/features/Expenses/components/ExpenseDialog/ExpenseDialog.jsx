@@ -1,20 +1,31 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import PropTypes from "prop-types";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, CircularProgress, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { getSelectStyles } from "../../../../styles/theme/selectStyles";
 
 import BasicDialog from "../../../../components/commons/BasicDialog/BasicDialog";
 import ExpenseFormFields from "./ExpenseFormFields";
+import { formatComponentFields } from "../../../../components/commons/Utils/FormatUtil";
+import {
+  addBrandValidationSchema,
+  addProductValidationSchema,
+  addShopValidationSchema,
+} from "../../../../validation/validationSchema";
 
 import { useExpenseDialogForm } from "../../hooks/useExpenseDialogForm";
 import { useExpenseDialogData } from "../../hooks/useExpenseDialogData";
 import { useExpenseDialogOptions } from "../../hooks/useExpenseDialogOptions";
 import { useExpenseDialogController } from "../../hooks/useExpenseDialogController";
 
+const isHexObjectId = (value) =>
+  /^[a-f\d]{24}$/i.test(String(value ?? "").trim());
+
 const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError }) => {
   const theme = useTheme();
   const selectStyles = getSelectStyles(theme);
+  const queryClient = useQueryClient();
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
@@ -62,6 +73,24 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       isLoadingBrandsForProduct: data.isLoadingBrandsForProduct,
     });
 
+  const locationOptions = useMemo(
+    () =>
+      (data.locations ?? []).map((location) => ({
+        value: String(location._id),
+        label: location.name,
+      })),
+    [data.locations]
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      (data.categories ?? []).map((category) => ({
+        value: String(category._id),
+        label: category.name,
+      })),
+    [data.categories]
+  );
+
   // ----------------------------
   // Selected product init control
   // ----------------------------
@@ -92,7 +121,8 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       productOptions.find((o) => o.name === name || o.value === name) ??
       {
         label: name,
-        value: name,
+        value: expenseToEdit?.productId || name,
+        id: expenseToEdit?.productId || "",
         name,
 
         // ✅ Use variants/measures from expense row (so Variant select works even without productOptions)
@@ -115,6 +145,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     open,
     isEdit,
     expenseToEdit?.productName,
+    expenseToEdit?.productId,
     expenseToEdit?.measurementUnit,
     expenseToEdit?.variants,
     expenseToEdit?.measures,
@@ -170,6 +201,149 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     onClose();
   };
 
+  const getSelectedProductId = () =>
+    [
+      controller.selectedProduct?.id,
+      controller.selectedProduct?._id,
+      expense.productId,
+      controller.selectedProduct?.value,
+    ]
+      .map((value) => String(value ?? "").trim())
+      .find(isHexObjectId) || "";
+
+  const hasSelectedProductId = Boolean(getSelectedProductId());
+
+  const handleCreateBrand = async (name) => {
+    const productId = getSelectedProductId();
+    if (!productId) throw new Error("Velg et produkt fÃ¸rst.");
+
+    const formattedBrand = {
+      name: formatComponentFields(name, "brand", "name"),
+    };
+
+    await addBrandValidationSchema.validate(formattedBrand, {
+      abortEarly: false,
+    });
+
+    const { data: createdBrand, error } = await data.sendRequest(
+      "/api/brands",
+      "POST",
+      { ...formattedBrand, productId }
+    );
+
+    if (error) throw error;
+
+    const brand = createdBrand?.brand ?? createdBrand;
+    const brandId = String(brand?._id ?? brand?.id ?? "");
+    const brandName = String(brand?.name ?? formattedBrand.name).trim();
+
+    controller.setSelectedProduct((prev) => {
+      if (!prev || !brandId) return prev;
+      const brandIds = Array.isArray(prev.brands) ? prev.brands.map(String) : [];
+      return brandIds.includes(brandId)
+        ? prev
+        : { ...prev, brands: [...brandIds, brandId] };
+    });
+
+    queryClient.invalidateQueries({ queryKey: ["brands"] });
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    clearFieldError?.("brandName");
+    controller.handleBrandSelect({ label: brandName, value: brandId, name: brandName });
+
+    return brand;
+  };
+
+  const handleCreateVariant = async (name) => {
+    const productId = getSelectedProductId();
+    if (!productId) throw new Error("Velg et produkt fra listen fÃ¸rst.");
+
+    const formattedVariantName = formatComponentFields(
+      name,
+      "product",
+      "variants"
+    );
+
+    await addProductValidationSchema.validateAt("variants", {
+      variants: [formattedVariantName],
+    });
+
+    const { data: payload, error } = await data.sendRequest(
+      "/api/variants",
+      "POST",
+      { name: formattedVariantName, productId }
+    );
+
+    if (error) throw error;
+
+    const variant = payload?.variant ?? payload;
+    const variantId = String(variant?._id ?? variant?.id ?? "");
+    const variantName = String(variant?.name ?? formattedVariantName).trim();
+
+    controller.setSelectedProduct((prev) => {
+      if (!prev || !variantId) return prev;
+      const variants = Array.isArray(prev.variants) ? prev.variants : [];
+      const exists = variants.some((v) => String(v?._id ?? v) === variantId);
+      return exists
+        ? prev
+        : {
+            ...prev,
+            variants: [...variants, { _id: variantId, name: variantName }],
+          };
+    });
+
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    controller.handleVariantSelect({
+      label: variantName,
+      value: variantId,
+      name: variantName,
+    });
+
+    return variant;
+  };
+
+  const handleCreateShop = async ({ name, locationName, categoryName }) => {
+    const formatted = {
+      name: formatComponentFields(name, "shop", "name"),
+      locationName: formatComponentFields(
+        locationName,
+        "shop",
+        "locationName"
+      ),
+      categoryName: formatComponentFields(
+        categoryName,
+        "shop",
+        "categoryName"
+      ),
+    };
+
+    await addShopValidationSchema.validate(formatted, { abortEarly: false });
+
+    const { data: shop, error } = await data.sendRequest("/api/shops", "POST", {
+      name: formatted.name,
+      locationName: formatted.locationName,
+      categoryName: formatted.categoryName,
+    });
+
+    if (error) throw error;
+
+    const shopId = String(shop?._id ?? shop?.id ?? "");
+    const shopName = String(shop?.name ?? formatted.name).trim();
+    const resolvedLocationName = String(
+      shop?.locationName ?? formatted.locationName ?? ""
+    ).trim();
+
+    queryClient.invalidateQueries({ queryKey: ["shops"] });
+    controller.handleShopSelect({
+      label: `${shopName}, ${resolvedLocationName}`,
+      value: shopId,
+      id: shopId,
+      name: shopName,
+      locationName: resolvedLocationName,
+    });
+
+    return shop;
+  };
+
   // ✅ Validate brand only on Save
   const isBrandValidForSelectedProduct = () => {
     if (!controller.selectedProduct) return true;
@@ -177,10 +351,26 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     const brand = String(expense.brandName || "").trim();
     if (!brand) return false;
 
+    const selectedBrandId = String(expense.brandId || "").trim();
+    const selectedProductBrandIds = Array.isArray(controller.selectedProduct?.brands)
+      ? controller.selectedProduct.brands
+          .map((item) => String(item?._id ?? item?.id ?? item).trim())
+          .filter(Boolean)
+      : [];
+
+    if (selectedBrandId && selectedProductBrandIds.includes(selectedBrandId)) {
+      return true;
+    }
+
     const list = Array.isArray(data.brandsForProduct) ? data.brandsForProduct : [];
     if (!list.length) return false; // no known brands for product -> treat as invalid (or relax if you prefer)
 
-    return list.some((b) => String(b?.name || "").toLowerCase() === brand.toLowerCase());
+    return list.some((b) => {
+      const idMatches = selectedBrandId && String(b?._id || "") === selectedBrandId;
+      const nameMatches =
+        String(b?.name || "").toLowerCase() === brand.toLowerCase();
+      return idMatches || nameMatches;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -252,6 +442,18 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       controller={controller}
       validationErrors={validationErrors}
       clearFieldError={clearFieldError}
+      quickCreate={{
+        createBrand: handleCreateBrand,
+        createVariant: handleCreateVariant,
+        createShop: handleCreateShop,
+        hasSelectedProductId,
+        locationOptions,
+        categoryOptions,
+        isLoadingLocations: data.isLoadingLocations,
+        isLoadingCategories: data.isLoadingCategories,
+        isLocationError: data.isLocationError,
+        isCategoryError: data.isCategoryError,
+      }}
     />
   );
 

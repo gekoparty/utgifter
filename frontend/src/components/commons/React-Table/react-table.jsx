@@ -1,8 +1,16 @@
 // src/components/commons/React-Table/react-table.jsx
 import React, { useMemo, useCallback } from "react";
 import { MaterialReactTable } from "material-react-table";
-import { IconButton, Tooltip, MenuItem } from "@mui/material";
+import {
+  IconButton,
+  Tooltip,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+} from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { MRT_Localization_NO } from "material-react-table/locales/no";
 import { useTheme } from "@mui/material/styles";
 import { getTableStyles } from "./tableStyles";
@@ -43,7 +51,7 @@ const ReactTable = ({
 
   const initialState = useMemo(
     () => ({
-      showColumnFilters: true,
+      showColumnFilters: false,
       density: "compact",
       columnPinning: {
         left: [ACTIONS_COLUMN_ID],
@@ -86,6 +94,7 @@ const ReactTable = ({
       <Tooltip title="Oppdater">
         <IconButton
           onClick={refetch}
+          aria-label="Oppdater tabell"
           sx={(t) => ({
             borderRadius: 2,
             border: "1px solid",
@@ -111,7 +120,10 @@ const ReactTable = ({
           handleEdit?.(row.original);
         }}
       >
-        Rediger
+        <ListItemIcon>
+          <EditOutlinedIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>Rediger</ListItemText>
       </MenuItem>,
       <MenuItem
         key="delete"
@@ -120,7 +132,10 @@ const ReactTable = ({
           handleDelete?.(row.original);
         }}
       >
-        Slett
+        <ListItemIcon>
+          <DeleteOutlineIcon fontSize="small" color="error" />
+        </ListItemIcon>
+        <ListItemText>Slett</ListItemText>
       </MenuItem>,
     ],
     [handleEdit, handleDelete],
