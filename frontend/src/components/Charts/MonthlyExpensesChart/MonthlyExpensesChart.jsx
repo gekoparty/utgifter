@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import * as echarts from "echarts";
 import { Paper, Typography, useTheme, Box, CircularProgress } from "@mui/material";
 import dayjs from "dayjs";
 
+import { echarts } from "../echartsCore";
 import { useExpensesByMonthSummary } from "./hooks/useExpensesByMonth";
 import { buildOption } from "./echarts/buildOption";
 
@@ -49,22 +49,26 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
 
   useEffect(() => {
     const element = chartBoxRef.current;
-    if (!element) return undefined;
+    if (!element || isLoading || error || !years.length) return undefined;
 
-    const chart = echarts.init(element);
+    const chart = echarts.getInstanceByDom(element) ?? echarts.init(element);
     chartInstanceRef.current = chart;
 
     return () => {
       chartInstanceRef.current = null;
       if (!chart.isDisposed()) chart.dispose();
     };
-  }, []);
+  }, [error, isLoading, years.length]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
     if (!chart || chart.isDisposed()) return;
 
     chart.setOption(option, { notMerge: true, lazyUpdate: true });
+
+    requestAnimationFrame(() => {
+      if (!chart.isDisposed()) chart.resize();
+    });
   }, [option]);
 
   useEffect(() => {

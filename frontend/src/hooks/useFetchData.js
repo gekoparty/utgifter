@@ -7,7 +7,7 @@ const identityTransform = (data) => data;
 const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
   const transformData = transformDataProp ?? identityTransform;
   const stableQueryKey = Array.isArray(queryKey) ? queryKey : [queryKey];
-  const { useErrorBoundary, throwOnError, ...queryOptions } = options;
+  const { throwOnError, ...queryOptions } = options;
 
   const fetchData = useCallback(async ({ signal }) => {
     const fullUrl = new URL(
@@ -38,7 +38,7 @@ const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
     retry: options.retry ?? 3,
     staleTime: options.staleTime ?? 5 * 60 * 1000,
     gcTime: options.gcTime ?? 10 * 60 * 1000,
-    throwOnError: throwOnError ?? useErrorBoundary ?? false,
+    throwOnError: throwOnError ?? false,
     ...queryOptions,
   });
 

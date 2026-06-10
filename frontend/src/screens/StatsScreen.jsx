@@ -1,18 +1,32 @@
 // src/screens/StatsScreen.jsx
+import { lazy, Suspense } from "react";
 import { useOutletContext } from "react-router-dom";
-import MonthlyExpensesChart from "../components/Charts/MonthlyExpensesChart/MonthlyExpensesChart";
-import ProductPriceChart from "../components/Charts/ProductPriceChart/ProductPriceChart";
 import { Box, Paper, Typography } from "@mui/material";
+
+const MonthlyExpensesChart = lazy(() =>
+  import("../components/Charts/MonthlyExpensesChart/MonthlyExpensesChart")
+);
+const ProductPriceChart = lazy(() =>
+  import("../components/Charts/ProductPriceChart/ProductPriceChart")
+);
 
 export default function StatsScreen() {
   const { view, productId } = useOutletContext();
 
   return (
     <Box sx={{ display: "grid", gap: { xs: 2, md: 3 } }}>
-      {view === "expenses" && <MonthlyExpensesChart />}
+      {view === "expenses" && (
+        <Suspense fallback={null}>
+          <MonthlyExpensesChart />
+        </Suspense>
+      )}
       {view === "price" && (
         productId
-          ? <ProductPriceChart productId={productId} />
+          ? (
+            <Suspense fallback={null}>
+              <ProductPriceChart productId={productId} />
+            </Suspense>
+          )
           : (
             <Paper
               variant="outlined"
