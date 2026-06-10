@@ -29,7 +29,6 @@ import CloseIcon from "@mui/icons-material/Close";
 import Collapse from "@mui/material/Collapse";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import { useTheme } from "@mui/material/styles";
-import ExpenseDashboard from "../features/Expenses/components/ExpenseDashboard/ExpenseDashboard";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import useSnackBar from "../hooks/useSnackBar";
@@ -43,6 +42,9 @@ import { buildPaginatedUrl } from "../components/commons/EntityTableScreen/build
 const loadExpenseDialog = () =>
   import("../features/Expenses/components/ExpenseDialog/ExpenseDialog");
 const ExpenseDialog = lazy(loadExpenseDialog);
+const ExpenseDashboard = lazy(() =>
+  import("../features/Expenses/components/ExpenseDashboard/ExpenseDashboard")
+);
 
 // ------------------------------------------------------
 // Constants
@@ -190,7 +192,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
               type="date"
               size="small"
               fullWidth
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               value={localDateRange[0] || ""}
               onChange={(e) => handleLocalChange(0, e.target.value)}
             />
@@ -199,7 +201,7 @@ const DateRangeFilter = React.memo(function DateRangeFilter({ column }) {
               type="date"
               size="small"
               fullWidth
-              InputLabelProps={{ shrink: true }}
+              slotProps={{ inputLabel: { shrink: true } }}
               value={localDateRange[1] || ""}
               onChange={(e) => handleLocalChange(1, e.target.value)}
             />
@@ -773,11 +775,13 @@ const ExpenseScreen = () => {
 
       <Collapse in={dashboardOpen} timeout={350} unmountOnExit>
         <Box sx={{ mb: 2 }}>
-          <ExpenseDashboard
-            expenses={tableData}
-            totalRowCount={metaData?.totalRowCount ?? 0}
-            onAdd={openAdd}
-          />
+          <Suspense fallback={null}>
+            <ExpenseDashboard
+              expenses={tableData}
+              totalRowCount={metaData?.totalRowCount ?? 0}
+              onAdd={openAdd}
+            />
+          </Suspense>
         </Box>
       </Collapse>
 

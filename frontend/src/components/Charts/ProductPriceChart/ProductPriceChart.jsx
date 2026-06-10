@@ -1,10 +1,10 @@
 // src/components/Charts/ProductPriceChart/ProductPriceChart.jsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import * as echarts from "echarts";
 import { Paper, Typography, useTheme, Box, Chip, Grid } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
 
+import { echarts } from "../echartsCore";
 import { useProductInsights } from "./hooks/useProductInsights";
 import { usePreparedSeries } from "./hooks/usePreparedSeries";
 import { buildOption } from "./echarts/buildOption";
@@ -242,7 +242,7 @@ export default function ProductPriceChart({ productId }) {
     const element = chartBoxRef.current;
     if (!element || !productId || isLoading || error) return undefined;
 
-    const chart = echarts.init(element);
+    const chart = echarts.getInstanceByDom(element) ?? echarts.init(element);
     chartInstanceRef.current = chart;
 
     return () => {
@@ -256,6 +256,10 @@ export default function ProductPriceChart({ productId }) {
     if (!chart || chart.isDisposed()) return;
 
     chart.setOption(option, { notMerge: true, lazyUpdate: true });
+
+    requestAnimationFrame(() => {
+      if (!chart.isDisposed()) chart.resize();
+    });
   }, [option]);
 
   useEffect(() => {

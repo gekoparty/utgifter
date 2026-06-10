@@ -69,14 +69,14 @@ function PayDialog({
             onChange={(e) => onAmount(e.target.value)}
             error={Boolean(error)}
             helperText={error || " "}
-            inputProps={{ min: 0, step: 1 }}
+            slotProps={{ htmlInput: { min: 0, step: 1 } }}
             fullWidth
           />
 
           <TextField
             label="Betalt dato"
             type="date"
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             value={paidDate || ""}
             onChange={(e) => onPaidDate(e.target.value)}
             fullWidth
