@@ -144,6 +144,7 @@ const clearFieldError = useCallback((field) => {
       type: "SET",
       payload: (prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater;
+        if (next === prev) return prev;
         return computeDerivedExpense(next);
       },
     });

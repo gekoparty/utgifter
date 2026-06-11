@@ -181,11 +181,41 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     });
   }, [open, controller.selectedProduct, setExpense]);
 
-  const loading =
-    formLoading ||
-    data.isLoadingProducts ||
-    data.isLoadingBrands ||
-    data.isLoadingShops;
+  useEffect(() => {
+    if (!open || isDelete) return;
+
+    setExpense((prev) => {
+      const updates = {};
+
+      if (prev.brandName && !prev.brandId && Array.isArray(brandOptions)) {
+        const brandMatch = brandOptions.find(
+          (option) =>
+            option.name === prev.brandName ||
+            option.label === prev.brandName
+        );
+
+        if (brandMatch?.value) {
+          updates.brandId = String(brandMatch.value);
+        }
+      }
+
+      if (prev.shopName && !prev.shopId && Array.isArray(shopOptions)) {
+        const shopMatch = shopOptions.find(
+          (option) => option.name === prev.shopName || option.label === prev.shopName
+        );
+
+        if (shopMatch?.value) {
+          updates.shopId = String(shopMatch.value);
+          updates.locationId = shopMatch.locationId || prev.locationId || "";
+          updates.locationName = shopMatch.locationName || prev.locationName || "";
+        }
+      }
+
+      return Object.keys(updates).length ? { ...prev, ...updates } : prev;
+    });
+  }, [open, isDelete, brandOptions, shopOptions, setExpense]);
+
+  const loading = formLoading;
 
   const dialogTitle = isDelete
     ? "Bekreft sletting"
