@@ -52,12 +52,9 @@ const getReferenceIds = async (model, field, value) => {
   return model.find({ [field]: new RegExp(escapeRegex(value), "i") }).distinct("_id");
 };
 
-// Accept either IDs OR names (case-insensitive exact match on name)
-const resolveByIdOrName = async (Model, id, name) => {
-  if (id && isHexObjectId(id)) return Model.findById(id);
-  if (!name) return null;
-  const safe = escapeRegex(name);
-  return Model.findOne({ name: new RegExp(`^${safe}$`, "i") });
+const resolveById = async (Model, id) => {
+  if (!id || !isHexObjectId(id)) return null;
+  return Model.findById(id);
 };
 
 const normalizeVariantId = (v) => {
@@ -383,11 +380,6 @@ expensesRouter.get("/:id", async (req, res) => {
 expensesRouter.post("/", async (req, res) => {
   try {
     const {
-      productName,
-      brandName,
-      shopName,
-      locationName,
-
       productId,
       brandId,
       shopId,
@@ -399,10 +391,10 @@ expensesRouter.post("/", async (req, res) => {
     } = req.body;
 
     const [product, brand, shop, location] = await Promise.all([
-      resolveByIdOrName(Product, productId, productName),
-      resolveByIdOrName(Brand, brandId, brandName),
-      resolveByIdOrName(Shop, shopId, shopName),
-      locationName || locationId ? resolveByIdOrName(Location, locationId, locationName) : null,
+      resolveById(Product, productId),
+      resolveById(Brand, brandId),
+      resolveById(Shop, shopId),
+      locationId ? resolveById(Location, locationId) : null,
     ]);
 
     if (!product || !brand || !shop) {
@@ -470,11 +462,6 @@ expensesRouter.put("/:id", async (req, res) => {
     }
 
     const {
-      productName,
-      brandName,
-      shopName,
-      locationName,
-
       productId,
       brandId,
       shopId,
@@ -485,10 +472,10 @@ expensesRouter.put("/:id", async (req, res) => {
     } = req.body;
 
     const [product, brand, shop, location] = await Promise.all([
-      resolveByIdOrName(Product, productId, productName),
-      resolveByIdOrName(Brand, brandId, brandName),
-      resolveByIdOrName(Shop, shopId, shopName),
-      locationName || locationId ? resolveByIdOrName(Location, locationId, locationName) : null,
+      resolveById(Product, productId),
+      resolveById(Brand, brandId),
+      resolveById(Shop, shopId),
+      locationId ? resolveById(Location, locationId) : null,
     ]);
 
     if (!product || !brand || !shop) {

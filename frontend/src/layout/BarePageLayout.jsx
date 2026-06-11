@@ -18,6 +18,7 @@ import VirtualizedSelect from "../components/commons/VirtualizedSelect/Virtualiz
 import debounce from "lodash.debounce";
 import useInfiniteProducts from "../hooks/useInfiniteProducts";
 import { getSelectStyles } from "../styles/theme/selectStyles";
+import ThemeModeSwitch from "../components/commons/ThemeModeSwitch.jsx";
 
 export default function BarePageLayout() {
   const [view, setView] = useState("expenses");
@@ -104,6 +105,8 @@ export default function BarePageLayout() {
           >
             Statistikk
           </Typography>
+
+          <ThemeModeSwitch />
         </Toolbar>
       </AppBar>
 
