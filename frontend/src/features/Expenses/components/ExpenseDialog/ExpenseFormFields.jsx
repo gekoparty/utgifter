@@ -395,10 +395,17 @@ const ExpenseFormFields = ({
         value: id,
         label: expense.shopName || "Ukjent butikk",
         name: expense.shopName || "Ukjent butikk",
+        locationId: expense.locationId || "",
         locationName: expense.locationName || "",
       }
     );
-  }, [expense.shopId, expense.shopName, expense.locationName, shopOptions]);
+  }, [
+    expense.shopId,
+    expense.shopName,
+    expense.locationId,
+    expense.locationName,
+    shopOptions,
+  ]);
 
   const handlePriceTextChange = (text) => {
     setExpense((prev) => ({ ...prev, priceText: text }));

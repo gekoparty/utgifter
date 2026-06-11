@@ -103,6 +103,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
   (shop) =>
     handleFieldChange("shopName", shop?.name || "", {
       shopId: shop?.value || "",     // ✅ store ID
+      locationId: shop?.locationId || "",
       locationName: shop?.locationName || "",
     }),
   [handleFieldChange]

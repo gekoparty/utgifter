@@ -22,6 +22,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import { mainNavbarItems } from "./Consts/NavBarListItems.jsx";
 import { Link, useLocation, matchPath } from "react-router-dom";
+import ThemeModeSwitch from "../commons/ThemeModeSwitch.jsx";
 
 const openedWidth = 240;
 const closedWidth = 70;
@@ -148,10 +149,12 @@ export default function MiniVariantDrawer({
             variant="h6"
             color="text.primary"
             noWrap
-            sx={{ minWidth: 0 }}
+            sx={{ flexGrow: 1, minWidth: 0 }}
           >
             {title}
           </Typography>
+
+          <ThemeModeSwitch />
         </Toolbar>
       </AppBar>
 

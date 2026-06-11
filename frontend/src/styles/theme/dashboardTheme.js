@@ -1,156 +1,183 @@
 import { createTheme } from "@mui/material/styles";
 
-export const dashboardTheme = createTheme({
-  palette: {
-    mode: "dark", // dark mode
+const getPalette = (mode) => {
+  const isDark = mode === "dark";
+
+  return {
+    mode,
     primary: {
-      main: "#2563EB",       // bright blue
+      main: "#2563EB",
       dark: "#1E4FCB",
       light: "#3B82F6",
       contrastText: "#fff",
     },
     secondary: {
-      main: "#FBBF24",       // amber accent
-      contrastText: "#000",
+      main: "#FBBF24",
+      contrastText: "#111827",
     },
     background: {
-      default: "#1E1E2F",    // dark page background
-      paper: "#2C2C3F",      // cards, tables, modals
+      default: isDark ? "#1E1E2F" : "#F4F7FB",
+      paper: isDark ? "#2C2C3F" : "#FFFFFF",
     },
-    divider: "rgba(255,255,255,0.12)",
+    divider: isDark ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.12)",
     text: {
-      primary: "#E5E5E5",
-      secondary: "rgba(255,255,255,0.7)",
+      primary: isDark ? "#E5E5E5" : "#101828",
+      secondary: isDark ? "rgba(255,255,255,0.7)" : "#667085",
     },
     error: {
-      main: "#F87171",
+      main: isDark ? "#F87171" : "#D92D20",
       contrastText: "#fff",
     },
-  },
+  };
+};
 
-  shape: { borderRadius: 12 },
+export const createDashboardTheme = (mode = "dark") => {
+  const isDark = mode === "dark";
+  const palette = getPalette(mode);
 
-  typography: {
-    fontFamily: "'Inter', sans-serif",
-    h1: {
-      fontSize: "1.5rem",
-      fontWeight: 600,
-      color: "#fff",
-    },
-  },
+  return createTheme({
+    palette,
 
-  components: {
-    MuiCssBaseline: {
-      styleOverrides: {
-        body: {
-          backgroundColor: "#1E1E2F",
-          color: "#E5E5E5",
-        },
+    shape: { borderRadius: 12 },
+
+    typography: {
+      fontFamily: "'Inter', sans-serif",
+      h1: {
+        fontSize: "1.5rem",
+        fontWeight: 600,
+        color: palette.text.primary,
       },
     },
 
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          backgroundColor: "rgba(30,30,47,0.9)",
-          color: "#fff",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.5)",
-          backdropFilter: "blur(10px)",
-          borderBottom: "1px solid rgba(255,255,255,0.1)",
-        },
-      },
-    },
-
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundColor: "#2C2C3F",
-          borderRadius: 12,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-        },
-      },
-    },
-
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          fontWeight: 600,
-          textTransform: "none",
-          borderRadius: 8,
-          color: "#fff",
-        },
-        containedPrimary: {
-          backgroundColor: "#2563EB",
-          "&:hover": {
-            backgroundColor: "#1E4FCB",
-          },
-        },
-        outlined: {
-          borderColor: "rgba(255,255,255,0.4)",
-          color: "#fff",
-          "&:hover": {
-            borderColor: "#2563EB",
-            backgroundColor: "rgba(37,99,235,0.1)",
+    components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          body: {
+            backgroundColor: palette.background.default,
+            color: palette.text.primary,
           },
         },
       },
-    },
 
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiInputBase-root": {
-            color: "#E5E5E5",
-          },
-          "& .MuiInputLabel-root": {
-            color: "rgba(255,255,255,0.7)",
-          },
-          "& .MuiOutlinedInput-notchedOutline": {
-            borderColor: "rgba(255,255,255,0.3)",
-          },
-          "&:hover .MuiOutlinedInput-notchedOutline": {
-            borderColor: "#2563EB",
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isDark
+              ? "rgba(30,30,47,0.9)"
+              : "rgba(255,255,255,0.92)",
+            color: palette.text.primary,
+            boxShadow: isDark
+              ? "0 2px 12px rgba(0,0,0,0.5)"
+              : "0 2px 14px rgba(15,23,42,0.08)",
+            backdropFilter: "blur(10px)",
+            borderBottom: `1px solid ${palette.divider}`,
           },
         },
       },
-    },
 
-    MuiSelect: {
-      styleOverrides: {
-        root: {
-          color: "#E5E5E5",
-          "& .MuiOutlinedInput-notchedOutline": {
-            borderColor: "rgba(255,255,255,0.3)",
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundColor: palette.background.paper,
+            borderRadius: 12,
+            boxShadow: isDark
+              ? "0 4px 20px rgba(0,0,0,0.5)"
+              : "0 4px 20px rgba(15,23,42,0.08)",
           },
         },
       },
-    },
 
-    MuiTableHead: {
-      styleOverrides: {
-        root: {
-          backgroundColor: "#3A3A50",
-        },
-      },
-    },
-
-    MuiTableCell: {
-      styleOverrides: {
-        root: {
-          borderBottom: "1px solid rgba(255,255,255,0.12)",
-          color: "#E5E5E5",
-        },
-      },
-    },
-
-    MuiToolbar: {
-      styleOverrides: {
-        root: {
-          "& button, & .MuiTypography-root": {
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            fontWeight: 600,
+            textTransform: "none",
+            borderRadius: 8,
+          },
+          containedPrimary: {
             color: "#fff",
+            backgroundColor: palette.primary.main,
+            "&:hover": {
+              backgroundColor: palette.primary.dark,
+            },
+          },
+          outlined: {
+            borderColor: isDark
+              ? "rgba(255,255,255,0.4)"
+              : "rgba(15,23,42,0.28)",
+            color: palette.text.primary,
+            "&:hover": {
+              borderColor: palette.primary.main,
+              backgroundColor: isDark
+                ? "rgba(37,99,235,0.1)"
+                : "rgba(37,99,235,0.08)",
+            },
+          },
+        },
+      },
+
+      MuiTextField: {
+        styleOverrides: {
+          root: {
+            "& .MuiInputBase-root": {
+              color: palette.text.primary,
+            },
+            "& .MuiInputLabel-root": {
+              color: palette.text.secondary,
+            },
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: isDark
+                ? "rgba(255,255,255,0.3)"
+                : "rgba(15,23,42,0.22)",
+            },
+            "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: palette.primary.main,
+            },
+          },
+        },
+      },
+
+      MuiSelect: {
+        styleOverrides: {
+          root: {
+            color: palette.text.primary,
+            "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: isDark
+                ? "rgba(255,255,255,0.3)"
+                : "rgba(15,23,42,0.22)",
+            },
+          },
+        },
+      },
+
+      MuiTableHead: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isDark ? "#3A3A50" : "#EEF3FB",
+          },
+        },
+      },
+
+      MuiTableCell: {
+        styleOverrides: {
+          root: {
+            borderBottom: `1px solid ${palette.divider}`,
+            color: palette.text.primary,
+          },
+        },
+      },
+
+      MuiToolbar: {
+        styleOverrides: {
+          root: {
+            "& button, & .MuiTypography-root": {
+              color: palette.text.primary,
+            },
           },
         },
       },
     },
-  },
-});
+  });
+};
+
+export const dashboardTheme = createDashboardTheme("dark");

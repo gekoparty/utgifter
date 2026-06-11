@@ -63,6 +63,7 @@ export const useExpenseDialogOptions = ({
     value: String(s._id),      // ✅ use ID
     id: String(s._id),
     name: s.name,
+    locationId: s.location ? String(s.location) : "",
     locationName: s.locationName,
   }));
 }, [shops]);

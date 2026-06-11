@@ -5,7 +5,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import { StoreContext } from "../../../store/Store";
 import { addExpenseValidationSchema } from "../../../validation/validationSchema";
-import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
 import { computeDerivedExpense } from "./expenseDerived";
 
 const API_EXPENSES = "/api/expenses";
@@ -190,22 +189,21 @@ const clearFieldError = useCallback((field) => {
 
   try {
     const formatted = {
-      ...expense,
-
-      // ✅ SEND IDS (PRIMARY RESOLUTION METHOD)
-      productId: expense.productId || "",
-      brandId: expense.brandId || "",
-      shopId: expense.shopId || "",
-      locationId: expense.locationId || "",
-
-      // ✅ Variant should always be id string
-      variant: expense.variant ? String(expense.variant) : "",
-
-      // Keep names (optional but fine)
-      productName: formatComponentFields(expense.productName, "expense", "productName"),
-      brandName: formatComponentFields(expense.brandName, "expense", "brandName"),
-      shopName: formatComponentFields(expense.shopName, "expense", "shopName"),
-
+      productId: String(expense.productId || "").trim(),
+      brandId: String(expense.brandId || "").trim(),
+      shopId: String(expense.shopId || "").trim(),
+      locationId: String(expense.locationId || "").trim(),
+      variant: expense.variant ? String(expense.variant).trim() : "",
+      measurementUnit: expense.measurementUnit || "",
+      price: Number(expense.price) || 0,
+      volume: Number(expense.volume) || 0,
+      quantity: Number(expense.quantity) || 1,
+      purchased: Boolean(expense.purchased),
+      hasDiscount: Boolean(expense.hasDiscount),
+      discountValue: Number(expense.discountValue) || 0,
+      discountAmount: Number(expense.discountAmount) || 0,
+      finalPrice: Number(expense.finalPrice) || 0,
+      pricePerUnit: Number(expense.pricePerUnit) || 0,
       purchaseDate: expense.purchased ? expense.purchaseDate : null,
       registeredDate: !expense.purchased ? expense.registeredDate : null,
     };
@@ -216,7 +214,7 @@ const clearFieldError = useCallback((field) => {
 
     return {
       ...saved,
-      productName: saved?.productName || formatted.productName || "Ukjent produkt",
+      productName: saved?.productName || expense.productName || "Ukjent produkt",
     };
   } catch (err) {
     if (!isMounted.current) return false;
@@ -248,11 +246,11 @@ const clearFieldError = useCallback((field) => {
   );
 
   const isFormValid = useMemo(() => {
-    const required = ["productName", "brandName", "shopName"];
-    const okStrings = required.every((k) => expense?.[k] && String(expense[k]).trim().length > 0);
+    const required = ["productId", "brandId", "shopId"];
+    const okIds = required.every((k) => expense?.[k] && String(expense[k]).trim().length > 0);
     const okNumbers = Number(expense.price) > 0 && Number(expense.volume) > 0;
     const noErrors = Object.keys(validationErrors).length === 0;
-    return okStrings && okNumbers && noErrors;
+    return okIds && okNumbers && noErrors;
   }, [expense, validationErrors]);
 
   const loading = httpLoading || saveMutation.isPending || deleteMutation.isPending;

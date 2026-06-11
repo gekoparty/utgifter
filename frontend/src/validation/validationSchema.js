@@ -1,5 +1,7 @@
 import * as Yup from "yup";
 
+const objectIdRegex = /^[a-f\d]{24}$/i;
+
 export const addBrandValidationSchema = Yup.object().shape({
   name: Yup.string()
     .required("Navn kan ikke vÃ¦re tomt")
@@ -51,32 +53,43 @@ export const addProductValidationSchema = Yup.object().shape({
 
 export const addExpenseValidationSchema = Yup.object()
   .shape({
-    productName: Yup.string()
-      .required("Navn kan ikke vÃ¦re tomt")
-      .min(2, "Navnet mÃ¥ vÃ¦re minst 2 tegn")
-      .max(50, "Maks 50 tegn"),
-    shopName: Yup.string()
-      .required("Navn kan ikke vÃ¦re tomt")
-      .min(2, "Navnet mÃ¥ vÃ¦re minst 2 tegn")
-      .max(40, "Maks 40 tegn"),
-    brandName: Yup.string()
-      .required("Navn kan ikke vÃ¦re tomt")
-      .min(1, "Navnet mÃ¥ vÃ¦re minst 1 tegn")
-      .max(40, "Maks 40 tegn"),
+    productId: Yup.string()
+      .required("Velg et produkt fra listen")
+      .matches(objectIdRegex, "Velg et gyldig produkt fra listen"),
+    shopId: Yup.string()
+      .required("Velg en butikk fra listen")
+      .matches(objectIdRegex, "Velg en gyldig butikk fra listen"),
+    brandId: Yup.string()
+      .required("Velg et merke fra listen")
+      .matches(objectIdRegex, "Velg et gyldig merke fra listen"),
+    locationId: Yup.string()
+      .nullable()
+      .transform((value) => (value === "" ? null : value))
+      .matches(objectIdRegex, {
+        message: "Velg et gyldig sted fra listen",
+        excludeEmptyString: true,
+      }),
+    variant: Yup.string()
+      .nullable()
+      .transform((value) => (value === "" ? null : value))
+      .matches(objectIdRegex, {
+        message: "Velg en gyldig variant fra listen",
+        excludeEmptyString: true,
+      }),
     volume: Yup.number()
-      .required("MÃ¥ ha et volum")
-      .positive("MÃ¥ vÃ¦re positivt"),
-    price: Yup.number().required("MÃ¥ ha en pris").positive("MÃ¥ vÃ¦re positivt"),
+      .required("Må ha et volum")
+      .positive("Må være positivt"),
+    price: Yup.number().required("Må ha en pris").positive("Må være positivt"),
     hasDiscount: Yup.boolean(),
     discountValue: Yup.number().when("hasDiscount", {
       is: true,
       then: (schema) =>
-        schema.required("MÃ¥ ha rabattverdi").positive("MÃ¥ vÃ¦re positivt"),
+        schema.required("Må ha rabattverdi").positive("Må være positivt"),
       otherwise: (schema) => schema.nullable(),
     }),
     quantity: Yup.number()
-      .required("MÃ¥ ha et antall")
-      .positive("MÃ¥ vÃ¦re positivt"),
+      .required("Må ha et antall")
+      .positive("Må være positivt"),
     purchaseDate: Yup.date().nullable(),
     registeredDate: Yup.date().nullable(),
   })

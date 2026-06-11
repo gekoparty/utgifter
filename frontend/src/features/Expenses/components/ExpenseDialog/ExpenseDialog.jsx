@@ -328,6 +328,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
 
     const shopId = String(shop?._id ?? shop?.id ?? "");
     const shopName = String(shop?.name ?? formatted.name).trim();
+    const locationId = String(shop?.location ?? "").trim();
     const resolvedLocationName = String(
       shop?.locationName ?? formatted.locationName ?? ""
     ).trim();
@@ -338,6 +339,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       value: shopId,
       id: shopId,
       name: shopName,
+      locationId,
       locationName: resolvedLocationName,
     });
 
