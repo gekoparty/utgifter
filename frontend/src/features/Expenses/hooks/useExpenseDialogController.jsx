@@ -45,8 +45,8 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
     setSelectedProduct(opt);
 
     if (opt) {
-      const unit = opt.measurementUnit || "unit";
-      const volume = opt.measures?.[0] ?? 0;
+      const unit = opt.measurementUnit || expense.measurementUnit || "unit";
+      const volume = opt.measures?.[0] ?? expense.volume ?? 0;
 
       const variants = Array.isArray(opt.variants) ? opt.variants : [];
       let autoVariantId = "";
@@ -78,7 +78,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
       });
     }
   },
-  [handleFieldChange]
+  [expense.measurementUnit, expense.volume, handleFieldChange]
 );
 
   const handleVariantSelect = useCallback(
