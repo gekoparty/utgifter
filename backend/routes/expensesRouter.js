@@ -154,6 +154,7 @@ const filterByRange = (query, defaultField, value) => {
 
 const applyFilters = async (query, filters) => {
   const referenceFilters = [];
+  const variantFilters = [];
   const dateFilters = [];
   const regexFilters = [];
 
@@ -166,8 +167,9 @@ const applyFilters = async (query, filters) => {
       filterByRange(query, id, value);
     } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
       referenceFilters.push({ id, value });
+    } else if (["variant", "variantName"].includes(id)) {
+      variantFilters.push({ value });
     } else {
-      // includes "variant" (stores variantId string)
       regexFilters.push({ id, value });
     }
   }
@@ -196,6 +198,22 @@ const applyFilters = async (query, filters) => {
     results.forEach(({ id, ids }) => {
       query.where(id).in(ids);
     });
+  }
+
+  if (variantFilters.length > 0) {
+    const variantIdSets = await Promise.all(
+      variantFilters.map(async ({ value }) => {
+        const ids = await getReferenceIds(Variant, "name", value);
+        return ids.map(String);
+      })
+    );
+
+    const matchingVariantIds = variantIdSets.reduce(
+      (matches, ids) => matches.filter((id) => ids.includes(id)),
+      variantIdSets[0] ?? []
+    );
+
+    query.where("variant").in(matchingVariantIds);
   }
 };
 

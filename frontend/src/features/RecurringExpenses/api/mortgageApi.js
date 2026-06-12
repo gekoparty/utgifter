@@ -1,35 +1,27 @@
-// api/mortgageApi.js
-import axios from "axios";
-import { API_URL } from "../../../components/commons/Consts/constants";
+import { buildApiUrl, requestJson } from "../../../api/httpClient";
 
-const base = `${API_URL}/api/mortgages`;
+const base = "/api/mortgages";
 
 export const mortgageApi = {
-  getPlan: async ({ mortgageId, from, months = 360 }) => {
-    const res = await axios.get(`${base}/${mortgageId}/plan`, {
-      params: { from, months },
-    });
-    return res.data;
+  getPlan: ({ mortgageId, from, months = 360 }) => {
+    const url = buildApiUrl(`${base}/${mortgageId}/plan`);
+    url.searchParams.set("from", from);
+    url.searchParams.set("months", String(months));
+    return requestJson(url);
   },
 
-  simulate: async ({ mortgageId, from, months = 360, scenario }) => {
-    const res = await axios.post(`${base}/${mortgageId}/simulate`, {
-      from,
-      months,
-      scenario,
-    });
-    return res.data;
-  },
+  simulate: ({ mortgageId, from, months = 360, scenario }) =>
+    requestJson(`${base}/${mortgageId}/simulate`, {
+      method: "POST",
+      data: { from, months, scenario },
+    }),
 
-  // ✅ hard delete a single mortgage + all its history
-  hardDelete: async ({ mortgageId }) => {
-    await axios.delete(`${base}/${mortgageId}/hard`);
-  },
+  hardDelete: ({ mortgageId }) =>
+    requestJson(`${base}/${mortgageId}/hard`, { method: "DELETE" }),
 
-  // ✅ purge all mortgages (dev/test only)
-  purgeAllMortgages: async () => {
-    await axios.delete(`${base}/purge-all`, {
+  purgeAllMortgages: () =>
+    requestJson(`${base}/purge-all`, {
+      method: "DELETE",
       headers: { "x-confirm-purge": "PURGE" },
-    });
-  },
+    }),
 };

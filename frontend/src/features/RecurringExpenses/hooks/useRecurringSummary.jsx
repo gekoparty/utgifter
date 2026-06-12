@@ -1,6 +1,5 @@
-import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
-import { API_URL } from "../../../components/commons/Consts/constants";
+import { buildApiUrl, requestJson } from "../../../api/httpClient";
 import {
   recurringSummaryKey,
   DEFAULT_PAST_MONTHS,
@@ -34,15 +33,13 @@ export function useRecurringSummary({
 
     enabled,
 
-    queryFn: async () => {
-      const url =
-        `${API_URL}/api/recurring-expenses/summary` +
-        `?filter=${encodeURIComponent(normalizedFilter)}` +
-        `&months=${normalizedMonths}` +
-        `&pastMonths=${normalizedPast}`;
+    queryFn: async ({ signal }) => {
+      const url = buildApiUrl("/api/recurring-expenses/summary");
+      url.searchParams.set("filter", normalizedFilter);
+      url.searchParams.set("months", String(normalizedMonths));
+      url.searchParams.set("pastMonths", String(normalizedPast));
 
-      const res = await axios.get(url);
-      return res.data;
+      return requestJson(url, { signal });
     },
 
     // Shape data for screen

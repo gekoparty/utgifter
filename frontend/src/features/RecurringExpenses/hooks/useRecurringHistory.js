@@ -1,14 +1,14 @@
-import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
-import { API_URL } from "../../../components/commons/Consts/constants";
+import { buildApiUrl, requestJson } from "../../../api/httpClient";
 
 export function useRecurringHistory({ from, to }) {
   return useQuery({
     queryKey: ["recurring-history", from, to],
-    queryFn: async () => {
-      const url = `${API_URL}/api/recurring-payments/history?from=${from}&to=${to}`;
-      const res = await axios.get(url);
-      return res.data;
+    queryFn: async ({ signal }) => {
+      const url = buildApiUrl("/api/recurring-payments/history");
+      url.searchParams.set("from", from);
+      url.searchParams.set("to", to);
+      return requestJson(url, { signal });
     },
   });
 }

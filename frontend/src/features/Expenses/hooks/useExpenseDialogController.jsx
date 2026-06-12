@@ -46,7 +46,11 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
 
     if (opt) {
       const unit = opt.measurementUnit || expense.measurementUnit || "unit";
-      const volume = opt.measures?.[0] ?? expense.volume ?? 0;
+      const currentVolume = Number(expense.volume);
+      const volume =
+        Number.isFinite(currentVolume) && currentVolume > 0
+          ? currentVolume
+          : (opt.measures?.[0] ?? 0);
 
       const variants = Array.isArray(opt.variants) ? opt.variants : [];
       let autoVariantId = "";
@@ -65,6 +69,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
         productId: pid, // 🔥 THIS WAS MISSING
         measurementUnit: unit,
         volume,
+        volumeText: null,
         variant: autoVariantId,
         variantName: autoVariantName,
       });

@@ -5,6 +5,128 @@ import Expense from "../models/expenseSchema.js";
 
 const router = express.Router();
 
+const startOfLocalDay = (date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+/**
+ * GET /api/stats/expense-dashboard?period=week|month
+ * Aggregated data for the expenses dashboard. This intentionally does not use
+ * the paginated expenses endpoint, so charts are based on all matching rows.
+ */
+router.get("/expense-dashboard", async (req, res, next) => {
+  try {
+    const period = req.query.period === "month" ? "month" : "week";
+    const days = period === "month" ? 30 : 7;
+    const today = startOfLocalDay(new Date());
+    const from = new Date(today);
+    from.setDate(today.getDate() - days + 1);
+
+    const [result] = await Expense.aggregate([
+      {
+        $addFields: {
+          actualDate: { $ifNull: ["$purchaseDate", "$registeredDate"] },
+          amount: { $ifNull: ["$finalPrice", "$price"] },
+        },
+      },
+      { $match: { actualDate: { $ne: null } } },
+      {
+        $facet: {
+          totals: [
+            {
+              $group: {
+                _id: null,
+                total: { $sum: "$amount" },
+                average: { $avg: "$amount" },
+                count: { $sum: 1 },
+              },
+            },
+            { $project: { _id: 0, total: 1, average: 1, count: 1 } },
+          ],
+          highest: [
+            { $sort: { amount: -1 } },
+            { $limit: 1 },
+            {
+              $lookup: {
+                from: "products",
+                localField: "productName",
+                foreignField: "_id",
+                as: "product",
+              },
+            },
+            { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                _id: 0,
+                value: "$amount",
+                name: { $ifNull: ["$product.name", "Ukjent produkt"] },
+              },
+            },
+          ],
+          shops: [
+            {
+              $group: {
+                _id: "$shopName",
+                value: { $sum: "$amount" },
+              },
+            },
+            { $sort: { value: -1 } },
+            { $limit: 5 },
+            {
+              $lookup: {
+                from: "shops",
+                localField: "_id",
+                foreignField: "_id",
+                as: "shop",
+              },
+            },
+            { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                _id: 0,
+                name: { $ifNull: ["$shop.name", "Ukjent"] },
+                value: 1,
+              },
+            },
+          ],
+          timeline: [
+            { $match: { actualDate: { $gte: from, $lte: new Date(today.getTime() + 86_399_999) } } },
+            {
+              $group: {
+                _id: {
+                  $dateToString: {
+                    format: "%Y-%m-%d",
+                    date: "$actualDate",
+                    timezone: "Europe/Oslo",
+                  },
+                },
+                value: { $sum: "$amount" },
+              },
+            },
+            { $project: { _id: 0, key: "$_id", value: 1 } },
+            { $sort: { key: 1 } },
+          ],
+        },
+      },
+    ]);
+
+    res.json({
+      period,
+      days,
+      from: from.toISOString(),
+      to: today.toISOString(),
+      totals: result?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
+      highest: result?.highest?.[0] ?? { value: 0, name: "Ingen" },
+      shops: result?.shops ?? [],
+      timeline: result?.timeline ?? [],
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /**
  * GET /api/stats/expenses-by-month-summary?year=2025&compare=1
  * (unchanged)
@@ -592,6 +714,56 @@ router.get("/product-insights", async (req, res, next) => {
             { $sort: { avgPricePerUnit: 1 } },
           ],
 
+          shopStats: [
+            {
+              $group: {
+                _id: "$shopName",
+                purchases: { $sum: 1 },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                minPricePerUnit: { $min: "$pricePerUnit" },
+                maxPricePerUnit: { $max: "$pricePerUnit" },
+                totalSpend: { $sum: "$finalPrice" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                name: "$_id",
+                purchases: 1,
+                avgPricePerUnit: 1,
+                minPricePerUnit: 1,
+                maxPricePerUnit: 1,
+                totalSpend: 1,
+              },
+            },
+            { $sort: { avgPricePerUnit: 1 } },
+          ],
+
+          brandStats: [
+            {
+              $group: {
+                _id: "$brandName",
+                purchases: { $sum: 1 },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                minPricePerUnit: { $min: "$pricePerUnit" },
+                maxPricePerUnit: { $max: "$pricePerUnit" },
+                totalSpend: { $sum: "$finalPrice" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                name: "$_id",
+                purchases: 1,
+                avgPricePerUnit: 1,
+                minPricePerUnit: 1,
+                maxPricePerUnit: 1,
+                totalSpend: 1,
+              },
+            },
+            { $sort: { avgPricePerUnit: 1 } },
+          ],
+
           // Monthly buckets
           monthlySpend: [
             {
@@ -862,6 +1034,8 @@ router.get("/product-insights", async (req, res, next) => {
     const trendBase = result?.trendBase?.[0] ?? null;
     const medianGapDays = result?.gapDays?.[0]?.medianGapDays ?? null;
     const variantStats = result?.variantStats ?? [];
+    const shopStats = result?.shopStats ?? [];
+    const brandStats = result?.brandStats ?? [];
 
     // ---- yearly data ----
     const yearlyOverall = result?.yearlyOverall ?? [];
@@ -1020,6 +1194,8 @@ router.get("/product-insights", async (req, res, next) => {
       history,
       monthlySpend,
       variantStats,
+      shopStats,
+      brandStats,
       yearly, // ✅ NEW
       frequency: {
         totalPurchases: trendBase?.count ?? 0,

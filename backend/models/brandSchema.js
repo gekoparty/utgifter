@@ -28,6 +28,8 @@ const brandSchema = new mongoose.Schema(
   }
 );
 
+brandSchema.index({ products: 1 });
+
 const Brand = mongoose.model("Brand", brandSchema);
 
 export default Brand;
