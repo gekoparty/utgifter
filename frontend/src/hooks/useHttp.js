@@ -1,10 +1,33 @@
-import { useEffect, useState, useCallback, useContext } from "react";
-import { API_URL } from "../components/commons/Consts/constants";
-import axios from "axios";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { StoreContext } from "../store/Store";
+import {
+  axiosJson,
+  buildApiUrl,
+  isAbortError,
+  normalizeHttpError,
+} from "../api/httpClient";
+
+const getResourceFromUrl = (requestUrl) => {
+  try {
+    const pathname = requestUrl.startsWith("http")
+      ? new URL(requestUrl).pathname
+      : requestUrl;
+    const parts = pathname.split("/").filter(Boolean);
+    const apiIndex = parts.indexOf("api");
+
+    if (apiIndex !== -1 && parts.length > apiIndex + 1) {
+      return parts[apiIndex + 1];
+    }
+
+    return parts[0] || "server";
+  } catch {
+    return "server";
+  }
+};
 
 const useCustomHttp = (initialUrl, options = {}) => {
   const { auto = false } = options;
+  const { dispatch } = useContext(StoreContext);
 
   const [httpState, setHttpState] = useState({
     data: null,
@@ -13,66 +36,42 @@ const useCustomHttp = (initialUrl, options = {}) => {
     resource: null,
   });
 
-  const { dispatch } = useContext(StoreContext);
-
-  const getResourceFromUrl = useCallback((requestUrl) => {
-    try {
-      const full = requestUrl.startsWith("http")
-        ? new URL(requestUrl).pathname
-        : requestUrl;
-      const parts = full.split("/").filter(Boolean);
-      const apiIdx = parts.indexOf("api");
-      if (apiIdx !== -1 && parts.length > apiIdx + 1) return parts[apiIdx + 1];
-      return parts[0] || "server";
-    } catch {
-      return "server";
-    }
-  }, []);
-
   const sendRequest = useCallback(
     async (url, method = "GET", payload = null, config = {}) => {
       setHttpState((prev) => ({ ...prev, loading: true, error: null }));
 
-      try {
-        const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
+      const fullUrl = buildApiUrl(url).toString();
 
-        const response = await axios.request({
+      try {
+        const data = await axiosJson({
           ...config,
-          url: fullUrl,
+          url,
           method,
           data: payload,
-          signal: config.signal,
         });
 
         setHttpState({
-          data: response.data,
+          data,
           loading: false,
           error: null,
           resource: fullUrl,
         });
 
-        return { data: response.data, error: null };
+        return { data, error: null };
       } catch (error) {
-        const fullUrl = url.startsWith("http") ? url : `${API_URL}${url}`;
+        if (isAbortError(error)) {
+          setHttpState((prev) => ({ ...prev, loading: false }));
+          return { data: null, error: null, aborted: true };
+        }
+
         const resource = getResourceFromUrl(url);
-        const responseData = error?.response?.data;
-        const serverMessage = responseData?.message || responseData?.error;
-        const errKey =
-          typeof serverMessage === "string"
-            ? serverMessage
-            : typeof error?.message === "string"
-              ? error.message
-              : "server";
+        const normalizedError = normalizeHttpError(error, "server");
+        const stateError = { ...normalizedError, url: fullUrl };
 
         setHttpState({
           data: null,
           loading: false,
-          error: {
-            message: errKey,
-            status: error?.response?.status,
-            data: responseData,
-            url: fullUrl,
-          },
+          error: stateError,
           resource: fullUrl,
         });
 
@@ -80,36 +79,30 @@ const useCustomHttp = (initialUrl, options = {}) => {
           dispatch({
             type: "SET_ERROR",
             resource,
-            error: {
-              message: errKey,
-              status: error?.response?.status,
-              data: responseData,
-            },
+            error: normalizedError,
             showError: true,
             lastRequest: { url: fullUrl, method, payload },
           });
-        } catch {}
+        } catch {
+          // Store error reporting is best-effort only.
+        }
 
-        return {
-          data: null,
-          error: {
-            message: errKey,
-            status: error?.response?.status,
-            data: responseData,
-          },
-        };
+        return { data: null, error: normalizedError };
       }
     },
-    [dispatch, getResourceFromUrl]
+    [dispatch],
   );
 
   useEffect(() => {
-    if (!auto || !initialUrl) return;
-    sendRequest(initialUrl);
+    if (!auto || !initialUrl) return undefined;
+
+    const controller = new AbortController();
+    sendRequest(initialUrl, "GET", null, { signal: controller.signal });
+
+    return () => controller.abort();
   }, [auto, initialUrl, sendRequest]);
 
   return { ...httpState, sendRequest };
 };
 
 export default useCustomHttp;
-

@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import axios from "axios";
 import { useMutation } from "@tanstack/react-query";
-import { API_URL } from "../../../components/commons/Consts/constants";
+import { requestJson } from "../../../api/httpClient";
 import { useRecurringInvalidation } from "./useRecurringData";
 
 const toPaidDateIso = (paidDate) => {
@@ -22,8 +21,6 @@ export function useRecurringPayments() {
       status,
       note = "",
     }) => {
-      const url = `${API_URL}/api/recurring-payments`;
-
       const normalizedKind = String(kind || "MAIN").toUpperCase();
       const normalizedStatus =
         normalizedKind === "EXTRA"
@@ -40,8 +37,10 @@ export function useRecurringPayments() {
         note: String(note || "").trim(),
       };
 
-      const res = await axios.post(url, payload);
-      return res.data;
+      return requestJson("/api/recurring-payments", {
+        method: "POST",
+        data: payload,
+      });
     },
     onSuccess: () => invalidateSummary(),
   });
@@ -55,8 +54,6 @@ export function useRecurringPayments() {
       status,
       note = "",
     }) => {
-      const url = `${API_URL}/api/recurring-payments/${paymentId}`;
-
       const normalizedKind = String(kind || "MAIN").toUpperCase();
       const normalizedStatus =
         normalizedKind === "EXTRA"
@@ -70,17 +67,19 @@ export function useRecurringPayments() {
         note: String(note || "").trim(),
       };
 
-      const res = await axios.put(url, payload);
-      return res.data;
+      return requestJson(`/api/recurring-payments/${paymentId}`, {
+        method: "PUT",
+        data: payload,
+      });
     },
     onSuccess: () => invalidateSummary(),
   });
 
   const deletePayment = useMutation({
     mutationFn: async ({ paymentId }) => {
-      const url = `${API_URL}/api/recurring-payments/${paymentId}`;
-      const res = await axios.delete(url);
-      return res.data;
+      return requestJson(`/api/recurring-payments/${paymentId}`, {
+        method: "DELETE",
+      });
     },
     onSuccess: () => invalidateSummary(),
   });

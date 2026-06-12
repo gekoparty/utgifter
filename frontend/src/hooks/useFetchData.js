@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { API_URL } from "../components/commons/Consts/constants";
+import { requestJson } from "../api/httpClient";
 
 const identityTransform = (data) => data;
 
@@ -9,27 +9,13 @@ const useFetchData = (queryKey, url, transformDataProp, options = {}) => {
   const stableQueryKey = Array.isArray(queryKey) ? queryKey : [queryKey];
   const { throwOnError, ...queryOptions } = options;
 
-  const fetchData = useCallback(async ({ signal }) => {
-    const fullUrl = new URL(
-      url.startsWith("/") ? url.slice(1) : url,
-      API_URL.endsWith("/") ? API_URL : `${API_URL}/`
-    );
-
-    const response = await fetch(fullUrl.toString(), { signal });
-
-    if (!response.ok) {
-      // Don’t read the full body unless you really need it (can be slow)
-      // but this is fine if your backend sends useful text errors.
-      const errorMessage = await response.text().catch(() => "");
-      if (import.meta.env.DEV && errorMessage) {
-        console.error(`Fetch error: ${errorMessage}`);
-      }
-      throw new Error(`Failed to fetch ${url} - ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return transformData(data, signal);
-  }, [transformData, url]);
+  const fetchData = useCallback(
+    async ({ signal }) => {
+      const data = await requestJson(url, { signal });
+      return transformData(data, signal);
+    },
+    [transformData, url],
+  );
 
   const queryResult = useQuery({
     queryKey: stableQueryKey,

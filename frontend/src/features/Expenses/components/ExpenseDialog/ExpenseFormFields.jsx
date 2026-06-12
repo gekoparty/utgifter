@@ -671,6 +671,15 @@ const ExpenseFormFields = ({
                     menuPortalTarget={document.body}
                     styles={selectStyles}
                   />
+                  {validationErrors?.volume && (
+                    <Typography
+                      variant="caption"
+                      color="error"
+                      sx={{ mt: 0.75, display: "block" }}
+                    >
+                      {validationErrors.volume}
+                    </Typography>
+                  )}
                 </Box>
               ) : (
                 <ExpenseField
@@ -686,6 +695,8 @@ const ExpenseFormFields = ({
                       </InputAdornment>
                     ),
                   }}
+                  error={Boolean(validationErrors?.volume)}
+                  helperText={validationErrors?.volume}
                   fullWidth
                 />
               )}

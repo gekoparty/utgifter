@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useMemo, useEffect, useCallback } from "react";
+import { requestJson } from "../api/httpClient";
 
 /**
  * usePaginatedData (optimized)
@@ -28,23 +29,7 @@ export const usePaginatedData = ({
   const fetchPage = useCallback(
     async ({ p, signal }) => {
       const url = urlBuilder(endpoint, p);
-      const response = await fetch(url.toString(), { signal });
-
-      if (!response.ok) {
-        // try to extract server message if present
-        let msg = "Network response was not ok";
-        try {
-          const text = await response.text();
-          if (text) {
-            msg = text;
-            const parsed = JSON.parse(text);
-            msg = parsed?.message || parsed?.error || text;
-          }
-        } catch {}
-        throw new Error(msg);
-      }
-
-      const json = await response.json();
+      const json = await requestJson(url, { signal });
       return transformFn ? transformFn(json) : json;
     },
     [endpoint, urlBuilder, transformFn]
@@ -59,6 +44,7 @@ export const usePaginatedData = ({
     placeholderData: keepPreviousData, // ✅ best practice in v5
     refetchOnWindowFocus: false,
     retry: 1,
+    throwOnError: false,
   });
 
   // ---------- Prefetch next page ----------

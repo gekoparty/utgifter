@@ -114,38 +114,22 @@ export default function ProductPriceChart({ productId }) {
     const cheapestRecord = _.minBy(finite, "pricePerUnit");
     const mostExpensiveRecord = _.maxBy(finite, "pricePerUnit");
 
-    const shopGroups = _.groupBy(history, "shopName");
-    const shopStats = Object.entries(shopGroups)
-      .map(([shop, items]) => ({
-        name: shop,
-        avg: _.meanBy(items.filter((i) => Number.isFinite(i.pricePerUnit)), "pricePerUnit"),
-        count: items.length,
-      }))
-      .filter((s) => Number.isFinite(s.avg))
-      .sort((a, b) => a.avg - b.avg);
+    const normalizeAggregateStats = (rows, nameKey = "name") =>
+      (Array.isArray(rows) ? rows : [])
+        .map((row) => ({
+          name: row?.[nameKey] ?? row?.variantName ?? "Ukjent",
+          avg: Number(row?.avgPricePerUnit),
+          count: Number(row?.purchases ?? 0),
+        }))
+        .filter((row) => Number.isFinite(row.avg))
+        .sort((a, b) => a.avg - b.avg);
 
-    const brandGroups = _.groupBy(history, "brandName");
-    const brandStats = Object.entries(brandGroups)
-      .map(([brand, items]) => ({
-        name: brand,
-        avg: _.meanBy(items.filter((i) => Number.isFinite(i.pricePerUnit)), "pricePerUnit"),
-        count: items.length,
-      }))
-      .filter((b) => Number.isFinite(b.avg))
-      .sort((a, b) => a.avg - b.avg);
-
-    const variantGroups = _.groupBy(history, (h) => h.variantName || "Standard");
-    const variantStats = Object.entries(variantGroups)
-      .map(([name, items]) => ({
-        name,
-        avg: _.meanBy(items.filter((i) => Number.isFinite(i.pricePerUnit)), "pricePerUnit"),
-        count: items.length,
-      }))
-      .filter((v) => Number.isFinite(v.avg))
-      .sort((a, b) => a.avg - b.avg);
+    const shopStats = normalizeAggregateStats(data?.shopStats);
+    const brandStats = normalizeAggregateStats(data?.brandStats);
+    const variantStats = normalizeAggregateStats(data?.variantStats, "variantName");
 
     return { cheapestRecord, mostExpensiveRecord, shopStats, brandStats, variantStats };
-  }, [history]);
+  }, [data?.brandStats, data?.shopStats, data?.variantStats, history]);
 
   const stopScrollBubble = useCallback((e) => {
     const el = e.currentTarget;

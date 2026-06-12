@@ -1,17 +1,20 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { API_URL } from "../components/commons/Consts/constants";
+import { buildApiUrl, requestJson } from "../api/httpClient";
 
-const buildApiUrl = (globalFilter, pageParam) =>
-  `${API_URL}/api/brands?globalFilter=${encodeURIComponent(globalFilter || "")}&start=${pageParam}&size=10`;
+const buildBrandsUrl = (globalFilter, pageParam) => {
+  const url = buildApiUrl("/api/brands");
+  url.searchParams.set("globalFilter", globalFilter || "");
+  url.searchParams.set("start", String(pageParam));
+  url.searchParams.set("size", "10");
+  return url;
+};
 
 const useInfiniteBrands = (globalFilter) => {
   const queryKey = useMemo(() => ["brands", globalFilter], [globalFilter]);
 
   const fetchBrands = async ({ pageParam = 0, signal }) => {
-    const response = await fetch(buildApiUrl(globalFilter, pageParam), { signal });
-    if (!response.ok) throw new Error(`Failed to fetch brands: ${response.statusText}`);
-    return response.json();
+    return requestJson(buildBrandsUrl(globalFilter, pageParam), { signal });
   };
 
   const getNextPageParam = (lastPage, pages) => {

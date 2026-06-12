@@ -111,6 +111,15 @@ const expenseSchema = new mongoose.Schema(
 
 // Index for common queries
 expenseSchema.index({ productName: 1, brandName: 1, shopName: 1 });
+expenseSchema.index({ purchaseDate: -1 });
+expenseSchema.index({ registeredDate: -1 });
+expenseSchema.index({ productName: 1, purchaseDate: 1 });
+expenseSchema.index({ productName: 1, registeredDate: 1 });
+expenseSchema.index({ productName: 1, variant: 1, purchaseDate: 1 });
+expenseSchema.index({ shopName: 1, purchaseDate: 1 });
+expenseSchema.index({ brandName: 1, purchaseDate: 1 });
+expenseSchema.index({ finalPrice: -1 });
+expenseSchema.index({ pricePerUnit: 1 });
 
 // Require either purchaseDate or registeredDate
 expenseSchema.pre("validate", function (next) {

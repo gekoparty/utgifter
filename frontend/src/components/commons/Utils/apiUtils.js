@@ -1,26 +1,5 @@
 import { API_URL } from "../Consts/constants";
-
-const requestJson = async (url, { signal } = {}) => {
-  const response = await fetch(url.href, { signal });
-  let data = null;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    const message =
-      data?.message ||
-      data?.error ||
-      response.statusText ||
-      "Network response was not ok";
-    throw new Error(message);
-  }
-
-  return data;
-};
+import { requestJson } from "../../../api/httpClient";
 
 const asArray = (data, key) => {
   if (Array.isArray(data)) return data;
@@ -36,20 +15,7 @@ export const fetchLocations = async ({ signal }) => {
 export const fetchShops = async ({ signal }) => {
   const fetchShopsURL = new URL("/api/shops", API_URL);
   const shopsData = await requestJson(fetchShopsURL, { signal });
-  
-  const fetchLocationsURL = new URL("/api/locations", API_URL);
-  const locationsData = await requestJson(fetchLocationsURL, { signal });
-  
-  const shops = asArray(shopsData, "shops");
-  const locations = asArray(locationsData, "locations");
-
-  return shops.map((shop) => {
-    const location = locations.find(
-      (location) => String(location._id) === String(shop.location)
-    );
-    const locationName = location ? location.name : "Unknown Location";
-    return { ...shop, locationName };
-  });
+  return asArray(shopsData, "shops");
 };
 
 export const fetchProducts = async ({ signal }) => {

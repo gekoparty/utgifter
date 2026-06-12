@@ -1,28 +1,20 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { API_URL } from "../components/commons/Consts/constants";
+import { buildApiUrl, requestJson } from "../api/httpClient";
 
-const buildApiUrl = (globalFilter, pageParam) =>
-  `${API_URL}/api/products?globalFilter=${encodeURIComponent(globalFilter || "")}&start=${pageParam}&size=10`;
+const buildProductsUrl = (globalFilter, pageParam) => {
+  const url = buildApiUrl("/api/products");
+  url.searchParams.set("globalFilter", globalFilter || "");
+  url.searchParams.set("start", String(pageParam));
+  url.searchParams.set("size", "10");
+  return url;
+};
 
 const useInfiniteProducts = (globalFilter, options = {}) => {
   const queryKey = useMemo(() => ["products", globalFilter], [globalFilter]);
 
   const fetchProducts = async ({ pageParam = 0, signal }) => {
-    const response = await fetch(buildApiUrl(globalFilter, pageParam), { signal });
-
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      console.error('Fetch error:', errorMessage);
-      throw new Error(`Failed to fetch products: ${response.statusText}`);
-    }
-
-    try {
-      return await response.json();
-    } catch (jsonError) {
-      console.error('Error parsing JSON:', jsonError);
-      throw new Error('Invalid JSON response');
-    }
+    return requestJson(buildProductsUrl(globalFilter, pageParam), { signal });
   };
 
   const getNextPageParam = (lastPage, pages) => {

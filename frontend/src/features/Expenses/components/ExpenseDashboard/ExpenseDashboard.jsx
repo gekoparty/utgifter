@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Box,
   Card,
   CardContent,
+  LinearProgress,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
@@ -14,17 +16,18 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  AreaChart,
   Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
 } from "recharts";
+import { buildApiUrl, requestJson } from "../../../../api/httpClient";
 
 const NOK = new Intl.NumberFormat("nb-NO", {
   style: "currency",
@@ -39,6 +42,40 @@ const startOfDay = (date) => {
   if (Number.isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return d;
+};
+
+const fetchExpenseDashboard = async (period) => {
+  const url = buildApiUrl("/api/stats/expense-dashboard");
+  url.searchParams.set("period", period);
+  return requestJson(url);
+};
+
+const toLocalDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const buildDashboardSeries = (summary, period) => {
+  const days = period === "week" ? 7 : 30;
+  const today = startOfDay(new Date());
+  const values = new Map(
+    (summary?.timeline ?? []).map((item) => [item.key, Number(item.value || 0)]),
+  );
+
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (days - 1 - index));
+
+    const key = toLocalDateKey(date);
+    const label = date.toLocaleDateString("nb-NO", {
+      day: "2-digit",
+      month: "short",
+    });
+
+    return { key, date: label, value: values.get(key) || 0 };
+  });
 };
 
 function StatCard({ label, value, subtext, icon }) {
@@ -134,98 +171,25 @@ function ChartCard({ title, action, children }) {
   );
 }
 
-export default function ExpenseDashboard({
-  expenses = [],
-  totalRowCount = 0,
-}) {
+export default function ExpenseDashboard() {
   const theme = useTheme();
   const [period, setPeriod] = useState("week");
 
-  const filteredByPeriod = useMemo(() => {
-    const now = startOfDay(new Date());
-    const daysBack = period === "week" ? 7 : 30;
+  const { data: summary, isFetching } = useQuery({
+    queryKey: ["expenses", "dashboard", period],
+    queryFn: () => fetchExpenseDashboard(period),
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    placeholderData: (previous) => previous,
+  });
 
-    const from = new Date(now);
-    from.setDate(from.getDate() - daysBack + 1);
-
-    return expenses.filter((item) => {
-      if (!item.purchaseDate) return false;
-      const date = startOfDay(item.purchaseDate);
-      if (!date) return false;
-      return date >= from && date <= now;
-    });
-  }, [expenses, period]);
-
-  const stats = useMemo(() => {
-    const total = expenses.reduce(
-      (sum, item) => sum + Number(item.finalPrice || item.price || 0),
-      0,
-    );
-
-    const average = expenses.length ? total / expenses.length : 0;
-
-    const highest = expenses.reduce(
-      (max, item) => {
-        const value = Number(item.finalPrice || item.price || 0);
-        return value > max.value
-          ? { value, name: item.productName || "Ukjent produkt" }
-          : max;
-      },
-      { value: 0, name: "Ingen" },
-    );
-
-    return { total, average, highest };
-  }, [expenses]);
-
-  const shopData = useMemo(() => {
-    const grouped = expenses.reduce((acc, item) => {
-      const shop = item.shopName || "Ukjent";
-      const value = Number(item.finalPrice || item.price || 0);
-      acc[shop] = (acc[shop] || 0) + value;
-      return acc;
-    }, {});
-
-    return Object.entries(grouped)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [expenses]);
-
-  const timeData = useMemo(() => {
-    const days = period === "week" ? 7 : 30;
-    const today = startOfDay(new Date());
-
-    const base = Array.from({ length: days }, (_, index) => {
-      const date = new Date(today);
-      date.setDate(today.getDate() - (days - 1 - index));
-
-      const key = date.toISOString().slice(0, 10);
-      const label = date.toLocaleDateString("nb-NO", {
-        day: "2-digit",
-        month: "short",
-      });
-
-      return { key, date: label, value: 0 };
-    });
-
-    const byKey = Object.fromEntries(base.map((item) => [item.key, item]));
-
-    filteredByPeriod.forEach((item) => {
-      if (!item.purchaseDate) return;
-
-      const date = startOfDay(item.purchaseDate);
-      if (!date) return;
-
-      const key = date.toISOString().slice(0, 10);
-      const value = Number(item.finalPrice || item.price || 0);
-
-      if (byKey[key]) {
-        byKey[key].value += value;
-      }
-    });
-
-    return base;
-  }, [filteredByPeriod, period]);
+  const stats = summary?.totals ?? { total: 0, average: 0, count: 0 };
+  const highest = summary?.highest ?? { value: 0, name: "Ingen" };
+  const shopData = summary?.shops ?? [];
+  const timeData = useMemo(
+    () => buildDashboardSeries(summary, period),
+    [summary, period],
+  );
 
   return (
     <Box
@@ -236,6 +200,8 @@ export default function ExpenseDashboard({
         border: "1px solid rgba(148, 163, 184, 0.16)",
       }}
     >
+      {isFetching ? <LinearProgress sx={{ mb: 1.5 }} /> : null}
+
       <Box
         sx={{
           display: "grid",
@@ -251,7 +217,7 @@ export default function ExpenseDashboard({
         <StatCard
           label="Totale utgifter"
           value={NOK.format(stats.total)}
-          subtext="Synlige rader"
+          subtext="Alle registrerte rader"
           icon={<ReceiptLongIcon fontSize="small" />}
         />
 
@@ -264,15 +230,15 @@ export default function ExpenseDashboard({
 
         <StatCard
           label="Antall transaksjoner"
-          value={totalRowCount}
-          subtext={`${expenses.length} vist nå`}
+          value={stats.count}
+          subtext="Totalt i databasen"
           icon={<ShoppingCartIcon fontSize="small" />}
         />
 
         <StatCard
           label="Høyeste utgift"
-          value={NOK.format(stats.highest.value)}
-          subtext={stats.highest.name}
+          value={NOK.format(highest.value)}
+          subtext={highest.name}
           icon={<StorefrontIcon fontSize="small" />}
         />
       </Box>
