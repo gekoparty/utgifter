@@ -2,7 +2,8 @@ import React, { useEffect } from "react";
 import PropTypes from "prop-types";
 import { Button, TextField, CircularProgress, Stack, Typography } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../components/commons/ErrorHandling/ErrorHandling";
+import FieldErrorText from "../../../components/commons/ErrorHandling/FieldErrorText";
+import FormErrorAlert from "../../../components/commons/ErrorHandling/FormErrorAlert";
 import useBrandDialog from "../UseBrand/UseBrandDialog";
 
 const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) => {
@@ -79,7 +80,7 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
     ) : (
       <>
         {displayError && (
-          <ErrorHandling resource="brands" showResourceError />
+          <FormErrorAlert resource="brands" />
         )}
         <TextField
           autoFocus
@@ -96,7 +97,7 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
           }}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="brands" field="name" loading={loading} />
+          <FieldErrorText resource="brands" field="name" />
         )}
       </>
     );

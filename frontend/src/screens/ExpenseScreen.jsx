@@ -16,6 +16,7 @@ import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 import { buildPaginatedUrl } from "../components/commons/EntityTableScreen/buildPaginatedUrl";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
+import { useAppPreferences } from "../store/Store";
 
 import ExpenseScreenHeader from "../features/Expenses/components/ExpenseScreenHeader";
 import {
@@ -26,10 +27,6 @@ import {
   INITIAL_SORTING,
 } from "../features/Expenses/constants/expenseScreenConstants";
 import { useExpenseTableColumns } from "../features/Expenses/hooks/useExpenseTableColumns";
-import {
-  readColumnVisibility,
-  writeColumnVisibility,
-} from "../features/Expenses/utils/columnVisibilityStorage";
 import { transformExpenseData } from "../features/Expenses/utils/expenseTransform";
 
 const loadExpenseDialog = () =>
@@ -44,27 +41,57 @@ const ExpenseDashboard = lazy(() =>
 const ExpenseScreen = () => {
   const theme = useTheme();
   const palette = theme.palette;
+  const { preferences, setPreference } = useAppPreferences();
+  const initialPageSize =
+    Number(preferences.rowsPerPage) > 0
+      ? Number(preferences.rowsPerPage)
+      : INITIAL_PAGINATION.pageSize;
 
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
-  const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  const [pagination, setPagination] = useState(() => ({
+    ...INITIAL_PAGINATION,
+    pageSize: initialPageSize,
+  }));
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [activeModal, setActiveModal] = useState(null);
   const [selectedExpense, setSelectedExpense] = useState(
     INITIAL_SELECTED_EXPENSE,
   );
   const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
-  const [columnVisibility, setColumnVisibility] = useState(() =>
-    readColumnVisibility(DEFAULT_COLUMN_VISIBILITY),
-  );
 
   const { showSnackbar } = useSnackBar();
 
+  const columnVisibility = useMemo(
+    () => ({
+      ...DEFAULT_COLUMN_VISIBILITY,
+      ...(preferences.expenseColumnVisibility || {}),
+    }),
+    [preferences.expenseColumnVisibility],
+  );
+
+  const setColumnVisibility = useCallback(
+    (nextValue) => {
+      const resolved =
+        typeof nextValue === "function"
+          ? nextValue(columnVisibility)
+          : nextValue;
+
+      setPreference("expenseColumnVisibility", {
+        ...DEFAULT_COLUMN_VISIBILITY,
+        ...(resolved || {}),
+      });
+    },
+    [columnVisibility, setPreference],
+  );
+
   useEffect(() => {
-    writeColumnVisibility(columnVisibility);
-  }, [columnVisibility]);
+    if (pagination.pageSize && pagination.pageSize !== preferences.rowsPerPage) {
+      setPreference("rowsPerPage", pagination.pageSize);
+    }
+  }, [pagination.pageSize, preferences.rowsPerPage, setPreference]);
 
   const fetchParams = useMemo(
     () => ({

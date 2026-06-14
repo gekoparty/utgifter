@@ -15,13 +15,13 @@ import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import {
   Area,
   AreaChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -34,8 +34,6 @@ const NOK = new Intl.NumberFormat("nb-NO", {
   currency: "NOK",
   maximumFractionDigits: 2,
 });
-
-const chartColors = ["#3b82f6", "#22c55e", "#8b5cf6", "#f59e0b", "#94a3b8"];
 
 const startOfDay = (date) => {
   const d = new Date(date);
@@ -171,6 +169,142 @@ function ChartCard({ title, action, children }) {
   );
 }
 
+function BreakdownRows({ rows = [], total = 0 }) {
+  const maxValue = Math.max(...rows.map((row) => Number(row.value || 0)), 1);
+
+  if (!rows.length) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        Ingen data å vise
+      </Typography>
+    );
+  }
+
+  return (
+    <Stack spacing={0.7}>
+      {rows.slice(0, 4).map((row) => {
+        const value = Number(row.value || 0);
+        const pct = total > 0 ? (value / total) * 100 : 0;
+
+        return (
+          <Box key={row.name}>
+            <Stack direction="row" justifyContent="space-between" spacing={1.5}>
+              <Typography variant="body2" fontWeight={800} noWrap>
+                {row.name}
+              </Typography>
+              <Typography variant="body2" fontWeight={900} sx={{ whiteSpace: "nowrap" }}>
+                {NOK.format(value)}
+              </Typography>
+            </Stack>
+            <Stack direction="row" justifyContent="space-between" spacing={1.5}>
+              <Typography variant="caption" color="text.secondary">
+                {row.count ?? 0} kjøp
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {pct.toFixed(0)}%
+              </Typography>
+            </Stack>
+            <Box
+              sx={{
+                mt: 0.35,
+                height: 5,
+                borderRadius: 999,
+                bgcolor: "action.selected",
+                overflow: "hidden",
+              }}
+            >
+              <Box
+                sx={{
+                  width: `${Math.max(4, (value / maxValue) * 100)}%`,
+                  height: "100%",
+                  borderRadius: "inherit",
+                  bgcolor: "primary.main",
+                }}
+              />
+            </Box>
+          </Box>
+        );
+      })}
+    </Stack>
+  );
+}
+
+function BreakdownColumn({ icon, title, rows, total }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.9 }}>
+        <Box sx={{ color: "primary.main", display: "grid", placeItems: "center" }}>
+          {icon}
+        </Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 950 }}>
+          {title}
+        </Typography>
+      </Stack>
+      <BreakdownRows rows={rows} total={total} />
+    </Box>
+  );
+}
+
+function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
+  return (
+    <Card
+      sx={{
+        borderRadius: 3,
+        bgcolor: "rgba(30, 41, 59, 0.62)",
+        border: "1px solid rgba(148, 163, 184, 0.18)",
+        height: "100%",
+      }}
+    >
+      <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 } }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 900, mb: 0.25 }}>
+          Hvor brukes pengene
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Fordelt på kategori, butikk, merke og sted.
+        </Typography>
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, minmax(0, 1fr))",
+              xl: "repeat(4, minmax(0, 1fr))",
+            },
+            gap: 1.5,
+            mt: 1.5,
+          }}
+        >
+          <BreakdownColumn
+            icon={<CategoryOutlinedIcon fontSize="small" />}
+            title="Kategori"
+            rows={categories}
+            total={total}
+          />
+          <BreakdownColumn
+            icon={<StorefrontIcon fontSize="small" />}
+            title="Butikk"
+            rows={shops}
+            total={total}
+          />
+          <BreakdownColumn
+            icon={<LocalOfferOutlinedIcon fontSize="small" />}
+            title="Merke"
+            rows={brands}
+            total={total}
+          />
+          <BreakdownColumn
+            icon={<PlaceOutlinedIcon fontSize="small" />}
+            title="Sted"
+            rows={locations}
+            total={total}
+          />
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ExpenseDashboard() {
   const theme = useTheme();
   const [period, setPeriod] = useState("week");
@@ -186,6 +320,9 @@ export default function ExpenseDashboard() {
   const stats = summary?.totals ?? { total: 0, average: 0, count: 0 };
   const highest = summary?.highest ?? { value: 0, name: "Ingen" };
   const shopData = summary?.shops ?? [];
+  const categoryData = summary?.categories ?? [];
+  const brandData = summary?.brands ?? [];
+  const locationData = summary?.locations ?? [];
   const timeData = useMemo(
     () => buildDashboardSeries(summary, period),
     [summary, period],
@@ -248,36 +385,18 @@ export default function ExpenseDashboard() {
           display: "grid",
           gridTemplateColumns: {
             xs: "1fr",
-            lg: "0.8fr 1.2fr",
+            lg: "1fr 1fr",
           },
           gap: 1.5,
         }}
       >
-        <ChartCard title="Utgifter per butikk">
-          {shopData.length ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={shopData}
-                  innerRadius={45}
-                  outerRadius={72}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {shopData.map((entry, index) => (
-                    <Cell
-                      key={entry.name}
-                      fill={chartColors[index % chartColors.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => NOK.format(value)} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <Typography color="text.secondary">Ingen data å vise</Typography>
-          )}
-        </ChartCard>
+        <UsageBreakdownCard
+          categories={categoryData}
+          shops={shopData}
+          brands={brandData}
+          locations={locationData}
+          total={stats.total}
+        />
 
         <ChartCard
           title="Utgifter over tid"

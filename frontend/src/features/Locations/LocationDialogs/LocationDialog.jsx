@@ -2,7 +2,8 @@ import React, { useEffect } from "react";
 import PropTypes from "prop-types";
 import { Button, TextField, CircularProgress, Stack, Typography } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../components/commons/ErrorHandling/ErrorHandling";
+import FieldErrorText from "../../../components/commons/ErrorHandling/FieldErrorText";
+import FormErrorAlert from "../../../components/commons/ErrorHandling/FormErrorAlert";
 import useLocationDialog from "../UseLocation/useLocationDialog";
 
 const LocationDialog = ({
@@ -90,7 +91,7 @@ const LocationDialog = ({
     ) : (
       <>
         {displayError && (
-          <ErrorHandling resource="locations" showResourceError />
+          <FormErrorAlert resource="locations" />
         )}
         <TextField
           autoFocus
@@ -107,7 +108,7 @@ const LocationDialog = ({
           }}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="locations" field="name" loading={loading} />
+          <FieldErrorText resource="locations" field="name" />
         )}
       </>
     );

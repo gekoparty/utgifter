@@ -15,6 +15,7 @@ import { MRT_Localization_NO } from "material-react-table/locales/no";
 import { useTheme } from "@mui/material/styles";
 import { getTableStyles } from "./tableStyles";
 import { getFriendlyErrorMessage } from "../ErrorHandling/errorMessages";
+import { useAppPreferences } from "../../../store/Store";
 
 const ACTIONS_COLUMN_ID = "mrt-row-actions";
 
@@ -36,7 +37,6 @@ const ReactTable = ({
   setSorting,
   setPagination,
 
-  // ✅ NEW
   columnVisibility,
   setColumnVisibility,
 
@@ -47,12 +47,28 @@ const ReactTable = ({
   resource,
 }) => {
   const theme = useTheme();
+  const { preferences, setPreference } = useAppPreferences();
   const tableStyles = useMemo(() => getTableStyles(theme), [theme]);
+  const tableDensity = ["compact", "comfortable", "spacious"].includes(
+    preferences.tableDensity,
+  )
+    ? preferences.tableDensity
+    : "compact";
+
+  const handleDensityChange = useCallback(
+    (nextValue) => {
+      const resolved =
+        typeof nextValue === "function" ? nextValue(tableDensity) : nextValue;
+      if (["compact", "comfortable", "spacious"].includes(resolved)) {
+        setPreference("tableDensity", resolved);
+      }
+    },
+    [setPreference, tableDensity],
+  );
 
   const initialState = useMemo(
     () => ({
       showColumnFilters: false,
-      density: "compact",
       columnPinning: {
         left: [ACTIONS_COLUMN_ID],
       },
@@ -66,11 +82,10 @@ const ReactTable = ({
       globalFilter,
       sorting,
       pagination,
+      density: tableDensity,
       columnPinning: {
         left: [ACTIONS_COLUMN_ID],
       },
-
-      // ✅ NEW: controlled column visibility (only if provided)
       ...(columnVisibility ? { columnVisibility } : {}),
 
       isLoading,
@@ -82,6 +97,7 @@ const ReactTable = ({
       globalFilter,
       sorting,
       pagination,
+      tableDensity,
       columnVisibility,
       isLoading,
       isError,
@@ -159,7 +175,7 @@ const ReactTable = ({
       onGlobalFilterChange={setGlobalFilter}
       onSortingChange={setSorting}
       onPaginationChange={setPagination}
-      // ✅ NEW: allow show/hide changes to persist in parent state
+      onDensityChange={handleDensityChange}
       onColumnVisibilityChange={setColumnVisibility}
       renderTopToolbarCustomActions={refreshButton}
       enableRowActions
@@ -168,7 +184,7 @@ const ReactTable = ({
       renderDetailPanel={renderDetailPanel}
       enableColumnPinning
       enableColumnResizing={false}
-      enableDensityToggle={false}
+      enableDensityToggle
       enableFullScreenToggle={false}
       enableHiding
       enableStickyHeader

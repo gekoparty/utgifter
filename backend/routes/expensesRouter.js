@@ -84,6 +84,14 @@ const getVariantNameFromProduct = (expense) => {
   return match?.name ? String(match.name) : "";
 };
 
+const getProductCategory = (product) => String(product?.category ?? "").trim();
+
+const getProductSummary = (product) => ({
+  _id: product?._id ? String(product._id) : "",
+  name: product?.name || "",
+  category: getProductCategory(product),
+});
+
 const filterByDate = (query, id, value) => {
   if (Array.isArray(value)) {
     const startDate = value[0] ? convertToUTC(value[0])?.start : null;
@@ -271,7 +279,7 @@ expensesRouter.get("/", async (req, res) => {
     const expenses = await paginatedQuery
       .populate({
         path: "productName",
-        select: "name measures measurementUnit variants brands",
+        select: "name category measures measurementUnit variants brands",
         populate: {
           path: "variants",
           select: "name",
@@ -296,11 +304,13 @@ expensesRouter.get("/", async (req, res) => {
 
         return {
           ...expense,
+          product: getProductSummary(expense.productName),
           shopId: expense.shopName?._id ? String(expense.shopName._id) : "",
           locationId: expense.locationName?._id ? String(expense.locationName._id) : "",
           productId: expense.productName?._id ? String(expense.productName._id) : "",
           brandId: expense.brandName?._id ? String(expense.brandName._id) : "",
           productName: expense.productName?.name || "",
+          productCategory: getProductCategory(expense.productName),
           brandName: expense.brandName?.name || "",
           shopName: expense.shopName?.name || "",
           locationName: expense.locationName?.name || "",
@@ -337,7 +347,7 @@ expensesRouter.get("/:id", async (req, res) => {
     const expense = await Expense.findById(req.params.id)
       .populate({
         path: "productName",
-        select: "name measures measurementUnit variants brands",
+        select: "name category measures measurementUnit variants brands",
         populate: {
           path: "variants",
           select: "name",
@@ -360,11 +370,13 @@ expensesRouter.get("/:id", async (req, res) => {
 
     res.json({
       ...expense,
+      product: getProductSummary(expense.productName),
       shopId: expense.shopName?._id ? String(expense.shopName._id) : "",
       locationId: expense.locationName?._id ? String(expense.locationName._id) : "",
       productId: expense.productName?._id ? String(expense.productName._id) : "",
       brandId: expense.brandName?._id ? String(expense.brandName._id) : "",
       productName: expense.productName?.name || "",
+      productCategory: getProductCategory(expense.productName),
       brandName: expense.brandName?.name || "",
       shopName: expense.shopName?.name || "",
       locationName: expense.locationName?.name || "",
@@ -445,7 +457,7 @@ expensesRouter.post("/", async (req, res) => {
     const populatedExpenses = await Expense.find({
       _id: { $in: savedExpenses.map((exp) => exp._id) },
     })
-      .populate("productName", "name")
+      .populate("productName", "name category")
       .populate("brandName", "name")
       .populate("shopName", "name")
       .populate("locationName", "name")
@@ -455,7 +467,10 @@ expensesRouter.post("/", async (req, res) => {
       message: "Expense saved!",
       data: populatedExpenses.map((exp) => ({
         _id: exp._id,
+        product: getProductSummary(exp.productName),
+        productId: exp.productName?._id ? String(exp.productName._id) : "",
         productName: exp.productName?.name,
+        productCategory: getProductCategory(exp.productName),
         brandName: exp.brandName?.name,
         shopName: exp.shopName?.name,
         locationName: exp.locationName?.name,
@@ -520,7 +535,7 @@ expensesRouter.put("/:id", async (req, res) => {
     const updatedExpense = await Expense.findByIdAndUpdate(req.params.id, update, {
       new: true,
     })
-      .populate("productName", "name")
+      .populate("productName", "name category")
       .populate("brandName", "name")
       .populate("shopName", "name")
       .populate("locationName", "name")
@@ -532,7 +547,10 @@ expensesRouter.put("/:id", async (req, res) => {
       message: "Expense updated successfully!",
       data: {
         _id: updatedExpense._id,
+        product: getProductSummary(updatedExpense.productName),
+        productId: updatedExpense.productName?._id ? String(updatedExpense.productName._id) : "",
         productName: updatedExpense.productName?.name,
+        productCategory: getProductCategory(updatedExpense.productName),
         brandName: updatedExpense.brandName?.name,
         shopName: updatedExpense.shopName?.name,
         locationName: updatedExpense.locationName?.name,

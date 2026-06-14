@@ -5,7 +5,8 @@ import { Stack, TextField, LinearProgress, Typography } from "@mui/material";
 import CreatableSelect from "react-select/creatable";
 import { useTheme } from "@mui/material/styles";
 import { getSelectStyles } from "../../../../styles/theme/selectStyles";
-import ErrorHandling from "../../../../components/commons/ErrorHandling/ErrorHandling";
+import FieldErrorText from "../../../../components/commons/ErrorHandling/FieldErrorText";
+import FormErrorAlert from "../../../../components/commons/ErrorHandling/FormErrorAlert";
 
 const ShopForm = ({
   shop,
@@ -101,7 +102,7 @@ const ShopForm = ({
 
   return (
     <Stack spacing={2}>
-      {displayError && <ErrorHandling resource="shops" showResourceError />}
+      {displayError && <FormErrorAlert resource="shops" />}
 
       {/* Name */}
       <Stack spacing={0.5}>
@@ -115,7 +116,7 @@ const ShopForm = ({
           onChange={handleNameChange}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="shops" field="name" loading={loading} />
+          <FieldErrorText resource="shops" field="name" />
         )}
       </Stack>
 
@@ -145,7 +146,7 @@ const ShopForm = ({
           </Typography>
         )}
         {(displayError || validationError) && (
-          <ErrorHandling resource="shops" field="locationName" loading={loading} />
+          <FieldErrorText resource="shops" field="locationName" />
         )}
       </Stack>
 
@@ -175,7 +176,7 @@ const ShopForm = ({
           </Typography>
         )}
         {(displayError || validationError) && (
-          <ErrorHandling resource="shops" field="categoryName" loading={loading} />
+          <FieldErrorText resource="shops" field="categoryName" />
         )}
       </Stack>
     </Stack>

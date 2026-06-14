@@ -7,7 +7,8 @@ import MeasurementUnitSelect from "./MeasurementUnitSelect";
 import MeasuresInput from "./MeasuresInput";
 import VariantsInput from "./VariantsInput";
 import ProductVariantManager from "./ProductVariantManager";
-import ErrorHandling from "../../../../components/commons/ErrorHandling/ErrorHandling";
+import FieldErrorText from "../../../../components/commons/ErrorHandling/FieldErrorText";
+import FormErrorAlert from "../../../../components/commons/ErrorHandling/FormErrorAlert";
 import {
   predefinedTypes as predefinedCategories,
   measurementUnitOptions,
@@ -68,9 +69,7 @@ const selectedBrandValues = useMemo(() => {
 
   return (
     <Stack spacing={2}>
-      {displayError && (
-        <ErrorHandling resource="products" showResourceError />
-      )}
+      {displayError && <FormErrorAlert resource="products" />}
 
       <div>
         <ProductNameInput
@@ -79,7 +78,7 @@ const selectedBrandValues = useMemo(() => {
           error={validationError?.name}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="name" loading={loading} />
+          <FieldErrorText resource="products" field="name" />
         )}
       </div>
 
@@ -105,11 +104,7 @@ const selectedBrandValues = useMemo(() => {
         )}
 
         {(displayError || validationError) && (
-          <ErrorHandling
-            resource="products"
-            field="variants"
-            loading={loading}
-          />
+          <FieldErrorText resource="products" field="variants" />
         )}
       </div>
 
@@ -126,7 +121,7 @@ const selectedBrandValues = useMemo(() => {
           inputValue={inputValue}
         />
         {(displayError || validationError) && (
-          <ErrorHandling resource="products" field="brands" loading={loading} />
+          <FieldErrorText resource="products" field="brands" />
         )}
       </div>
 
@@ -143,11 +138,7 @@ const selectedBrandValues = useMemo(() => {
         />
 
         {(displayError || validationError) && (
-          <ErrorHandling
-            resource="products"
-            field="category"
-            loading={loading}
-          />
+          <FieldErrorText resource="products" field="category" />
         )}
       </div>
 
@@ -163,11 +154,7 @@ const selectedBrandValues = useMemo(() => {
           selectStyles={selectStyles}
         />
         {(displayError || validationError) && (
-          <ErrorHandling
-            resource="products"
-            field="measurementUnit"
-            loading={loading}
-          />
+          <FieldErrorText resource="products" field="measurementUnit" />
         )}
       </div>
 
@@ -179,11 +166,7 @@ const selectedBrandValues = useMemo(() => {
           selectStyles={selectStyles}
         />
         {(displayError || validationError) && (
-          <ErrorHandling
-            resource="products"
-            field="measures"
-            loading={loading}
-          />
+          <FieldErrorText resource="products" field="measures" />
         )}
       </div>
     </Stack>

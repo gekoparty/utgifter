@@ -8,6 +8,7 @@ import { buildOption } from "./echarts/buildOption";
 
 import HeaderControls from "./ui/headerControls";
 import StatsStrip from "./ui/StatsStrip";
+import CategorySpendChart from "./ui/CategorySpendChart";
 
 export default function MonthlyExpensesChart({ onMonthClick }) {
   const theme = useTheme();
@@ -26,6 +27,7 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
   const year = data?.year ?? selectedYear;
   const compareYear = data?.compareYear ?? null;
   const months = data?.months ?? [];
+  const categories = data?.categories ?? [];
   const stats = data?.stats ?? null;
 
   useEffect(() => {
@@ -163,18 +165,31 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
       <StatsStrip stats={stats} doCompare={doCompare} />
 
       <Box
-        ref={chartBoxRef}
         sx={{
-          height: { xs: 320, md: 390 },
-          minWidth: 0,
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 2,
-          overflow: "hidden",
-          bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
-          p: { xs: 0.5, md: 1 },
+          display: "grid",
+          gridTemplateColumns: {
+            xs: "1fr",
+            lg: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
+          },
+          gap: 1.5,
         }}
-      />
+      >
+        <Box
+          ref={chartBoxRef}
+          sx={{
+            height: { xs: 320, md: 390 },
+            minWidth: 0,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            overflow: "hidden",
+            bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+            p: { xs: 0.5, md: 1 },
+          }}
+        />
+
+        <CategorySpendChart categories={categories} />
+      </Box>
     </Paper>
   );
 }
