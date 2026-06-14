@@ -2,7 +2,8 @@ import React, { useEffect } from "react";
 import PropTypes from "prop-types";
 import { Button, TextField, CircularProgress, Stack, Typography } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
-import ErrorHandling from "../../../components/commons/ErrorHandling/ErrorHandling";
+import FieldErrorText from "../../../components/commons/ErrorHandling/FieldErrorText";
+import FormErrorAlert from "../../../components/commons/ErrorHandling/FormErrorAlert";
 import useCategoryDialog from "../UseCategory/UseCategoryDialog";
 
 const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onError }) => {
@@ -73,7 +74,7 @@ const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onErro
     ) : (
       <>
         {displayError && (
-          <ErrorHandling resource="categories" showResourceError />
+          <FormErrorAlert resource="categories" />
         )}
         <TextField
           autoFocus
@@ -91,7 +92,7 @@ const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onErro
         />
 
         {(displayError || validationError) && (
-          <ErrorHandling resource="categories" field="name" loading={loading} />
+          <FieldErrorText resource="categories" field="name" />
         )}
       </>
     );

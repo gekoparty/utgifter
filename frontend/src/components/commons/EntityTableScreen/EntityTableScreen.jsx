@@ -3,6 +3,7 @@ import React, {
   startTransition,
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -19,6 +20,7 @@ import AddIcon from "@mui/icons-material/Add";
 
 import useSnackBar from "../../../hooks/useSnackBar";
 import { usePaginatedData } from "../../../hooks/usePaginatedData";
+import { useAppPreferences } from "../../../store/Store";
 import ReactTable from "../React-Table/react-table";
 import TableLayout from "../TableLayout/TableLayout";
 import { buildPaginatedUrl } from "./buildPaginatedUrl";
@@ -52,15 +54,30 @@ const EntityTableScreen = ({
   screenTitle,
   urlBuilder = buildPaginatedUrl,
 }) => {
+  const { preferences, setPreference } = useAppPreferences();
+  const initialPageSize =
+    Number(preferences.rowsPerPage) > 0
+      ? Number(preferences.rowsPerPage)
+      : INITIAL_PAGINATION.pageSize;
+
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(initialSorting);
-  const [pagination, setPagination] = useState(INITIAL_PAGINATION);
+  const [pagination, setPagination] = useState(() => ({
+    ...INITIAL_PAGINATION,
+    pageSize: initialPageSize,
+  }));
   const [activeModal, setActiveModal] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(initialSelectedRecord);
 
   const { showSnackbar } = useSnackBar();
+
+  useEffect(() => {
+    if (pagination.pageSize && pagination.pageSize !== preferences.rowsPerPage) {
+      setPreference("rowsPerPage", pagination.pageSize);
+    }
+  }, [pagination.pageSize, preferences.rowsPerPage, setPreference]);
 
   const fetchParams = useMemo(
     () => ({

@@ -5,7 +5,7 @@ const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true },
 
-    category: { type: String, required: false },
+    category: { type: String, required: true, trim: true },
 
     variants: [{ type: mongoose.Schema.Types.ObjectId, ref: "Variant" }],
 

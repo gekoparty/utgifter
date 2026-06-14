@@ -14,6 +14,7 @@ import {
 
 export default function HeaderControls({
   productNameStr,
+  productCategory,
   mode,
   setMode,
   includeDiscounts,
@@ -45,9 +46,14 @@ export default function HeaderControls({
         <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.15 }}>
           {productNameStr}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Prisutvikling og butikkhistorikk
-        </Typography>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center" sx={{ mt: 0.4 }}>
+          <Typography variant="body2" color="text.secondary">
+            Prisutvikling og butikkhistorikk
+          </Typography>
+          {productCategory ? (
+            <Chip size="small" variant="outlined" label={productCategory} sx={{ height: 24 }} />
+          ) : null}
+        </Stack>
       </Box>
 
       <Stack

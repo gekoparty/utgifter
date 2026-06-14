@@ -18,6 +18,7 @@ import MonthlySpendCard from "./sections/MonthlySpendCard";
 import ForecastCard from "./sections/ForecastCard";
 import DetailedStats from "./sections/DetailedStats";
 import YearlyIncreaseCard from "./sections/YearlyIncreaseCard";
+import UsageSummaryCard from "./sections/UsageSummaryCard";
 
 import { formatCurrency, fmtPct, fmt1, changeChipColor } from "./utils/format";
 
@@ -59,6 +60,7 @@ export default function ProductPriceChart({ productId }) {
   const threeMonth = trend?.threeMonth ?? {};
   const discount = data?.discount ?? {};
   const productNameStr = data?.product?.name || history?.[0]?.productName || "Product";
+  const productCategory = data?.product?.category || history?.[0]?.productCategory || "";
   const measurementUnit = data?.product?.measurementUnit || history?.[0]?.measurementUnit || "unit";
 
   // available variants for selector (prefer variantStats if present)
@@ -124,10 +126,19 @@ export default function ProductPriceChart({ productId }) {
 
     const shopStats = normalizeAggregateStats(data?.shopStats);
     const brandStats = normalizeAggregateStats(data?.brandStats);
+    const locationStats = normalizeAggregateStats(data?.locationStats);
     const variantStats = normalizeAggregateStats(data?.variantStats, "variantName");
 
-    return { cheapestRecord, mostExpensiveRecord, shopStats, brandStats, variantStats };
-  }, [data?.brandStats, data?.shopStats, data?.variantStats, history]);
+    return { cheapestRecord, mostExpensiveRecord, shopStats, brandStats, locationStats, variantStats };
+  }, [data?.brandStats, data?.locationStats, data?.shopStats, data?.variantStats, history]);
+
+  const usageSummary = useMemo(
+    () => ({
+      category: productCategory,
+      top: data?.top ?? {},
+    }),
+    [data?.top, productCategory],
+  );
 
   const stopScrollBubble = useCallback((e) => {
     const el = e.currentTarget;
@@ -288,6 +299,7 @@ export default function ProductPriceChart({ productId }) {
       <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, mb: 1.5, borderRadius: 2 }}>
         <HeaderControls
           productNameStr={productNameStr}
+          productCategory={productCategory}
           mode={mode}
           setMode={(v) => {
             setMode(v);
@@ -385,6 +397,7 @@ export default function ProductPriceChart({ productId }) {
                 alignContent: "start",
               }}
             >
+              <UsageSummaryCard usage={usageSummary} />
               <YearlyIncreaseCard yearly={yearly} />
               <MonthlySpendCard monthlySpend={monthlySpend} />
               <ForecastCard freq={freq} discount={discount} />

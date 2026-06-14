@@ -53,6 +53,15 @@ router.get("/expense-dashboard", async (req, res, next) => {
       { $addFields: { amount: { $ifNull: ["$finalPrice", "$price"] } } },
       actualDateNotNull,
       {
+        $lookup: {
+          from: "products",
+          localField: "productName",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+      {
         $facet: {
           totals: [
             {
@@ -69,15 +78,6 @@ router.get("/expense-dashboard", async (req, res, next) => {
             { $sort: { amount: -1 } },
             { $limit: 1 },
             {
-              $lookup: {
-                from: "products",
-                localField: "productName",
-                foreignField: "_id",
-                as: "product",
-              },
-            },
-            { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
-            {
               $project: {
                 _id: 0,
                 value: "$amount",
@@ -90,6 +90,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
               $group: {
                 _id: "$shopName",
                 value: { $sum: "$amount" },
+                count: { $sum: 1 },
               },
             },
             { $sort: { value: -1 } },
@@ -108,6 +109,82 @@ router.get("/expense-dashboard", async (req, res, next) => {
                 _id: 0,
                 name: { $ifNull: ["$shop.name", "Ukjent"] },
                 value: 1,
+                count: 1,
+              },
+            },
+          ],
+          brands: [
+            {
+              $group: {
+                _id: "$brandName",
+                value: { $sum: "$amount" },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { value: -1 } },
+            { $limit: 5 },
+            {
+              $lookup: {
+                from: "brands",
+                localField: "_id",
+                foreignField: "_id",
+                as: "brand",
+              },
+            },
+            { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                _id: 0,
+                name: { $ifNull: ["$brand.name", "Ukjent"] },
+                value: 1,
+                count: 1,
+              },
+            },
+          ],
+          locations: [
+            {
+              $group: {
+                _id: "$locationName",
+                value: { $sum: "$amount" },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { value: -1 } },
+            { $limit: 5 },
+            {
+              $lookup: {
+                from: "locations",
+                localField: "_id",
+                foreignField: "_id",
+                as: "location",
+              },
+            },
+            { $unwind: { path: "$location", preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                _id: 0,
+                name: { $ifNull: ["$location.name", "Ukjent"] },
+                value: 1,
+                count: 1,
+              },
+            },
+          ],
+          categories: [
+            {
+              $group: {
+                _id: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+                value: { $sum: "$amount" },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { value: -1 } },
+            { $limit: 5 },
+            {
+              $project: {
+                _id: 0,
+                name: "$_id",
+                value: 1,
+                count: 1,
               },
             },
           ],
@@ -140,6 +217,9 @@ router.get("/expense-dashboard", async (req, res, next) => {
       totals: result?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
       highest: result?.highest?.[0] ?? { value: 0, name: "Ingen" },
       shops: result?.shops ?? [],
+      brands: result?.brands ?? [],
+      locations: result?.locations ?? [],
+      categories: result?.categories ?? [],
       timeline: result?.timeline ?? [],
     });
   } catch (err) {
@@ -167,7 +247,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
 
     const years = yearsAgg.map((x) => x.year);
     if (!years.length) {
-      return res.json({ years: [], year: null, compareYear: null, months: [], stats: null });
+      return res.json({ years: [], year: null, compareYear: null, months: [], categories: [], stats: null });
     }
 
     const year = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
@@ -202,6 +282,43 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
           total: 1,
         },
       },
+    ]);
+
+    const categoryTotals = await Expense.aggregate([
+      actualDateStage,
+      actualDateNotNull,
+      {
+        $addFields: {
+          y: yearOfActualDate,
+          amount: { $ifNull: ["$finalPrice", "$price"] },
+        },
+      },
+      { $match: { y: Number(year) } },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productName",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+          value: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: "$_id",
+          value: 1,
+          count: 1,
+        },
+      },
+      { $sort: { value: -1 } },
     ]);
 
     // Map: "YYYY-MM" -> total
@@ -300,6 +417,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       year,
       compareYear,
       months,
+      categories: categoryTotals,
       stats: {
         currentSum,
         previousSum,
@@ -525,6 +643,9 @@ router.get("/product-insights", async (req, res, next) => {
           brandObjId: {
             $convert: { input: "$brandName", to: "objectId", onError: null, onNull: null },
           },
+          locationObjId: {
+            $convert: { input: "$locationName", to: "objectId", onError: null, onNull: null },
+          },
 
           // variant is stored as string (or empty)
           variantId: { $ifNull: ["$variant", ""] },
@@ -564,6 +685,16 @@ router.get("/product-insights", async (req, res, next) => {
         },
       },
       { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+      {
+        $lookup: {
+          from: "locations",
+          localField: "locationObjId",
+          foreignField: "_id",
+          as: "location",
+        },
+      },
+      { $unwind: { path: "$location", preserveNullAndEmptyArrays: true } },
 
       // variant lookup
       {
@@ -657,9 +788,11 @@ router.get("/product-insights", async (req, res, next) => {
           computedSaving: 1,
 
           productName: "$product.name",
+          productCategory: "$product.category",
           measurementUnit: "$product.measurementUnit",
           shopName: { $ifNull: ["$shop.name", "Ukjent"] },
           brandName: { $ifNull: ["$brand.name", "Ukjent"] },
+          locationName: { $ifNull: ["$location.name", "Ukjent"] },
 
           variantId: 1,
           variantName: 1,
@@ -684,9 +817,11 @@ router.get("/product-insights", async (req, res, next) => {
                 discountAmount: 1,
                 saving: "$computedSaving",
                 productName: 1,
+                productCategory: 1,
                 measurementUnit: 1,
                 shopName: 1,
                 brandName: 1,
+                locationName: 1,
                 variantId: 1,
                 variantName: 1,
               },
@@ -770,6 +905,31 @@ router.get("/product-insights", async (req, res, next) => {
               },
             },
             { $sort: { avgPricePerUnit: 1 } },
+          ],
+
+          locationStats: [
+            {
+              $group: {
+                _id: "$locationName",
+                purchases: { $sum: 1 },
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                minPricePerUnit: { $min: "$pricePerUnit" },
+                maxPricePerUnit: { $max: "$pricePerUnit" },
+                totalSpend: { $sum: "$finalPrice" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                name: "$_id",
+                purchases: 1,
+                avgPricePerUnit: 1,
+                minPricePerUnit: 1,
+                maxPricePerUnit: 1,
+                totalSpend: 1,
+              },
+            },
+            { $sort: { totalSpend: -1 } },
           ],
 
           // Monthly buckets
@@ -1009,6 +1169,12 @@ router.get("/product-insights", async (req, res, next) => {
             { $limit: 1 },
             { $project: { _id: 0, name: "$_id", purchases: 1 } },
           ],
+          topLocationByCount: [
+            { $group: { _id: "$locationName", purchases: { $sum: 1 } } },
+            { $sort: { purchases: -1 } },
+            { $limit: 1 },
+            { $project: { _id: 0, name: "$_id", purchases: 1 } },
+          ],
           cheapestShopAvg: [
             {
               $group: {
@@ -1033,6 +1199,18 @@ router.get("/product-insights", async (req, res, next) => {
             { $limit: 1 },
             { $project: { _id: 0, name: "$_id", avgPricePerUnit: 1, purchases: 1 } },
           ],
+          cheapestLocationAvg: [
+            {
+              $group: {
+                _id: "$locationName",
+                avgPricePerUnit: { $avg: "$pricePerUnit" },
+                purchases: { $sum: 1 },
+              },
+            },
+            { $sort: { avgPricePerUnit: 1 } },
+            { $limit: 1 },
+            { $project: { _id: 0, name: "$_id", avgPricePerUnit: 1, purchases: 1 } },
+          ],
         },
       },
     ]);
@@ -1044,6 +1222,7 @@ router.get("/product-insights", async (req, res, next) => {
     const variantStats = result?.variantStats ?? [];
     const shopStats = result?.shopStats ?? [];
     const brandStats = result?.brandStats ?? [];
+    const locationStats = result?.locationStats ?? [];
 
     // ---- yearly data ----
     const yearlyOverall = result?.yearlyOverall ?? [];
@@ -1197,6 +1376,7 @@ router.get("/product-insights", async (req, res, next) => {
     res.json({
       product: {
         name: history?.[0]?.productName ?? null,
+        category: history?.[0]?.productCategory ?? null,
         measurementUnit: history?.[0]?.measurementUnit ?? null,
       },
       history,
@@ -1204,6 +1384,7 @@ router.get("/product-insights", async (req, res, next) => {
       variantStats,
       shopStats,
       brandStats,
+      locationStats,
       yearly, // ✅ NEW
       frequency: {
         totalPurchases: trendBase?.count ?? 0,
@@ -1235,8 +1416,10 @@ router.get("/product-insights", async (req, res, next) => {
       top: {
         shopMostOften: result?.topShopByCount?.[0] ?? null,
         brandMostOften: result?.topBrandByCount?.[0] ?? null,
+        locationMostOften: result?.topLocationByCount?.[0] ?? null,
         shopCheapestAvg: result?.cheapestShopAvg?.[0] ?? null,
         brandCheapestAvg: result?.cheapestBrandAvg?.[0] ?? null,
+        locationCheapestAvg: result?.cheapestLocationAvg?.[0] ?? null,
       },
     });
   } catch (err) {

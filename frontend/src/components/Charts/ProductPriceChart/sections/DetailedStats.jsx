@@ -99,6 +99,14 @@ export default function DetailedStats({ stats }) {
             <Typography variant="subtitle2">Per merke</Typography>
             <StatList rows={stats.brandStats} />
 
+            {!!stats.locationStats?.length && (
+              <>
+                <Divider sx={{ my: 1.75 }} />
+                <Typography variant="subtitle2">Per sted</Typography>
+                <StatList rows={stats.locationStats} />
+              </>
+            )}
+
             {!!stats.variantStats?.length && (
               <>
                 <Divider sx={{ my: 1.75 }} />

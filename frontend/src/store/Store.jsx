@@ -10,12 +10,28 @@ import { getFriendlyErrorMessage } from "../components/commons/ErrorHandling/err
 
 const PREFERENCES_STORAGE_KEY = "utgifter.appPreferences";
 const LEGACY_THEME_STORAGE_KEY = "utgifter.themeMode";
+const LEGACY_EXPENSE_COLUMN_VISIBILITY_KEY =
+  "expensesTable.columnVisibility.v1";
+
+const readJsonStorage = (key, fallback) => {
+  if (typeof window === "undefined") return fallback;
+
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (!stored) return fallback;
+    const parsed = JSON.parse(stored);
+    return parsed && typeof parsed === "object" ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 const BASE_DEFAULT_PREFERENCES = {
   themeMode: "dark",
   tableDensity: "compact",
   rowsPerPage: 10,
   sidebarOpen: true,
+  expenseColumnVisibility: {},
 };
 
 const getPreferredThemeMode = () => {
@@ -36,6 +52,10 @@ const getPreferredThemeMode = () => {
 const createDefaultPreferences = () => ({
   ...BASE_DEFAULT_PREFERENCES,
   themeMode: getPreferredThemeMode(),
+  expenseColumnVisibility: readJsonStorage(
+    LEGACY_EXPENSE_COLUMN_VISIBILITY_KEY,
+    {},
+  ),
 });
 
 const readStoredPreferences = () => {
@@ -43,10 +63,7 @@ const readStoredPreferences = () => {
   if (typeof window === "undefined") return defaultPreferences;
 
   try {
-    const stored = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
-    if (!stored) return defaultPreferences;
-
-    const parsed = JSON.parse(stored);
+    const parsed = readJsonStorage(PREFERENCES_STORAGE_KEY, null);
     return {
       ...defaultPreferences,
       ...(parsed && typeof parsed === "object" ? parsed : {}),
