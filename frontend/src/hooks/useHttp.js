@@ -1,5 +1,5 @@
-import { useCallback, useContext, useEffect, useState } from "react";
-import { StoreContext } from "../store/Store";
+import { useCallback, useEffect, useState } from "react";
+import { useStoreDispatch } from "../store/Store";
 import {
   axiosJson,
   buildApiUrl,
@@ -27,7 +27,7 @@ const getResourceFromUrl = (requestUrl) => {
 
 const useCustomHttp = (initialUrl, options = {}) => {
   const { auto = false } = options;
-  const { dispatch } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
 
   const [httpState, setHttpState] = useState({
     data: null,

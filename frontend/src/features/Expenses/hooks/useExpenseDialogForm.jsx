@@ -1,9 +1,9 @@
-import { useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import useCustomHttp from "../../../hooks/useHttp";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch } from "../../../store/Store";
 import { addExpenseValidationSchema } from "../../../validation/validationSchema";
 import { computeDerivedExpense } from "./expenseDerived";
 
@@ -72,7 +72,7 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
   const queryClient = useQueryClient();
   const isMounted = useRef(true);
 
-  const { dispatch: storeDispatch } = useContext(StoreContext);
+  const storeDispatch = useStoreDispatch();
   const { sendRequest, loading: httpLoading } = useCustomHttp(API_EXPENSES, { auto: false });
 
   const isEdit = mode === "EDIT";

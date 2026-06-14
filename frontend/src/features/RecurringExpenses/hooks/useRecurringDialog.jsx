@@ -1,8 +1,8 @@
 // src/features/RecurringExpenses/hooks/useRecurringDialog.js
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
 import { recurringExpenseValidationSchema } from "../../../validation/validationSchema";
 import {
@@ -136,7 +136,8 @@ const buildBackendPayload = (form) => {
 
 export default function useRecurringDialog({ open, mode, initial }) {
   const queryClient = useQueryClient();
-  const { dispatch, state } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
+  const state = useStoreState();
 
   const { sendRequest, loading: httpLoading } = useCustomHttp(
     "/api/recurring-expenses",

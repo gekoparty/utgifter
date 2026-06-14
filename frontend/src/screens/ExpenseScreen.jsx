@@ -18,7 +18,6 @@ import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 
 import ExpenseScreenHeader from "../features/Expenses/components/ExpenseScreenHeader";
-import ExpenseSnackbar from "../features/Expenses/components/ExpenseSnackbar";
 import {
   DEFAULT_COLUMN_VISIBILITY,
   EXPENSES_QUERY_KEY,
@@ -61,13 +60,7 @@ const ExpenseScreen = () => {
     readColumnVisibility(DEFAULT_COLUMN_VISIBILITY),
   );
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
+  const { showSnackbar } = useSnackBar();
 
   useEffect(() => {
     writeColumnVisibility(columnVisibility);
@@ -269,12 +262,6 @@ const ExpenseScreen = () => {
         )}
       </Suspense>
 
-      <ExpenseSnackbar
-        message={snackbarMessage}
-        onClose={handleSnackbarClose}
-        open={snackbarOpen}
-        severity={snackbarSeverity}
-      />
     </TableLayout>
   );
 };

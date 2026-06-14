@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import "./styles/App.css";
 import "@fontsource/roboto/300.css";
 // ... all other font imports ...
-import { StoreProvider } from "./store/Store";
+import { StoreProvider, useAppPreferences } from "./store/Store";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -13,6 +13,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import { createDashboardTheme } from "./styles/theme/dashboardTheme";
 import CssBaseline from "@mui/material/CssBaseline";
 import GlobalErrorBanner from "./components/commons/ErrorHandling/GlobalErrorBanner.jsx";
+import GlobalNotificationSnackbar from "./components/commons/Feedback/GlobalNotificationSnackbar.jsx";
 import { ColorModeContext } from "./styles/theme/ColorModeContext.jsx";
 
 // Create a QueryClient instance for React Query v5
@@ -27,53 +28,43 @@ const queryClient = new QueryClient({
   },
 });
 
-const THEME_STORAGE_KEY = "utgifter.themeMode";
-
-function getInitialThemeMode() {
-  if (typeof window === "undefined") return "dark";
-
-  const savedMode = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (savedMode === "light" || savedMode === "dark") return savedMode;
-
-  return window.matchMedia?.("(prefers-color-scheme: light)").matches
-    ? "light"
-    : "dark";
-}
-
-function App({ children }) {
-  const [mode, setMode] = useState(getInitialThemeMode);
-
-  useEffect(() => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, mode);
-  }, [mode]);
-
+function AppThemeProvider({ children }) {
+  const { preferences, setPreference } = useAppPreferences();
+  const mode = preferences.themeMode === "light" ? "light" : "dark";
   const theme = useMemo(() => createDashboardTheme(mode), [mode]);
 
   const colorMode = useMemo(
     () => ({
       mode,
       toggleColorMode: () =>
-        setMode((currentMode) => (currentMode === "dark" ? "light" : "dark")),
+        setPreference("themeMode", mode === "dark" ? "light" : "dark"),
     }),
-    [mode],
+    [mode, setPreference],
   );
 
   return (
+    <ColorModeContext.Provider value={colorMode}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
+          <QueryClientProvider client={queryClient}>
+            <GlobalErrorBanner />
+            {children}
+            <GlobalNotificationSnackbar />
+            <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
+          </QueryClientProvider>
+        </LocalizationProvider>
+      </ThemeProvider>
+    </ColorModeContext.Provider>
+  );
+}
+
+function App({ children }) {
+  return (
     <ErrorBoundary>
-      <ColorModeContext.Provider value={colorMode}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <StoreProvider>
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
-              <QueryClientProvider client={queryClient}>
-                <GlobalErrorBanner />
-                {children}
-                <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
-              </QueryClientProvider>
-            </LocalizationProvider>
-          </StoreProvider>
-        </ThemeProvider>
-      </ColorModeContext.Provider>
+      <StoreProvider>
+        <AppThemeProvider>{children}</AppThemeProvider>
+      </StoreProvider>
     </ErrorBoundary>
   );
 }

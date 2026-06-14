@@ -1,11 +1,11 @@
-import React, { useContext } from "react";
 import { Alert, Box, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 import { getFriendlyErrorMessage } from "./errorMessages";
 
 const GlobalErrorBanner = () => {
-  const { state, dispatch } = useContext(StoreContext);
+  const state = useStoreState();
+  const dispatch = useStoreDispatch();
   const { error, errorMessage, showError } = state;
 
   const messages =
@@ -34,10 +34,11 @@ const GlobalErrorBanner = () => {
           </IconButton>
         }
       >
-        {uniqueMessages.join(" — ")}
+        {uniqueMessages.join(" - ")}
       </Alert>
     </Box>
   );
 };
 
 export default GlobalErrorBanner;
+

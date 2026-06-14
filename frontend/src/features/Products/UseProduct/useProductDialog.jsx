@@ -1,9 +1,9 @@
 // src/components/.../UseProduct/useProductDialog.js
-import { useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 import { addProductValidationSchema } from "../../../validation/validationSchema";
 
 const INITIAL_PRODUCT_STATE = {
@@ -89,7 +89,8 @@ const buildFormStateFromInitial = (initialProduct) => {
 
 const useProductDialog = (initialProduct = null) => {
   const queryClient = useQueryClient();
-  const { dispatch, state } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
+  const state = useStoreState();
 
   const { sendRequest, loading: httpLoading } = useCustomHttp("/api/products", {
     auto: false,

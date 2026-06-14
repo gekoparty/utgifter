@@ -7,19 +7,15 @@ import React, {
   useState,
 } from "react";
 import {
-  Alert,
   Box,
   Button,
   Chip,
-  IconButton,
   LinearProgress,
-  Snackbar,
   Stack,
   Typography,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import AddIcon from "@mui/icons-material/Add";
-import CloseIcon from "@mui/icons-material/Close";
 
 import useSnackBar from "../../../hooks/useSnackBar";
 import { usePaginatedData } from "../../../hooks/usePaginatedData";
@@ -64,13 +60,7 @@ const EntityTableScreen = ({
   const [activeModal, setActiveModal] = useState(null);
   const [selectedRecord, setSelectedRecord] = useState(initialSelectedRecord);
 
-  const {
-    snackbarOpen,
-    snackbarMessage,
-    snackbarSeverity,
-    showSnackbar,
-    handleSnackbarClose,
-  } = useSnackBar();
+  const { showSnackbar } = useSnackBar();
 
   const fetchParams = useMemo(
     () => ({
@@ -315,29 +305,6 @@ const EntityTableScreen = ({
         {dialogProps && <DialogComponent {...dialogProps} />}
       </Suspense>
 
-      <Snackbar
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={handleSnackbarClose}
-      >
-        <Alert
-          severity={snackbarSeverity}
-          onClose={handleSnackbarClose}
-          variant="filled"
-          action={
-            <IconButton
-              size="small"
-              color="inherit"
-              onClick={handleSnackbarClose}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          }
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
     </TableLayout>
   );
 };
