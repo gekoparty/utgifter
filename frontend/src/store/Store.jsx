@@ -3,7 +3,6 @@ import React, {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useReducer,
 } from "react";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -69,24 +68,6 @@ const createInitialState = () => ({
 
 const reducer = (state, action) => {
   switch (action.type) {
-    case "FETCH_FAILURE":
-      return {
-        ...state,
-        error: {
-          ...state.error,
-          [action.resource || "server"]: action.payload,
-        },
-        showError: true,
-      };
-
-    case "FETCH_REQUEST":
-    case "FETCH_SUCCESS":
-    case "ADD_ITEM":
-    case "DELETE_ITEM":
-    case "UPDATE_ITEM":
-    case "CLEAR_RESOURCE":
-      return state;
-
     case "SET_ERROR": {
       const resource = action.resource || "server";
       const rawError = action.error ?? { message: "Unknown error" };
@@ -218,19 +199,8 @@ const reducer = (state, action) => {
 
 export const StoreStateContext = createContext(createInitialState());
 export const StoreDispatchContext = createContext(() => {});
-export const StoreContext = createContext({
-  state: createInitialState(),
-  dispatch: () => {},
-});
-
 export const useStoreState = () => useContext(StoreStateContext);
 export const useStoreDispatch = () => useContext(StoreDispatchContext);
-
-export const useStore = () => {
-  const state = useStoreState();
-  const dispatch = useStoreDispatch();
-  return useMemo(() => ({ state, dispatch }), [state, dispatch]);
-};
 
 export const useAppPreferences = () => {
   const { preferences } = useStoreState();
@@ -274,15 +244,11 @@ export const StoreProvider = ({ children }) => {
     );
   }, [state.preferences]);
 
-  const storeValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
-
   return (
     <ErrorBoundary>
       <StoreDispatchContext.Provider value={dispatch}>
         <StoreStateContext.Provider value={state}>
-          <StoreContext.Provider value={storeValue}>
-            {children}
-          </StoreContext.Provider>
+          {children}
         </StoreStateContext.Provider>
       </StoreDispatchContext.Provider>
     </ErrorBoundary>

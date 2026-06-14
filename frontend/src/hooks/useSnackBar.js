@@ -4,11 +4,6 @@ import { useStoreDispatch } from "../store/Store";
 const useSnackBar = () => {
   const dispatch = useStoreDispatch();
 
-  const handleSnackbarClose = useCallback((event, reason) => {
-    if (reason === "clickaway") return;
-    dispatch({ type: "HIDE_NOTIFICATION" });
-  }, [dispatch]);
-
   const showSnackbar = useCallback(
     (message, severity = "success", options = {}) => {
       dispatch({
@@ -22,11 +17,7 @@ const useSnackBar = () => {
   );
 
   return {
-    snackbarOpen: false,
-    snackbarMessage: "",
-    snackbarSeverity: "success",
     showSnackbar,
-    handleSnackbarClose,
   };
 };
 

@@ -77,19 +77,19 @@ export const addExpenseValidationSchema = Yup.object()
         excludeEmptyString: true,
       }),
     volume: Yup.number()
-      .required("MÂ ha et volum")
-      .positive("MÂ vÊre positivt"),
-    price: Yup.number().required("MÂ ha en pris").positive("MÂ vÊre positivt"),
+      .required("M√• ha et volum")
+      .positive("M√• v√¶re positivt"),
+    price: Yup.number().required("M√• ha en pris").positive("M√• v√¶re positivt"),
     hasDiscount: Yup.boolean(),
     discountValue: Yup.number().when("hasDiscount", {
       is: true,
       then: (schema) =>
-        schema.required("MÂ ha rabattverdi").positive("MÂ vÊre positivt"),
+        schema.required("M√• ha rabattverdi").positive("M√• v√¶re positivt"),
       otherwise: (schema) => schema.nullable(),
     }),
     quantity: Yup.number()
-      .required("MÂ ha et antall")
-      .positive("MÂ vÊre positivt"),
+      .required("M√• ha et antall")
+      .positive("M√• v√¶re positivt"),
     purchaseDate: Yup.date().nullable(),
     registeredDate: Yup.date().nullable(),
   })
@@ -107,7 +107,7 @@ export const addExpenseValidationSchema = Yup.object()
 
 export const addShopValidationSchema = Yup.object().shape({
   name: Yup.string()
-    .required("Navn kan ikke v√¶re tomy")
+    .required("Navn kan ikke v√¶re tomt")
     .min(2, "Navnet m√• v√¶re minst 2 tegn")
     .max(30, "Maks 30 tegn"),
   locationName: Yup.string()
