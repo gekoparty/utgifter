@@ -122,7 +122,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
   const handleDateChange = useCallback(
     (date) => {
       const key = expense.purchased ? "purchaseDate" : "registeredDate";
-      handleFieldChange(key, date);
+      handleFieldChange(key, date && dayjs(date).isValid() ? dayjs(date).format("YYYY-MM-DD") : null);
     },
     [expense.purchased, handleFieldChange]
   );
@@ -150,7 +150,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
 
   const pickerDate = useMemo(() => {
     const v = expense.purchased ? expense.purchaseDate : expense.registeredDate;
-    return dayjs(v);
+    return v ? dayjs(v) : null;
   }, [expense.purchased, expense.purchaseDate, expense.registeredDate]);
 
   return {

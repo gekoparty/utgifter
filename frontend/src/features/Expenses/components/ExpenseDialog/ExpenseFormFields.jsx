@@ -188,7 +188,7 @@ const QuickCreatePanel = ({
       setError(
         err?.message === "duplicate"
           ? "Denne finnes allerede."
-          : validationMessage || err?.message || "Kunne ikke lagre. PrÃ¸v igjen.",
+          : validationMessage || err?.message || "Kunne ikke lagre. Prøv igjen.",
       );
     } finally {
       setSaving(false);
@@ -551,7 +551,7 @@ const ExpenseFormFields = ({
                 <QuickCreatePanel
                   type="brand"
                   disabled={!quickCreate?.hasSelectedProductId}
-                  disabledText="Velg produkt fra listen fÃ¸rst"
+                  disabledText="Velg produkt fra listen først"
                   selectStyles={selectStyles}
                   onCreate={({ name }) => quickCreate?.createBrand?.(name)}
                 />
@@ -588,7 +588,7 @@ const ExpenseFormFields = ({
                 <QuickCreatePanel
                   type="variant"
                   disabled={!quickCreate?.hasSelectedProductId}
-                  disabledText="Velg produkt fra listen fÃ¸rst"
+                  disabledText="Velg produkt fra listen først"
                   selectStyles={selectStyles}
                   onCreate={({ name }) => quickCreate?.createVariant?.(name)}
                 />

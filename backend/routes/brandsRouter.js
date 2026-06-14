@@ -136,7 +136,7 @@ brandsRouter.get("/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid brand id" });
     }
 
-    const brand = await Brand.findById(req.params.id);
+    const brand = await Brand.findById(req.params.id).lean();
     if (!brand) return res.status(404).send({ error: "Brand not found" });
     res.json(brand);
   } catch (error) {
@@ -166,7 +166,7 @@ brandsRouter.post("/", async (req, res) => {
     }
 
     const slug = createSlug(name);
-    const existingBrand = await Brand.findOne({ slug });
+    const existingBrand = await Brand.findOne({ slug }).lean();
 
     if (existingBrand) {
       if (product) {
@@ -219,14 +219,9 @@ brandsRouter.delete("/:id", async (req, res) => {
     const deletedBrand = await Brand.findByIdAndDelete(req.params.id);
     if (!deletedBrand) return res.status(404).send({ error: "Brand not found" });
 
-    const productsToUpdate = await Product.find({ brands: deletedBrand._id });
-    await Promise.all(
-      productsToUpdate.map(async (product) => {
-        product.brands = product.brands.filter(
-          (brandId) => brandId.toString() !== deletedBrand._id.toString()
-        );
-        await product.save();
-      })
+    await Product.updateMany(
+      { brands: deletedBrand._id },
+      { $pull: { brands: deletedBrand._id } }
     );
 
     res.send(deletedBrand);
@@ -254,7 +249,7 @@ brandsRouter.put("/:id", async (req, res) => {
     const existingBrandWithSlug = await Brand.findOne({
       slug: newSlug,
       _id: { $ne: id },
-    });
+    }).lean();
 
     if (existingBrandWithSlug) {
       return res.status(400).json({ message: "duplicate" });

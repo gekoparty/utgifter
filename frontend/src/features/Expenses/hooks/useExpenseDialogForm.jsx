@@ -28,7 +28,7 @@ const INITIAL_EXPENSE_STATE = {
   discountAmount: 0,
   finalPrice: 0,
   purchased: true,
-  purchaseDate: dayjs().format(),
+  purchaseDate: dayjs().format("YYYY-MM-DD"),
   registeredDate: null,
   type: "",
   pricePerUnit: 0,

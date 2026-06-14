@@ -24,8 +24,10 @@ export async function filterByReferences(query, filters) {
     if (!id || !value) continue;
 
     if (["purchaseDate", "registeredDate"].includes(id)) {
-      const { start, end } = convertToUTC(value);
-      query.where(id).gte(start).lte(end);
+      const range = convertToUTC(value);
+      if (range?.start && range?.end) {
+        query.where(id).gte(range.start).lte(range.end);
+      }
     } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
       const ModelMap = { productName: Product, brandName: Brand, shopName: Shop, locationName: Location };
       const matchingIds = await ModelMap[id].find({ name: new RegExp(escapeRegex(value), "i") }).distinct("_id");

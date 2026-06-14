@@ -256,7 +256,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
 
   const handleCreateBrand = async (name) => {
     const productId = getSelectedProductId();
-    if (!productId) throw new Error("Velg et produkt fÃ¸rst.");
+    if (!productId) throw new Error("Velg et produkt først.");
 
     const formattedBrand = {
       name: formatComponentFields(name, "brand", "name"),
@@ -296,7 +296,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
 
   const handleCreateVariant = async (name) => {
     const productId = getSelectedProductId();
-    if (!productId) throw new Error("Velg et produkt fra listen fÃ¸rst.");
+    if (!productId) throw new Error("Velg et produkt fra listen først.");
 
     const formattedVariantName = formatComponentFields(
       name,

@@ -52,7 +52,7 @@ locationsRouter.get("/", async (req, res) => {
     }
 
     // Execute the query
-    const locations = await query.exec();
+    const locations = await query.lean().exec();
 
     res.json({ locations, meta: { totalRowCount } });
   } catch (err) {
@@ -70,7 +70,7 @@ locationsRouter.post("/", async (req, res) => {
 
     const slug = slugify(name, { lower: true });
 
-    const existingLocation = await Location.findOne({ slug });
+    const existingLocation = await Location.findOne({ slug }).lean();
     if (existingLocation) {
       return res.status(400).json({ message: "A location with this name already exists." });
     }
@@ -100,7 +100,7 @@ locationsRouter.put("/:id", async (req, res) => {
     const slug = slugify(name, { lower: true });
 
     // Check for duplicate locations
-    const existingLocation = await Location.findOne({ slug, _id: { $ne: id } });
+    const existingLocation = await Location.findOne({ slug, _id: { $ne: id } }).lean();
     if (existingLocation) {
       return res.status(400).json({ message: "A location with this name already exists." });
     }
@@ -128,7 +128,7 @@ locationsRouter.get("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid location id" });
     }
 
-    const location = await Location.findById(req.params.id);
+    const location = await Location.findById(req.params.id).lean();
     if (!location) {
       return res.status(404).json({ message: "Location not found" });
     }

@@ -31,6 +31,7 @@ const compactNok = (v) => compactFmt.format(Number(v || 0));
 export default function RecurringOverviewCharts({
   forecast,
   monthsForTypeSplit = 3,
+  showTypeSplit = true,
 }) {
   const mui = useTheme();
   const reactId = useId(); // unique per mount (React 18/19)
@@ -226,7 +227,9 @@ export default function RecurringOverviewCharts({
       sx={{
         display: "grid",
         gap: 2,
-        gridTemplateColumns: { xs: "1fr", lg: "2fr 1fr" },
+        gridTemplateColumns: showTypeSplit
+          ? { xs: "1fr", lg: "2fr 1fr" }
+          : "1fr",
         alignItems: "stretch",
       }}
     >
@@ -234,7 +237,7 @@ export default function RecurringOverviewCharts({
       <Card>
         <CardContent sx={{ pb: 1 }}>
           <Typography fontWeight={900} variant="h6">
-            Forventet vs betalt (12 mnd)
+            Forventet vs betalt ({forecast?.length ?? 0} mnd)
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             Forventet intervall (min–maks) + registrert betalt per måned.
@@ -242,7 +245,7 @@ export default function RecurringOverviewCharts({
           <Divider sx={{ my: 1.5, opacity: 0.4 }} />
         </CardContent>
 
-        <Box sx={{ height: 260, px: 1, pb: 1 }}>
+        <Box sx={{ height: showTypeSplit ? 260 : 310, px: 1, pb: 1 }}>
           <ResponsiveLine
             theme={nivoTheme}
             data={lineData}
@@ -309,7 +312,7 @@ export default function RecurringOverviewCharts({
         </Box>
       </Card>
 
-      {/* Bars */}
+      {showTypeSplit && (
       <Card>
         <CardContent sx={{ pb: 1 }}>
           <Typography fontWeight={900} variant="h6">
@@ -359,6 +362,7 @@ export default function RecurringOverviewCharts({
           />
         </Box>
       </Card>
+      )}
     </Box>
   );
 }
@@ -366,4 +370,5 @@ export default function RecurringOverviewCharts({
 RecurringOverviewCharts.propTypes = {
   forecast: PropTypes.array,
   monthsForTypeSplit: PropTypes.number,
+  showTypeSplit: PropTypes.bool,
 };

@@ -6,24 +6,56 @@ import {
   Card,
   CardContent,
   Chip,
-  Divider,
+  IconButton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import {
+  Archive,
+  AttachMoney,
+  Close,
+  Edit,
+  PauseCircleOutline,
+  Replay,
+} from "@mui/icons-material";
 import dayjs from "dayjs";
 import { TYPE_META_BY_KEY, normalizeRecurringType } from "../utils/recurringTypes";
 
-const isMortgageType = (t) => t === "MORTGAGE" || t === "HOUSING";
-const toPk = (d) => dayjs(d).format("YYYY-MM");
+const isMortgageType = (type) => type === "MORTGAGE" || type === "HOUSING";
+const toPeriodKey = (date) => dayjs(date).format("YYYY-MM");
 
-function PauseChip({ p }) {
-  const fromPk = toPk(p.from);
-  const toPk2 = toPk(p.to);
-  const label = fromPk === toPk2 ? `Pauset: ${fromPk}` : `Pauset: ${fromPk} → ${toPk2}`;
-  return <Chip size="small" color="info" variant="outlined" label={label} />;
+function pauseLabel(pause) {
+  const from = toPeriodKey(pause.from);
+  const to = toPeriodKey(pause.to);
+  return from === to ? `Pause ${from}` : `Pause ${from} - ${to}`;
 }
 
-PauseChip.propTypes = { p: PropTypes.object.isRequired };
+function ActionButton({ title, onClick, color = "default", disabled = false, children }) {
+  return (
+    <Tooltip title={title}>
+      <span>
+        <IconButton size="small" color={color} disabled={disabled} onClick={onClick}>
+          {children}
+        </IconButton>
+      </span>
+    </Tooltip>
+  );
+}
+
+ActionButton.propTypes = {
+  title: PropTypes.string.isRequired,
+  onClick: PropTypes.func,
+  color: PropTypes.string,
+  disabled: PropTypes.bool,
+  children: PropTypes.node,
+};
 
 function ExpenseTemplatesSection({
   expenses,
@@ -41,52 +73,60 @@ function ExpenseTemplatesSection({
   onOpenPauseEdit,
   onUnpause,
 }) {
-  // raw templates by id (contains pausePeriods + isActive)
   const templateById = useMemo(() => {
-    const m = new Map();
-    (templates || []).forEach((t) => m.set(String(t._id || t.id), t));
-    return m;
+    const map = new Map();
+    (templates || []).forEach((template) =>
+      map.set(String(template._id || template.id), template)
+    );
+    return map;
   }, [templates]);
 
-  // merge derived "expenses" rows with raw template fields we need
   const rows = useMemo(() => {
-    return (expenses || []).map((e) => {
-      const raw = templateById.get(String(e._id || e.id)) || e;
-      const pauses = Array.isArray(raw.pausePeriods) ? raw.pausePeriods : [];
-      const isActive = raw.isActive !== false; // default true
-      return { ...e, pausePeriods: pauses, isActive };
+    return (expenses || []).map((expense) => {
+      const raw = templateById.get(String(expense._id || expense.id)) || expense;
+      const pausePeriods = Array.isArray(raw.pausePeriods) ? raw.pausePeriods : [];
+      const isActive = raw.isActive !== false;
+      return { ...expense, pausePeriods, isActive };
     });
   }, [expenses, templateById]);
 
   const finishedCount = useMemo(
-    () => rows.filter((r) => !r.isActive).length,
-    [rows]
+    () => rows.filter((row) => !row.isActive).length,
+    [rows],
   );
 
   const visibleRows = useMemo(() => {
     if (showFinished) return rows;
-    return rows.filter((r) => r.isActive);
+    return rows.filter((row) => row.isActive);
   }, [rows, showFinished]);
 
   return (
     <Card>
-      <CardContent>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2.25 } }}>
         <Stack
-          direction={{ xs: "column", sm: "row" }}
+          direction={{ xs: "column", md: "row" }}
           justifyContent="space-between"
-          alignItems={{ xs: "flex-start", sm: "center" }}
-          gap={1}
-          sx={{ mb: 1.25 }}
+          alignItems={{ xs: "stretch", md: "center" }}
+          gap={1.5}
+          sx={{ mb: 1.5 }}
         >
-          <Typography variant="h6" fontWeight={950}>
-            Avtaler og faste kostnader
-          </Typography>
-
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            <Typography variant="body2" color="text.secondary">
-              Endre beløp, legg inn pause eller avslutt faste kostnader.
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6" fontWeight={950}>
+              Avtaler og faste kostnader
             </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Skann, endre beløp, pause eller avslutt uten å åpne mange kort.
+            </Typography>
+          </Box>
 
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Chip
+              size="small"
+              color="primary"
+              variant="outlined"
+              label={`${visibleRows.length} vises`}
+              sx={{ fontWeight: 800 }}
+            />
             <Button size="small" variant="outlined" onClick={onToggleShowFinished}>
               {showFinished
                 ? "Skjul avsluttede"
@@ -95,169 +135,218 @@ function ExpenseTemplatesSection({
           </Stack>
         </Stack>
 
-        <Divider sx={{ mb: 1.5 }} />
+        {visibleRows.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            Ingen faste kostnader i denne visningen.
+          </Typography>
+        ) : (
+          <TableContainer
+            sx={{
+              maxHeight: { xs: 620, lg: "calc(100vh - 310px)" },
+              overflow: "auto",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+            }}
+          >
+            <Table stickyHeader size="small" sx={{ minWidth: 900 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 900 }}>Kostnad</TableCell>
+                  <TableCell sx={{ fontWeight: 900 }}>Beløp</TableCell>
+                  <TableCell sx={{ fontWeight: 900 }}>Plan</TableCell>
+                  <TableCell sx={{ fontWeight: 900 }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 900 }}>
+                    Handlinger
+                  </TableCell>
+                </TableRow>
+              </TableHead>
 
-        <Box sx={{ display: "grid", gap: 1.25 }}>
-          {visibleRows.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
-              Ingen faste kostnader i denne visningen.
-            </Typography>
-          )}
+              <TableBody>
+                {visibleRows.map((expense) => {
+                  const id = String(expense._id || expense.id);
+                  const typeKey = normalizeRecurringType(expense.type);
+                  const typeMeta = TYPE_META_BY_KEY[typeKey];
+                  const typeLabel = typeMeta?.label ?? expense.type;
 
-          {visibleRows.map((e) => {
-            const id = String(e._id || e.id);
-            const typeKey = normalizeRecurringType(e.type);
-            const typeLabel = TYPE_META_BY_KEY[typeKey]?.label ?? e.type;
+                  const amount = Number(expense.amount ?? expense.monthlyPayment ?? 0);
+                  const estimateMin = Number(expense.estimateMin ?? expense.estimate?.min ?? 0);
+                  const estimateMax = Number(expense.estimateMax ?? expense.estimate?.max ?? 0);
+                  const showEstimateRange =
+                    !isMortgageType(expense.type) && (estimateMin > 0 || estimateMax > 0);
+                  const priceLabel = showEstimateRange
+                    ? `${formatCurrency(estimateMin)} - ${formatCurrency(Math.max(estimateMax, estimateMin))}`
+                    : formatCurrency(amount);
 
-            const amount = Number(e.amount ?? e.monthlyPayment ?? 0);
-            const estMin = Number(e.estimateMin ?? e.estimate?.min ?? 0);
-            const estMax = Number(e.estimateMax ?? e.estimate?.max ?? 0);
+                  const pauses = Array.isArray(expense.pausePeriods)
+                    ? expense.pausePeriods
+                        .slice()
+                        .sort((a, b) => new Date(a.from) - new Date(b.from))
+                    : [];
+                  const isMortgage = isMortgageType(expense.type);
+                  const isActive = expense.isActive !== false;
 
-            const showEstimateRange = !isMortgageType(e.type) && (estMin > 0 || estMax > 0);
-            const priceLabel = showEstimateRange
-              ? `${formatCurrency(estMin)} – ${formatCurrency(Math.max(estMax, estMin))}`
-              : formatCurrency(amount);
-
-            const pauses = Array.isArray(e.pausePeriods) ? e.pausePeriods : [];
-
-            return (
-              <Card
-                key={id}
-                variant="outlined"
-                sx={{ borderRadius: 2, opacity: e.isActive ? 1 : 0.85 }}
-              >
-                <CardContent sx={{ py: 1.5 }}>
-                  <Stack spacing={1}>
-                    <Stack
-                      direction={{ xs: "column", sm: "row" }}
-                      justifyContent="space-between"
-                      alignItems={{ xs: "flex-start", sm: "center" }}
-                      gap={1}
+                  return (
+                    <TableRow
+                      key={id}
+                      hover
+                      sx={{
+                        opacity: isActive ? 1 : 0.72,
+                        "&:last-child td": { borderBottom: 0 },
+                      }}
                     >
-                      <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                          <Typography fontWeight={900} noWrap sx={{ minWidth: 0 }}>
-                            {e.title}
-                          </Typography>
+                      <TableCell sx={{ minWidth: 260 }}>
+                        <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={900} noWrap sx={{ minWidth: 0 }}>
+                              {expense.title}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={typeLabel}
+                              color={typeMeta?.color}
+                              variant="outlined"
+                              sx={{ fontWeight: 800 }}
+                            />
+                          </Stack>
 
-                          <Chip size="small" label={typeLabel} variant="outlined" />
-                          {!e.isActive && <Chip size="small" color="success" label="Avsluttet" />}
+                          {isMortgage && (
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {expense.mortgageHolder || "Lån"}
+                              {expense.mortgageKind ? ` - ${expense.mortgageKind}` : ""}
+                            </Typography>
+                          )}
                         </Stack>
+                      </TableCell>
 
-                        <Typography variant="body2" color="text.secondary">
-                          Pris: <strong>{priceLabel}</strong>
-                          {e.dueDay ? ` • Forfall: ${e.dueDay}.` : ""}
-                          {e.billingIntervalMonths ? ` • Intervall: ${e.billingIntervalMonths} mnd` : ""}
-                        </Typography>
-
-                        {isMortgageType(e.type) && (
-                          <Typography variant="body2" color="text.secondary">
-                            Rente: <strong>{Number(e.interestRate || 0)}%</strong>
-                            {" • "}
-                            Rest: <strong>{formatCurrency(Number(e.remainingBalance || 0))}</strong>
+                      <TableCell sx={{ minWidth: 170 }}>
+                        <Typography fontWeight={900}>{priceLabel}</Typography>
+                        {isMortgage ? (
+                          <Typography variant="caption" color="text.secondary">
+                            {Number(expense.interestRate || 0)}% rente
+                            {expense.remainingBalance
+                              ? ` - ${formatCurrency(Number(expense.remainingBalance || 0))} rest`
+                              : ""}
                           </Typography>
-                        )}
-                      </Stack>
+                        ) : showEstimateRange ? (
+                          <Typography variant="caption" color="text.secondary">
+                            Estimat
+                          </Typography>
+                        ) : null}
+                      </TableCell>
 
-                     <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="flex-end">
-  {e.isActive ? (
-    <>
-      <Button
-        size="small"
-        variant="outlined"
-        onClick={() => onOpenTerms?.({ ...e, recurringExpenseId: id }, dayjs().format("YYYY-MM"))}
-      >
-        Endre beløp
-      </Button>
-
-      <Button
-        size="small"
-        color="info"
-        variant="outlined"
-        onClick={() => onOpenPauseCreate?.({ recurringExpenseId: id, title: e.title }, dayjs().format("YYYY-MM"))}
-      >
-        Pause
-      </Button>
-
-      <Button size="small" onClick={() => onEdit?.(e)}>
-        Rediger
-      </Button>
-
-      <Button size="small" color="error" onClick={() => onFinish?.(id)}>
-        Avslutt
-      </Button>
-    </>
-  ) : (
-    <Button size="small" color="success" variant="outlined" onClick={() => onRestore?.(id)}>
-      Gjenåpne
-    </Button>
-  )}
-</Stack>
-
-                    </Stack>
-
-                    {/* pause periods visible + manageable */}
-                    {pauses.length > 0 && (
-                      <Stack spacing={1}>
+                      <TableCell sx={{ minWidth: 155 }}>
+                        <Typography variant="body2" fontWeight={800}>
+                          {expense.dueDay ? `Dag ${expense.dueDay}` : "Ingen forfall"}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Pauser
+                          {expense.billingIntervalMonths
+                            ? `Hver ${expense.billingIntervalMonths}. måned`
+                            : "Månedlig"}
                         </Typography>
+                      </TableCell>
 
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {pauses
-                            .slice()
-                            .sort((a, b) => new Date(a.from) - new Date(b.from))
-                            .map((p) => (
-                              <PauseChip key={String(p._id)} p={p} />
-                            ))}
-                        </Stack>
+                      <TableCell sx={{ minWidth: 230 }}>
+                        <Stack spacing={0.75}>
+                          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                            <Chip
+                              size="small"
+                              color={isActive ? "success" : "default"}
+                              label={isActive ? "Aktiv" : "Avsluttet"}
+                              sx={{ fontWeight: 800 }}
+                            />
+                            {pauses.length === 0 && (
+                              <Chip size="small" variant="outlined" label="Ingen pause" />
+                            )}
+                          </Stack>
 
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {pauses
-                            .slice()
-                            .sort((a, b) => new Date(a.from) - new Date(b.from))
-                            .map((p) => {
-                              const pauseId = String(p._id);
-                              const fromPk = toPk(p.from);
-                              const toPk2 = toPk(p.to);
+                          {pauses.length > 0 && (
+                            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                              {pauses.map((pause) => {
+                                const pauseId = String(pause._id);
+                                const from = toPeriodKey(pause.from);
+                                const to = toPeriodKey(pause.to);
+                                const pausePayload = { from, to, note: pause.note || "" };
 
-                              return (
-                                <Stack key={`actions-${pauseId}`} direction="row" spacing={1}>
-                                  <Button
+                                return (
+                                  <Chip
+                                    key={pauseId}
                                     size="small"
+                                    color="info"
                                     variant="outlined"
-                                    onClick={() =>
-                                      onOpenPauseEdit?.(
-                                        { recurringExpenseId: id, title: e.title, pauseId },
-                                        { from: fromPk, to: toPk2, note: p.note || "" }
-                                      )
+                                    label={pauseLabel(pause)}
+                                    onClick={
+                                      isActive
+                                        ? () =>
+                                            onOpenPauseEdit?.(
+                                              { recurringExpenseId: id, title: expense.title, pauseId },
+                                              pausePayload,
+                                            )
+                                        : undefined
                                     }
-                                    disabled={!e.isActive}
-                                  >
-                                    Rediger {fromPk}→{toPk2}
-                                  </Button>
-
-                                  <Button
-                                    size="small"
-                                    color="error"
-                                    variant="outlined"
-                                    onClick={() => onUnpause?.({ recurringExpenseId: id, pauseId })}
-                                    disabled={!e.isActive}
-                                  >
-                                    Opphev
-                                  </Button>
-                                </Stack>
-                              );
-                            })}
+                                    onDelete={
+                                      isActive
+                                        ? () => onUnpause?.({ recurringExpenseId: id, pauseId })
+                                        : undefined
+                                    }
+                                    deleteIcon={<Close />}
+                                  />
+                                );
+                              })}
+                            </Stack>
+                          )}
                         </Stack>
-                      </Stack>
-                    )}
-                  </Stack>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
+                      </TableCell>
+
+                      <TableCell align="right" sx={{ minWidth: 190 }}>
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          {isActive ? (
+                            <>
+                              <ActionButton
+                                title="Endre beløp"
+                                onClick={() => onOpenTerms?.({ ...expense, recurringExpenseId: id }, dayjs().format("YYYY-MM"))}
+                              >
+                                <AttachMoney fontSize="small" />
+                              </ActionButton>
+
+                              <ActionButton
+                                title="Pause"
+                                color="info"
+                                onClick={() => onOpenPauseCreate?.({ recurringExpenseId: id, title: expense.title }, dayjs().format("YYYY-MM"))}
+                              >
+                                <PauseCircleOutline fontSize="small" />
+                              </ActionButton>
+
+                              <ActionButton title="Rediger" onClick={() => onEdit?.(expense)}>
+                                <Edit fontSize="small" />
+                              </ActionButton>
+
+                              <ActionButton
+                                title="Avslutt"
+                                color="error"
+                                onClick={() => onFinish?.(id)}
+                              >
+                                <Archive fontSize="small" />
+                              </ActionButton>
+                            </>
+                          ) : (
+                            <ActionButton
+                              title="Gjenåpne"
+                              color="success"
+                              onClick={() => onRestore?.(id)}
+                            >
+                              <Replay fontSize="small" />
+                            </ActionButton>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </CardContent>
     </Card>
   );

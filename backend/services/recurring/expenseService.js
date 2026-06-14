@@ -1,5 +1,6 @@
 import slugify from "slugify";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import { parseDateForStorage } from "../../utils/dateUtils.js";
 
 const clampDueDay = (day, type) => {
   const maxDueDay = type === "MORTGAGE" ? 31 : 28;
@@ -36,8 +37,8 @@ export const normalizeRecurringExpensePayload = (body = {}) => {
     monthlyFee: Boolean(body.hasMonthlyFee) ? Number(body.monthlyFee ?? 0) : 0,
     firstPaymentMonth: normalizeFirstPaymentMonth(body.firstPaymentMonth),
     isActive: body.isActive === undefined ? true : Boolean(body.isActive),
-    endDate: body.endDate ? new Date(body.endDate) : null,
-    startDate: body.startDate ? new Date(body.startDate) : null,
+    endDate: body.endDate ? parseDateForStorage(body.endDate) : null,
+    startDate: body.startDate ? parseDateForStorage(body.startDate) : null,
   };
 
   payload.slug = slugify(payload.title, { lower: true, strict: true });

@@ -44,6 +44,11 @@ import { makeCurrencyFormatter } from "./utils/recurringFormatters";
 
 const MONTHS_FORWARD = 12;
 
+const dueKey = (value) => {
+  const date = dayjs(value);
+  return date.isValid() ? date.format("YYYY-MM-DD") : String(value ?? "");
+};
+
 export default function RecurringExpenseScreen() {
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
@@ -97,6 +102,35 @@ export default function RecurringExpenseScreen() {
     return forecast.find((month) => month.key === ctrl.selectedMonthKey) ?? null;
   }, [forecast, ctrl.selectedMonthKey]);
 
+  const enrichedNextBills = useMemo(() => {
+    const byDueDate = new Map();
+
+    (forecast || []).forEach((month) => {
+      (month.items || []).forEach((item) => {
+        byDueDate.set(
+          `${String(item.recurringExpenseId)}|${dueKey(item.dueDate)}`,
+          { ...item, monthKey: month.key },
+        );
+      });
+    });
+
+    return (nextBills || []).map((bill) => {
+      const match = byDueDate.get(
+        `${String(bill.recurringExpenseId)}|${dueKey(bill.dueDate)}`,
+      );
+
+      return {
+        ...bill,
+        ...(match || {}),
+        expectedMax: bill.expectedMax ?? match?.expected?.max ?? 0,
+        periodKey:
+          match?.periodKey ||
+          match?.monthKey ||
+          (dayjs(bill.dueDate).isValid() ? dayjs(bill.dueDate).format("YYYY-MM") : ""),
+      };
+    });
+  }, [forecast, nextBills]);
+
   const maxRef = useMemo(() => {
     const values = (forecast || []).map((month) =>
       ctrl.tab === 1 ? month.paidTotal : month.expectedMax,
@@ -145,14 +179,27 @@ export default function RecurringExpenseScreen() {
 
         {renderStatusCard()}
 
-        <Card sx={{ mt: 2 }}>
-          <CardContent sx={{ p: { xs: 1, sm: 1.5 } }}>
+        <Card sx={{ mt: 1.5, borderRadius: 2 }}>
+          <CardContent sx={{ p: 0.5, "&:last-child": { pb: 0.5 } }}>
             <Tabs
               value={activeSection}
               onChange={(_, value) => setActiveSection(value)}
               variant="scrollable"
               scrollButtons="auto"
               allowScrollButtonsMobile
+              sx={{
+                minHeight: 42,
+                "& .MuiTabs-indicator": { display: "none" },
+                "& .MuiTab-root": {
+                  minHeight: 42,
+                  borderRadius: 1.5,
+                  mx: 0.25,
+                  px: 1.75,
+                },
+                "& .Mui-selected": {
+                  bgcolor: "action.selected",
+                },
+              }}
             >
               <Tab value="overview" label="Oversikt" />
               <Tab value="months" label="Måneder" />
@@ -163,18 +210,35 @@ export default function RecurringExpenseScreen() {
         </Card>
 
         {activeSection === "overview" && (
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
-              <RecurringOverviewCharts
-                forecast={forecast}
-                monthsForTypeSplit={3}
-              />
-            )}
+          <Box
+            sx={{
+              mt: 2,
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: {
+                xs: "1fr",
+                lg: "minmax(0, 1fr) minmax(390px, 430px)",
+              },
+              alignItems: "start",
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
+                <RecurringOverviewCharts
+                  forecast={forecastFuture}
+                  monthsForTypeSplit={3}
+                  showTypeSplit={false}
+                />
+              )}
+            </Box>
             <NextBillsCard
-              nextBills={nextBills}
+              nextBills={enrichedNextBills}
               formatCurrency={formatCurrency}
+              onOpenPay={payDialog.openDialog}
+              onOpenMonth={ctrl.openMonth}
+              pending={payments.pending}
             />
-          </Stack>
+          </Box>
         )}
 
         {activeSection === "months" && (

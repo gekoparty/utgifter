@@ -103,7 +103,8 @@ shopsRouter.get("/", async (req, res) => {
 
       const query = Shop.find({ name: { $regex: escapeRegex(search), $options: "i" } })
         .select("name location category slugifiedName") // keep it light
-        .limit(limit);
+        .limit(limit)
+        .lean();
 
       const shops = await query.exec();
       const enrichedShops = await enrichShops(shops);
@@ -161,7 +162,7 @@ shopsRouter.get("/", async (req, res) => {
       query = query.skip(startIndex).limit(pageSize);
     }
 
-    const shops = await query.exec();
+    const shops = await query.lean().exec();
     const enrichedShops = await enrichShops(shops);
 
     res.json({ shops: enrichedShops, meta: { totalRowCount } });
@@ -193,7 +194,7 @@ shopsRouter.post("/", async (req, res) => {
     const existingShop = await Shop.findOne({
       slugifiedName,
       location: locationId,
-    });
+    }).lean();
 
     if (existingShop) {
       return res.status(400).json({ message: "duplicate" });
@@ -247,7 +248,7 @@ shopsRouter.put("/:id", async (req, res) => {
       slugifiedName,
       location: locationId,
       _id: { $ne: id },
-    });
+    }).lean();
 
     if (duplicateShop) return res.status(400).json({ message: "duplicate" });
 
