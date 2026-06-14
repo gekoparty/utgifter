@@ -1,9 +1,9 @@
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
 import { addLocationValidationSchema } from "../../../validation/validationSchema";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 
 const INITIAL_LOCATION_STATE = { name: "" };
 const LOCATIONS_QUERY_KEY = ["locations", "paginated"];
@@ -11,7 +11,8 @@ const LOCATIONS_QUERY_KEY = ["locations", "paginated"];
 const useLocationDialog = (initialLocation = null) => {
   const queryClient = useQueryClient();
   const { sendRequest, loading: httpLoading } = useCustomHttp("/api/locations", { auto: false });
-  const { dispatch, state } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
+  const state = useStoreState();
 
   const isEditMode = Boolean(initialLocation && initialLocation._id);
 

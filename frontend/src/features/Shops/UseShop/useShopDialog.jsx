@@ -1,9 +1,9 @@
 // src/components/.../UseShop/useShopDialog.js
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 import { addShopValidationSchema } from "../../../validation/validationSchema";
 
 const INITIAL_SHOP_STATE = {
@@ -28,7 +28,8 @@ const buildShopStateFromInitial = (initialShop) => {
 
 const useShopDialog = (initialShop = null) => {
   const queryClient = useQueryClient();
-  const { dispatch, state } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
+  const state = useStoreState();
 
   const { sendRequest, loading: httpLoading } = useCustomHttp("/api/shops", {
     auto: false,

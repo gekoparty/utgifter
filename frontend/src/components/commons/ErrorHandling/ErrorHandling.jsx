@@ -1,16 +1,13 @@
-// src/commons/ErrorHandling/ErrorHandling.jsx
-// (No functional change required; just optional cleanup note: `loading` is unused)
-import React, { useContext } from "react";
 import PropTypes from "prop-types";
 import { Typography } from "@mui/material";
-import { StoreContext } from "../../../store/Store";
+import { useStoreState } from "../../../store/Store";
 import {
   getFriendlyErrorMessage,
   getValidationMessage,
 } from "./errorMessages";
 
 const ErrorHandling = ({ resource, field }) => {
-  const { state } = useContext(StoreContext);
+  const state = useStoreState();
   const { error, errorMessage, showError, validationErrors } = state;
 
   const displayError = error?.[resource];

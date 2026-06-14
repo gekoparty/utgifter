@@ -1,9 +1,9 @@
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
 import { addCategoryValidationSchema } from "../../../validation/validationSchema";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 
 const INITIAL_CATEGORY_STATE = { name: "" };
 const CATEGORIES_QUERY_KEY = ["categories", "paginated"]; // ✅ match your screens if you use paginated queries
@@ -14,7 +14,8 @@ const useCategoryDialog = (initialCategory = null) => {
     "/api/categories",
     { auto: false }
   );
-  const { dispatch, state } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
+  const state = useStoreState();
 
   const isEditMode = Boolean(initialCategory && initialCategory._id);
 

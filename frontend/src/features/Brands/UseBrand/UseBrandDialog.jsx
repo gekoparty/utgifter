@@ -1,9 +1,9 @@
-import { useContext, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import useCustomHttp from "../../../hooks/useHttp";
 import { formatComponentFields } from "../../../components/commons/Utils/FormatUtil";
 import { addBrandValidationSchema } from "../../../validation/validationSchema";
-import { StoreContext } from "../../../store/Store";
+import { useStoreDispatch, useStoreState } from "../../../store/Store";
 
 const INITIAL_BRAND_STATE = { name: "" };
 const BRANDS_QUERY_KEY = ["brands", "paginated"];
@@ -13,7 +13,8 @@ const useBrandDialog = (initialBrand = null) => {
   const { sendRequest, loading: httpLoading } = useCustomHttp("/api/brands", {
     auto: false,
   });
-  const { dispatch, state } = useContext(StoreContext);
+  const dispatch = useStoreDispatch();
+  const state = useStoreState();
 
   const isEditMode = Boolean(initialBrand && initialBrand._id);
 
