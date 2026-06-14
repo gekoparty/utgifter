@@ -72,6 +72,9 @@ const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onErro
       </Typography>
     ) : (
       <>
+        {displayError && (
+          <ErrorHandling resource="categories" showResourceError />
+        )}
         <TextField
           autoFocus
           fullWidth

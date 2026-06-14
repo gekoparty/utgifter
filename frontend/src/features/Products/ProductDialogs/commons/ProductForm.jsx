@@ -68,6 +68,10 @@ const selectedBrandValues = useMemo(() => {
 
   return (
     <Stack spacing={2}>
+      {displayError && (
+        <ErrorHandling resource="products" showResourceError />
+      )}
+
       <div>
         <ProductNameInput
           value={product?.name || ""}

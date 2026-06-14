@@ -89,6 +89,9 @@ const LocationDialog = ({
       </Typography>
     ) : (
       <>
+        {displayError && (
+          <ErrorHandling resource="locations" showResourceError />
+        )}
         <TextField
           autoFocus
           fullWidth
