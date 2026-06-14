@@ -101,6 +101,8 @@ const ShopForm = ({
 
   return (
     <Stack spacing={2}>
+      {displayError && <ErrorHandling resource="shops" showResourceError />}
+
       {/* Name */}
       <Stack spacing={0.5}>
         <TextField

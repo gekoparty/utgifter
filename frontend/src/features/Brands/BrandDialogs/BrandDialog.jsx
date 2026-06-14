@@ -78,6 +78,9 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
       </Typography>
     ) : (
       <>
+        {displayError && (
+          <ErrorHandling resource="brands" showResourceError />
+        )}
         <TextField
           autoFocus
           fullWidth
