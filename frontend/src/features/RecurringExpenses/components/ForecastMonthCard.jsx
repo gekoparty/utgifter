@@ -1,90 +1,122 @@
 import React, { memo, useMemo } from "react";
-import { Card, CardContent, Chip, LinearProgress, Stack, Typography } from "@mui/material";
+import { Box, Chip, LinearProgress, Stack, Typography } from "@mui/material";
+import { ChevronRight } from "@mui/icons-material";
+import { alpha, useTheme } from "@mui/material/styles";
 import { monthLabel } from "../utils/recurringFormatters";
 
 function ForecastMonthCard({ month, tab, maxRef, onOpenMonth, formatCurrency }) {
-  const mainVal = tab === 1 ? month.paidTotal : month.expectedMax;
+  const theme = useTheme();
+  const isPaidView = tab === 1;
+  const primaryValue = isPaidView ? Number(month.paidTotal ?? 0) : Number(month.expectedMax ?? 0);
+  const secondaryValue = Number(month.expectedMin ?? 0);
+  const itemsCount = month.itemsCount ?? month.items?.length ?? 0;
 
   const pct = useMemo(() => {
     const safeMax = Math.max(maxRef || 1, 1);
-    return Math.min(100, ((Number(mainVal || 0)) / safeMax) * 100);
-  }, [mainVal, maxRef]);
+    return Math.min(100, (primaryValue / safeMax) * 100);
+  }, [primaryValue, maxRef]);
 
-  const itemsCount = month.itemsCount ?? month.items?.length ?? 0;
+  const handleOpen = () => onOpenMonth(month.key);
 
   return (
-    <Card
-      onClick={() => onOpenMonth(month.key)}
+    <Box
+      component="button"
+      type="button"
+      onClick={handleOpen}
       sx={{
-        cursor: "pointer",
-        boxShadow: "none",
-        border: "1px solid rgba(255,255,255,0.08)",
+        width: "100%",
         height: "100%",
-        "&:hover": { boxShadow: "0 10px 18px rgba(0,0,0,0.25)" },
+        p: 1.75,
+        textAlign: "left",
+        color: "text.primary",
+        font: "inherit",
+        cursor: "pointer",
+        borderRadius: 2,
+        border: "1px solid",
+        borderColor: "divider",
+        bgcolor: alpha(theme.palette.background.paper, theme.palette.mode === "dark" ? 0.74 : 1),
+        backgroundImage:
+          theme.palette.mode === "dark"
+            ? "linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))"
+            : "none",
+        boxShadow: "none",
+        transition: theme.transitions.create(["border-color", "background-color", "transform"], {
+          duration: theme.transitions.duration.short,
+        }),
+        "&:hover": {
+          borderColor: "primary.main",
+          bgcolor: "action.hover",
+          transform: "translateY(-1px)",
+        },
+        "&:focus-visible": {
+          outline: "none",
+          boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.35)}`,
+        },
       }}
     >
-      <CardContent>
-        <Stack spacing={1.25}>
-          {/* Header */}
-          <Stack
-  direction="row"
-  alignItems="flex-start"
-  justifyContent="space-between"
-  spacing={1}
-  sx={{ flexWrap: "wrap", rowGap: 1 }}
->
-  <Typography fontWeight={950} sx={{ flexGrow: 1 }}>
-    {monthLabel(month.date)}
-  </Typography>
-
-  <Chip
-    size="small"
-    label={`${itemsCount} stk`}
-    sx={{
-      flexShrink: 0,
-      fontWeight: 800,
-      bgcolor: "rgba(255,255,255,0.12)",
-    }}
-  />
-</Stack>
-
-          {/* Label */}
-          <Typography
-            variant="overline"
-            color="text.secondary"
-            sx={{ lineHeight: 1.1, letterSpacing: 0.6 }}
-          >
-            {tab === 1 ? "Betalt total" : "Forventet intervall"}
-          </Typography>
-
-          {/* Value */}
-          {tab === 1 ? (
-            <Typography variant="h5" fontWeight={950} noWrap sx={{ lineHeight: 1.1 }}>
-              {formatCurrency(month.paidTotal ?? 0)}
+      <Stack spacing={1.25}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", fontWeight: 900, textTransform: "uppercase" }}
+            >
+              {isPaidView ? "Betalt" : "Forventet"}
             </Typography>
-          ) : (
-            <Stack spacing={0.25}>
-              <Typography variant="h5" fontWeight={950} sx={{ lineHeight: 1.1 }}>
-                {formatCurrency(month.expectedMax ?? 0)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.1 }}>
-                fra {formatCurrency(month.expectedMin ?? 0)}
-              </Typography>
-            </Stack>
-          )}
+            <Typography fontWeight={950} sx={{ fontSize: 18, lineHeight: 1.25 }}>
+              {monthLabel(month.date)}
+            </Typography>
+          </Box>
 
-          <LinearProgress
-            sx={{ mt: 0.5, height: 8, borderRadius: 999, opacity: 0.9 }}
-            variant="determinate"
-            value={pct}
+          <Chip
+            size="small"
+            label={`${itemsCount} stk`}
+            variant="outlined"
+            sx={{ flexShrink: 0, fontWeight: 900 }}
           />
-
-          <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.75 }}>
-            Trykk for detaljer
-          </Typography>
         </Stack>
-      </CardContent>
-    </Card>
+
+        <Box>
+          <Typography
+            fontWeight={950}
+            sx={{
+              fontSize: { xs: 24, sm: 25 },
+              lineHeight: 1.12,
+              overflowWrap: "anywhere",
+            }}
+          >
+            {formatCurrency(primaryValue)}
+          </Typography>
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.35 }}>
+            {isPaidView
+              ? `${itemsCount} faste kostnader denne måneden`
+              : `Minimum ${formatCurrency(secondaryValue)}`}
+          </Typography>
+        </Box>
+
+        <LinearProgress
+          variant="determinate"
+          value={pct}
+          sx={{
+            height: 6,
+            borderRadius: 999,
+            bgcolor: "action.selected",
+            "& .MuiLinearProgress-bar": {
+              borderRadius: 999,
+            },
+          }}
+        />
+
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+          <Typography variant="caption" color="text.secondary">
+            Åpne måned
+          </Typography>
+          <ChevronRight fontSize="small" color="primary" />
+        </Stack>
+      </Stack>
+    </Box>
   );
 }
 

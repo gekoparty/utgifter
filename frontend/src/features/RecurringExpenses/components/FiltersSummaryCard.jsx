@@ -4,20 +4,21 @@ import { RECURRING_TYPES } from "../utils/recurringTypes";
 
 function FiltersSummaryCard({ filter, onFilter, sum3, formatCurrency }) {
   return (
-    <Card sx={{ mt: 1 }}>
-      <CardContent sx={{ p: { xs: 1.5, sm: 2.25 } }}>
+    <Card sx={{ mt: 1, borderRadius: 2 }}>
+      <CardContent sx={{ p: { xs: 1.25, sm: 1.5 }, "&:last-child": { pb: { xs: 1.25, sm: 1.5 } } }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
           alignItems={{ xs: "stretch", md: "center" }}
           justifyContent="space-between"
-          spacing={2}
+          spacing={1.5}
         >
           <Box>
-            <Typography variant="overline" color="text.secondary" fontWeight={900}>
+            <Typography variant="caption" color="text.secondary" fontWeight={900}>
               Vis
             </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
               <Chip
+                size="small"
                 label="Alle"
                 variant={filter === "ALL" ? "filled" : "outlined"}
                 onClick={() => onFilter("ALL")}
@@ -27,6 +28,7 @@ function FiltersSummaryCard({ filter, onFilter, sum3, formatCurrency }) {
               {RECURRING_TYPES.map((t) => (
                 <Chip
                   key={t.key}
+                  size="small"
                   label={t.label}
                   color={filter === t.key ? t.color : undefined}
                   variant={filter === t.key ? "filled" : "outlined"}
@@ -39,22 +41,22 @@ function FiltersSummaryCard({ filter, onFilter, sum3, formatCurrency }) {
 
           <Box
             sx={{
-              p: 1.5,
+              p: 1.25,
               borderRadius: 2,
               bgcolor: "rgba(255,255,255,0.04)",
               border: "1px solid",
               borderColor: "divider",
-              minWidth: { md: 280 },
+              minWidth: { md: 300 },
             }}
           >
             <Typography variant="caption" color="text.secondary">
               Forventet neste 3 måneder
             </Typography>
-            <Typography variant="h6" fontWeight={900}>
+            <Typography variant="h6" fontWeight={950} sx={{ lineHeight: 1.15 }}>
               {formatCurrency(sum3.min)} - {formatCurrency(sum3.max)}
             </Typography>
 
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.35 }}>
               Betalt siste/valgte periode: <strong>{formatCurrency(sum3.paid ?? 0)}</strong>
             </Typography>
           </Box>

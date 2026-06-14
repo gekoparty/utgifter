@@ -55,6 +55,7 @@ RecurringPaymentSchema.index(
     partialFilterExpression: { kind: "MAIN" },
   }
 );
+RecurringPaymentSchema.index({ recurringExpenseId: 1, periodKey: 1, paidDate: 1 });
 
 export default mongoose.model("RecurringPayment", RecurringPaymentSchema);
 

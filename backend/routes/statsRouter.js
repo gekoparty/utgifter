@@ -2,14 +2,37 @@
 import express from "express";
 import mongoose from "mongoose";
 import Expense from "../models/expenseSchema.js";
+import { convertToUTC, TIME_ZONE } from "../utils/dateUtils.js";
 
 const router = express.Router();
 
-const startOfLocalDay = (date) => {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+const actualDateExpr = { $ifNull: ["$purchaseDate", "$registeredDate"] };
+const actualDateStage = { $addFields: { actualDate: actualDateExpr } };
+const actualDateNotNull = { $match: { actualDate: { $ne: null } } };
+
+const osloDateKey = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
 };
+
+const addDaysToDateKey = (dateKey, days) => {
+  const [year, month, day] = String(dateKey).split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+const osloDayRange = (dateKey) => convertToUTC(dateKey);
+
+const yearOfActualDate = { $year: { date: "$actualDate", timezone: TIME_ZONE } };
+const monthOfActualDate = { $month: { date: "$actualDate", timezone: TIME_ZONE } };
 
 /**
  * GET /api/stats/expense-dashboard?period=week|month
@@ -20,18 +43,15 @@ router.get("/expense-dashboard", async (req, res, next) => {
   try {
     const period = req.query.period === "month" ? "month" : "week";
     const days = period === "month" ? 30 : 7;
-    const today = startOfLocalDay(new Date());
-    const from = new Date(today);
-    from.setDate(today.getDate() - days + 1);
+    const todayKey = osloDateKey();
+    const fromKey = addDaysToDateKey(todayKey, -(days - 1));
+    const from = osloDayRange(fromKey)?.start;
+    const to = osloDayRange(todayKey)?.end;
 
     const [result] = await Expense.aggregate([
-      {
-        $addFields: {
-          actualDate: { $ifNull: ["$purchaseDate", "$registeredDate"] },
-          amount: { $ifNull: ["$finalPrice", "$price"] },
-        },
-      },
-      { $match: { actualDate: { $ne: null } } },
+      actualDateStage,
+      { $addFields: { amount: { $ifNull: ["$finalPrice", "$price"] } } },
+      actualDateNotNull,
       {
         $facet: {
           totals: [
@@ -92,7 +112,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
             },
           ],
           timeline: [
-            { $match: { actualDate: { $gte: from, $lte: new Date(today.getTime() + 86_399_999) } } },
+            { $match: { actualDate: { $gte: from, $lte: to } } },
             {
               $group: {
                 _id: {
@@ -116,7 +136,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
       period,
       days,
       from: from.toISOString(),
-      to: today.toISOString(),
+      to: to.toISOString(),
       totals: result?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
       highest: result?.highest?.[0] ?? { value: 0, name: "Ingen" },
       shops: result?.shops ?? [],
@@ -138,14 +158,9 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
 
     // 1) Find available years
     const yearsAgg = await Expense.aggregate([
-      {
-        $addFields: {
-          actualDate: {
-            $cond: [{ $ifNull: ["$purchaseDate", false] }, "$purchaseDate", "$registeredDate"],
-          },
-        },
-      },
-      { $group: { _id: { $year: "$actualDate" } } },
+      actualDateStage,
+      actualDateNotNull,
+      { $group: { _id: yearOfActualDate } },
       { $project: { _id: 0, year: { $toString: "$_id" } } },
       { $sort: { year: -1 } },
     ]);
@@ -164,17 +179,12 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
     const matchYears = doCompare ? [Number(year), Number(compareYear)] : [Number(year)];
 
     const monthTotals = await Expense.aggregate([
+      actualDateStage,
+      actualDateNotNull,
       {
         $addFields: {
-          actualDate: {
-            $cond: [{ $ifNull: ["$purchaseDate", false] }, "$purchaseDate", "$registeredDate"],
-          },
-        },
-      },
-      {
-        $addFields: {
-          y: { $year: "$actualDate" },
-          m: { $month: "$actualDate" },
+          y: yearOfActualDate,
+          m: monthOfActualDate,
         },
       },
       { $match: { y: { $in: matchYears } } },
@@ -321,6 +331,8 @@ router.get("/price-history", async (req, res, next) => {
   try {
     const data = await Expense.aggregate([
       { $match: { productName: new mongoose.Types.ObjectId(productId) } },
+      actualDateStage,
+      actualDateNotNull,
       {
         $lookup: {
           from: "products",
@@ -333,7 +345,7 @@ router.get("/price-history", async (req, res, next) => {
       {
         $project: {
           _id: 0,
-          date: { $ifNull: ["$purchaseDate", "$registeredDate"] },
+          date: "$actualDate",
           price: "$finalPrice",
           productName: "$product.name",
         },
@@ -362,8 +374,8 @@ router.get("/price-per-unit-history", async (req, res, next) => {
     const data = await Expense.aggregate([
       { $match: { productName: pid } },
 
-      // unify date
-      { $addFields: { actualDate: { $ifNull: ["$purchaseDate", "$registeredDate"] } } },
+      actualDateStage,
+      actualDateNotNull,
 
       // --- IMPORTANT: robust conversions (handles ObjectId OR string OR empty) ---
       {
@@ -501,12 +513,8 @@ router.get("/product-insights", async (req, res, next) => {
     const [result] = await Expense.aggregate([
       { $match: matchStage },
 
-      // unify date
-      {
-        $addFields: {
-          actualDate: { $ifNull: ["$purchaseDate", "$registeredDate"] },
-        },
-      },
+      actualDateStage,
+      actualDateNotNull,
 
       // robust conversions (shop/brand can be string or ObjectId)
       {
@@ -768,7 +776,7 @@ router.get("/product-insights", async (req, res, next) => {
           monthlySpend: [
             {
               $group: {
-                _id: { $dateToString: { format: "%Y-%m", date: "$actualDate" } },
+                _id: { $dateToString: { format: "%Y-%m", date: "$actualDate", timezone: TIME_ZONE } },
                 totalSpend: { $sum: "$finalPrice" },
                 purchases: { $sum: 1 },
                 avgPricePerUnit: { $avg: "$pricePerUnit" },
@@ -792,7 +800,7 @@ router.get("/product-insights", async (req, res, next) => {
           yearlyOverall: [
             {
               $group: {
-                _id: { $year: "$actualDate" },
+                _id: yearOfActualDate,
                 avgPricePerUnit: { $avg: "$pricePerUnit" },
                 purchases: { $sum: 1 },
                 min: { $min: "$pricePerUnit" },
@@ -816,7 +824,7 @@ router.get("/product-insights", async (req, res, next) => {
           yearlyByShop: [
             {
               $group: {
-                _id: { year: { $year: "$actualDate" }, shopName: "$shopName" },
+                _id: { year: yearOfActualDate, shopName: "$shopName" },
                 avgPricePerUnit: { $avg: "$pricePerUnit" },
                 purchases: { $sum: 1 },
               },
@@ -837,7 +845,7 @@ router.get("/product-insights", async (req, res, next) => {
           yearlyByBrand: [
             {
               $group: {
-                _id: { year: { $year: "$actualDate" }, brandName: "$brandName" },
+                _id: { year: yearOfActualDate, brandName: "$brandName" },
                 avgPricePerUnit: { $avg: "$pricePerUnit" },
                 purchases: { $sum: 1 },
               },
@@ -858,7 +866,7 @@ router.get("/product-insights", async (req, res, next) => {
             {
               $group: {
                 _id: {
-                  year: { $year: "$actualDate" },
+                  year: yearOfActualDate,
                   variantId: "$variantId",
                   variantName: "$variantName",
                 },
@@ -884,7 +892,7 @@ router.get("/product-insights", async (req, res, next) => {
             {
               $group: {
                 _id: {
-                  year: { $year: "$actualDate" },
+                  year: yearOfActualDate,
                   shopName: "$shopName",
                   variantId: "$variantId",
                   variantName: "$variantName",

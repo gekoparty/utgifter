@@ -1,61 +1,51 @@
 import React from "react";
-import { Card, CardContent, Typography, Divider, Stack, Chip, Box } from "@mui/material";
+import { Card, CardContent, Typography, Box } from "@mui/material";
 import dayjs from "dayjs";
 import { formatCurrency, fmtPct } from "../utils/format";
 
-const DetailRow = ({ label, value }) => (
-  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, py: 0.6 }}>
-    <Typography variant="body2" color="text.secondary">
+const DetailItem = ({ label, value }) => (
+  <Box sx={{ minWidth: 0 }}>
+    <Typography variant="caption" color="text.secondary">
       {label}
     </Typography>
-    <Typography variant="body2" fontWeight={800} sx={{ textAlign: "right" }}>
+    <Typography variant="body2" fontWeight={850} noWrap>
       {value}
     </Typography>
   </Box>
 );
 
-export default function ForecastCard({ freq, discount, top }) {
+export default function ForecastCard({ freq, discount }) {
   return (
-    <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
           Prognose og rabatter
         </Typography>
 
-        <Box sx={{ mt: 1 }}>
-          <DetailRow
+        <Box
+          sx={{
+            mt: 1,
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 1,
+          }}
+        >
+          <DetailItem
             label="Sist kjøpt"
             value={freq.lastPurchaseDate ? dayjs(freq.lastPurchaseDate).format("DD. MMM YYYY") : "—"}
           />
-          <DetailRow
+          <DetailItem
             label="Median intervall"
             value={Number.isFinite(freq.medianGapDays) ? `${Math.round(freq.medianGapDays)} dager` : "—"}
           />
-          <DetailRow
+          <DetailItem
             label="Neste kjøp"
             value={freq.nextPurchaseDate ? dayjs(freq.nextPurchaseDate).format("DD. MMM YYYY") : "—"}
           />
+          <DetailItem label="Rabattkjøp" value={discount.discountedPurchases ?? 0} />
+          <DetailItem label="Spart totalt" value={formatCurrency(discount.totalSavings ?? 0)} />
+          <DetailItem label="Sparerate" value={fmtPct(discount.savingsRate)} />
         </Box>
-
-        <Divider sx={{ my: 1.25 }} />
-
-        <Box>
-          <DetailRow label="Rabattkjøp" value={discount.discountedPurchases ?? 0} />
-          <DetailRow label="Spart totalt" value={formatCurrency(discount.totalSavings ?? 0)} />
-          <DetailRow label="Sparerate" value={fmtPct(discount.savingsRate)} />
-        </Box>
-
-        <Divider sx={{ my: 1.25 }} />
-
-        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-          {top.brandMostOften && <Chip label={`Vanligste merke: ${top.brandMostOften.name} (${top.brandMostOften.purchases})`} />}
-          {top.brandCheapestAvg && (
-            <Chip
-              variant="outlined"
-              label={`Billigst merke: ${top.brandCheapestAvg.name} (${top.brandCheapestAvg.avgPricePerUnit.toFixed(2)} kr/enhet)`}
-            />
-          )}
-        </Stack>
       </CardContent>
     </Card>
   );

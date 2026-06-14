@@ -58,8 +58,6 @@ export default function ProductPriceChart({ productId }) {
   const trend = data?.trend ?? {};
   const threeMonth = trend?.threeMonth ?? {};
   const discount = data?.discount ?? {};
-  const top = data?.top ?? {};
-
   const productNameStr = data?.product?.name || history?.[0]?.productName || "Product";
   const measurementUnit = data?.product?.measurementUnit || history?.[0]?.measurementUnit || "unit";
 
@@ -283,9 +281,11 @@ export default function ProductPriceChart({ productId }) {
   if (isLoading) return <Typography>Laster prishistorikk...</Typography>;
   if (error) return <Typography color="error">Kunne ikke laste prishistorikk.</Typography>;
 
+  const chartHeight = { xs: 300, md: 340, lg: 360 };
+
   return (
     <Box>
-      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, mb: 1.5, borderRadius: 2 }}>
         <HeaderControls
           productNameStr={productNameStr}
           mode={mode}
@@ -361,12 +361,12 @@ export default function ProductPriceChart({ productId }) {
           setVisibleYearSeries={setVisibleYearSeries}
         />
 
-        <Grid container spacing={2}>
+        <Grid container spacing={2} alignItems="flex-start">
           <Grid size={{ xs: 12, lg: 8 }}>
             <Box
               ref={chartBoxRef}
               sx={{
-                height: { xs: 320, md: 390 },
+                height: chartHeight,
                 border: "1px solid",
                 borderColor: "divider",
                 borderRadius: 2,
@@ -378,10 +378,16 @@ export default function ProductPriceChart({ productId }) {
           </Grid>
 
           <Grid size={{ xs: 12, lg: 4 }}>
-            <Box sx={{ display: "grid", gap: 2, height: "100%" }}>
+            <Box
+              sx={{
+                display: "grid",
+                gap: 1.25,
+                alignContent: "start",
+              }}
+            >
               <YearlyIncreaseCard yearly={yearly} />
-              <MonthlySpendCard monthlySpend={monthlySpend} top={top} />
-              <ForecastCard freq={freq} discount={discount} top={top} />
+              <MonthlySpendCard monthlySpend={monthlySpend} />
+              <ForecastCard freq={freq} discount={discount} />
             </Box>
           </Grid>
         </Grid>

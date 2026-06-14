@@ -52,7 +52,7 @@ categoriesRouter.get("/", async (req, res) => {
     }
 
     // Execute the query
-    const categories = await query.exec();
+    const categories = await query.lean().exec();
 
     res.json({ categories, meta: { totalRowCount } });
   } catch (err) {
@@ -67,7 +67,7 @@ categoriesRouter.get("/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid category id" });
     }
 
-    const category = await Category.findById(req.params.id);
+    const category = await Category.findById(req.params.id).lean();
     if (!category) {
       return res.status(404).json({ error: "Category not found" });
     }
@@ -87,7 +87,7 @@ categoriesRouter.post("/", async (req, res) => {
 
     const slug = slugify(name, { lower: true });
 
-    const existingCategory = await Category.findOne({ slug });
+    const existingCategory = await Category.findOne({ slug }).lean();
     if (existingCategory) {
       return res.status(400).json({ message: "duplicate" });
     }
@@ -139,7 +139,7 @@ categoriesRouter.put("/:id", async (req, res) => {
     const existingCategoryWithSlug = await Category.findOne({
       slug: slugify(name, { lower: true }),
       _id: { $ne: id }, // Exclude the current brand from the check
-    });
+    }).lean();
 
     if (existingCategoryWithSlug) {
       return res.status(400).json({ message: "duplicate" });

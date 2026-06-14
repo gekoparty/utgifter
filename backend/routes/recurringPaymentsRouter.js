@@ -1,6 +1,7 @@
 import express from "express";
 
 import RecurringPayment from "../models/recurringPaymentSchema.js";
+import { parseDateForStorage } from "../utils/dateUtils.js";
 import {
   assertRecurringExpenseExists,
   normalizePaymentKind,
@@ -24,7 +25,7 @@ recurringPaymentsRouter.post("/", async (req, res) => {
   try {
     const recurringExpenseId = req.body.recurringExpenseId;
     const periodKey = normalizePeriodKey(req.body.periodKey);
-    const paidDate = req.body.paidDate ? new Date(req.body.paidDate) : new Date();
+    const paidDate = req.body.paidDate ? parseDateForStorage(req.body.paidDate) : new Date();
     const amount = parseAmount(req.body.amount);
     const kind = normalizePaymentKind(req.body.kind);
     const status = normalizePaymentStatus({ kind, status: req.body.status });
@@ -99,7 +100,7 @@ recurringPaymentsRouter.put("/:id", async (req, res) => {
     const patch = {};
 
     if (req.body.paidDate) {
-      patch.paidDate = new Date(req.body.paidDate);
+      patch.paidDate = parseDateForStorage(req.body.paidDate);
     }
 
     if (req.body.amount != null) {

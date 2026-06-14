@@ -431,11 +431,12 @@ router.get("/summary", async (req, res) => {
       .sort({ type: 1, title: 1 })
       .lean();
 
+    const expIds = expenses.map((e) => e._id);
+
     const paymentsInRange = await RecurringPayment.find({
+      ...(expIds.length ? { recurringExpenseId: { $in: expIds } } : {}),
       periodKey: { $gte: histFromKey, $lte: toKey },
     }).lean();
-
-    const expIds = expenses.map((e) => e._id);
 
     const termsRows = expIds.length
       ? await RecurringTermsHistory.find({

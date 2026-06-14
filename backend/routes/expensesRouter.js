@@ -7,14 +7,11 @@ import Brand from "../models/brandSchema.js";
 import Shop from "../models/shopSchema.js";
 import Location from "../models/locationSchema.js";
 import Variant from "../models/variantSchema.js";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
-import { format } from "date-fns";
+import { convertToUTC, formatDate, parseDateForStorage } from "../utils/dateUtils.js";
 
 const expensesRouter = express.Router();
-const TIME_ZONE = "Europe/Oslo";
 
 // --- Utilities ---
-const formatDate = (date) => (date ? format(new Date(date), "dd MMMM yyyy") : "");
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const isHexObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
 
@@ -88,31 +85,26 @@ const getVariantNameFromProduct = (expense) => {
 };
 
 const filterByDate = (query, id, value) => {
-  const getDateBoundary = (dateStr, type) => {
-    if (!dateStr) return null;
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return null;
-
-    const zonedDate = toZonedTime(date, TIME_ZONE);
-    if (type === "start") zonedDate.setHours(0, 0, 0, 0);
-    else zonedDate.setHours(23, 59, 59, 999);
-
-    return fromZonedTime(zonedDate, TIME_ZONE);
-  };
-
   if (Array.isArray(value)) {
-    const startDate = getDateBoundary(value[0], "start");
-    const endDate = getDateBoundary(value[1], "end");
+    const startDate = value[0] ? convertToUTC(value[0])?.start : null;
+    const endDate = value[1] ? convertToUTC(value[1])?.end : null;
 
     if (startDate && endDate) query.where(id).gte(startDate).lte(endDate);
     else if (startDate) query.where(id).gte(startDate);
     else if (endDate) query.where(id).lte(endDate);
   } else {
-    const start = getDateBoundary(value, "start");
-    const end = getDateBoundary(value, "end");
+    const range = convertToUTC(value);
+    const start = range?.start;
+    const end = range?.end;
     if (start && end) query.where(id).gte(start).lte(end);
   }
 };
+
+const normalizeExpenseDates = (payload) => ({
+  ...payload,
+  purchaseDate: payload.purchaseDate ? parseDateForStorage(payload.purchaseDate) : null,
+  registeredDate: payload.registeredDate ? parseDateForStorage(payload.registeredDate) : null,
+});
 
 const filterByRange = (query, defaultField, value) => {
   let min = null;
@@ -436,13 +428,15 @@ expensesRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "Quantity must be at least 1" });
     }
 
+    const normalizedExpenseData = normalizeExpenseDates(expenseData);
+
     const expensesToInsert = Array.from({ length: qty }).map(() => ({
       productName: product._id,
       brandName: brand._id,
       shopName: shop._id,
       locationName: location?._id,
       variant: normalizedVariantId,
-      ...expenseData,
+      ...normalizedExpenseData,
     }));
 
     const savedExpenses = await Expense.insertMany(expensesToInsert);
@@ -512,7 +506,7 @@ expensesRouter.put("/:id", async (req, res) => {
       brandName: brand._id,
       shopName: shop._id,
       locationName: location?._id,
-      ...updateData,
+      ...normalizeExpenseDates(updateData),
     };
 
     if (variant !== undefined) {

@@ -1,55 +1,133 @@
-import React from "react";
-import { Card, CardContent, Typography, Box, Divider, Stack, Chip } from "@mui/material";
+import React, { useMemo } from "react";
+import {
+  Box,
+  Card,
+  CardContent,
+  Chip,
+  Stack,
+  Typography,
+} from "@mui/material";
 import { formatCurrency } from "../utils/format";
 
-export default function MonthlySpendCard({ monthlySpend, top }) {
-  return (
-    <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
-      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
-          Forbruk per måned
-        </Typography>
+const monthLabel = (monthKey) => {
+  const [year, month] = String(monthKey || "").split("-").map(Number);
+  if (!year || !month) return monthKey || "Ukjent";
+  return new Date(year, month - 1, 1).toLocaleDateString("nb-NO", {
+    month: "short",
+    year: "numeric",
+  });
+};
 
-        <Box sx={{ mt: 1, display: "grid", gap: 0.25, maxHeight: 240, overflow: "auto", pr: 0.5 }}>
-          {monthlySpend.slice(-8).map((month) => (
+export default function MonthlySpendCard({ monthlySpend }) {
+  const allRows = useMemo(() => {
+    return Array.isArray(monthlySpend) ? monthlySpend : [];
+  }, [monthlySpend]);
+
+  const latestRows = useMemo(() => allRows.slice(-2).reverse(), [allRows]);
+
+  const totalPurchases = allRows.reduce((sum, row) => sum + Number(row.purchases || 0), 0);
+  const totalSpend = allRows.reduce((sum, row) => sum + Number(row.totalSpend || 0), 0);
+  const avgSpendPerActiveMonth = allRows.length ? totalSpend / allRows.length : 0;
+
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 2 }}>
+      <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="flex-start"
+          spacing={1}
+          sx={{ mb: 1 }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
+              Kjøpsmåneder
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Siste {latestRows.length} av {allRows.length} måneder med kjøp.
+            </Typography>
+          </Box>
+
+          <Chip
+            size="small"
+            variant="outlined"
+            label={`${allRows.length} totalt`}
+            sx={{ flexShrink: 0, fontWeight: 800 }}
+          />
+        </Stack>
+
+        {allRows.length ? (
+          <Stack spacing={1}>
             <Box
-              key={month.month}
               sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 2,
-                py: 0.5,
-                borderBottom: "1px solid",
-                borderColor: "divider",
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                gap: 1,
+                p: 1,
+                borderRadius: 1.5,
+                bgcolor: "action.selected",
               }}
             >
-              <Typography variant="body2" color="text.secondary">
-                {month.month}
-              </Typography>
-              <Typography variant="body2" fontWeight={800}>
-                {formatCurrency(month.totalSpend)}
-              </Typography>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Alle kjøp
+                </Typography>
+                <Typography fontWeight={950} noWrap>{totalPurchases}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Snitt/mnd
+                </Typography>
+                <Typography fontWeight={950} noWrap>{formatCurrency(avgSpendPerActiveMonth)}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Totalt brukt
+                </Typography>
+                <Typography fontWeight={950} noWrap>{formatCurrency(totalSpend)}</Typography>
+              </Box>
             </Box>
-          ))}
-          {!monthlySpend.length && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Ingen månedlige data tilgjengelig.
-            </Typography>
-          )}
-        </Box>
 
-        <Divider sx={{ my: 1.5 }} />
+            {latestRows.map((month) => {
+              const spend = Number(month.totalSpend || 0);
 
-        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-          {top.shopMostOften && <Chip label={`Mest kjøpt: ${top.shopMostOften.name} (${top.shopMostOften.purchases})`} />}
-          {top.shopCheapestAvg && (
-            <Chip
-              variant="outlined"
-              label={`Billigst snitt: ${top.shopCheapestAvg.name} (${top.shopCheapestAvg.avgPricePerUnit.toFixed(2)} kr/enhet)`}
-            />
-          )}
-        </Stack>
+              return (
+                <Box
+                  key={month.month}
+                  sx={{
+                    px: 1,
+                    py: 0.75,
+                    borderRadius: 1.5,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Stack direction="row" justifyContent="space-between" spacing={2} alignItems="center">
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={900}>
+                        {monthLabel(month.month)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {Number(month.purchases || 0)} kjøp
+                        {Number.isFinite(Number(month.avgPricePerUnit))
+                          ? ` · snitt ${formatCurrency(month.avgPricePerUnit)}`
+                          : ""}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" fontWeight={950} sx={{ whiteSpace: "nowrap" }}>
+                      {formatCurrency(spend)}
+                    </Typography>
+                  </Stack>
+                </Box>
+              );
+            })}
+          </Stack>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Ingen kjøpsmåneder for dette produktet ennå.
+          </Typography>
+        )}
+
       </CardContent>
     </Card>
   );
