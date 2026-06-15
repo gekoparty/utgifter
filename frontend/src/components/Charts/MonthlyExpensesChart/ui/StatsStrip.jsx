@@ -14,16 +14,30 @@ export default function StatsStrip({ stats, doCompare }) {
       ? { label: "Median per måned", value: currencyFormatter(stats.medianPerMonth) }
       : null,
     Number.isFinite(stats.momPct)
-      ? { label: "Siste måned", value: pct(stats.momPct), tone: stats.momPct > 0 ? "warning" : "success" }
+      ? {
+          label: "Siste måned",
+          value: pct(stats.momPct),
+          tone: stats.momPct > 0 ? "warning" : "success",
+        }
       : null,
     doCompare && Number.isFinite(stats.yoyTotalPct)
-      ? { label: "Mot fjoråret", value: pct(stats.yoyTotalPct), tone: stats.yoyTotalPct > 0 ? "warning" : "success" }
+      ? {
+          label: "Mot fjoråret",
+          value: pct(stats.yoyTotalPct),
+          tone: stats.yoyTotalPct > 0 ? "warning" : "success",
+        }
       : null,
     stats.maxMonth
-      ? { label: "Høyeste måned", value: `${stats.maxMonth.month} · ${currencyFormatter(stats.maxMonth.value)}` }
+      ? {
+          label: "Høyeste måned",
+          value: `${stats.maxMonth.month} · ${currencyFormatter(stats.maxMonth.value)}`,
+        }
       : null,
     stats.minMonth
-      ? { label: "Laveste måned", value: `${stats.minMonth.month} · ${currencyFormatter(stats.minMonth.value)}` }
+      ? {
+          label: "Laveste måned",
+          value: `${stats.minMonth.month} · ${currencyFormatter(stats.minMonth.value)}`,
+        }
       : null,
     Number.isFinite(stats.runRate)
       ? { label: "Årstakt", value: currencyFormatter(stats.runRate) }

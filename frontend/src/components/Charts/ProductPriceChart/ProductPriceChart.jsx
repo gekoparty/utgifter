@@ -4,7 +4,15 @@ import { Paper, Typography, useTheme, Box, Chip, Grid } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
 
-import { echarts } from "../echartsCore";
+import {
+  echarts,
+  isChartDisposed,
+  safeDisposeChart,
+  safeOffChart,
+  safeOnChart,
+  safeResizeChart,
+  safeSetChartOption,
+} from "../echartsCore";
 import { useProductInsights } from "./hooks/useProductInsights";
 import { usePreparedSeries } from "./hooks/usePreparedSeries";
 import { buildOption } from "./echarts/buildOption";
@@ -240,33 +248,32 @@ export default function ProductPriceChart({ productId }) {
 
     return () => {
       chartInstanceRef.current = null;
-      if (!chart.isDisposed()) chart.dispose();
+      safeDisposeChart(chart);
     };
   }, [productId, isLoading, error]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return;
+    if (isChartDisposed(chart)) return;
 
-    chart.setOption(option, { notMerge: true, lazyUpdate: true });
+    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
 
     requestAnimationFrame(() => {
-      if (!chart.isDisposed()) chart.resize();
+      safeResizeChart(chart);
     });
   }, [option]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return undefined;
+    if (isChartDisposed(chart)) return undefined;
 
     Object.entries(onEvents ?? {}).forEach(([eventName, handler]) => {
-      if (typeof handler === "function") chart.on(eventName, handler);
+      if (typeof handler === "function") safeOnChart(chart, eventName, handler);
     });
 
     return () => {
-      if (chart.isDisposed()) return;
       Object.entries(onEvents ?? {}).forEach(([eventName, handler]) => {
-        if (typeof handler === "function") chart.off(eventName, handler);
+        if (typeof handler === "function") safeOffChart(chart, eventName, handler);
       });
     };
   }, [onEvents]);
@@ -277,8 +284,7 @@ export default function ProductPriceChart({ productId }) {
 
     const observer = new ResizeObserver(() => {
       const chart = chartInstanceRef.current;
-      if (!chart || chart.isDisposed?.()) return;
-      chart.resize();
+      safeResizeChart(chart);
     });
 
     observer.observe(element);

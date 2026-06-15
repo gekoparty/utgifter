@@ -1,22 +1,40 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Paper, Typography, useTheme, Box, CircularProgress } from "@mui/material";
 import dayjs from "dayjs";
 
-import { echarts } from "../echartsCore";
+import { useAppPreferences } from "../../../store/Store";
+import {
+  echarts,
+  isChartDisposed,
+  safeDisposeChart,
+  safeOffChart,
+  safeOnChart,
+  safeResizeChart,
+  safeSetChartOption,
+} from "../echartsCore";
 import { useExpensesByMonthSummary } from "./hooks/useExpensesByMonth";
 import { buildOption } from "./echarts/buildOption";
 
 import HeaderControls from "./ui/headerControls";
 import StatsStrip from "./ui/StatsStrip";
 import CategorySpendChart from "./ui/CategorySpendChart";
+import CategoryTrendChart from "./ui/CategoryTrendChart";
 
 export default function MonthlyExpensesChart({ onMonthClick }) {
   const theme = useTheme();
+  const { preferences, setPreference } = useAppPreferences();
   const chartInstanceRef = useRef(null);
   const chartBoxRef = useRef(null);
 
   const [comparePreviousYear, setComparePreviousYear] = useState(true);
   const [selectedYear, setSelectedYear] = useState(dayjs().year().toString());
+  const [categoryScope, setCategoryScope] = useState("year");
+  const showExtraCharts = preferences.monthlyStatsExtraCharts === true;
+
+  const setShowExtraCharts = useCallback(
+    (value) => setPreference("monthlyStatsExtraCharts", Boolean(value)),
+    [setPreference],
+  );
 
   const { data, isLoading, error } = useExpensesByMonthSummary({
     year: selectedYear,
@@ -27,7 +45,10 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
   const year = data?.year ?? selectedYear;
   const compareYear = data?.compareYear ?? null;
   const months = data?.months ?? [];
-  const categories = data?.categories ?? [];
+  const categoryBreakdowns = data?.categoryBreakdowns ?? {};
+  const categories = categoryBreakdowns?.[categoryScope] ?? data?.categories ?? [];
+  const categoryMonthlyTrend = data?.categoryMonthlyTrend ?? [];
+  const categoryMonth = data?.categoryMonth ?? null;
   const stats = data?.stats ?? null;
 
   useEffect(() => {
@@ -60,24 +81,24 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
 
     return () => {
       chartInstanceRef.current = null;
-      if (!chart.isDisposed()) chart.dispose();
+      safeDisposeChart(chart);
     };
   }, [error, isLoading, years.length]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return;
+    if (isChartDisposed(chart)) return;
 
-    chart.setOption(option, { notMerge: true, lazyUpdate: true });
+    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
 
     requestAnimationFrame(() => {
-      if (!chart.isDisposed()) chart.resize();
+      safeResizeChart(chart);
     });
   }, [option]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return undefined;
+    if (isChartDisposed(chart)) return undefined;
 
     const handleClick = (event) => {
       if (event?.componentType !== "series") return;
@@ -91,10 +112,10 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
       }
     };
 
-    chart.on("click", handleClick);
+    safeOnChart(chart, "click", handleClick);
 
     return () => {
-      if (!chart.isDisposed()) chart.off("click", handleClick);
+      safeOffChart(chart, "click", handleClick);
     };
   }, [onMonthClick, year]);
 
@@ -104,8 +125,7 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
 
     const observer = new ResizeObserver(() => {
       const chart = chartInstanceRef.current;
-      if (!chart || chart.isDisposed?.()) return;
-      chart.resize();
+      safeResizeChart(chart);
     });
 
     observer.observe(element);
@@ -160,6 +180,8 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
         canComparePrev={canComparePrev}
         doCompare={doCompare}
         previousYearKey={previousYearKey}
+        showExtraCharts={showExtraCharts}
+        setShowExtraCharts={setShowExtraCharts}
       />
 
       <StatsStrip stats={stats} doCompare={doCompare} />
@@ -167,17 +189,19 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            lg: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
-          },
+          gridTemplateColumns: showExtraCharts
+            ? {
+                xs: "1fr",
+                lg: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
+              }
+            : "1fr",
           gap: 1.5,
         }}
       >
         <Box
           ref={chartBoxRef}
           sx={{
-            height: { xs: 320, md: 390 },
+            height: { xs: 320, md: showExtraCharts ? 390 : 430 },
             minWidth: 0,
             border: "1px solid",
             borderColor: "divider",
@@ -188,8 +212,22 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
           }}
         />
 
-        <CategorySpendChart categories={categories} />
+        {showExtraCharts ? (
+          <CategorySpendChart
+            categories={categories}
+            scope={categoryScope}
+            onScopeChange={setCategoryScope}
+            year={year}
+            month={categoryMonth}
+          />
+        ) : null}
       </Box>
+
+      {showExtraCharts ? (
+        <Box sx={{ mt: 1.5 }}>
+          <CategoryTrendChart rows={categoryMonthlyTrend} year={year} />
+        </Box>
+      ) : null}
     </Paper>
   );
 }

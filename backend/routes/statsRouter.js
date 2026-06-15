@@ -229,12 +229,14 @@ router.get("/expense-dashboard", async (req, res, next) => {
 
 /**
  * GET /api/stats/expenses-by-month-summary?year=2025&compare=1
- * (unchanged)
  */
 router.get("/expenses-by-month-summary", async (req, res, next) => {
   try {
     const requestedYear = req.query.year ? String(req.query.year) : null;
     const compare = req.query.compare !== "0"; // default true
+    const categoryScope = ["month", "year", "all"].includes(req.query.categoryScope)
+      ? req.query.categoryScope
+      : "year";
 
     // 1) Find available years
     const yearsAgg = await Expense.aggregate([
@@ -265,13 +267,14 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
         $addFields: {
           y: yearOfActualDate,
           m: monthOfActualDate,
+          amount: { $ifNull: ["$finalPrice", "$price"] },
         },
       },
       { $match: { y: { $in: matchYears } } },
       {
         $group: {
           _id: { y: "$y", m: "$m" },
-          total: { $sum: "$finalPrice" },
+          total: { $sum: "$amount" },
         },
       },
       {
@@ -284,25 +287,19 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       },
     ]);
 
-    const categoryTotals = await Expense.aggregate([
-      actualDateStage,
-      actualDateNotNull,
-      {
-        $addFields: {
-          y: yearOfActualDate,
-          amount: { $ifNull: ["$finalPrice", "$price"] },
-        },
-      },
-      { $match: { y: Number(year) } },
-      {
-        $lookup: {
-          from: "products",
-          localField: "productName",
-          foreignField: "_id",
-          as: "product",
-        },
-      },
-      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+    const requestedCategoryMonth = Number(req.query.categoryMonth);
+    const latestMonthWithSpend = monthTotals.reduce((latest, row) => {
+      if (Number(row.y) !== Number(year) || Number(row.total || 0) <= 0) return latest;
+      return Math.max(latest, Number(row.m || 0));
+    }, 0);
+    const categoryMonth =
+      Number.isInteger(requestedCategoryMonth) &&
+      requestedCategoryMonth >= 1 &&
+      requestedCategoryMonth <= 12
+        ? requestedCategoryMonth
+        : latestMonthWithSpend || new Date().getMonth() + 1;
+
+    const categoryGroupStages = [
       {
         $group: {
           _id: { $ifNull: ["$product.category", "Ikke kategorisert"] },
@@ -319,7 +316,64 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
         },
       },
       { $sort: { value: -1 } },
+    ];
+
+    const [categoryBreakdowns = { month: [], year: [], all: [] }] = await Expense.aggregate([
+      actualDateStage,
+      actualDateNotNull,
+      {
+        $addFields: {
+          y: yearOfActualDate,
+          m: monthOfActualDate,
+          amount: { $ifNull: ["$finalPrice", "$price"] },
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productName",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+      {
+        $facet: {
+          month: [
+            { $match: { y: Number(year), m: categoryMonth } },
+            ...categoryGroupStages,
+          ],
+          year: [{ $match: { y: Number(year) } }, ...categoryGroupStages],
+          all: categoryGroupStages,
+          monthlyTrend: [
+            { $match: { y: Number(year) } },
+            {
+              $group: {
+                _id: {
+                  month: "$m",
+                  category: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+                },
+                value: { $sum: "$amount" },
+                count: { $sum: 1 },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                month: "$_id.month",
+                name: "$_id.category",
+                value: 1,
+                count: 1,
+              },
+            },
+            { $sort: { month: 1, value: -1 } },
+          ],
+        },
+      },
     ]);
+    const categoryTotals =
+      categoryBreakdowns[categoryScope] ?? categoryBreakdowns.year ?? [];
+    const categoryMonthlyTrend = categoryBreakdowns.monthlyTrend ?? [];
 
     // Map: "YYYY-MM" -> total
     const totalsMap = new Map();
@@ -418,6 +472,10 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       compareYear,
       months,
       categories: categoryTotals,
+      categoryBreakdowns,
+      categoryMonthlyTrend,
+      categoryScope,
+      categoryMonth,
       stats: {
         currentSum,
         previousSum,

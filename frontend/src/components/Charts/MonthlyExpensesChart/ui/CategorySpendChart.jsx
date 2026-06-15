@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Box, Stack, Typography, useTheme } from "@mui/material";
-import { echarts } from "../../echartsCore";
+import {
+  Box,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import {
+  echarts,
+  isChartDisposed,
+  safeDisposeChart,
+  safeResizeChart,
+  safeSetChartOption,
+} from "../../echartsCore";
 
 const NOK = new Intl.NumberFormat("nb-NO", {
   style: "currency",
@@ -18,6 +31,23 @@ const CHART_COLORS = [
   "#f97316",
   "#94a3b8",
 ];
+
+const monthLabel = (year, month) => {
+  const numericYear = Number(year);
+  const numericMonth = Number(month);
+  if (!numericYear || !numericMonth) return "Siste måned";
+
+  return new Date(numericYear, numericMonth - 1, 1).toLocaleDateString("nb-NO", {
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const scopeLabel = (scope, year, month) => {
+  if (scope === "all") return "Totalt";
+  if (scope === "month") return monthLabel(year, month);
+  return year ? `År ${year}` : "År";
+};
 
 const compactCategories = (categories) => {
   const rows = Array.isArray(categories)
@@ -45,7 +75,13 @@ const compactCategories = (categories) => {
   return other.value > 0 ? [...visible, other] : visible;
 };
 
-export default function CategorySpendChart({ categories }) {
+export default function CategorySpendChart({
+  categories,
+  scope = "year",
+  onScopeChange,
+  year,
+  month,
+}) {
   const theme = useTheme();
   const chartRef = useRef(null);
   const chartInstanceRef = useRef(null);
@@ -103,16 +139,16 @@ export default function CategorySpendChart({ categories }) {
 
     return () => {
       chartInstanceRef.current = null;
-      if (!chart.isDisposed()) chart.dispose();
+      safeDisposeChart(chart);
     };
   }, [rows.length]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
-    if (!chart || chart.isDisposed()) return;
-    chart.setOption(option, { notMerge: true, lazyUpdate: true });
+    if (isChartDisposed(chart)) return;
+    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
     requestAnimationFrame(() => {
-      if (!chart.isDisposed()) chart.resize();
+      safeResizeChart(chart);
     });
   }, [option]);
 
@@ -122,8 +158,7 @@ export default function CategorySpendChart({ categories }) {
 
     const observer = new ResizeObserver(() => {
       const chart = chartInstanceRef.current;
-      if (!chart || chart.isDisposed?.()) return;
-      chart.resize();
+      safeResizeChart(chart);
     });
 
     observer.observe(element);
@@ -144,18 +179,46 @@ export default function CategorySpendChart({ categories }) {
         flexDirection: "column",
       }}
     >
-      <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 0.5 }}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "stretch", sm: "flex-start" }}
+        spacing={1}
+        sx={{ mb: 0.75 }}
+      >
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 950 }}>
             Utgifter per kategori
           </Typography>
           <Typography variant="caption" color="text.secondary">
+            {scopeLabel(scope, year, month)} ·{" "}
             {rows.length ? `${rows.length} kategorier` : "Ingen kategorier"}
           </Typography>
         </Box>
-        <Typography variant="subtitle2" sx={{ fontWeight: 950, whiteSpace: "nowrap" }}>
-          {NOK.format(total)}
-        </Typography>
+        <Stack spacing={0.75} alignItems={{ xs: "stretch", sm: "flex-end" }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 950, whiteSpace: "nowrap" }}>
+            {NOK.format(total)}
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={scope}
+            onChange={(_, value) => value && onScopeChange?.(value)}
+            sx={{
+              "& .MuiToggleButton-root": {
+                px: 0.9,
+                py: 0.25,
+                textTransform: "none",
+                fontWeight: 800,
+                fontSize: 12,
+              },
+            }}
+          >
+            <ToggleButton value="month">Måned</ToggleButton>
+            <ToggleButton value="year">År</ToggleButton>
+            <ToggleButton value="all">Totalt</ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
       </Stack>
 
       {rows.length ? (
