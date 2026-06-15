@@ -32,6 +32,7 @@ const BASE_DEFAULT_PREFERENCES = {
   rowsPerPage: 10,
   sidebarOpen: true,
   expenseColumnVisibility: {},
+  monthlyStatsExtraCharts: false,
 };
 
 const getPreferredThemeMode = () => {

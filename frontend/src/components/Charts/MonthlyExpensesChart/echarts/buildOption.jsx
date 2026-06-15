@@ -1,6 +1,12 @@
 import { currencyFormatter, compactNOK, pct } from "../utils/format";
 
-export function buildOption({ theme, months, doCompare, selectedYear, compareYear }) {
+export function buildOption({
+  theme,
+  months,
+  doCompare,
+  selectedYear,
+  compareYear,
+}) {
   const textColor = theme.palette.text.primary;
   const secondaryText = theme.palette.text.secondary;
   const gridLine = theme.palette.divider;
@@ -18,7 +24,9 @@ export function buildOption({ theme, months, doCompare, selectedYear, compareYea
 
   const maxValue = Math.max(
     0,
-    ...months.flatMap((m) => (doCompare ? [m.current ?? 0, m.previous ?? 0] : [m.current ?? 0]))
+    ...months.flatMap((m) =>
+      doCompare ? [m.current ?? 0, m.previous ?? 0] : [m.current ?? 0],
+    ),
   );
 
   const yMax = maxValue > 0 ? maxValue * 1.2 : 1000;
@@ -43,12 +51,12 @@ export function buildOption({ theme, months, doCompare, selectedYear, compareYea
       borderColor: theme.palette.divider,
       borderWidth: 1,
       textStyle: { color: textColor },
-      extraCssText: "box-shadow: 0 6px 20px rgba(0,0,0,0.15); border-radius: 8px;",
+      extraCssText:
+        "box-shadow: 0 6px 20px rgba(0,0,0,0.15); border-radius: 8px;",
       formatter: (params) => {
         const monthName = params?.[0]?.axisValue ?? "";
         const lines = [`<div><strong>${monthName}</strong></div>`];
 
-        // show current year first
         const sorted = [...(params || [])].sort((a, b) => {
           if (a.seriesName === String(selectedYear)) return -1;
           if (b.seriesName === String(selectedYear)) return 1;
@@ -56,28 +64,33 @@ export function buildOption({ theme, months, doCompare, selectedYear, compareYea
         });
 
         sorted.forEach((p) => {
-          const v = p?.data?.value ?? p?.value ?? 0;
+          const value = p?.data?.value ?? p?.value ?? 0;
           const dot = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:8px;"></span>`;
           lines.push(
             `<div style="margin-top:6px;">
-              <div>${dot}<span style="font-weight:700">${p.seriesName}:</span> ${currencyFormatter(v)}</div>
-            </div>`
+              <div>${dot}<span style="font-weight:700">${p.seriesName}:</span> ${currencyFormatter(value)}</div>
+            </div>`,
           );
         });
 
-        // month YoY (already computed by backend)
         if (doCompare) {
-          const cur = params.find((p) => p.seriesName === String(selectedYear))?.data?.value ?? 0;
-          const prev = params.find((p) => p.seriesName === String(compareYear))?.data?.value ?? 0;
-
-          // Prefer backend yoyPct from currentSeries point
-          const curPoint = params.find((p) => p.seriesName === String(selectedYear))?.data;
-          const yoy = curPoint?.yoyPct ?? (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+          const current =
+            params.find((p) => p.seriesName === String(selectedYear))?.data
+              ?.value ?? 0;
+          const previous =
+            params.find((p) => p.seriesName === String(compareYear))?.data
+              ?.value ?? 0;
+          const currentPoint = params.find(
+            (p) => p.seriesName === String(selectedYear),
+          )?.data;
+          const yoy =
+            currentPoint?.yoyPct ??
+            (previous > 0 ? ((current - previous) / previous) * 100 : null);
 
           lines.push(
             `<div style="margin-top:8px;color:${secondaryText};font-size:12px;">
               YoY (måned): ${yoy == null ? "—" : pct(yoy)}
-            </div>`
+            </div>`,
           );
         }
 
@@ -96,7 +109,7 @@ export function buildOption({ theme, months, doCompare, selectedYear, compareYea
     yAxis: {
       type: "value",
       max: yMax,
-      axisLabel: { color: secondaryText, formatter: (v) => compactNOK(v) },
+      axisLabel: { color: secondaryText, formatter: (value) => compactNOK(value) },
       splitLine: { lineStyle: { color: gridLine, type: "dashed" } },
     },
 

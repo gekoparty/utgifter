@@ -20,6 +20,8 @@ export default function HeaderControls({
   canComparePrev,
   doCompare,
   previousYearKey,
+  showExtraCharts,
+  setShowExtraCharts,
 }) {
   return (
     <Stack
@@ -35,7 +37,9 @@ export default function HeaderControls({
           Månedlige utgifter
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {doCompare ? `${selectedYear} sammenlignet med ${previousYearKey}` : `Tall for ${selectedYear}`}
+          {doCompare
+            ? `${selectedYear} sammenlignet med ${previousYearKey}`
+            : `Tall for ${selectedYear}`}
         </Typography>
       </Box>
 
@@ -66,7 +70,31 @@ export default function HeaderControls({
           }}
         />
 
-        <FormControl variant="outlined" size="small" sx={{ minWidth: { xs: "100%", sm: 130 } }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showExtraCharts}
+              onChange={(e) => setShowExtraCharts(e.target.checked)}
+              color="primary"
+            />
+          }
+          label="Ekstra grafer"
+          sx={{
+            color: "text.secondary",
+            m: 0,
+            px: 1.25,
+            py: 0.5,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
+        />
+
+        <FormControl
+          variant="outlined"
+          size="small"
+          sx={{ minWidth: { xs: "100%", sm: 130 } }}
+        >
           <InputLabel id="year-select-label">År</InputLabel>
           <Select
             labelId="year-select-label"
@@ -85,4 +113,3 @@ export default function HeaderControls({
     </Stack>
   );
 }
-
