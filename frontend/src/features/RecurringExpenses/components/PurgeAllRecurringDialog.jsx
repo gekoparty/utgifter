@@ -4,12 +4,11 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
   Typography,
   TextField,
   Stack,
 } from "@mui/material";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 
 const CONFIRM_TEXT = "SLETT ALT";
 
@@ -46,14 +45,16 @@ export default function PurgeAllRecurringDialog({ open, onClose, onConfirm }) {
             placeholder={CONFIRM_TEXT}
             fullWidth
           />
+
+          <DialogFormActions
+            isDelete
+            disabled={!ok}
+            onCancel={onClose}
+            onConfirm={onConfirm}
+            submitLabel="Slett alt"
+          />
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Avbryt</Button>
-        <Button color="error" variant="contained" disabled={!ok} onClick={onConfirm}>
-          Slett alt
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

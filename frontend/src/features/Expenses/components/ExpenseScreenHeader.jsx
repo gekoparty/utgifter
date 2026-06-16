@@ -1,13 +1,8 @@
-import {
-  Box,
-  Button,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from "@mui/material";
+import { Button, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DashboardIcon from "@mui/icons-material/Dashboard";
+import PageHeader from "../../../components/commons/Layout/PageHeader";
+import SegmentedControl from "../../../components/commons/Controls/SegmentedControl";
 import { PRICE_MODE_LABELS } from "../constants/expenseScreenConstants";
 
 export default function ExpenseScreenHeader({
@@ -15,36 +10,20 @@ export default function ExpenseScreenHeader({
   onAdd,
   onToggleDashboard,
   onPriceModeChange,
-  palette,
   priceDisplayMode,
   totalRowCount,
 }) {
+  const priceModeOptions = Object.entries(PRICE_MODE_LABELS).map(([mode, label]) => ({
+    value: mode,
+    label,
+  }));
+
   return (
-    <Box
-      sx={{
-        mb: 2,
-        p: 1.5,
-        borderRadius: 3,
-        bgcolor: "background.paper",
-        border: `1px solid ${palette.divider}`,
-      }}
-    >
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
-        justifyContent="space-between"
-        alignItems={{ xs: "stretch", sm: "center" }}
-      >
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-            Utgifter
-          </Typography>
-
-          <Typography variant="body2" color="text.secondary">
-            {totalRowCount ?? 0} registrerte utgifter
-          </Typography>
-        </Box>
-
+    <PageHeader
+      title="Utgifter"
+      subtitle={`${totalRowCount ?? 0} registrerte utgifter`}
+      sx={{ borderRadius: 3 }}
+      action={
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1}
@@ -54,12 +33,12 @@ export default function ExpenseScreenHeader({
             "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
           }}
         >
-          <ToggleButtonGroup
-            exclusive
-            size="small"
+          <SegmentedControl
             value={priceDisplayMode}
-            onChange={onPriceModeChange}
-            aria-label="Prisvisning"
+            onChange={(value) => onPriceModeChange?.(null, value)}
+            options={priceModeOptions}
+            ariaLabel="Prisvisning"
+            fullWidth
             sx={(theme) => ({
               alignSelf: { xs: "stretch", sm: "center" },
               bgcolor:
@@ -70,12 +49,14 @@ export default function ExpenseScreenHeader({
               borderColor: theme.palette.divider,
               borderRadius: 999,
               p: 0.25,
+              width: { xs: "100%", sm: "auto" },
               "& .MuiToggleButton-root": {
                 border: 0,
                 borderRadius: 999,
                 color: "text.secondary",
                 fontWeight: 800,
                 px: 1.5,
+                py: 0.35,
                 textTransform: "none",
                 width: { xs: "33.333%", sm: "auto" },
                 "&.Mui-selected": {
@@ -85,13 +66,7 @@ export default function ExpenseScreenHeader({
                 },
               },
             })}
-          >
-            {Object.entries(PRICE_MODE_LABELS).map(([mode, label]) => (
-              <ToggleButton key={mode} value={mode}>
-                {label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
+          />
 
           <Button
             size="small"
@@ -123,7 +98,7 @@ export default function ExpenseScreenHeader({
             Ny utgift
           </Button>
         </Stack>
-      </Stack>
-    </Box>
+      }
+    />
   );
 }

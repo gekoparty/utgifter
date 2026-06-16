@@ -1,16 +1,14 @@
-// components/HardDeleteMortgageDialog.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
   Typography,
   TextField,
   Stack,
 } from "@mui/material";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 
 export default function HardDeleteMortgageDialog({
   open,
@@ -25,7 +23,10 @@ export default function HardDeleteMortgageDialog({
     if (open) setText("");
   }, [open]);
 
-  const ok = useMemo(() => String(text || "").trim().toUpperCase() === String(confirmWord).toUpperCase(), [text, confirmWord]);
+  const ok = useMemo(
+    () => String(text || "").trim().toUpperCase() === String(confirmWord).toUpperCase(),
+    [text, confirmWord],
+  );
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -36,20 +37,27 @@ export default function HardDeleteMortgageDialog({
             Dette kan ikke angres.
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Dette sletter <b>{title || "boliglånet"}</b> og all historikk (payments + terms history).
+            Dette sletter <b>{title || "boliglånet"}</b> og all historikk.
           </Typography>
           <Typography variant="body2">
             Skriv <b>{confirmWord}</b> for å bekrefte:
           </Typography>
-          <TextField value={text} onChange={(e) => setText(e.target.value)} placeholder={confirmWord} />
+          <TextField
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={confirmWord}
+            fullWidth
+          />
+
+          <DialogFormActions
+            isDelete
+            disabled={!ok}
+            onCancel={onClose}
+            onConfirm={onConfirm}
+            submitLabel="Slett permanent"
+          />
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Avbryt</Button>
-        <Button color="error" variant="contained" disabled={!ok} onClick={onConfirm}>
-          Slett permanent
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

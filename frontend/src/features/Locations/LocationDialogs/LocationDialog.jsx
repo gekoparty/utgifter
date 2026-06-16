@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, TextField, CircularProgress, Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
-import FieldErrorText from "../../../components/commons/ErrorHandling/FieldErrorText";
-import FormErrorAlert from "../../../components/commons/ErrorHandling/FormErrorAlert";
+import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
+import EntityNameField from "../../../components/commons/Forms/EntityNameField";
 import useLocationDialog from "../UseLocation/useLocationDialog";
 
 const LocationDialog = ({
@@ -31,16 +32,10 @@ const LocationDialog = ({
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
-  // Same UX as BrandDialog: initialize when opened
   useEffect(() => {
     if (!open) return;
-
-    setLocation(
-      isEdit && locationToEdit
-        ? locationToEdit
-        : { name: "" } // ADD mode or fallback
-    );
-  }, [open, mode, locationToEdit]);
+    setLocation(isEdit && locationToEdit ? locationToEdit : { name: "" });
+  }, [open, isEdit, locationToEdit, setLocation]);
 
   const handleClose = () => {
     resetFormAndErrors();
@@ -53,7 +48,7 @@ const LocationDialog = ({
     if (isDelete) {
       const ok = await handleDeleteLocation(locationToEdit);
       if (ok) {
-        onSuccess(locationToEdit); // keep same pattern: caller decides message
+        onSuccess(locationToEdit);
         handleClose();
       } else {
         onError?.();
@@ -75,73 +70,40 @@ const LocationDialog = ({
   const dialogTitle = isDelete
     ? "Bekreft sletting"
     : isEdit
-    ? "Rediger sted"
-    : "Nytt sted";
-
-  const confirmButtonLabel = isDelete ? "Slett" : "Lagre";
-  const confirmButtonColor = isDelete ? "error" : "primary";
-
-  const renderBody = () =>
-    isDelete ? (
-      <Typography>
-        Er du sikker på at du vil slette{" "}
-        <strong>"{locationToEdit?.name}"</strong>? Utgifter tilhørende dette stedet vil
-        også påvirkes.
-      </Typography>
-    ) : (
-      <>
-        {displayError && (
-          <FormErrorAlert resource="locations" />
-        )}
-        <TextField
-          autoFocus
-          fullWidth
-          size="small"
-          label="Sted"
-          value={location?.name || ""}
-          error={Boolean(validationError?.name)}
-          disabled={loading}
-          onChange={(e) => {
-            setLocation({ ...location, name: e.target.value });
-            resetValidationErrors();
-            resetServerError();
-          }}
-        />
-        {(displayError || validationError) && (
-          <FieldErrorText resource="locations" field="name" />
-        )}
-      </>
-    );
+      ? "Rediger sted"
+      : "Nytt sted";
 
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 2 }}>
-          {renderBody()}
-          <Stack
-            direction={{ xs: "column-reverse", sm: "row" }}
-            justifyContent="flex-end"
-            spacing={1.5}
-            sx={{
-              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
-            }}
-          >
-            <Button onClick={handleClose} disabled={loading}>
-              Avbryt
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color={confirmButtonColor}
-              disabled={loading || (!isDelete && !isFormValid())}
-            >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                confirmButtonLabel
-              )}
-            </Button>
-          </Stack>
+          {isDelete ? (
+            <DeleteConfirmation
+              name={locationToEdit?.name}
+              impactText="Utgifter tilhørende dette stedet vil også påvirkes."
+            />
+          ) : (
+            <EntityNameField
+              resource="locations"
+              label="Sted"
+              value={location?.name}
+              error={validationError?.name}
+              disabled={loading}
+              showFormError={Boolean(displayError)}
+              onChange={(e) => {
+                setLocation({ ...location, name: e.target.value });
+                resetValidationErrors();
+                resetServerError();
+              }}
+            />
+          )}
+
+          <DialogFormActions
+            loading={loading}
+            isDelete={isDelete}
+            disabled={!isDelete && !isFormValid()}
+            onCancel={handleClose}
+          />
         </Stack>
       </form>
     </BasicDialog>

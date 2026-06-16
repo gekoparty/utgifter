@@ -4,18 +4,17 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Stack,
   TextField,
-  Button,
   Typography,
 } from "@mui/material";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 
-const toMonthInput = (pk) => String(pk || "").trim(); // "YYYY-MM"
+const toMonthInput = (pk) => String(pk || "").trim();
 
 export default function PauseDialog({
   open,
-  mode, // "CREATE" | "EDIT"
+  mode,
   onClose,
   onSubmit,
   initial,
@@ -38,16 +37,17 @@ export default function PauseDialog({
     }
   }, [open, init]);
 
-  const setField = useCallback((k, v) => {
-    setForm((p) => ({ ...p, [k]: v }));
+  const setField = useCallback((key, value) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
     setErr("");
   }, []);
 
   const submit = useCallback(async () => {
     if (!/^\d{4}-\d{2}$/.test(form.from) || !/^\d{4}-\d{2}$/.test(form.to)) {
-      setErr("from/to må være YYYY-MM");
+      setErr("Fra/til må være YYYY-MM");
       return;
     }
+
     if (form.from > form.to) {
       setErr("Fra-måned må være før eller lik til-måned");
       return;
@@ -69,7 +69,7 @@ export default function PauseDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Når en regning er pauset, vises den i måneden med status “Pauset”
+            Når en regning er pauset, vises den i måneden med status "Pauset"
             og kan oppheves senere.
           </Typography>
 
@@ -97,16 +97,15 @@ export default function PauseDialog({
             fullWidth
           />
 
-          {err && <Typography color="error">{err}</Typography>}
+          {err ? <Typography color="error">{err}</Typography> : null}
+
+          <DialogFormActions
+            onCancel={onClose}
+            onConfirm={submit}
+            submitLabel="Lagre"
+          />
         </Stack>
       </DialogContent>
-
-      <DialogActions>
-        <Button onClick={onClose}>Avbryt</Button>
-        <Button variant="contained" onClick={submit}>
-          Lagre
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

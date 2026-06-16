@@ -1,5 +1,6 @@
 import React from "react";
-import { Box, Paper, Typography } from "@mui/material";
+import { Box } from "@mui/material";
+import KpiCard from "../../../commons/DataDisplay/KpiCard";
 import { currencyFormatter, pct } from "../utils/format";
 
 export default function StatsStrip({ stats, doCompare }) {
@@ -58,47 +59,12 @@ export default function StatsStrip({ stats, doCompare }) {
       }}
     >
       {metrics.map((metric) => (
-        <Paper
+        <KpiCard
           key={metric.label}
-          variant="outlined"
-          sx={{
-            p: 1.5,
-            borderRadius: 2,
-            minHeight: 78,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            bgcolor: metric.tone === "primary" ? "primary.main" : "background.paper",
-            color: metric.tone === "primary" ? "primary.contrastText" : "text.primary",
-          }}
-        >
-          <Typography
-            variant="caption"
-            sx={{
-              color: metric.tone === "primary" ? "inherit" : "text.secondary",
-              opacity: metric.tone === "primary" ? 0.85 : 1,
-              lineHeight: 1.2,
-            }}
-          >
-            {metric.label}
-          </Typography>
-          <Typography
-            variant="subtitle1"
-            sx={{
-              fontWeight: 900,
-              lineHeight: 1.15,
-              color:
-                metric.tone === "success"
-                  ? "success.main"
-                  : metric.tone === "warning"
-                    ? "warning.main"
-                    : "inherit",
-              overflowWrap: "anywhere",
-            }}
-          >
-            {metric.value}
-          </Typography>
-        </Paper>
+          label={metric.label}
+          value={metric.value}
+          tone={metric.tone}
+        />
       ))}
     </Box>
   );

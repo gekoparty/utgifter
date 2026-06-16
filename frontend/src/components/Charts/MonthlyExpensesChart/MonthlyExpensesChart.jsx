@@ -1,17 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Paper, Typography, useTheme, Box, CircularProgress } from "@mui/material";
 import dayjs from "dayjs";
 
 import { useAppPreferences } from "../../../store/Store";
-import {
-  echarts,
-  isChartDisposed,
-  safeDisposeChart,
-  safeOffChart,
-  safeOnChart,
-  safeResizeChart,
-  safeSetChartOption,
-} from "../echartsCore";
+import useEChart from "../hooks/useEChart";
 import { useExpensesByMonthSummary } from "./hooks/useExpensesByMonth";
 import { buildOption } from "./echarts/buildOption";
 
@@ -23,8 +15,6 @@ import CategoryTrendChart from "./ui/CategoryTrendChart";
 export default function MonthlyExpensesChart({ onMonthClick }) {
   const theme = useTheme();
   const { preferences, setPreference } = useAppPreferences();
-  const chartInstanceRef = useRef(null);
-  const chartBoxRef = useRef(null);
 
   const [comparePreviousYear, setComparePreviousYear] = useState(true);
   const [selectedYear, setSelectedYear] = useState(dayjs().year().toString());
@@ -72,68 +62,28 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
     });
   }, [theme, months, doCompare, year, activeCompareYear]);
 
-  useEffect(() => {
-    const element = chartBoxRef.current;
-    if (!element || isLoading || error || !years.length) return undefined;
+  const chartEvents = useMemo(
+    () => ({
+      click: (event) => {
+        if (event?.componentType !== "series") return;
+        if (typeof event?.dataIndex !== "number") return;
 
-    const chart = echarts.getInstanceByDom(element) ?? echarts.init(element);
-    chartInstanceRef.current = chart;
+        const mm = String(event.dataIndex + 1).padStart(2, "0");
+        const yyyyMm = `${year}-${mm}`;
 
-    return () => {
-      chartInstanceRef.current = null;
-      safeDisposeChart(chart);
-    };
-  }, [error, isLoading, years.length]);
+        if (typeof onMonthClick === "function") {
+          onMonthClick(yyyyMm);
+        }
+      },
+    }),
+    [onMonthClick, year],
+  );
 
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (isChartDisposed(chart)) return;
-
-    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
-
-    requestAnimationFrame(() => {
-      safeResizeChart(chart);
-    });
-  }, [option]);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (isChartDisposed(chart)) return undefined;
-
-    const handleClick = (event) => {
-      if (event?.componentType !== "series") return;
-      if (typeof event?.dataIndex !== "number") return;
-
-      const mm = String(event.dataIndex + 1).padStart(2, "0");
-      const yyyyMm = `${year}-${mm}`;
-
-      if (typeof onMonthClick === "function") {
-        onMonthClick(yyyyMm);
-      }
-    };
-
-    safeOnChart(chart, "click", handleClick);
-
-    return () => {
-      safeOffChart(chart, "click", handleClick);
-    };
-  }, [onMonthClick, year]);
-
-  useEffect(() => {
-    const element = chartBoxRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return undefined;
-
-    const observer = new ResizeObserver(() => {
-      const chart = chartInstanceRef.current;
-      safeResizeChart(chart);
-    });
-
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
+  const { elementRef: chartBoxRef } = useEChart({
+    option,
+    enabled: !isLoading && !error && years.length > 0,
+    events: chartEvents,
+  });
 
   if (isLoading) {
     return (

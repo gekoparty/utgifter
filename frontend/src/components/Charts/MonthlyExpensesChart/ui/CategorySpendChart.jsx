@@ -1,19 +1,7 @@
-import React, { useEffect, useMemo, useRef } from "react";
-import {
-  Box,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-  useTheme,
-} from "@mui/material";
-import {
-  echarts,
-  isChartDisposed,
-  safeDisposeChart,
-  safeResizeChart,
-  safeSetChartOption,
-} from "../../echartsCore";
+import React, { useMemo } from "react";
+import { Box, Stack, Typography, useTheme } from "@mui/material";
+import SegmentedControl from "../../../commons/Controls/SegmentedControl";
+import useEChart from "../../hooks/useEChart";
 
 const NOK = new Intl.NumberFormat("nb-NO", {
   style: "currency",
@@ -83,8 +71,6 @@ export default function CategorySpendChart({
   month,
 }) {
   const theme = useTheme();
-  const chartRef = useRef(null);
-  const chartInstanceRef = useRef(null);
   const rows = useMemo(() => compactCategories(categories), [categories]);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
 
@@ -130,40 +116,10 @@ export default function CategorySpendChart({
     [rows, theme],
   );
 
-  useEffect(() => {
-    const element = chartRef.current;
-    if (!element || !rows.length) return undefined;
-
-    const chart = echarts.getInstanceByDom(element) ?? echarts.init(element);
-    chartInstanceRef.current = chart;
-
-    return () => {
-      chartInstanceRef.current = null;
-      safeDisposeChart(chart);
-    };
-  }, [rows.length]);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (isChartDisposed(chart)) return;
-    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
-    requestAnimationFrame(() => {
-      safeResizeChart(chart);
-    });
-  }, [option]);
-
-  useEffect(() => {
-    const element = chartRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return undefined;
-
-    const observer = new ResizeObserver(() => {
-      const chart = chartInstanceRef.current;
-      safeResizeChart(chart);
-    });
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const { elementRef: chartRef } = useEChart({
+    option,
+    enabled: rows.length > 0,
+  });
 
   return (
     <Box
@@ -199,11 +155,14 @@ export default function CategorySpendChart({
           <Typography variant="subtitle2" sx={{ fontWeight: 950, whiteSpace: "nowrap" }}>
             {NOK.format(total)}
           </Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
+          <SegmentedControl
             value={scope}
-            onChange={(_, value) => value && onScopeChange?.(value)}
+            onChange={onScopeChange}
+            options={[
+              { value: "month", label: "Måned" },
+              { value: "year", label: "År" },
+              { value: "all", label: "Totalt" },
+            ]}
             sx={{
               "& .MuiToggleButton-root": {
                 px: 0.9,
@@ -213,11 +172,7 @@ export default function CategorySpendChart({
                 fontSize: 12,
               },
             }}
-          >
-            <ToggleButton value="month">Måned</ToggleButton>
-            <ToggleButton value="year">År</ToggleButton>
-            <ToggleButton value="all">Totalt</ToggleButton>
-          </ToggleButtonGroup>
+          />
         </Stack>
       </Stack>
 

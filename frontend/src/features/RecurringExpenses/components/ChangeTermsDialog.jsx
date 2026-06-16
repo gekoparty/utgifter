@@ -4,14 +4,13 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Stack,
   TextField,
-  Button,
   FormControlLabel,
   Checkbox,
   Typography,
 } from "@mui/material";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 
 const isMortgageType = (t) => t === "MORTGAGE" || t === "HOUSING";
 
@@ -54,8 +53,8 @@ export default function ChangeTermsDialog({
     }
   }, [open, initial]);
 
-  const setField = useCallback((k, v) => {
-    setForm((p) => ({ ...p, [k]: v }));
+  const setField = useCallback((key, value) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
     setErr("");
   }, []);
 
@@ -70,14 +69,12 @@ export default function ChangeTermsDialog({
       return;
     }
 
-    // payload can be partial — backend supports it
     const payload = {
       periodKey: String(form.periodKey),
       amount: Number(form.amount || 0),
       note: String(form.note || "").trim(),
     };
 
-    // Non-mortgage can use estimate range
     if (!mortgage) {
       payload.estimateMin = Number(form.estimateMin || 0);
       payload.estimateMax = Number(form.estimateMax || 0);
@@ -98,7 +95,7 @@ export default function ChangeTermsDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Dette lager et “terms snapshot” fra valgt måned. Historikk blir ikke endret.
+            Dette lager et terms snapshot fra valgt måned. Historikk blir ikke endret.
           </Typography>
 
           <TextField
@@ -183,16 +180,11 @@ export default function ChangeTermsDialog({
             fullWidth
           />
 
-          {err && <Typography color="error">{err}</Typography>}
+          {err ? <Typography color="error">{err}</Typography> : null}
+
+          <DialogFormActions onCancel={onClose} onConfirm={submit} submitLabel="Lagre" />
         </Stack>
       </DialogContent>
-
-      <DialogActions>
-        <Button onClick={onClose}>Avbryt</Button>
-        <Button variant="contained" onClick={submit}>
-          Lagre
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }
@@ -204,4 +196,3 @@ ChangeTermsDialog.propTypes = {
   expense: PropTypes.object,
   periodKey: PropTypes.string,
 };
-

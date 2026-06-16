@@ -1,18 +1,10 @@
 // src/components/Charts/ProductPriceChart/ProductPriceChart.jsx
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { Paper, Typography, useTheme, Box, Chip, Grid } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
 
-import {
-  echarts,
-  isChartDisposed,
-  safeDisposeChart,
-  safeOffChart,
-  safeOnChart,
-  safeResizeChart,
-  safeSetChartOption,
-} from "../echartsCore";
+import useEChart from "../hooks/useEChart";
 import { useProductInsights } from "./hooks/useProductInsights";
 import { usePreparedSeries } from "./hooks/usePreparedSeries";
 import { buildOption } from "./echarts/buildOption";
@@ -32,8 +24,6 @@ import { formatCurrency, fmtPct, fmt1, changeChipColor } from "./utils/format";
 
 export default function ProductPriceChart({ productId }) {
   const theme = useTheme();
-  const chartBoxRef = useRef(null);
-  const chartInstanceRef = useRef(null);
 
   const [mode, setMode] = useState("overview"); // "overview" | "shops" | "distribution" | "yearly"
   const [includeDiscounts, setIncludeDiscounts] = useState(true);
@@ -239,60 +229,11 @@ export default function ProductPriceChart({ productId }) {
 
   const onEvents = useEChartEvents({ mode, setHiddenSeries, setHighlightSeries });
 
-  useEffect(() => {
-    const element = chartBoxRef.current;
-    if (!element || !productId || isLoading || error) return undefined;
-
-    const chart = echarts.getInstanceByDom(element) ?? echarts.init(element);
-    chartInstanceRef.current = chart;
-
-    return () => {
-      chartInstanceRef.current = null;
-      safeDisposeChart(chart);
-    };
-  }, [productId, isLoading, error]);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (isChartDisposed(chart)) return;
-
-    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
-
-    requestAnimationFrame(() => {
-      safeResizeChart(chart);
-    });
-  }, [option]);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (isChartDisposed(chart)) return undefined;
-
-    Object.entries(onEvents ?? {}).forEach(([eventName, handler]) => {
-      if (typeof handler === "function") safeOnChart(chart, eventName, handler);
-    });
-
-    return () => {
-      Object.entries(onEvents ?? {}).forEach(([eventName, handler]) => {
-        if (typeof handler === "function") safeOffChart(chart, eventName, handler);
-      });
-    };
-  }, [onEvents]);
-
-  useEffect(() => {
-    const element = chartBoxRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return undefined;
-
-    const observer = new ResizeObserver(() => {
-      const chart = chartInstanceRef.current;
-      safeResizeChart(chart);
-    });
-
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [productId, isLoading, error]);
+  const { elementRef: chartBoxRef } = useEChart({
+    option,
+    enabled: Boolean(productId) && !isLoading && !error,
+    events: onEvents,
+  });
 
   if (!productId) return <Typography>Velg et produkt over.</Typography>;
   if (isLoading) return <Typography>Laster prishistorikk...</Typography>;

@@ -1,9 +1,10 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, TextField, CircularProgress, Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
-import FieldErrorText from "../../../components/commons/ErrorHandling/FieldErrorText";
-import FormErrorAlert from "../../../components/commons/ErrorHandling/FormErrorAlert";
+import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
+import EntityNameField from "../../../components/commons/Forms/EntityNameField";
 import useBrandDialog from "../UseBrand/UseBrandDialog";
 
 const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) => {
@@ -24,15 +25,10 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
-  // Simplify effect: always compute initial state
   useEffect(() => {
     if (!open) return;
-    setBrand(
-      isEdit && brandToEdit
-        ? brandToEdit
-        : { name: "" } // ADD mode or fallback
-    );
-  }, [open, mode, brandToEdit]);
+    setBrand(isEdit && brandToEdit ? brandToEdit : { name: "" });
+  }, [open, isEdit, brandToEdit, setBrand]);
 
   const handleClose = () => {
     resetFormAndErrors();
@@ -62,71 +58,40 @@ const BrandDialog = ({ open, mode, brandToEdit, onClose, onSuccess, onError }) =
     }
   };
 
-  // --- Compute dialog texts & button props ---
   const dialogTitle = isDelete
     ? "Bekreft sletting"
     : isEdit
-    ? "Rediger merke"
-    : "Nytt merke";
-
-  const confirmButtonLabel = isDelete ? "Slett" : "Lagre";
-  const confirmButtonColor = isDelete ? "error" : "primary";
-
-  const renderBody = () =>
-    isDelete ? (
-      <Typography>
-        Er du sikker på at du vil slette <strong>"{brandToEdit?.name}"</strong>?
-      </Typography>
-    ) : (
-      <>
-        {displayError && (
-          <FormErrorAlert resource="brands" />
-        )}
-        <TextField
-          autoFocus
-          fullWidth
-          size="small"
-          label="Merkenavn"
-          value={brand?.name || ""}
-          error={Boolean(validationError?.name)}
-          disabled={loading}
-          onChange={(e) => {
-            setBrand({ ...brand, name: e.target.value });
-            resetValidationErrors();
-            resetServerError();
-          }}
-        />
-        {(displayError || validationError) && (
-          <FieldErrorText resource="brands" field="name" />
-        )}
-      </>
-    );
+      ? "Rediger merke"
+      : "Nytt merke";
 
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 2 }}>
-          {renderBody()}
-          <Stack
-            direction={{ xs: "column-reverse", sm: "row" }}
-            justifyContent="flex-end"
-            spacing={1.5}
-            sx={{
-              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
-            }}
-          >
-            <Button onClick={handleClose} disabled={loading}>
-              Avbryt
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color={confirmButtonColor}
-              disabled={loading || (!isDelete && !isFormValid())}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : confirmButtonLabel}
-            </Button>
-          </Stack>
+          {isDelete ? (
+            <DeleteConfirmation name={brandToEdit?.name} />
+          ) : (
+            <EntityNameField
+              resource="brands"
+              label="Merkenavn"
+              value={brand?.name}
+              error={validationError?.name}
+              disabled={loading}
+              showFormError={Boolean(displayError)}
+              onChange={(e) => {
+                setBrand({ ...brand, name: e.target.value });
+                resetValidationErrors();
+                resetServerError();
+              }}
+            />
+          )}
+
+          <DialogFormActions
+            loading={loading}
+            isDelete={isDelete}
+            disabled={!isDelete && !isFormValid()}
+            onCancel={handleClose}
+          />
         </Stack>
       </form>
     </BasicDialog>

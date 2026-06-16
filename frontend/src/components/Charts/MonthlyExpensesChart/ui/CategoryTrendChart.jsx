@@ -1,12 +1,6 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
-import {
-  echarts,
-  isChartDisposed,
-  safeDisposeChart,
-  safeResizeChart,
-  safeSetChartOption,
-} from "../../echartsCore";
+import useEChart from "../../hooks/useEChart";
 
 const NOK = new Intl.NumberFormat("nb-NO", {
   style: "currency",
@@ -94,8 +88,6 @@ const prepareSeries = (rows = []) => {
 
 export default function CategoryTrendChart({ rows = [], year }) {
   const theme = useTheme();
-  const chartRef = useRef(null);
-  const chartInstanceRef = useRef(null);
   const series = useMemo(() => prepareSeries(rows), [rows]);
   const hasData = series.some((serie) =>
     serie.data.some((value) => Number(value || 0) > 0),
@@ -143,40 +135,10 @@ export default function CategoryTrendChart({ rows = [], year }) {
     [series, theme],
   );
 
-  useEffect(() => {
-    const element = chartRef.current;
-    if (!element || !hasData) return undefined;
-
-    const chart = echarts.getInstanceByDom(element) ?? echarts.init(element);
-    chartInstanceRef.current = chart;
-
-    return () => {
-      chartInstanceRef.current = null;
-      safeDisposeChart(chart);
-    };
-  }, [hasData]);
-
-  useEffect(() => {
-    const chart = chartInstanceRef.current;
-    if (isChartDisposed(chart)) return;
-    safeSetChartOption(chart, option, { notMerge: true, lazyUpdate: true });
-    requestAnimationFrame(() => {
-      safeResizeChart(chart);
-    });
-  }, [option]);
-
-  useEffect(() => {
-    const element = chartRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return undefined;
-
-    const observer = new ResizeObserver(() => {
-      const chart = chartInstanceRef.current;
-      safeResizeChart(chart);
-    });
-
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  const { elementRef: chartRef } = useEChart({
+    option,
+    enabled: hasData,
+  });
 
   return (
     <Box
