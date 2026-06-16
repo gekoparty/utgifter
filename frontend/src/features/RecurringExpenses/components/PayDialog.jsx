@@ -1,10 +1,9 @@
 import React, { memo } from "react";
 import {
+  Box,
   Button,
   Checkbox,
-  CircularProgress,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
@@ -12,31 +11,26 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 
 function PayDialog({
   open,
   onClose,
   title,
-
   amount,
   onAmount,
-
   paidDate,
   onPaidDate,
-
   periodKey,
   onPeriodKey,
-
-  // ✅ extra payment toggle
   isExtra,
   onIsExtra,
   allowExtra,
-
   error,
   onConfirm,
   onDelete,
   pending,
-  mode, // "CREATE" | "EDIT"
+  mode,
 }) {
   return (
     <Dialog open={open} onClose={pending ? undefined : onClose} fullWidth maxWidth="xs">
@@ -46,13 +40,12 @@ function PayDialog({
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          {title && (
+          {title ? (
             <Typography fontWeight={800} noWrap>
               {title}
             </Typography>
-          )}
+          ) : null}
 
-          {/* ✅ Accounting month */}
           <TextField
             label="Måned (regnskapsmåned)"
             type="month"
@@ -83,8 +76,7 @@ function PayDialog({
             helperText="Du kan registrere betalinger tilbake i tid."
           />
 
-          {/* ✅ EXTRA toggle (only when mortgage) */}
-          {allowExtra && (
+          {allowExtra ? (
             <FormControlLabel
               control={
                 <Checkbox
@@ -95,39 +87,33 @@ function PayDialog({
               }
               label="Ekstra avdrag (kun lån)"
             />
-          )}
+          ) : null}
 
-          {allowExtra && isExtra && (
+          {allowExtra && isExtra ? (
             <Typography variant="caption" color="text.secondary">
-              Ekstra avdrag påvirker nedbetalingsplanen som “extraPrincipal” for måneden.
+              Ekstra avdrag påvirker nedbetalingsplanen som extraPrincipal for måneden.
             </Typography>
-          )}
+          ) : null}
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        {mode === "EDIT" && (
-          <Button
-            color="error"
-            onClick={onDelete}
-            disabled={pending}
-            sx={{ mr: "auto" }}
-          >
-            Slett betaling
-          </Button>
-        )}
-
-        <Button onClick={onClose} disabled={pending}>
-          Avbryt
-        </Button>
-
-        <Button variant="contained" onClick={onConfirm} disabled={pending}>
-          {pending ? <CircularProgress size={22} color="inherit" /> : "Lagre"}
-        </Button>
-      </DialogActions>
+      <Box sx={{ px: 3, pb: 2 }}>
+        <DialogFormActions
+          loading={pending}
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          submitLabel="Lagre"
+          leadingAction={
+            mode === "EDIT" ? (
+              <Button color="error" onClick={onDelete} disabled={pending}>
+                Slett betaling
+              </Button>
+            ) : null
+          }
+        />
+      </Box>
     </Dialog>
   );
 }
 
 export default memo(PayDialog);
-

@@ -1,16 +1,22 @@
 import React, { useMemo } from "react";
 import {
-  Box,
-  Typography,
-  Stack,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControlLabel,
-  Switch,
   Autocomplete,
-  TextField,
+  Box,
   Chip,
+  FormControlLabel,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
 } from "@mui/material";
+import SegmentedControl from "../../../commons/Controls/SegmentedControl";
+
+const modeOptions = [
+  { value: "overview", label: "Oversikt" },
+  { value: "shops", label: "Butikker" },
+  { value: "distribution", label: "Fordeling" },
+  { value: "yearly", label: "År" },
+];
 
 export default function HeaderControls({
   productNameStr,
@@ -46,12 +52,24 @@ export default function HeaderControls({
         <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.15 }}>
           {productNameStr}
         </Typography>
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center" sx={{ mt: 0.4 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          flexWrap="wrap"
+          alignItems="center"
+          sx={{ mt: 0.4 }}
+        >
           <Typography variant="body2" color="text.secondary">
             Prisutvikling og butikkhistorikk
           </Typography>
           {productCategory ? (
-            <Chip size="small" variant="outlined" label={productCategory} sx={{ height: 24 }} />
+            <Chip
+              size="small"
+              variant="outlined"
+              label={productCategory}
+              sx={{ height: 24 }}
+            />
           ) : null}
         </Stack>
       </Box>
@@ -66,24 +84,22 @@ export default function HeaderControls({
           justifyContent: { xs: "flex-start", md: "flex-end" },
         }}
       >
-        <ToggleButtonGroup
-          size="small"
+        <SegmentedControl
           value={mode}
-          exclusive
-          onChange={(_, value) => value && setMode(value)}
-          sx={{
-            flexWrap: "wrap",
-            "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 700 },
-          }}
-        >
-          <ToggleButton value="overview">Oversikt</ToggleButton>
-          <ToggleButton value="shops">Butikker</ToggleButton>
-          <ToggleButton value="distribution">Fordeling</ToggleButton>
-          <ToggleButton value="yearly">År</ToggleButton>
-        </ToggleButtonGroup>
+          onChange={setMode}
+          options={modeOptions}
+          ariaLabel="Velg produktstatistikk"
+          sx={{ flexWrap: "wrap" }}
+          buttonSx={{ textTransform: "none", fontWeight: 700 }}
+        />
 
         <FormControlLabel
-          control={<Switch checked={includeDiscounts} onChange={(event) => setIncludeDiscounts(event.target.checked)} />}
+          control={
+            <Switch
+              checked={includeDiscounts}
+              onChange={(event) => setIncludeDiscounts(event.target.checked)}
+            />
+          }
           label="Tilbudspriser"
           sx={{
             m: 0,
@@ -96,7 +112,7 @@ export default function HeaderControls({
           }}
         />
 
-        {showVariantSelector && (
+        {showVariantSelector ? (
           <>
             <Autocomplete
               multiple
@@ -105,13 +121,21 @@ export default function HeaderControls({
               options={variants}
               getOptionLabel={(option) => option?.name ?? ""}
               value={selectedVariantObjects}
-              onChange={(_, selected) => setSelectedVariantIds(selected.map((variant) => variant.id))}
+              onChange={(_, selected) =>
+                setSelectedVariantIds(selected.map((variant) => variant.id))
+              }
               renderInput={(params) => <TextField {...params} label="Varianter" />}
               sx={{ width: { xs: "100%", sm: 320 } }}
             />
-            {!selectedVariantIds?.length && <Chip variant="outlined" label="Alle varianter" sx={{ borderRadius: 2 }} />}
+            {!selectedVariantIds?.length ? (
+              <Chip
+                variant="outlined"
+                label="Alle varianter"
+                sx={{ borderRadius: 2 }}
+              />
+            ) : null}
           </>
-        )}
+        ) : null}
       </Stack>
     </Box>
   );

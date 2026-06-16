@@ -1,9 +1,10 @@
-// src/components/.../ShopDialog/ShopDialog.jsx
 import React, { useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
-import { Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
+import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 import useShopDialog from "../UseShop/useShopDialog";
 import ShopForm from "./commons/ShopForm";
 import { fetchLocations, fetchCategories } from "../../../components/commons/Utils/apiUtils";
@@ -26,7 +27,6 @@ const ShopDialog = ({ open, mode, shopToEdit, onClose, onSuccess, onError }) => 
     resetServerError,
   } = useShopDialog(shopToEdit);
 
-  // ✅ Fetch full docs: need _id + name for select values
   const {
     data: locations = [],
     isLoading: locationLoading,
@@ -50,12 +50,12 @@ const ShopDialog = ({ open, mode, shopToEdit, onClose, onSuccess, onError }) => 
   });
 
   const locationOptions = useMemo(
-    () => locations.map((l) => ({ value: String(l._id), label: l.name })),
-    [locations]
+    () => locations.map((location) => ({ value: String(location._id), label: location.name })),
+    [locations],
   );
   const categoryOptions = useMemo(
-    () => categories.map((c) => ({ value: String(c._id), label: c.name })),
-    [categories]
+    () => categories.map((category) => ({ value: String(category._id), label: category.name })),
+    [categories],
   );
 
   useEffect(() => {
@@ -100,22 +100,18 @@ const ShopDialog = ({ open, mode, shopToEdit, onClose, onSuccess, onError }) => 
   const dialogTitle = isDelete
     ? "Bekreft sletting"
     : isEdit
-    ? "Rediger butikk"
-    : "Ny butikk";
-
-  const confirmLabel = isDelete ? "Slett" : "Lagre";
-  const confirmColor = isDelete ? "error" : "primary";
+      ? "Rediger butikk"
+      : "Ny butikk";
 
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 2 }}>
           {isDelete ? (
-            <Typography>
-              Er du sikker på at du vil slette{" "}
-              <strong>"{shopToEdit?.name}"</strong>? Utgifter tilhørende denne
-              butikken kan også påvirkes.
-            </Typography>
+            <DeleteConfirmation
+              name={shopToEdit?.name}
+              impactText="Utgifter tilhørende denne butikken kan også påvirkes."
+            />
           ) : (
             <ShopForm
               shop={shop}
@@ -134,31 +130,12 @@ const ShopDialog = ({ open, mode, shopToEdit, onClose, onSuccess, onError }) => 
             />
           )}
 
-          <Stack
-            direction={{ xs: "column-reverse", sm: "row" }}
-            justifyContent="flex-end"
-            spacing={1.5}
-            sx={{
-              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
-            }}
-          >
-            <Button onClick={handleClose} disabled={loading}>
-              Avbryt
-            </Button>
-
-            <Button
-              type="submit"
-              variant="contained"
-              color={confirmColor}
-              disabled={loading || (!isDelete && !isFormValid())}
-            >
-              {loading ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                confirmLabel
-              )}
-            </Button>
-          </Stack>
+          <DialogFormActions
+            loading={loading}
+            isDelete={isDelete}
+            disabled={!isDelete && !isFormValid()}
+            onCancel={handleClose}
+          />
         </Stack>
       </form>
     </BasicDialog>

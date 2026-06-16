@@ -1,12 +1,20 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, TextField, CircularProgress, Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
-import FieldErrorText from "../../../components/commons/ErrorHandling/FieldErrorText";
-import FormErrorAlert from "../../../components/commons/ErrorHandling/FormErrorAlert";
+import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
+import EntityNameField from "../../../components/commons/Forms/EntityNameField";
 import useCategoryDialog from "../UseCategory/UseCategoryDialog";
 
-const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onError }) => {
+const CategoryDialog = ({
+  open,
+  mode,
+  categoryToEdit,
+  onClose,
+  onSuccess,
+  onError,
+}) => {
   const {
     category,
     setCategory,
@@ -24,12 +32,10 @@ const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onErro
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
-  // Initialize form when opened (same UX as BrandDialog)
   useEffect(() => {
     if (!open) return;
-
     setCategory(isEdit && categoryToEdit ? categoryToEdit : { name: "" });
-  }, [open, mode, categoryToEdit]); // keep it simple like BrandDialog
+  }, [open, isEdit, categoryToEdit, setCategory]);
 
   const handleClose = () => {
     resetFormAndErrors();
@@ -61,69 +67,43 @@ const CategoryDialog = ({ open, mode, categoryToEdit, onClose, onSuccess, onErro
     }
   };
 
-  const dialogTitle = isDelete ? "Bekreft sletting" : isEdit ? "Rediger kategori" : "Ny kategori";
-  const confirmButtonLabel = isDelete ? "Slett" : "Lagre";
-  const confirmButtonColor = isDelete ? "error" : "primary";
-
-  const renderBody = () =>
-    isDelete ? (
-      <Typography>
-        Er du sikker på at du vil slette <strong>"{categoryToEdit?.name}"</strong>? Utgifter
-        tilhørende denne kategorien vil også påvirkes.
-      </Typography>
-    ) : (
-      <>
-        {displayError && (
-          <FormErrorAlert resource="categories" />
-        )}
-        <TextField
-          autoFocus
-          fullWidth
-          size="small"
-          label="Kategori"
-          value={category?.name || ""}
-          error={Boolean(validationError?.name)}
-          disabled={loading}
-          onChange={(e) => {
-            setCategory({ ...category, name: e.target.value });
-            resetValidationErrors();
-            resetServerError();
-          }}
-        />
-
-        {(displayError || validationError) && (
-          <FieldErrorText resource="categories" field="name" />
-        )}
-      </>
-    );
+  const dialogTitle = isDelete
+    ? "Bekreft sletting"
+    : isEdit
+      ? "Rediger kategori"
+      : "Ny kategori";
 
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 2 }}>
-          {renderBody()}
+          {isDelete ? (
+            <DeleteConfirmation
+              name={categoryToEdit?.name}
+              impactText="Utgifter tilhørende denne kategorien vil også påvirkes."
+            />
+          ) : (
+            <EntityNameField
+              resource="categories"
+              label="Kategori"
+              value={category?.name}
+              error={validationError?.name}
+              disabled={loading}
+              showFormError={Boolean(displayError)}
+              onChange={(e) => {
+                setCategory({ ...category, name: e.target.value });
+                resetValidationErrors();
+                resetServerError();
+              }}
+            />
+          )}
 
-          <Stack
-            direction={{ xs: "column-reverse", sm: "row" }}
-            justifyContent="flex-end"
-            spacing={1.5}
-            sx={{
-              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
-            }}
-          >
-            <Button onClick={handleClose} disabled={loading}>
-              Avbryt
-            </Button>
-
-            <Button
-              type="submit"
-              variant="contained"
-              color={confirmButtonColor}
-              disabled={loading || (!isDelete && !isFormValid())}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : confirmButtonLabel}
-            </Button>
-          </Stack>
+          <DialogFormActions
+            loading={loading}
+            isDelete={isDelete}
+            disabled={!isDelete && !isFormValid()}
+            onCancel={handleClose}
+          />
         </Stack>
       </form>
     </BasicDialog>

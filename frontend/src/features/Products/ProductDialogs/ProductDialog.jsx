@@ -1,10 +1,12 @@
 // src/components/.../ProductDialog.jsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import PropTypes from "prop-types";
-import { Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Stack } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useQueryClient } from "@tanstack/react-query";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
+import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
+import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
 import ProductForm from "./commons/ProductForm";
 import useProductDialog from "../UseProduct/useProductDialog";
 import useInfiniteBrands from "../../../hooks/useInfiniteBrands";
@@ -326,8 +328,6 @@ const ProductDialog = ({
     : isEdit
       ? "Rediger produkt"
       : "Nytt produkt";
-  const confirmLabel = isDelete ? "Slett" : "Lagre";
-  const confirmColor = isDelete ? "error" : "primary";
 
   const showBusy =
     loading || isLoadingBrands || isLoadingVariants || isSavingVariant;
@@ -342,15 +342,7 @@ const ProductDialog = ({
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 0.5 }}>
           {isDelete && (
-            <Typography>
-              Er du sikker på at du vil slette{" "}
-              <strong>
-                {productToEdit?.name?.trim()
-                  ? `"${productToEdit.name}"`
-                  : "dette produktet"}
-              </strong>
-              ?
-            </Typography>
+            <DeleteConfirmation name={productToEdit?.name || "dette produktet"} />
           )}
 
           {!isDelete && (
@@ -414,31 +406,12 @@ const ProductDialog = ({
             />
           )}
 
-          <Stack
-            direction={{ xs: "column-reverse", sm: "row" }}
-            justifyContent="flex-end"
-            spacing={1.5}
-            sx={{
-              "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
-            }}
-          >
-            <Button onClick={handleClose} disabled={showBusy}>
-              Avbryt
-            </Button>
-
-            <Button
-              type="submit"
-              variant="contained"
-              color={confirmColor}
-              disabled={showBusy || (isDelete ? false : !isFormValid())}
-            >
-              {showBusy ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                confirmLabel
-              )}
-            </Button>
-          </Stack>
+          <DialogFormActions
+            loading={showBusy}
+            isDelete={isDelete}
+            disabled={!isDelete && !isFormValid()}
+            onCancel={handleClose}
+          />
         </Stack>
       </form>
     </BasicDialog>

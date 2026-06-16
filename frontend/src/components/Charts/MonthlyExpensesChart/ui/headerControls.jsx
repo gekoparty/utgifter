@@ -53,7 +53,7 @@ export default function HeaderControls({
           control={
             <Switch
               checked={comparePreviousYear}
-              onChange={(e) => setComparePreviousYear(e.target.checked)}
+              onChange={(event) => setComparePreviousYear(event.target.checked)}
               color="primary"
               disabled={!canComparePrev}
             />
@@ -74,7 +74,7 @@ export default function HeaderControls({
           control={
             <Switch
               checked={showExtraCharts}
-              onChange={(e) => setShowExtraCharts(e.target.checked)}
+              onChange={(event) => setShowExtraCharts(event.target.checked)}
               color="primary"
             />
           }
@@ -99,7 +99,7 @@ export default function HeaderControls({
           <Select
             labelId="year-select-label"
             value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
+            onChange={(event) => setSelectedYear(event.target.value)}
             label="År"
           >
             {availableYears.map((year) => (

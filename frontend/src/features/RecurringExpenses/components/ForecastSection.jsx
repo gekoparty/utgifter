@@ -7,15 +7,19 @@ import {
   Tabs,
   Tab,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
   Slider,
 } from "@mui/material";
 import { CalendarMonth } from "@mui/icons-material";
 import dayjs from "dayjs";
 
+import SegmentedControl from "../../../components/commons/Controls/SegmentedControl";
 import ForecastMonthCard from "./ForecastMonthCard";
 import ForecastRangeChart from "./ForecastRangeChart";
+
+const viewOptions = [
+  { value: "chart", label: "Graf" },
+  { value: "cards", label: "Kort" },
+];
 
 function ForecastSection({
   title = "Tidslinje",
@@ -59,34 +63,30 @@ function ForecastSection({
               <Typography variant="h6" fontWeight={950} noWrap sx={{ minWidth: 0 }}>
                 {title}
               </Typography>
-              {rangeLabel && (
+              {rangeLabel ? (
                 <Typography variant="caption" color="text.secondary" noWrap>
                   {rangeLabel} (nå: {thisMonthKey})
                 </Typography>
-              )}
+              ) : null}
             </Box>
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
-            <ToggleButtonGroup
-              size="small"
+            <SegmentedControl
               value={view}
-              exclusive
-              onChange={(_, v) => v && setView(v)}
-              sx={{ "& .MuiToggleButton-root": { fontWeight: 800, px: 1.25 } }}
-            >
-              <ToggleButton value="chart">Graf</ToggleButton>
-              <ToggleButton value="cards">Kort</ToggleButton>
-            </ToggleButtonGroup>
+              onChange={setView}
+              options={viewOptions}
+              ariaLabel="Velg tidslinjevisning"
+            />
 
-            <Tabs value={tab} onChange={(_, v) => onTab(v)} sx={{ minHeight: 36 }}>
+            <Tabs value={tab} onChange={(_, value) => onTab(value)} sx={{ minHeight: 36 }}>
               <Tab label="Forventet" sx={{ minHeight: 36 }} />
               <Tab label="Betalt" sx={{ minHeight: 36 }} />
             </Tabs>
           </Stack>
         </Stack>
 
-        {showRangeControl && (
+        {showRangeControl ? (
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
             <Typography variant="caption" sx={{ minWidth: 70 }}>
               Historikk
@@ -97,7 +97,7 @@ function ForecastSection({
               max={24}
               step={3}
               value={pastMonths}
-              onChange={(_, v) => setPastMonths(v)}
+              onChange={(_, value) => setPastMonths(value)}
               valueLabelDisplay="auto"
             />
             <Typography
@@ -108,15 +108,15 @@ function ForecastSection({
               +{monthsForward} mnd frem
             </Typography>
           </Stack>
-        )}
+        ) : null}
 
-        {!hasData && (
+        {!hasData ? (
           <Typography variant="body2" color="text.secondary">
             Ingen data i valgt periode.
           </Typography>
-        )}
+        ) : null}
 
-        {hasData && (
+        {hasData ? (
           <>
             {view === "chart" ? (
               <ForecastRangeChart
@@ -137,10 +137,10 @@ function ForecastSection({
                   },
                 }}
               >
-                {forecast.map((m) => (
+                {forecast.map((month) => (
                   <ForecastMonthCard
-                    key={m.key}
-                    month={m}
+                    key={month.key}
+                    month={month}
                     tab={tab}
                     maxRef={cardsMaxRef}
                     onOpenMonth={onOpenMonth}
@@ -150,7 +150,7 @@ function ForecastSection({
               </Box>
             )}
           </>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

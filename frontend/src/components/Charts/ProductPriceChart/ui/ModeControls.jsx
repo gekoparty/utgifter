@@ -6,10 +6,9 @@ import {
   Slider,
   Autocomplete,
   TextField,
-  ToggleButtonGroup,
-  ToggleButton,
   Chip,
 } from "@mui/material";
+import SegmentedControl from "../../../commons/Controls/SegmentedControl";
 
 export default function ModeControls({
   mode,
@@ -48,16 +47,15 @@ export default function ModeControls({
       }}
     >
       {mode === "overview" && (
-        <ToggleButtonGroup
-          size="small"
+        <SegmentedControl
           value={overviewBucket}
-          exclusive
-          onChange={(_, value) => value && setOverviewBucket(value)}
+          onChange={setOverviewBucket}
+          options={[
+            { value: "week", label: "Uke" },
+            { value: "month", label: "Måned" },
+          ]}
           sx={{ "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 700 } }}
-        >
-          <ToggleButton value="week">Uke</ToggleButton>
-          <ToggleButton value="month">Måned</ToggleButton>
-        </ToggleButtonGroup>
+        />
       )}
 
       {mode === "shops" && (
@@ -93,7 +91,11 @@ export default function ModeControls({
           />
 
           {!!hiddenSeries.size && (
-            <Chip variant="outlined" label={`${hiddenSeries.size} skjult`} onDelete={() => setHiddenSeries(new Set())} />
+            <Chip
+              variant="outlined"
+              label={`${hiddenSeries.size} skjult`}
+              onDelete={() => setHiddenSeries(new Set())}
+            />
           )}
         </>
       )}
@@ -106,22 +108,21 @@ export default function ModeControls({
 
       {mode === "yearly" && (
         <>
-          <ToggleButtonGroup
-            size="small"
+          <SegmentedControl
             value={yearlyBreakdown}
-            exclusive
-            onChange={(_, value) => value && setYearlyBreakdown(value)}
+            onChange={setYearlyBreakdown}
+            options={[
+              { value: "overall", label: "Total" },
+              { value: "brand", label: "Merke" },
+              { value: "shop", label: "Butikk" },
+              { value: "variant", label: "Variant" },
+              { value: "shopVariant", label: "Butikk + variant" },
+            ]}
             sx={{
               flexWrap: "wrap",
               "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 700 },
             }}
-          >
-            <ToggleButton value="overall">Total</ToggleButton>
-            <ToggleButton value="brand">Merke</ToggleButton>
-            <ToggleButton value="shop">Butikk</ToggleButton>
-            <ToggleButton value="variant">Variant</ToggleButton>
-            <ToggleButton value="shopVariant">Butikk + variant</ToggleButton>
-          </ToggleButtonGroup>
+          />
 
           <Box sx={{ width: { xs: "100%", sm: 230 } }}>
             <Typography variant="caption" color="text.secondary">
@@ -154,7 +155,11 @@ export default function ModeControls({
           />
 
           {!!hiddenSeries.size && (
-            <Chip variant="outlined" label={`${hiddenSeries.size} skjult`} onDelete={() => setHiddenSeries(new Set())} />
+            <Chip
+              variant="outlined"
+              label={`${hiddenSeries.size} skjult`}
+              onDelete={() => setHiddenSeries(new Set())}
+            />
           )}
         </>
       )}
