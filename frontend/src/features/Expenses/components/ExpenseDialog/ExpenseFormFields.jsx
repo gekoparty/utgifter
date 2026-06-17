@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Box, Stack } from "@mui/material";
 import DetailsSection from "./sections/DetailsSection";
 import PriceQuantitySection from "./sections/PriceQuantitySection";
+import ReceiptImportPanel from "./sections/ReceiptImportPanel";
 import StatusDateSection from "./sections/StatusDateSection";
 import {
   formatDecimalForInput,
@@ -140,6 +141,12 @@ const ExpenseFormFields = ({
   return (
     <Box sx={{ p: { xs: 0, sm: 1, md: 2 }, maxWidth: 1120, mx: "auto" }}>
       <Stack spacing={2.5}>
+        <ReceiptImportPanel
+          onUseProduct={controller.handleProductSelect}
+          onUseBrand={controller.handleBrandSelect}
+          onUseShop={controller.handleShopSelect}
+        />
+
         <DetailsSection
           expense={expense}
           selectStyles={selectStyles}

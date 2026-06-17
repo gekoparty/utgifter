@@ -114,11 +114,6 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
   [handleFieldChange]
 );
 
-  const handleVolumeChange = useCallback(
-    (opt) => handleFieldChange("volume", opt ? parseFloat(opt.value) : 0),
-    [handleFieldChange]
-  );
-
   const handleDateChange = useCallback(
     (date) => {
       const key = expense.purchased ? "purchaseDate" : "registeredDate";
@@ -165,7 +160,6 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
     handleVariantSelect,
     handleShopSelect,
     handleDateChange,
-    handleVolumeChange,
     handleDiscountToggle,
     handleTransactionType,
     handleDiscountAmountChange,

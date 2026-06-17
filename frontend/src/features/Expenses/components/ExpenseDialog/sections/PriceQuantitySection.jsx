@@ -8,10 +8,11 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import VirtualizedSelect from "../../../../../components/commons/VirtualizedSelect/VirtualizedSelect";
+import CreatableSelect from "react-select/creatable";
 import ExpenseField from "../../../../../components/commons/ExpenseField/ExpenseField";
 import FieldLabel from "../../../../../components/commons/Forms/FieldLabel";
 import FormSection from "../../../../../components/commons/Forms/FormSection";
+import { parseDecimalOrNull } from "../../../utils/numberInput";
 import DiscountCalculatorPanel from "./DiscountCalculatorPanel";
 
 export default function PriceQuantitySection({
@@ -43,6 +44,23 @@ export default function PriceQuantitySection({
 }) {
   const menuPortalTarget =
     typeof document !== "undefined" ? document.body : undefined;
+  const hasVolumeOptions = Boolean(
+    expense.measurementUnit && selectedProduct?.measures?.length,
+  );
+  const currentVolumeOption = expense.volume
+    ? {
+        label: String(expense.volume),
+        value: String(expense.volume),
+      }
+    : null;
+  const isValidVolumeOption = (input) => {
+    const value = parseDecimalOrNull(input);
+    if (value == null || value <= 0) return false;
+
+    return !measuresOptions.some(
+      (option) => Number(option.value) === Number(value),
+    );
+  };
 
   return (
     <FormSection title="Pris og mengde">
@@ -62,25 +80,36 @@ export default function PriceQuantitySection({
             fullWidth
           />
 
-          {expense.measurementUnit && selectedProduct?.measures?.length ? (
+          {hasVolumeOptions ? (
             <Box flex={1}>
-              <FieldLabel>Volum</FieldLabel>
-              <VirtualizedSelect
+              <FieldLabel>
+                Volum {expense.measurementUnit ? `(${expense.measurementUnit})` : ""}
+              </FieldLabel>
+              <CreatableSelect
                 isClearable
                 options={measuresOptions}
-                value={
-                  expense.volume
-                    ? {
-                        label: String(expense.volume),
-                        value: expense.volume,
-                      }
-                    : null
+                value={currentVolumeOption}
+                onChange={(option) =>
+                  option
+                    ? onVolumeTextChange(String(option.value))
+                    : controller.handleFieldChange?.("volume", 0, { volumeText: "" })
                 }
-                onChange={controller.handleVolumeChange}
-                placeholder="Velg volum"
+                onCreateOption={(input) => onVolumeTextChange(input.trim())}
+                placeholder="Velg eller skriv volum"
                 menuPortalTarget={menuPortalTarget}
                 styles={selectStyles}
+                isValidNewOption={isValidVolumeOption}
+                formatCreateLabel={(input) =>
+                  `Bruk ${input}${expense.measurementUnit ? ` ${expense.measurementUnit}` : ""}`
+                }
               />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.75, display: "block" }}
+              >
+                Velg fra listen eller skriv et nytt volum og trykk Enter.
+              </Typography>
               {validationErrors?.volume ? (
                 <Typography
                   variant="caption"
