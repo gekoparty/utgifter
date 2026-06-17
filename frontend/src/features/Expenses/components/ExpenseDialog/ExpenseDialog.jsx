@@ -22,12 +22,6 @@ import { useExpenseDialogController } from "../../hooks/useExpenseDialogControll
 const isHexObjectId = (value) =>
   /^[a-f\d]{24}$/i.test(String(value ?? "").trim());
 
-const sameNumber = (a, b) => {
-  const left = Number(a);
-  const right = Number(b);
-  return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) < 0.000001;
-};
-
 const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError }) => {
   const theme = useTheme();
   const selectStyles = getSelectStyles(theme);
@@ -416,17 +410,9 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     });
   };
 
-  const isVolumeValidForSelectedProduct = () => {
-    const measures = Array.isArray(controller.selectedProduct?.measures)
-      ? controller.selectedProduct.measures
-      : [];
-
-    if (!measures.length) return true;
-
+  const isVolumeValid = () => {
     const volume = Number(expense.volume);
-    if (!Number.isFinite(volume) || volume <= 0) return false;
-
-    return measures.some((measure) => sameNumber(measure, volume));
+    return Number.isFinite(volume) && volume > 0;
   };
 
   const handleSubmit = async (e) => {
@@ -446,10 +432,10 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
 
       if (!isFormValid) return;
 
-      if (!isVolumeValidForSelectedProduct()) {
+      if (!isVolumeValid()) {
         setFieldError?.(
           "volume",
-          "Volumet finnes ikke på valgt produkt. Velg et gyldig volum før du lagrer."
+          "Volum må være større enn 0."
         );
         return;
       } else {
