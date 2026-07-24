@@ -1,13 +1,21 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 
+const trimTrailingSlash = (value) => String(value || "").replace(/\/+$/, "");
+
+const resolveBaseURL = () =>
+  trimTrailingSlash(
+    process.env.BETTER_AUTH_URL ||
+      process.env.API_URL ||
+      process.env.RENDER_EXTERNAL_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "") ||
+      `http://localhost:${process.env.PORT || 5000}`,
+  );
+
 export const createBetterAuth = ({ db, trustedOrigins }) =>
   betterAuth({
     basePath: "/api/auth",
-    baseURL:
-      process.env.BETTER_AUTH_URL ||
-      process.env.API_URL ||
-      `http://localhost:${process.env.PORT || 5000}`,
+    baseURL: resolveBaseURL(),
     secret:
       process.env.BETTER_AUTH_SECRET ||
       process.env.AUTH_SECRET ||

@@ -18,7 +18,10 @@ export const INITIAL_SORTING = [{ id: "name", desc: false }];
 export const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 
 // 🛑 THE FIX IS HERE 🛑
-export const API_URL =
+const trimTrailingSlash = (value) => String(value || "").replace(/\/+$/, "");
+
+export const API_URL = trimTrailingSlash(
     import.meta.env.VITE_REACT_APP_API_URL ||
-    (import.meta.env.DEV ? "http://localhost:5000" : "");
+    (import.meta.env.DEV ? "http://localhost:5000" : window.location.origin)
+);
 
