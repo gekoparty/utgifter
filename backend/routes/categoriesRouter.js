@@ -2,6 +2,7 @@ import express from "express";
 import Category from "../models/categorySchema.js";
 import slugify from "slugify";
 import mongoose from "mongoose";
+import { ownedCreateFields, ownedFilter } from "../middleware/dataOwnership.js";
 
 const categoriesRouter = express.Router();
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -10,7 +11,7 @@ categoriesRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    let query = Category.find();
+    let query = Category.find(ownedFilter(req));
 
     // Column Filters
     if (columnFilters) {
@@ -67,7 +68,7 @@ categoriesRouter.get("/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid category id" });
     }
 
-    const category = await Category.findById(req.params.id).lean();
+    const category = await Category.findOne(ownedFilter(req, { _id: req.params.id })).lean();
     if (!category) {
       return res.status(404).json({ error: "Category not found" });
     }
@@ -87,7 +88,7 @@ categoriesRouter.post("/", async (req, res) => {
 
     const slug = slugify(name, { lower: true });
 
-    const existingCategory = await Category.findOne({ slug }).lean();
+    const existingCategory = await Category.findOne(ownedFilter(req, { slug })).lean();
     if (existingCategory) {
       return res.status(400).json({ message: "duplicate" });
     }
@@ -95,6 +96,7 @@ categoriesRouter.post("/", async (req, res) => {
     const category = new Category({
       name,
       slug, // Save the slug to the database
+      ...ownedCreateFields(req),
     });
 
     await category.save();
@@ -111,7 +113,7 @@ categoriesRouter.delete("/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid category id" });
     }
 
-    const category = await Category.findByIdAndDelete(req.params.id);
+    const category = await Category.findOneAndDelete(ownedFilter(req, { _id: req.params.id }));
     if (!category) {
       return res.status(404).send({ error: "Category not found" });
     }
@@ -136,17 +138,19 @@ categoriesRouter.put("/:id", async (req, res) => {
     }
 
     // Check if the slug already exists for a different brand
-    const existingCategoryWithSlug = await Category.findOne({
-      slug: slugify(name, { lower: true }),
-      _id: { $ne: id }, // Exclude the current brand from the check
-    }).lean();
+    const existingCategoryWithSlug = await Category.findOne(
+      ownedFilter(req, {
+        slug: slugify(name, { lower: true }),
+        _id: { $ne: id }, // Exclude the current brand from the check
+      })
+    ).lean();
 
     if (existingCategoryWithSlug) {
       return res.status(400).json({ message: "duplicate" });
     }
 
-    const category = await Category.findByIdAndUpdate(
-      id,
+    const category = await Category.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       {
         $set: {
           name,

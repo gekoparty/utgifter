@@ -22,6 +22,12 @@ const shopSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
     brands: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -41,8 +47,7 @@ const shopSchema = new mongoose.Schema(
 );
 
 // Unique compound index
-shopSchema.index({ name: 1, location: 1 }, { unique: true });
-shopSchema.index({ slugifiedName: 1, location: 1 });
+shopSchema.index({ ownerUserId: 1, slugifiedName: 1, location: 1 }, { unique: true });
 shopSchema.index({ location: 1 });
 shopSchema.index({ category: 1 });
 

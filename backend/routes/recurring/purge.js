@@ -4,12 +4,13 @@ import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import { requireAdmin } from "../../middleware/requireBetterAuth.js";
 
 const router = express.Router();
 
 const CONFIRM_PURGE = "PURGE";
 
-router.delete("/purge-all", async (req, res) => {
+router.delete("/purge-all", requireAdmin, async (req, res) => {
   try {
     if (process.env.NODE_ENV === "production") {
       return res.status(403).json({ message: "Disabled in production" });

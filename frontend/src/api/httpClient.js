@@ -37,6 +37,7 @@ export const requestJson = async (
   const response = await fetch(url.toString(), {
     ...init,
     signal,
+    credentials: init.credentials ?? "include",
     headers: {
       ...(requestData !== undefined ? { "Content-Type": "application/json" } : {}),
       ...headers,
@@ -86,6 +87,8 @@ export const axiosJson = async ({
     method,
     data,
     signal,
+    headers: config.headers,
+    withCredentials: true,
   });
 
   return response.data;

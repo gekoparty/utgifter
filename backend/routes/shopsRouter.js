@@ -4,6 +4,7 @@ import Shop from "../models/shopSchema.js";
 import Location from "../models/locationSchema.js";
 import Category from "../models/categorySchema.js";
 import mongoose from "mongoose";
+import { ownedCreateFields, ownedFilter, withOwnerOnInsert } from "../middleware/dataOwnership.js";
 
 const shopsRouter = express.Router();
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -11,28 +12,28 @@ const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const createSlug = (name) =>
   slugify(name, { lower: true, strict: true, remove: /[*+~.()'"!:@]/g });
 
-const resolveLocationId = async (locationName) => {
+const resolveLocationId = async (req, locationName) => {
   const trimmed = String(locationName || "").trim();
   if (!trimmed) return null;
 
   const slug = createSlug(trimmed);
   const loc = await Location.findOneAndUpdate(
-    { slug },
-    { $setOnInsert: { name: trimmed, slug } },
+    ownedFilter(req, { slug }),
+    { $setOnInsert: withOwnerOnInsert(req, { name: trimmed, slug }) },
     { new: true, upsert: true }
   );
 
   return loc._id;
 };
 
-const resolveCategoryId = async (categoryName) => {
+const resolveCategoryId = async (req, categoryName) => {
   const trimmed = String(categoryName || "").trim();
   if (!trimmed) return null;
 
   const slug = createSlug(trimmed);
   const cat = await Category.findOneAndUpdate(
-    { slug },
-    { $setOnInsert: { name: trimmed, slug } },
+    ownedFilter(req, { slug }),
+    { $setOnInsert: withOwnerOnInsert(req, { name: trimmed, slug }) },
     { new: true, upsert: true }
   );
 
@@ -101,7 +102,9 @@ shopsRouter.get("/", async (req, res) => {
         return res.json({ shops: [], meta: { totalRowCount: 0 } });
       }
 
-      const query = Shop.find({ name: { $regex: escapeRegex(search), $options: "i" } })
+      const query = Shop.find(
+        ownedFilter(req, { name: { $regex: escapeRegex(search), $options: "i" } })
+      )
         .select("name location category slugifiedName") // keep it light
         .limit(limit)
         .lean();
@@ -118,7 +121,7 @@ shopsRouter.get("/", async (req, res) => {
      */
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    let query = Shop.find();
+    let query = Shop.find(ownedFilter(req));
 
     // Column Filters
     if (columnFilters) {
@@ -186,15 +189,17 @@ shopsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "locationName is required" });
     }
 
-    const locationId = await resolveLocationId(locationName);
-    const categoryId = await resolveCategoryId(categoryName);
+    const locationId = await resolveLocationId(req, locationName);
+    const categoryId = await resolveCategoryId(req, categoryName);
 
     const slugifiedName = createSlug(name);
 
-    const existingShop = await Shop.findOne({
-      slugifiedName,
-      location: locationId,
-    }).lean();
+    const existingShop = await Shop.findOne(
+      ownedFilter(req, {
+        slugifiedName,
+        location: locationId,
+      })
+    ).lean();
 
     if (existingShop) {
       return res.status(400).json({ message: "duplicate" });
@@ -205,6 +210,7 @@ shopsRouter.post("/", async (req, res) => {
       location: locationId,
       category: categoryId,
       slugifiedName,
+      ...ownedCreateFields(req),
     }).save();
 
     const shop = await Shop.findById(savedShop._id).lean();
@@ -239,21 +245,23 @@ shopsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "locationName is required" });
     }
 
-    const locationId = await resolveLocationId(locationName);
-    const categoryId = await resolveCategoryId(categoryName);
+    const locationId = await resolveLocationId(req, locationName);
+    const categoryId = await resolveCategoryId(req, categoryName);
 
     const slugifiedName = createSlug(name);
 
-    const duplicateShop = await Shop.findOne({
-      slugifiedName,
-      location: locationId,
-      _id: { $ne: id },
-    }).lean();
+    const duplicateShop = await Shop.findOne(
+      ownedFilter(req, {
+        slugifiedName,
+        location: locationId,
+        _id: { $ne: id },
+      })
+    ).lean();
 
     if (duplicateShop) return res.status(400).json({ message: "duplicate" });
 
-    const updated = await Shop.findByIdAndUpdate(
-      id,
+    const updated = await Shop.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       { name, location: locationId, category: categoryId, slugifiedName },
       { new: true, runValidators: true }
     ).lean();
@@ -277,7 +285,7 @@ shopsRouter.delete("/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid shop id" });
     }
 
-    const shop = await Shop.findByIdAndDelete(req.params.id);
+    const shop = await Shop.findOneAndDelete(ownedFilter(req, { _id: req.params.id }));
     if (!shop) return res.status(404).send({ error: "Shop not found" });
     res.send(shop);
   } catch (error) {

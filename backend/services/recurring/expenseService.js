@@ -64,9 +64,10 @@ export const createInitialTermsSnapshot = async (expense, now = new Date()) => {
   const fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
   return RecurringTermsHistory.findOneAndUpdate(
-    { recurringExpenseId: expense._id, fromDate },
+    { ownerUserId: expense.ownerUserId, recurringExpenseId: expense._id, fromDate },
     {
       $set: {
+        ownerUserId: expense.ownerUserId,
         recurringExpenseId: expense._id,
         fromDate,
         amount: expense.amount,

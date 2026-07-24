@@ -3,6 +3,7 @@ import Brand from "../models/brandSchema.js";
 import Product from "../models/productSchema.js";
 import slugify from "slugify";
 import mongoose from "mongoose";
+import { ownedCreateFields, ownedFilter, withOwnerOnInsert } from "../middleware/dataOwnership.js";
 
 const brandsRouter = express.Router();
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -33,7 +34,7 @@ brandsRouter.get("/", async (req, res) => {
         .map((id) => id.trim())
         .filter(Boolean);
 
-      const brands = await Brand.find({ _id: { $in: idsArray } })
+      const brands = await Brand.find(ownedFilter(req, { _id: { $in: idsArray } }))
         .select("_id name slug") // ✅ include _id
         .lean();
 
@@ -46,7 +47,9 @@ brandsRouter.get("/", async (req, res) => {
       const lim = Math.min(Number(limit) || 20, 50);
       if (q.length < 2) return res.json({ brands: [], meta: { totalRowCount: 0 } });
 
-      const brands = await Brand.find({ name: { $regex: escapeRegex(q), $options: "i" } })
+      const brands = await Brand.find(
+        ownedFilter(req, { name: { $regex: escapeRegex(q), $options: "i" } })
+      )
         .select("_id name slug") // ✅ include _id
         .limit(lim)
         .lean();
@@ -62,7 +65,7 @@ brandsRouter.get("/", async (req, res) => {
       return res.json({ brands: [], meta: { totalRowCount: 0 } });
     }
 
-    let mongooseQuery = Brand.find();
+    let mongooseQuery = Brand.find(ownedFilter(req));
 
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
@@ -117,7 +120,7 @@ brandsRouter.get("/recent", async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 50);
 
-    const brands = await Brand.find()
+    const brands = await Brand.find(ownedFilter(req))
       .sort({ createdAt: -1 })
       .limit(limit)
       .select("_id name slug") // ✅ include _id
@@ -136,7 +139,7 @@ brandsRouter.get("/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid brand id" });
     }
 
-    const brand = await Brand.findById(req.params.id).lean();
+    const brand = await Brand.findOne(ownedFilter(req, { _id: req.params.id })).lean();
     if (!brand) return res.status(404).send({ error: "Brand not found" });
     res.json(brand);
   } catch (error) {
@@ -159,14 +162,14 @@ brandsRouter.post("/", async (req, res) => {
         return res.status(400).json({ message: "Invalid product id" });
       }
 
-      product = await Product.findById(productId).select("_id").lean();
+      product = await Product.findOne(ownedFilter(req, { _id: productId })).select("_id").lean();
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
       }
     }
 
     const slug = createSlug(name);
-    const existingBrand = await Brand.findOne({ slug }).lean();
+    const existingBrand = await Brand.findOne(ownedFilter(req, { slug })).lean();
 
     if (existingBrand) {
       if (product) {
@@ -187,7 +190,7 @@ brandsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "duplicate" });
     }
 
-    const brand = new Brand({ name, slug });
+    const brand = new Brand({ name, slug, ...ownedCreateFields(req) });
     await brand.save();
 
     if (product) {
@@ -216,7 +219,7 @@ brandsRouter.delete("/:id", async (req, res) => {
       return res.status(400).send({ error: "Invalid brand id" });
     }
 
-    const deletedBrand = await Brand.findByIdAndDelete(req.params.id);
+    const deletedBrand = await Brand.findOneAndDelete(ownedFilter(req, { _id: req.params.id }));
     if (!deletedBrand) return res.status(404).send({ error: "Brand not found" });
 
     await Product.updateMany(
@@ -246,17 +249,19 @@ brandsRouter.put("/:id", async (req, res) => {
 
     const newSlug = slugify(name, { lower: true });
 
-    const existingBrandWithSlug = await Brand.findOne({
-      slug: newSlug,
-      _id: { $ne: id },
-    }).lean();
+    const existingBrandWithSlug = await Brand.findOne(
+      ownedFilter(req, {
+        slug: newSlug,
+        _id: { $ne: id },
+      })
+    ).lean();
 
     if (existingBrandWithSlug) {
       return res.status(400).json({ message: "duplicate" });
     }
 
-    const brand = await Brand.findByIdAndUpdate(
-      id,
+    const brand = await Brand.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       { $set: { name, slug: newSlug } },
       { new: true }
     );

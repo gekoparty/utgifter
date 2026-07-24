@@ -8,6 +8,7 @@ import Shop from "../models/shopSchema.js";
 import Location from "../models/locationSchema.js";
 import Variant from "../models/variantSchema.js";
 import { convertToUTC, formatDate, parseDateForStorage } from "../utils/dateUtils.js";
+import { ownedCreateFields, ownedFilter } from "../middleware/dataOwnership.js";
 
 const expensesRouter = express.Router();
 
@@ -44,14 +45,14 @@ const sortByNameAsc = (arr) =>
     : [];
 
 // Parallelized Reference Lookup
-const getReferenceIds = async (model, field, value) => {
+const getReferenceIds = async (req, model, field, value) => {
   if (!value) return [];
-  return model.find({ [field]: new RegExp(escapeRegex(value), "i") }).distinct("_id");
+  return model.find(ownedFilter(req, { [field]: new RegExp(escapeRegex(value), "i") })).distinct("_id");
 };
 
-const resolveById = async (Model, id) => {
+const resolveById = async (req, Model, id) => {
   if (!id || !isHexObjectId(id)) return null;
-  return Model.findById(id);
+  return Model.findOne(ownedFilter(req, { _id: id }));
 };
 
 const normalizeVariantId = (v) => {
@@ -152,7 +153,7 @@ const filterByRange = (query, defaultField, value) => {
   }
 };
 
-const applyFilters = async (query, filters) => {
+const applyFilters = async (req, query, filters) => {
   const referenceFilters = [];
   const variantFilters = [];
   const dateFilters = [];
@@ -189,7 +190,7 @@ const applyFilters = async (query, filters) => {
     };
 
     const promises = referenceFilters.map(async ({ id, value }) => {
-      const ids = await getReferenceIds(modelMap[id], "name", value);
+      const ids = await getReferenceIds(req, modelMap[id], "name", value);
       return { id, ids };
     });
 
@@ -203,7 +204,7 @@ const applyFilters = async (query, filters) => {
   if (variantFilters.length > 0) {
     const variantIdSets = await Promise.all(
       variantFilters.map(async ({ value }) => {
-        const ids = await getReferenceIds(Variant, "name", value);
+        const ids = await getReferenceIds(req, Variant, "name", value);
         return ids.map(String);
       })
     );
@@ -249,18 +250,20 @@ const applyPagination = async (query, start, size) => {
 expensesRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
-    let query = Expense.find();
+    let query = Expense.find(ownedFilter(req));
 
-    if (columnFilters) await applyFilters(query, JSON.parse(columnFilters));
+    if (columnFilters) await applyFilters(req, query, JSON.parse(columnFilters));
 
     if (globalFilter) {
-      const productIds = await getReferenceIds(Product, "name", globalFilter);
+      const productIds = await getReferenceIds(req, Product, "name", globalFilter);
 
       // Optional: allow searching by variant name (store variant as id string)
       const regex = new RegExp(escapeRegex(globalFilter), "i");
-      const variantIds = await Variant.find({
-        name: { $regex: regex },
-      }).distinct("_id");
+      const variantIds = await Variant.find(
+        ownedFilter(req, {
+          name: { $regex: regex },
+        })
+      ).distinct("_id");
 
       query.or([
         { productName: { $in: productIds } },
@@ -344,7 +347,7 @@ expensesRouter.get("/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid expense id" });
     }
 
-    const expense = await Expense.findById(req.params.id)
+    const expense = await Expense.findOne(ownedFilter(req, { _id: req.params.id }))
       .populate({
         path: "productName",
         select: "name category measures measurementUnit variants brands",
@@ -415,10 +418,10 @@ expensesRouter.post("/", async (req, res) => {
     } = req.body;
 
     const [product, brand, shop, location] = await Promise.all([
-      resolveById(Product, productId),
-      resolveById(Brand, brandId),
-      resolveById(Shop, shopId),
-      locationId ? resolveById(Location, locationId) : null,
+      resolveById(req, Product, productId),
+      resolveById(req, Brand, brandId),
+      resolveById(req, Shop, shopId),
+      locationId ? resolveById(req, Location, locationId) : null,
     ]);
 
     if (!product || !brand || !shop) {
@@ -449,14 +452,17 @@ expensesRouter.post("/", async (req, res) => {
       locationName: location?._id,
       variant: normalizedVariantId,
       ...normalizedExpenseData,
+      ...ownedCreateFields(req),
     }));
 
     const savedExpenses = await Expense.insertMany(expensesToInsert);
 
     // Return minimal payload; client refetches table anyway
-    const populatedExpenses = await Expense.find({
-      _id: { $in: savedExpenses.map((exp) => exp._id) },
-    })
+    const populatedExpenses = await Expense.find(
+      ownedFilter(req, {
+        _id: { $in: savedExpenses.map((exp) => exp._id) },
+      })
+    )
       .populate("productName", "name category")
       .populate("brandName", "name")
       .populate("shopName", "name")
@@ -501,10 +507,10 @@ expensesRouter.put("/:id", async (req, res) => {
     } = req.body;
 
     const [product, brand, shop, location] = await Promise.all([
-      resolveById(Product, productId),
-      resolveById(Brand, brandId),
-      resolveById(Shop, shopId),
-      locationId ? resolveById(Location, locationId) : null,
+      resolveById(req, Product, productId),
+      resolveById(req, Brand, brandId),
+      resolveById(req, Shop, shopId),
+      locationId ? resolveById(req, Location, locationId) : null,
     ]);
 
     if (!product || !brand || !shop) {
@@ -532,7 +538,7 @@ expensesRouter.put("/:id", async (req, res) => {
       update.variant = normalizedVariantId;
     }
 
-    const updatedExpense = await Expense.findByIdAndUpdate(req.params.id, update, {
+    const updatedExpense = await Expense.findOneAndUpdate(ownedFilter(req, { _id: req.params.id }), update, {
       new: true,
     })
       .populate("productName", "name category")
@@ -570,7 +576,7 @@ expensesRouter.delete("/:id", async (req, res) => {
       return res.status(400).json({ error: "Invalid expense id" });
     }
 
-    const deleted = await Expense.findByIdAndDelete(req.params.id);
+    const deleted = await Expense.findOneAndDelete(ownedFilter(req, { _id: req.params.id }));
     if (!deleted) return res.status(404).json({ error: "Expense not found" });
     res.json(deleted);
   } catch (error) {

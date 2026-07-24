@@ -8,6 +8,8 @@ import LocationOnIcon from "@mui/icons-material/LocationOn";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 
 export const mainNavbarItems = [
   // "Home" points to expenses now
@@ -27,4 +29,17 @@ export const mainNavbarItems = [
   },
   // stats is outside sidebar layout, still navigable from drawer if you want
   { id: 8, icon: <BarChartIcon />, label: "Stats", route: "/stats" },
+  {
+    id: 9,
+    icon: <ManageAccountsIcon />,
+    label: "Min konto",
+    route: "/account",
+  },
+  {
+    id: 10,
+    icon: <AdminPanelSettingsIcon />,
+    label: "Brukere",
+    route: "/admin/users",
+    adminOnly: true,
+  },
 ];

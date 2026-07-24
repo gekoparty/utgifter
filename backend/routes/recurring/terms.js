@@ -1,6 +1,7 @@
 import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import { ownedFilter } from "../../middleware/dataOwnership.js";
 import { periodKeyToMonthStart } from "../../services/recurring/scheduleService.js";
 
 const router = express.Router();
@@ -17,7 +18,7 @@ router.post("/:id/terms", async (req, res) => {
     const fromDate = periodKeyToMonthStart(periodKey);
     if (!fromDate) return res.status(400).json({ message: "invalid periodKey" });
 
-    const exp = await RecurringExpense.findById(id).lean();
+    const exp = await RecurringExpense.findOne(ownedFilter(req, { _id: id })).lean();
     if (!exp) return res.status(404).json({ message: "Not found" });
 
     const patch = {};
@@ -33,8 +34,8 @@ router.post("/:id/terms", async (req, res) => {
     patch.note = String(req.body.note || "").trim();
 
     const row = await RecurringTermsHistory.findOneAndUpdate(
-      { recurringExpenseId: exp._id, fromDate },
-      { $set: { recurringExpenseId: exp._id, fromDate, ...patch } },
+      ownedFilter(req, { recurringExpenseId: exp._id, fromDate }),
+      { $set: { ownerUserId: exp.ownerUserId, recurringExpenseId: exp._id, fromDate, ...patch } },
       { upsert: true, new: true }
     ).lean();
 

@@ -1,5 +1,6 @@
 import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
+import { ownedFilter } from "../../middleware/dataOwnership.js";
 import { periodKeyToMonthStart } from "../../services/recurring/scheduleService.js";
 
 const router = express.Router();
@@ -20,8 +21,8 @@ router.post("/:id/pause", async (req, res) => {
     const to = periodKeyToMonthStart(toPk);
     if (!from || !to || from > to) return res.status(400).json({ message: "invalid range" });
 
-    const updated = await RecurringExpense.findByIdAndUpdate(
-      id,
+    const updated = await RecurringExpense.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       { $push: { pausePeriods: { from, to, note } } },
       { new: true }
     ).lean();
@@ -51,7 +52,7 @@ router.put("/:id/pause/:pauseId", async (req, res) => {
     if (!from || !to || from > to) return res.status(400).json({ message: "invalid range" });
 
     const updated = await RecurringExpense.findOneAndUpdate(
-      { _id: id, "pausePeriods._id": pauseId },
+      ownedFilter(req, { _id: id, "pausePeriods._id": pauseId }),
       { $set: { "pausePeriods.$.from": from, "pausePeriods.$.to": to, "pausePeriods.$.note": note } },
       { new: true }
     ).lean();
@@ -68,8 +69,8 @@ router.delete("/:id/pause/:pauseId", async (req, res) => {
   try {
     const { id, pauseId } = req.params;
 
-    const updated = await RecurringExpense.findByIdAndUpdate(
-      id,
+    const updated = await RecurringExpense.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       { $pull: { pausePeriods: { _id: pauseId } } },
       { new: true }
     ).lean();

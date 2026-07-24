@@ -1,9 +1,10 @@
 import express from "express";
 
+import RecurringExpense from "../models/recurringExpenseSchema.js";
 import RecurringPayment from "../models/recurringPaymentSchema.js";
+import { ownedFilter } from "../middleware/dataOwnership.js";
 import { parseDateForStorage } from "../utils/dateUtils.js";
 import {
-  assertRecurringExpenseExists,
   normalizePaymentKind,
   normalizePaymentStatus,
   normalizePeriodKey,
@@ -47,15 +48,17 @@ recurringPaymentsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "status invalid" });
     }
 
-    const expenseExists = await assertRecurringExpenseExists(recurringExpenseId);
-    if (!expenseExists) {
+    const recurringExpense = await RecurringExpense.findOne(
+      ownedFilter(req, { _id: recurringExpenseId })
+    ).select("_id ownerUserId").lean();
+    if (!recurringExpense) {
       return res.status(404).json({ message: "RecurringExpense not found" });
     }
 
     let payment;
     if (kind === "MAIN") {
       payment = await RecurringPayment.findOneAndUpdate(
-        { recurringExpenseId, periodKey, kind: "MAIN" },
+        ownedFilter(req, { recurringExpenseId, periodKey, kind: "MAIN" }),
         {
           $set: {
             paidDate,
@@ -64,6 +67,7 @@ recurringPaymentsRouter.post("/", async (req, res) => {
             note,
             kind: "MAIN",
           },
+          $setOnInsert: { ownerUserId: recurringExpense.ownerUserId },
         },
         { upsert: true, new: true },
       ).lean();
@@ -76,6 +80,7 @@ recurringPaymentsRouter.post("/", async (req, res) => {
         status: "EXTRA",
         note,
         kind: "EXTRA",
+        ownerUserId: recurringExpense.ownerUserId,
       });
 
       payment = created.toObject();
@@ -94,7 +99,7 @@ recurringPaymentsRouter.post("/", async (req, res) => {
 
 recurringPaymentsRouter.put("/:id", async (req, res) => {
   try {
-    const existing = await RecurringPayment.findById(req.params.id).lean();
+    const existing = await RecurringPayment.findOne(ownedFilter(req, { _id: req.params.id })).lean();
     if (!existing) return res.status(404).json({ message: "Not found" });
 
     const patch = {};
@@ -126,8 +131,8 @@ recurringPaymentsRouter.put("/:id", async (req, res) => {
       patch.note = String(req.body.note).trim();
     }
 
-    const updated = await RecurringPayment.findByIdAndUpdate(
-      req.params.id,
+    const updated = await RecurringPayment.findOneAndUpdate(
+      ownedFilter(req, { _id: req.params.id }),
       { $set: patch },
       { new: true },
     ).lean();
@@ -146,7 +151,7 @@ recurringPaymentsRouter.get("/", async (req, res) => {
     const from = normalizePeriodKey(req.query.from);
     const to = normalizePeriodKey(req.query.to);
 
-    const query = {};
+    const query = ownedFilter(req);
     if (from || to) {
       query.periodKey = {};
       if (from) query.periodKey.$gte = from;
@@ -166,7 +171,7 @@ recurringPaymentsRouter.get("/", async (req, res) => {
 
 recurringPaymentsRouter.delete("/:id", async (req, res) => {
   try {
-    const deleted = await RecurringPayment.findByIdAndDelete(req.params.id).lean();
+    const deleted = await RecurringPayment.findOneAndDelete(ownedFilter(req, { _id: req.params.id })).lean();
     if (!deleted) return res.status(404).json({ message: "Not found" });
 
     await recomputeMortgageBalance(deleted.recurringExpenseId);

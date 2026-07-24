@@ -4,6 +4,7 @@ import Brand from "../models/brandSchema.js";
 import Product from "../models/productSchema.js";
 import ReceiptMatchAlias from "../models/receiptMatchAliasSchema.js";
 import Shop from "../models/shopSchema.js";
+import { ownedCreateFields, ownedFilter } from "../middleware/dataOwnership.js";
 
 const receiptsRouter = express.Router();
 
@@ -219,19 +220,19 @@ receiptsRouter.post("/match-products", async (req, res) => {
       .filter(Boolean)
       .slice(0, 400);
 
-    const products = await Product.find()
+    const products = await Product.find(ownedFilter(req))
       .select("name category brands variants measures measurementUnit")
       .populate("brands", "name")
       .populate({ path: "variants", select: "name", options: { sort: { name: 1 } } })
       .lean();
 
     const [brands, shops, aliases] = await Promise.all([
-      Brand.find().select("name products").lean(),
-      Shop.find()
+      Brand.find(ownedFilter(req)).select("name products").lean(),
+      Shop.find(ownedFilter(req))
         .select("name location category brands products")
         .populate("location", "name")
         .lean(),
-      ReceiptMatchAlias.find()
+      ReceiptMatchAlias.find(ownedFilter(req))
         .select("phrase normalizedPhrase product brand shop count")
         .lean(),
     ]);
@@ -362,15 +363,26 @@ receiptsRouter.post("/learn-match", async (req, res) => {
       return res.status(400).json({ message: "Mangler valgt match å lagre." });
     }
 
+    const [product, brand, shop] = await Promise.all([
+      update.product ? Product.exists(ownedFilter(req, { _id: update.product })) : true,
+      update.brand ? Brand.exists(ownedFilter(req, { _id: update.brand })) : true,
+      update.shop ? Shop.exists(ownedFilter(req, { _id: update.shop })) : true,
+    ]);
+
+    if (!product || !brand || !shop) {
+      return res.status(404).json({ message: "Valgt match finnes ikke." });
+    }
+
     const alias = await ReceiptMatchAlias.findOneAndUpdate(
-      {
+      ownedFilter(req, {
         normalizedPhrase,
         product: update.product ?? null,
         brand: update.brand ?? null,
         shop: update.shop ?? null,
-      },
+      }),
       {
         $set: update,
+        $setOnInsert: ownedCreateFields(req),
         $inc: { count: 1 },
       },
       { new: true, upsert: true }

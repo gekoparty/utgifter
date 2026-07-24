@@ -5,12 +5,16 @@ const categorySchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
     },
     slug: {  // Add the 'slug' field to the schema
       type: String,
       required: true,
-      unique: true,
+    },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
     },
     expenses: [
       {
@@ -23,6 +27,8 @@ const categorySchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+categorySchema.index({ ownerUserId: 1, slug: 1 }, { unique: true });
 
 const Category = mongoose.model(
   "Category",

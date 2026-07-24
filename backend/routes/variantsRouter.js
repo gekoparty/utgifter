@@ -5,6 +5,7 @@ import slugify from "slugify";
 import Variant from "../models/variantSchema.js";
 import Product from "../models/productSchema.js";
 import Expense from "../models/expenseSchema.js";
+import { ownedCreateFields, ownedFilter, withOwnerOnInsert } from "../middleware/dataOwnership.js";
 
 const variantsRouter = express.Router();
 
@@ -27,7 +28,7 @@ variantsRouter.get("/", async (req, res) => {
       return res.status(400).json({ message: "productId is required" });
     }
 
-    const query = { product: new mongoose.Types.ObjectId(productId) };
+    const query = ownedFilter(req, { product: new mongoose.Types.ObjectId(productId) });
     if (q) query.name = { $regex: new RegExp(q, "i") };
 
     const take = Math.min(parseInt(limit, 10) || 200, 1000);
@@ -61,7 +62,7 @@ variantsRouter.get("/by-ids", async (req, res) => {
 
     if (!ids.length) return res.json({ variants: [] });
 
-    const filter = { _id: { $in: ids } };
+    const filter = ownedFilter(req, { _id: { $in: ids } });
     if (productId && mongoose.Types.ObjectId.isValid(productId)) {
       filter.product = new mongoose.Types.ObjectId(productId);
     }
@@ -85,20 +86,20 @@ variantsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "productId is required" });
     }
 
-    const product = await Product.findById(productId).select("_id").lean();
+    const product = await Product.findOne(ownedFilter(req, { _id: productId })).select("_id").lean();
     if (!product) return res.status(404).json({ message: "Product not found" });
 
     const slug = createSlug(name);
 
     // ✅ upsert PER PRODUCT (not global)
     const variant = await Variant.findOneAndUpdate(
-      { product: product._id, slug },
-      { $setOnInsert: { product: product._id, name, slug } },
+      ownedFilter(req, { product: product._id, slug }),
+      { $setOnInsert: withOwnerOnInsert(req, { product: product._id, name, slug }) },
       { new: true, upsert: true }
     ).select("_id name product");
 
     // ensure product references it (idempotent)
-    await Product.updateOne({ _id: product._id }, { $addToSet: { variants: variant._id } });
+    await Product.updateOne(ownedFilter(req, { _id: product._id }), { $addToSet: { variants: variant._id } });
 
     res.status(201).json({ variant });
   } catch (err) {
@@ -120,17 +121,19 @@ variantsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "name is required" });
     }
 
-    const existing = await Variant.findById(id).select("_id product").lean();
+    const existing = await Variant.findOne(ownedFilter(req, { _id: id })).select("_id product").lean();
     if (!existing) return res.status(404).json({ message: "Variant not found" });
 
     const slug = createSlug(name);
 
     // Ensure uniqueness within same product (your DB index also enforces this)
-    const duplicate = await Variant.findOne({
-      _id: { $ne: existing._id },
-      product: existing.product,
-      slug,
-    })
+    const duplicate = await Variant.findOne(
+      ownedFilter(req, {
+        _id: { $ne: existing._id },
+        product: existing.product,
+        slug,
+      })
+    )
       .select("_id")
       .lean();
 
@@ -138,8 +141,8 @@ variantsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "duplicate" });
     }
 
-    const updated = await Variant.findByIdAndUpdate(
-      existing._id,
+    const updated = await Variant.findOneAndUpdate(
+      ownedFilter(req, { _id: existing._id }),
       { name, slug },
       { new: true, runValidators: true }
     ).select("_id name product");
@@ -163,18 +166,18 @@ variantsRouter.delete("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid variant id" });
     }
 
-    const variant = await Variant.findById(id).select("_id product").lean();
+    const variant = await Variant.findOne(ownedFilter(req, { _id: id })).select("_id product").lean();
     if (!variant) return res.status(404).json({ message: "Variant not found" });
 
-    const inUse = await Expense.exists({ variant: String(variant._id) });
+    const inUse = await Expense.exists(ownedFilter(req, { variant: String(variant._id) }));
     if (inUse) {
       return res.status(400).json({ message: "variant_in_use" });
     }
 
-    await Variant.deleteOne({ _id: variant._id });
+    await Variant.deleteOne(ownedFilter(req, { _id: variant._id }));
 
     // ✅ remove from product array to avoid orphan ids
-    await Product.updateOne({ _id: variant.product }, { $pull: { variants: variant._id } });
+    await Product.updateOne(ownedFilter(req, { _id: variant.product }), { $pull: { variants: variant._id } });
 
     res.status(200).json({ ok: true });
   } catch (err) {
