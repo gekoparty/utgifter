@@ -28,10 +28,19 @@ dotenv.config();
 
 const port = process.env.PORT || 5000;
 const app = express();
+app.set("trust proxy", 1);
+
+const splitOrigins = (value) =>
+  String(value || "")
+    .split(",")
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
 
 const allowedOrigins = [
   "http://localhost:5173",
-  process.env.FRONTEND_URL,
+  ...splitOrigins(process.env.FRONTEND_URL),
+  ...splitOrigins(process.env.FRONTEND_URLS),
+  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
 ].filter(Boolean);
 
 const corsOptions = {

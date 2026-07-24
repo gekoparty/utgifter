@@ -4,7 +4,10 @@ export const buildApiUrl = (pathOrUrl) => {
   if (pathOrUrl instanceof URL) return pathOrUrl;
   if (String(pathOrUrl).startsWith("http")) return new URL(pathOrUrl);
 
-  const base = API_URL.endsWith("/") ? API_URL : `${API_URL}/`;
+  const runtimeBase =
+    API_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "http://localhost:5000");
+  const base = runtimeBase.endsWith("/") ? runtimeBase : `${runtimeBase}/`;
   const path = String(pathOrUrl).startsWith("/")
     ? String(pathOrUrl).slice(1)
     : String(pathOrUrl);
