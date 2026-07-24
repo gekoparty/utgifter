@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import { ownedFilter } from "../../middleware/dataOwnership.js";
 
 import { buildMortgagePlan } from "../../services/mortgages/planService.js";
 import {
@@ -26,7 +27,7 @@ router.get("/:id/plan", async (req, res) => {
     if (!/^\d{4}-\d{2}$/.test(from)) return res.status(400).json({ message: "from must be YYYY-MM" });
     if (!periodKeyToMonthStart(from)) return res.status(400).json({ message: "invalid from" });
 
-    const exp = await RecurringExpense.findById(id).lean();
+    const exp = await RecurringExpense.findOne(ownedFilter(req, { _id: id })).lean();
     if (!exp) return res.status(404).json({ message: "Not found" });
     if (!isMortgageType(exp.type)) return res.status(400).json({ message: "Not a mortgage" });
 
@@ -35,11 +36,12 @@ router.get("/:id/plan", async (req, res) => {
       .format("YYYY-MM");
 
     const payments = await RecurringPayment.find({
+      ...ownedFilter(req),
       recurringExpenseId: exp._id,
       periodKey: { $gte: from, $lte: toKey },
     }).lean();
 
-    const termsArr = await RecurringTermsHistory.find({ recurringExpenseId: exp._id })
+    const termsArr = await RecurringTermsHistory.find(ownedFilter(req, { recurringExpenseId: exp._id }))
       .sort({ fromDate: 1 })
       .lean();
 

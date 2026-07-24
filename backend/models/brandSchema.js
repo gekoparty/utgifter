@@ -6,7 +6,6 @@ const brandSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
     },
     description: {
       type: String,
@@ -14,7 +13,12 @@ const brandSchema = new mongoose.Schema(
     slug: {
       type: String,
       required: true,
-      unique: true,
+    },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
     },
     products: [
       {
@@ -29,6 +33,7 @@ const brandSchema = new mongoose.Schema(
 );
 
 brandSchema.index({ products: 1 });
+brandSchema.index({ ownerUserId: 1, slug: 1 }, { unique: true });
 
 const Brand = mongoose.model("Brand", brandSchema);
 

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { API_URL } from "../../../commons/Consts/constants";
+import { buildApiUrl, requestJson } from "../../../../api/httpClient";
 
 export function useExpensesByMonthSummary({ year, compare }) {
   return useQuery({
@@ -9,15 +9,10 @@ export function useExpensesByMonthSummary({ year, compare }) {
       if (year) params.set("year", year);
       params.set("compare", compare ? "1" : "0");
 
-      const url = new URL(
-        "/api/stats/expenses-by-month-summary",
-        API_URL || window.location.origin
-      );
+      const url = buildApiUrl("/api/stats/expenses-by-month-summary");
       url.search = params.toString();
 
-      const r = await fetch(url.toString());
-      if (!r.ok) throw new Error("Failed to load expenses-by-month summary");
-      return r.json();
+      return requestJson(url);
     },
     staleTime: 60_000,
   });

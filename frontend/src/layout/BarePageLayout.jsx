@@ -15,16 +15,19 @@ import {
   Stack,
 } from "@mui/material";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import LogoutIcon from "@mui/icons-material/Logout";
 import VirtualizedSelect from "../components/commons/VirtualizedSelect/VirtualizedSelect";
 import debounce from "lodash.debounce";
 import useInfiniteProducts from "../hooks/useInfiniteProducts";
 import { getSelectStyles } from "../styles/theme/selectStyles";
 import ThemeModeSwitch from "../components/commons/ThemeModeSwitch.jsx";
+import { useAuth } from "../auth/AuthContext.jsx";
 
 export default function BarePageLayout() {
   const [view, setView] = useState("expenses");
   const [productId, setProductId] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const { logout } = useAuth();
 
   const theme = useTheme();
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
@@ -186,6 +189,15 @@ export default function BarePageLayout() {
                 <Box sx={{ alignSelf: { xs: "flex-end", sm: "center" } }}>
                   <ThemeModeSwitch />
                 </Box>
+                <Button
+                  onClick={logout}
+                  size="small"
+                  variant="outlined"
+                  startIcon={<LogoutIcon fontSize="small" />}
+                  sx={{ textTransform: "none", fontWeight: 800 }}
+                >
+                  Logg ut
+                </Button>
               </Stack>
             </Stack>
           </Container>

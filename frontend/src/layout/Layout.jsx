@@ -26,6 +26,8 @@ export default function Layout() {
     "/locations": "Steder",
     "/products": "Produkter",
     "/recurring-expenses": "Faste kostnader",
+    "/account": "Min konto",
+    "/admin/users": "Brukere",
   };
 
   const title = useMemo(

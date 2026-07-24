@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
 
     category: { type: String, required: true, trim: true },
 
@@ -11,7 +11,13 @@ const productSchema = new mongoose.Schema(
 
     description: { type: String },
 
-    slug: { type: String, required: true, unique: true },
+    slug: { type: String, required: true },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
 
     measurementUnit: {
       type: String,
@@ -30,6 +36,7 @@ const productSchema = new mongoose.Schema(
 productSchema.index({ category: 1 });
 productSchema.index({ brands: 1 });
 productSchema.index({ variants: 1 });
+productSchema.index({ ownerUserId: 1, slug: 1 }, { unique: true });
 
 const Product = mongoose.model("Product", productSchema);
 export default Product;

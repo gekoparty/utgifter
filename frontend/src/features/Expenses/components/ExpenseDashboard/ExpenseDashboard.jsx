@@ -82,52 +82,66 @@ const buildDashboardSeries = (summary, period) => {
 };
 
 function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
+  const [breakdown, setBreakdown] = useState("categories");
+  const breakdowns = {
+    categories: {
+      icon: <CategoryOutlinedIcon fontSize="small" />,
+      title: "Kategori",
+      rows: categories,
+    },
+    shops: {
+      icon: <StorefrontIcon fontSize="small" />,
+      title: "Butikk",
+      rows: shops,
+    },
+    brands: {
+      icon: <LocalOfferOutlinedIcon fontSize="small" />,
+      title: "Merke",
+      rows: brands,
+    },
+    locations: {
+      icon: <PlaceOutlinedIcon fontSize="small" />,
+      title: "Sted",
+      rows: locations,
+    },
+  };
+  const activeBreakdown = breakdowns[breakdown] ?? breakdowns.categories;
+
   return (
     <SectionCard
       title="Hvor brukes pengene"
+      action={
+        <SegmentedControl
+          value={breakdown}
+          onChange={setBreakdown}
+          options={[
+            { value: "categories", label: "Kategori" },
+            { value: "shops", label: "Butikk" },
+            { value: "brands", label: "Merke" },
+            { value: "locations", label: "Sted" },
+          ]}
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 1,
+              py: 0.35,
+              textTransform: "none",
+              fontWeight: 800,
+              fontSize: 12,
+            },
+          }}
+        />
+      }
       subtitle="Fordelt på kategori, butikk, merke og sted."
       sx={dashboardPanelSx}
     >
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "1fr",
-            sm: "repeat(2, minmax(0, 1fr))",
-            xl: "repeat(4, minmax(0, 1fr))",
-          },
-          gap: 1.5,
-        }}
-      >
-        <BreakdownList
-          icon={<CategoryOutlinedIcon fontSize="small" />}
-          title="Kategori"
-          rows={categories}
-          total={total}
-          formatValue={(value) => NOK.format(value)}
-        />
-        <BreakdownList
-          icon={<StorefrontIcon fontSize="small" />}
-          title="Butikk"
-          rows={shops}
-          total={total}
-          formatValue={(value) => NOK.format(value)}
-        />
-        <BreakdownList
-          icon={<LocalOfferOutlinedIcon fontSize="small" />}
-          title="Merke"
-          rows={brands}
-          total={total}
-          formatValue={(value) => NOK.format(value)}
-        />
-        <BreakdownList
-          icon={<PlaceOutlinedIcon fontSize="small" />}
-          title="Sted"
-          rows={locations}
-          total={total}
-          formatValue={(value) => NOK.format(value)}
-        />
-      </Box>
+      <BreakdownList
+        icon={activeBreakdown.icon}
+        title={activeBreakdown.title}
+        rows={activeBreakdown.rows}
+        total={total}
+        maxRows={7}
+        formatValue={(value) => NOK.format(value)}
+      />
     </SectionCard>
   );
 }

@@ -9,12 +9,18 @@ const receiptMatchAliasSchema = new mongoose.Schema(
     shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop" },
     count: { type: Number, default: 1 },
     lastUsedAt: { type: Date, default: Date.now },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
 receiptMatchAliasSchema.index(
-  { normalizedPhrase: 1, product: 1, brand: 1, shop: 1 },
+  { ownerUserId: 1, normalizedPhrase: 1, product: 1, brand: 1, shop: 1 },
   { unique: true }
 );
 receiptMatchAliasSchema.index({ product: 1 });

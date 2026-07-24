@@ -103,6 +103,12 @@ const expenseSchema = new mongoose.Schema(
       ref: "Location",
       required: false,
     },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -111,6 +117,8 @@ const expenseSchema = new mongoose.Schema(
 
 // Index for common queries
 expenseSchema.index({ productName: 1, brandName: 1, shopName: 1 });
+expenseSchema.index({ ownerUserId: 1, purchaseDate: -1 });
+expenseSchema.index({ ownerUserId: 1, registeredDate: -1 });
 expenseSchema.index({ purchaseDate: -1 });
 expenseSchema.index({ registeredDate: -1 });
 expenseSchema.index({ productName: 1, purchaseDate: 1 });

@@ -5,7 +5,6 @@ const locationSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
     },
     description: {
       type: String,
@@ -13,7 +12,12 @@ const locationSchema = new mongoose.Schema(
     slug: {
       type: String,
       required: true,
-      unique: true,
+    },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
     },
     products: [
       {
@@ -26,6 +30,8 @@ const locationSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+locationSchema.index({ ownerUserId: 1, slug: 1 }, { unique: true });
 
 const Location = mongoose.model("Location", locationSchema);
 

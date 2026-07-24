@@ -6,6 +6,7 @@ import {
   buildPaymentHistoryIndex,
   estimateExpectedExpense,
 } from "../../services/recurring/expectedExpenseService.js";
+import { ownedFilter } from "../../middleware/dataOwnership.js";
 
 import {
   DAY_BASIS,
@@ -425,7 +426,7 @@ router.get("/summary", async (req, res) => {
     const histFromKey = yyyymmKey(addMonths(timelineStart, -36));
 
     const includeInactive = String(req.query.includeInactive || "false") === "true";
-    const q = includeInactive ? {} : { isActive: true };
+    const q = ownedFilter(req, includeInactive ? {} : { isActive: true });
 
     const expenses = await RecurringExpense.find(q)
       .sort({ type: 1, title: 1 })
@@ -434,12 +435,14 @@ router.get("/summary", async (req, res) => {
     const expIds = expenses.map((e) => e._id);
 
     const paymentsInRange = await RecurringPayment.find({
+      ...ownedFilter(req),
       ...(expIds.length ? { recurringExpenseId: { $in: expIds } } : {}),
       periodKey: { $gte: histFromKey, $lte: toKey },
     }).lean();
 
     const termsRows = expIds.length
       ? await RecurringTermsHistory.find({
+          ...ownedFilter(req),
           recurringExpenseId: { $in: expIds },
         })
           .sort({ recurringExpenseId: 1, fromDate: 1 })

@@ -43,19 +43,25 @@ const RecurringPaymentSchema = new mongoose.Schema(
     },
 
     note: { type: String, trim: true, maxlength: 200, default: "" },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
 // only one MAIN per month
 RecurringPaymentSchema.index(
-  { recurringExpenseId: 1, periodKey: 1 },
+  { ownerUserId: 1, recurringExpenseId: 1, periodKey: 1 },
   {
     unique: true,
     partialFilterExpression: { kind: "MAIN" },
   }
 );
-RecurringPaymentSchema.index({ recurringExpenseId: 1, periodKey: 1, paidDate: 1 });
+RecurringPaymentSchema.index({ ownerUserId: 1, recurringExpenseId: 1, periodKey: 1, paidDate: 1 });
 
 export default mongoose.model("RecurringPayment", RecurringPaymentSchema);
 

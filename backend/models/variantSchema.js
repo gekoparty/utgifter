@@ -11,13 +11,19 @@ const variantSchema = new mongoose.Schema(
     },
     name: { type: String, required: true, trim: true },
     slug: { type: String, required: true, trim: true },
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
 // ✅ unique only within the same product
-variantSchema.index({ product: 1, slug: 1 }, { unique: true });
-variantSchema.index({ product: 1, name: 1 }, { unique: true });
+variantSchema.index({ ownerUserId: 1, product: 1, slug: 1 }, { unique: true });
+variantSchema.index({ ownerUserId: 1, product: 1, name: 1 }, { unique: true });
 
 const Variant = mongoose.model("Variant", variantSchema);
 export default Variant;

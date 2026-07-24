@@ -4,7 +4,13 @@ import mongoose from "mongoose";
 import helmet from "helmet";
 import cors from "cors";
 import compression from "compression";
+import { toNodeHandler } from "better-auth/node";
 
+import { createBetterAuth } from "./auth/betterAuth.js";
+import {
+  createRequireBetterAuth,
+} from "./middleware/requireBetterAuth.js";
+import appUsersRouter from "./routes/appUsersRouter.js";
 import categoriesRouter from "./routes/categoriesRouter.js";
 import shopsRouter from "./routes/shopsRouter.js";
 import locationsRouter from "./routes/locationsRouter.js";
@@ -52,10 +58,8 @@ app.use(helmet());
 app.use(compression());
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(express.json({ limit: "1mb" }));
 
 mongoose.set("strictQuery", false);
-connectToDB();
 
 if (process.env.LOG_REQUESTS === "true") {
   app.use((req, res, next) => {
@@ -68,20 +72,7 @@ app.get("/", (req, res) => {
   res.send("API is running.");
 });
 
-app.use("/api/categories", categoriesRouter);
-app.use("/api/shops", shopsRouter);
-app.use("/api/locations", locationsRouter);
-app.use("/api/brands", brandsRouter);
-app.use("/api/products", productsRouter);
-app.use("/api/variants", variantsRouter);
-app.use("/api/expenses", expensesRouter);
-app.use("/api/receipts", receiptsRouter);
-app.use("/api/stats", statsRouter);
-app.use("/api/recurring-payments", recurringPaymentsRouter);
-app.use("/api/recurring-expenses", recurringRouter);
-app.use("/api/mortgages", mortgagesRouter);
-
-app.use((err, req, res, next) => {
+const handleError = (err, req, res, next) => {
   console.error(err.stack);
 
   if (err.message === "Not allowed by CORS") {
@@ -95,23 +86,59 @@ app.use((err, req, res, next) => {
     error: "Internal Server Error",
     message: process.env.NODE_ENV === "development" ? err.message : undefined,
   });
-});
+};
 
-const server = app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+let server;
 
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled Rejection:", err);
-  server.close(() => process.exit(1));
+  if (server) {
+    server.close(() => process.exit(1));
+  } else {
+    process.exit(1);
+  }
 });
 
 async function connectToDB() {
+  await mongoose.connect(process.env.MONGODB_URI);
+  console.log("Connected to DB");
+}
+
+async function startServer() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("Connected to DB");
+    await connectToDB();
+
+    const auth = createBetterAuth({
+      db: mongoose.connection.db,
+      trustedOrigins: allowedOrigins,
+    });
+    const requireAuth = createRequireBetterAuth(auth);
+
+    app.all("/api/auth/*", toNodeHandler(auth));
+    app.use(express.json({ limit: "1mb" }));
+    app.use("/api", requireAuth);
+    app.use("/api/app-users", appUsersRouter);
+    app.use("/api/categories", categoriesRouter);
+    app.use("/api/shops", shopsRouter);
+    app.use("/api/locations", locationsRouter);
+    app.use("/api/brands", brandsRouter);
+    app.use("/api/products", productsRouter);
+    app.use("/api/variants", variantsRouter);
+    app.use("/api/expenses", expensesRouter);
+    app.use("/api/receipts", receiptsRouter);
+    app.use("/api/stats", statsRouter);
+    app.use("/api/recurring-payments", recurringPaymentsRouter);
+    app.use("/api/recurring-expenses", recurringRouter);
+    app.use("/api/mortgages", mortgagesRouter);
+    app.use(handleError);
+
+    server = app.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
   } catch (err) {
-    console.error("Database connection error:", err.message);
+    console.error("Server startup error:", err.message);
     process.exit(1);
   }
 }
+
+startServer();

@@ -3,6 +3,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Expense from "../models/expenseSchema.js";
 import { convertToUTC, TIME_ZONE } from "../utils/dateUtils.js";
+import { ownedFilter } from "../middleware/dataOwnership.js";
 
 const router = express.Router();
 
@@ -49,6 +50,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
     const to = osloDayRange(todayKey)?.end;
 
     const [result] = await Expense.aggregate([
+      { $match: ownedFilter(req) },
       actualDateStage,
       { $addFields: { amount: { $ifNull: ["$finalPrice", "$price"] } } },
       actualDateNotNull,
@@ -240,6 +242,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
 
     // 1) Find available years
     const yearsAgg = await Expense.aggregate([
+      { $match: ownedFilter(req) },
       actualDateStage,
       actualDateNotNull,
       { $group: { _id: yearOfActualDate } },
@@ -261,6 +264,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
     const matchYears = doCompare ? [Number(year), Number(compareYear)] : [Number(year)];
 
     const monthTotals = await Expense.aggregate([
+      { $match: ownedFilter(req) },
       actualDateStage,
       actualDateNotNull,
       {
@@ -319,6 +323,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
     ];
 
     const [categoryBreakdowns = { month: [], year: [], all: [] }] = await Expense.aggregate([
+      { $match: ownedFilter(req) },
       actualDateStage,
       actualDateNotNull,
       {
@@ -506,7 +511,7 @@ router.get("/price-history", async (req, res, next) => {
 
   try {
     const data = await Expense.aggregate([
-      { $match: { productName: new mongoose.Types.ObjectId(productId) } },
+      { $match: ownedFilter(req, { productName: new mongoose.Types.ObjectId(productId) }) },
       actualDateStage,
       actualDateNotNull,
       {
@@ -548,7 +553,7 @@ router.get("/price-per-unit-history", async (req, res, next) => {
     const pid = new mongoose.Types.ObjectId(productId);
 
     const data = await Expense.aggregate([
-      { $match: { productName: pid } },
+      { $match: ownedFilter(req, { productName: pid }) },
 
       actualDateStage,
       actualDateNotNull,
@@ -687,6 +692,7 @@ router.get("/product-insights", async (req, res, next) => {
     };
 
     const [result] = await Expense.aggregate([
+      { $match: ownedFilter(req) },
       { $match: matchStage },
 
       actualDateStage,

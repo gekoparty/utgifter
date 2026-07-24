@@ -15,6 +15,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import GlobalErrorBanner from "./components/commons/ErrorHandling/GlobalErrorBanner.jsx";
 import GlobalNotificationSnackbar from "./components/commons/Feedback/GlobalNotificationSnackbar.jsx";
 import { ColorModeContext } from "./styles/theme/ColorModeContext.jsx";
+import { AuthProvider } from "./auth/AuthContext.jsx";
 
 // Create a QueryClient instance for React Query v5
 const queryClient = new QueryClient({
@@ -48,9 +49,11 @@ function AppThemeProvider({ children }) {
         <CssBaseline />
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
           <QueryClientProvider client={queryClient}>
-            <GlobalErrorBanner />
-            {children}
-            <GlobalNotificationSnackbar />
+            <AuthProvider>
+              <GlobalErrorBanner />
+              {children}
+              <GlobalNotificationSnackbar />
+            </AuthProvider>
             <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
           </QueryClientProvider>
         </LocalizationProvider>

@@ -4,13 +4,14 @@ import {
   createInitialTermsSnapshot,
   normalizeRecurringExpensePayload,
 } from "../../services/recurring/expenseService.js";
+import { ownedCreateFields, ownedFilter } from "../../middleware/dataOwnership.js";
 
 const router = express.Router();
 
 router.get("/", async (req, res) => {
   try {
     const includeInactive = String(req.query.includeInactive || "false") === "true";
-    const query = includeInactive ? {} : { isActive: true };
+    const query = ownedFilter(req, includeInactive ? {} : { isActive: true });
 
     const expenses = await RecurringExpense.find(query)
       .sort({ type: 1, title: 1 })
@@ -25,7 +26,7 @@ router.get("/", async (req, res) => {
 
 router.get("/:id", async (req, res) => {
   try {
-    const expense = await RecurringExpense.findById(req.params.id).lean();
+    const expense = await RecurringExpense.findOne(ownedFilter(req, { _id: req.params.id })).lean();
     if (!expense) return res.status(404).json({ message: "Not found" });
     res.json(expense);
   } catch (err) {
@@ -41,13 +42,15 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Tittel er påkrevd" });
     }
 
-    const existing = await RecurringExpense.findOne({
-      slug: payload.slug,
-      type: payload.type,
-    });
+    const existing = await RecurringExpense.findOne(
+      ownedFilter(req, {
+        slug: payload.slug,
+        type: payload.type,
+      })
+    );
     if (existing) return res.status(400).json({ message: "duplicate" });
 
-    const created = await RecurringExpense.create(payload);
+    const created = await RecurringExpense.create({ ...payload, ...ownedCreateFields(req) });
     await createInitialTermsSnapshot(created);
 
     res.status(201).json(created);
@@ -66,15 +69,17 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "Tittel er påkrevd" });
     }
 
-    const existing = await RecurringExpense.findOne({
-      slug: payload.slug,
-      type: payload.type,
-      _id: { $ne: id },
-    });
+    const existing = await RecurringExpense.findOne(
+      ownedFilter(req, {
+        slug: payload.slug,
+        type: payload.type,
+        _id: { $ne: id },
+      })
+    );
     if (existing) return res.status(400).json({ message: "duplicate" });
 
-    const updated = await RecurringExpense.findByIdAndUpdate(
-      id,
+    const updated = await RecurringExpense.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       { $set: payload },
       { new: true },
     ).lean();
@@ -89,7 +94,7 @@ router.put("/:id", async (req, res) => {
 
 router.post("/:id/archive", async (req, res) => {
   try {
-    const expense = await RecurringExpense.findById(req.params.id);
+    const expense = await RecurringExpense.findOne(ownedFilter(req, { _id: req.params.id }));
     if (!expense) return res.status(404).json({ message: "Not found" });
 
     expense.isActive = false;
@@ -105,8 +110,8 @@ router.post("/:id/archive", async (req, res) => {
 
 router.patch("/:id/restore", async (req, res) => {
   try {
-    const updated = await RecurringExpense.findByIdAndUpdate(
-      req.params.id,
+    const updated = await RecurringExpense.findOneAndUpdate(
+      ownedFilter(req, { _id: req.params.id }),
       { $set: { isActive: true, endDate: null } },
       { new: true },
     ).lean();

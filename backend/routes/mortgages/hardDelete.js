@@ -4,6 +4,8 @@ import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import { ownedFilter } from "../../middleware/dataOwnership.js";
+import { requireAdmin } from "../../middleware/requireBetterAuth.js";
 
 const router = express.Router();
 const CONFIRM_PURGE = "PURGE";
@@ -17,13 +19,13 @@ router.delete("/:id/hard", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const exp = await RecurringExpense.findById(id).lean();
+    const exp = await RecurringExpense.findOne(ownedFilter(req, { _id: id })).lean();
     if (!exp) return res.status(404).json({ message: "Not found" });
     if (!isMortgageType(exp.type)) return res.status(400).json({ message: "Not a mortgage" });
 
-    await RecurringPayment.deleteMany({ recurringExpenseId: exp._id });
-    await RecurringTermsHistory.deleteMany({ recurringExpenseId: exp._id });
-    await RecurringExpense.findByIdAndDelete(exp._id);
+    await RecurringPayment.deleteMany(ownedFilter(req, { recurringExpenseId: exp._id }));
+    await RecurringTermsHistory.deleteMany(ownedFilter(req, { recurringExpenseId: exp._id }));
+    await RecurringExpense.findOneAndDelete(ownedFilter(req, { _id: exp._id }));
 
     return res.status(204).send();
   } catch (err) {
@@ -32,7 +34,7 @@ router.delete("/:id/hard", async (req, res) => {
   }
 });
 
-router.delete("/purge-all", async (req, res) => {
+router.delete("/purge-all", requireAdmin, async (req, res) => {
   try {
     if (process.env.NODE_ENV === "production") {
       return res.status(403).json({ message: "Disabled in production" });

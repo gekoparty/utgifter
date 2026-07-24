@@ -6,6 +6,7 @@ import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Variant from "../models/variantSchema.js";
 import Expense from "../models/expenseSchema.js";
+import { ownedCreateFields, ownedFilter, withOwnerOnInsert } from "../middleware/dataOwnership.js";
 
 const productsRouter = express.Router();
 
@@ -24,7 +25,7 @@ const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const isHexObjectId = (s) => /^[a-f\d]{24}$/i.test(String(s ?? "").trim());
 
 // -------------------- Brand helpers --------------------
-const resolveBrandIds = async (brands) => {
+const resolveBrandIds = async (req, brands) => {
   if (!Array.isArray(brands)) {
     throw new Error("Brands must be an array");
   }
@@ -37,7 +38,7 @@ const resolveBrandIds = async (brands) => {
 
       // Existing brand id
       if (isHexObjectId(value)) {
-        const existing = await Brand.findById(value)
+        const existing = await Brand.findOne(ownedFilter(req, { _id: value }))
           .select("_id")
           .lean();
 
@@ -48,11 +49,10 @@ const resolveBrandIds = async (brands) => {
       const slug = createSlug(value);
 
       const brand = await Brand.findOneAndUpdate(
-        { slug },
+        ownedFilter(req, { slug }),
         {
           $setOnInsert: {
-            name: value,
-            slug,
+            ...withOwnerOnInsert(req, { name: value, slug }),
           },
         },
         {
@@ -78,7 +78,7 @@ const resolveBrandIds = async (brands) => {
  *
  * Ensures uniqueness within payload by case-insensitive name.
  */
-const resolveVariantIds = async (productId, body) => {
+const resolveVariantIds = async (req, productId, body) => {
   const arr = Array.isArray(body?.variants) ? body.variants : [];
   if (!arr.length) return [];
 
@@ -92,7 +92,9 @@ const resolveVariantIds = async (productId, body) => {
 
       // ✅ If ObjectId string (STRICT 24-hex), ensure it belongs to THIS product
       if (isHexObjectId(s)) {
-        const exists = await Variant.findOne({ _id: s, product: pid }).select("_id").lean();
+        const exists = await Variant.findOne(ownedFilter(req, { _id: s, product: pid }))
+          .select("_id")
+          .lean();
         return exists ? new mongoose.Types.ObjectId(s) : null;
       }
 
@@ -106,8 +108,8 @@ const resolveVariantIds = async (productId, body) => {
 
       // ✅ Upsert per product (not shared across products)
       const doc = await Variant.findOneAndUpdate(
-        { product: pid, slug },
-        { $setOnInsert: { product: pid, name, slug } },
+        ownedFilter(req, { product: pid, slug }),
+        { $setOnInsert: withOwnerOnInsert(req, { product: pid, name, slug }) },
         { new: true, upsert: true }
       )
         .select("_id")
@@ -126,7 +128,7 @@ const resolveVariantIds = async (productId, body) => {
 };
 
 /** Delete variant docs that were removed from this product */
-const deleteVariantsForProduct = async (productId, removedVariantIds) => {
+const deleteVariantsForProduct = async (req, productId, removedVariantIds) => {
   const pid = new mongoose.Types.ObjectId(productId);
 
   const ids = (removedVariantIds ?? [])
@@ -136,7 +138,7 @@ const deleteVariantsForProduct = async (productId, removedVariantIds) => {
 
   if (!ids.length) return;
 
-  await Variant.deleteMany({ _id: { $in: ids }, product: pid });
+  await Variant.deleteMany(ownedFilter(req, { _id: { $in: ids }, product: pid }));
 };
 
 /**
@@ -144,16 +146,16 @@ const deleteVariantsForProduct = async (productId, removedVariantIds) => {
  * If product references a variant id that doesn't exist (or doesn't belong to product),
  * pull it from the product array.
  */
-const cleanupProductVariantOrphans = async (productId) => {
+const cleanupProductVariantOrphans = async (req, productId) => {
   const pid = new mongoose.Types.ObjectId(productId);
 
-  const product = await Product.findById(pid).select("variants").lean();
+  const product = await Product.findOne(ownedFilter(req, { _id: pid })).select("variants").lean();
   if (!product) return;
 
   const ids = (product.variants ?? []).map(String).filter(isHexObjectId);
   if (!ids.length) return;
 
-  const existing = await Variant.find({ _id: { $in: ids }, product: pid })
+  const existing = await Variant.find(ownedFilter(req, { _id: { $in: ids }, product: pid }))
     .select("_id")
     .lean();
 
@@ -162,7 +164,7 @@ const cleanupProductVariantOrphans = async (productId) => {
 
   if (orphanIds.length) {
     await Product.updateOne(
-      { _id: pid },
+      ownedFilter(req, { _id: pid }),
       {
         $pull: {
           variants: {
@@ -209,7 +211,7 @@ productsRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    let query = Product.find();
+    let query = Product.find(ownedFilter(req));
 
     if (columnFilters) {
       const filters = JSON.parse(columnFilters);
@@ -220,9 +222,9 @@ productsRouter.get("/", async (req, res) => {
         if (id === "name") {
           query = query.where("name").regex(new RegExp(escapeRegex(value), "i"));
         } else if (id === "brand") {
-          const matchingBrands = await Brand.find({
-            name: { $regex: new RegExp(escapeRegex(value), "i") },
-          }).select("_id");
+          const matchingBrands = await Brand.find(
+            ownedFilter(req, { name: { $regex: new RegExp(escapeRegex(value), "i") } })
+          ).select("_id");
 
           const brandIds = matchingBrands.map((b) => b._id);
           query = query.where("brands").in(brandIds.length > 0 ? brandIds : []);
@@ -231,7 +233,7 @@ productsRouter.get("/", async (req, res) => {
         } else if (id === "variant" || id === "variants") {
           // ✅ Filter products by variant NAME (product-scoped variants, but search is global)
           const regex = new RegExp(escapeRegex(value), "i");
-          const variantDocs = await Variant.find({ name: { $regex: regex } }).select("_id");
+          const variantDocs = await Variant.find(ownedFilter(req, { name: { $regex: regex } })).select("_id");
           const variantIds = variantDocs.map((v) => v._id);
           query = query.where("variants").in(variantIds.length ? variantIds : []);
         }
@@ -241,7 +243,7 @@ productsRouter.get("/", async (req, res) => {
     if (globalFilter) {
       const regex = new RegExp(escapeRegex(globalFilter), "i");
 
-      const variantDocs = await Variant.find({ name: { $regex: regex } }).select("_id");
+      const variantDocs = await Variant.find(ownedFilter(req, { name: { $regex: regex } })).select("_id");
       const variantIds = variantDocs.map((v) => v._id);
 
       query = query.or([
@@ -282,7 +284,7 @@ productsRouter.get("/", async (req, res) => {
 
     if (productIds.length) {
       const counts = await Expense.aggregate([
-        { $match: { productName: { $in: productIds } } },
+        { $match: ownedFilter(req, { productName: { $in: productIds } }) },
         { $group: { _id: "$productName", count: { $sum: 1 } } },
       ]);
 
@@ -291,7 +293,7 @@ productsRouter.get("/", async (req, res) => {
 
     const uniqueBrandIds = [...new Set(products.flatMap((p) => p.brands ?? []))].filter(Boolean);
 
-    const brandDocs = await Brand.find({ _id: { $in: uniqueBrandIds } }).lean();
+    const brandDocs = await Brand.find(ownedFilter(req, { _id: { $in: uniqueBrandIds } })).lean();
     const brandIdToNameMap = brandDocs.reduce(
       (acc, { _id, name }) => ({ ...acc, [_id.toString()]: name }),
       {}
@@ -342,10 +344,10 @@ productsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "category is required" });
     }
 
-    const brandIds = await resolveBrandIds(brands);
+    const brandIds = await resolveBrandIds(req, brands);
     const productSlug = createSlug(name);
 
-    const existingProduct = await Product.findOne({ slug: productSlug });
+    const existingProduct = await Product.findOne(ownedFilter(req, { slug: productSlug }));
 
     if (existingProduct) {
       return res.status(400).json({ message: "duplicate" });
@@ -360,18 +362,19 @@ productsRouter.post("/", async (req, res) => {
       brands: brandIds,
       slug: productSlug,
       variants: [],
+      ...ownedCreateFields(req),
     });
 
     const saved = await product.save();
 
     // 2) create/upsert variants scoped to this product (ids or names)
-    const variantIds = await resolveVariantIds(saved._id, req.body);
+    const variantIds = await resolveVariantIds(req, saved._id, req.body);
 
     // 3) attach variants
-    await Product.updateOne({ _id: saved._id }, { $set: { variants: variantIds } });
+    await Product.updateOne(ownedFilter(req, { _id: saved._id }), { $set: { variants: variantIds } });
 
     // 4) safety cleanup
-    await cleanupProductVariantOrphans(saved._id);
+    await cleanupProductVariantOrphans(req, saved._id);
 
     const populatedProduct = await Product.findById(saved._id)
       .populate("brands", "name _id")
@@ -398,7 +401,7 @@ productsRouter.delete("/:id", async (req, res) => {
     }
 
     // ✅ NEW: safeguard — don't allow delete if product is used by any expense
-    const inUse = await Expense.exists({ productName: new mongoose.Types.ObjectId(id) });
+    const inUse = await Expense.exists(ownedFilter(req, { productName: new mongoose.Types.ObjectId(id) }));
     if (inUse) {
       return res.status(400).json({
         message: "Kan ikke slette produktet fordi det brukes i minst én utgift.",
@@ -406,13 +409,13 @@ productsRouter.delete("/:id", async (req, res) => {
     }
 
 
-    const product = await Product.findById(id).select("_id variants").lean();
+    const product = await Product.findOne(ownedFilter(req, { _id: id })).select("_id variants").lean();
     if (!product) return res.status(404).send({ error: "Product not found" });
 
     // delete all variants owned by this product
-    await Variant.deleteMany({ product: product._id });
+    await Variant.deleteMany(ownedFilter(req, { product: product._id }));
 
-    const deleted = await Product.findByIdAndDelete(product._id);
+    const deleted = await Product.findOneAndDelete(ownedFilter(req, { _id: product._id }));
     res.send(deleted);
   } catch (error) {
     console.error(error);
@@ -430,7 +433,7 @@ productsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid product id" });
     }
 
-    const existing = await Product.findById(id).select("variants").lean();
+    const existing = await Product.findOne(ownedFilter(req, { _id: id })).select("variants").lean();
     if (!existing) return res.status(404).json({ message: "Product not found" });
 
     const normalizedCategory = String(category ?? "").trim();
@@ -448,20 +451,22 @@ productsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "category is required" });
     }
 
-    const brandIds = await resolveBrandIds(brands);
+    const brandIds = await resolveBrandIds(req, brands);
     const productSlug = createSlug(name);
 
-    const duplicateProduct = await Product.findOne({
-      slug: productSlug,
-      _id: { $ne: id },
-    });
+    const duplicateProduct = await Product.findOne(
+      ownedFilter(req, {
+        slug: productSlug,
+        _id: { $ne: id },
+      })
+    );
 
     if (duplicateProduct) {
       return res.status(400).json({ message: "duplicate" });
     }
 
     // resolve next variant ids (creates/upserts per product)
-    const nextVariantIds = await resolveVariantIds(id, req.body);
+    const nextVariantIds = await resolveVariantIds(req, id, req.body);
 
     // compute removed (prev -> next)
     const prevIds = (existing.variants ?? []).map(String);
@@ -469,14 +474,14 @@ productsRouter.put("/:id", async (req, res) => {
     const removedIds = prevIds.filter((x) => !nextIds.includes(x));
 
     if (removedIds.length) {
-      const usedRemovedVariant = await Expense.exists({ variant: { $in: removedIds } });
+      const usedRemovedVariant = await Expense.exists(ownedFilter(req, { variant: { $in: removedIds } }));
       if (usedRemovedVariant) {
         return res.status(400).json({ message: "variant_in_use" });
       }
     }
 
     // delete removed variant docs for this product
-    await deleteVariantsForProduct(id, removedIds);
+    await deleteVariantsForProduct(req, id, removedIds);
 
     const updatedProduct = {
       name: String(name).trim(),
@@ -488,7 +493,7 @@ productsRouter.put("/:id", async (req, res) => {
       slug: productSlug,
     };
 
-    const result = await Product.findByIdAndUpdate(id, updatedProduct, {
+    const result = await Product.findOneAndUpdate(ownedFilter(req, { _id: id }), updatedProduct, {
       new: true,
       runValidators: true,
     });
@@ -496,7 +501,7 @@ productsRouter.put("/:id", async (req, res) => {
     if (!result) return res.status(404).json({ message: "Product not found" });
 
     // cleanup orphan ids (safety net)
-    await cleanupProductVariantOrphans(result._id);
+    await cleanupProductVariantOrphans(req, result._id);
 
     const populatedProduct = await Product.findById(result._id)
       .populate("brands", "name _id")

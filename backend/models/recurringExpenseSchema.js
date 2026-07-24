@@ -64,11 +64,17 @@ const RecurringExpenseSchema = new mongoose.Schema(
         note: { type: String, default: "" },
       },
     ],
+    ownerUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AppUser",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true },
 );
 
-RecurringExpenseSchema.index({ slug: 1, type: 1 }, { unique: true });
+RecurringExpenseSchema.index({ ownerUserId: 1, slug: 1, type: 1 }, { unique: true });
 
 RecurringExpenseSchema.pre("validate", function (next) {
   if (!this.title) return next();

@@ -20,9 +20,11 @@ import { styled, alpha } from "@mui/material/styles";
 import { useTheme } from "@mui/material/styles";
 import MenuIcon from "@mui/icons-material/Menu";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { mainNavbarItems } from "./Consts/NavBarListItems.jsx";
 import { Link, useLocation, matchPath } from "react-router-dom";
 import ThemeModeSwitch from "../commons/ThemeModeSwitch.jsx";
+import { useAuth } from "../../auth/AuthContext.jsx";
 
 const openedWidth = 240;
 const closedWidth = 70;
@@ -78,6 +80,7 @@ export default function MiniVariantDrawer({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const location = useLocation();
+  const { isAdmin, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   const handleToggle = React.useCallback(() => {
@@ -101,14 +104,19 @@ export default function MiniVariantDrawer({
   const drawerOpen = isMobile ? mobileOpen : isDrawerOpen;
 
   // Active index: supports nested routes like /products/123 -> /products
+  const visibleNavbarItems = React.useMemo(
+    () => mainNavbarItems.filter((item) => !item.adminOnly || isAdmin),
+    [isAdmin],
+  );
+
   const activeIndex = React.useMemo(() => {
-    return mainNavbarItems.findIndex((item) =>
+    return visibleNavbarItems.findIndex((item) =>
       matchPath(
         { path: item.route, end: item.route === "/" },
         location.pathname,
       ),
     );
-  }, [location.pathname]);
+  }, [location.pathname, visibleNavbarItems]);
 
   return (
     <Box sx={{ display: "flex" }}>
@@ -155,6 +163,9 @@ export default function MiniVariantDrawer({
           </Typography>
 
           <ThemeModeSwitch />
+          <IconButton onClick={logout} color="inherit" aria-label="Logg ut">
+            <LogoutIcon fontSize="small" />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
@@ -201,7 +212,7 @@ export default function MiniVariantDrawer({
             />
           )}
 
-          {mainNavbarItems.map(({ id, icon, label, route }) => {
+          {visibleNavbarItems.map(({ id, icon, label, route }) => {
             const isActive = Boolean(
               matchPath({ path: route, end: route === "/" }, location.pathname),
             );

@@ -2,6 +2,7 @@ import express from "express";
 import slugify from "slugify";
 import Location from "../models/locationSchema.js";
 import mongoose from "mongoose";
+import { ownedCreateFields, ownedFilter } from "../middleware/dataOwnership.js";
 
 const locationsRouter = express.Router();
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -10,7 +11,7 @@ locationsRouter.get("/", async (req, res) => {
   try {
     const { columnFilters, globalFilter, sorting, start, size } = req.query;
 
-    let query = Location.find();
+    let query = Location.find(ownedFilter(req));
 
     // Column Filters
     if (columnFilters) {
@@ -70,12 +71,12 @@ locationsRouter.post("/", async (req, res) => {
 
     const slug = slugify(name, { lower: true });
 
-    const existingLocation = await Location.findOne({ slug }).lean();
+    const existingLocation = await Location.findOne(ownedFilter(req, { slug })).lean();
     if (existingLocation) {
       return res.status(400).json({ message: "A location with this name already exists." });
     }
 
-    const location = new Location({ name, slug });
+    const location = new Location({ name, slug, ...ownedCreateFields(req) });
     const savedLocation = await location.save();
     res.status(201).json(savedLocation);
   } catch (error) {
@@ -100,13 +101,15 @@ locationsRouter.put("/:id", async (req, res) => {
     const slug = slugify(name, { lower: true });
 
     // Check for duplicate locations
-    const existingLocation = await Location.findOne({ slug, _id: { $ne: id } }).lean();
+    const existingLocation = await Location.findOne(
+      ownedFilter(req, { slug, _id: { $ne: id } })
+    ).lean();
     if (existingLocation) {
       return res.status(400).json({ message: "A location with this name already exists." });
     }
 
-    const updatedLocation = await Location.findByIdAndUpdate(
-      id,
+    const updatedLocation = await Location.findOneAndUpdate(
+      ownedFilter(req, { _id: id }),
       { name, slug },
       { new: true }
     );
@@ -128,7 +131,7 @@ locationsRouter.get("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid location id" });
     }
 
-    const location = await Location.findById(req.params.id).lean();
+    const location = await Location.findOne(ownedFilter(req, { _id: req.params.id })).lean();
     if (!location) {
       return res.status(404).json({ message: "Location not found" });
     }
@@ -145,7 +148,7 @@ locationsRouter.delete("/:id", async (req, res) => {
       return res.status(400).json({ message: "Invalid location id" });
     }
 
-    const location = await Location.findByIdAndDelete(req.params.id);
+    const location = await Location.findOneAndDelete(ownedFilter(req, { _id: req.params.id }));
     if (!location) {
       return res.status(404).json({ message: "Location not found" });
     }
