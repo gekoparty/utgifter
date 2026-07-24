@@ -46,7 +46,12 @@ export function AuthProvider({ children }) {
     async ({ email, password }) => {
       const result = await authClient.signIn.email({ email, password });
       if (result?.error) throw new Error(result.error.message || "Kunne ikke logge inn.");
-      await session.refetch();
+      const refreshedSession = await session.refetch();
+      if (!refreshedSession?.data?.user) {
+        throw new Error(
+          "Innloggingen ble godkjent, men nettleseren lagret ikke økten. Sjekk cookie/API-oppsett.",
+        );
+      }
       return result?.data;
     },
     [session],
@@ -56,7 +61,12 @@ export function AuthProvider({ children }) {
     async ({ name, email, password }) => {
       const result = await authClient.signUp.email({ name, email, password });
       if (result?.error) throw new Error(result.error.message || "Kunne ikke opprette bruker.");
-      await session.refetch();
+      const refreshedSession = await session.refetch();
+      if (!refreshedSession?.data?.user) {
+        throw new Error(
+          "Brukeren ble opprettet, men nettleseren lagret ikke økten. Sjekk cookie/API-oppsett.",
+        );
+      }
       return result?.data;
     },
     [session],

@@ -12,6 +12,8 @@ const resolveBaseURL = () =>
       `http://localhost:${process.env.PORT || 5000}`,
   );
 
+const isSecureProductionAuth = () => resolveBaseURL().startsWith("https://");
+
 export const createBetterAuth = ({ db, trustedOrigins }) =>
   betterAuth({
     basePath: "/api/auth",
@@ -24,6 +26,15 @@ export const createBetterAuth = ({ db, trustedOrigins }) =>
     database: mongodbAdapter(db, {
       transaction: false,
     }),
+    advanced: {
+      useSecureCookies: isSecureProductionAuth(),
+      defaultCookieAttributes: isSecureProductionAuth()
+        ? {
+            sameSite: "none",
+            secure: true,
+          }
+        : undefined,
+    },
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 8,
