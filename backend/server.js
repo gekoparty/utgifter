@@ -38,6 +38,7 @@ const splitOrigins = (value) =>
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "https://*.vercel.app",
   ...splitOrigins(process.env.FRONTEND_URL),
   ...splitOrigins(process.env.FRONTEND_URLS),
   ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
@@ -116,6 +117,7 @@ async function connectToDB() {
 async function startServer() {
   try {
     await connectToDB();
+    console.log("Trusted frontend origins:", allowedOrigins.join(", "));
 
     const auth = createBetterAuth({
       db: mongoose.connection.db,
