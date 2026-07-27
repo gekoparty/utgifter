@@ -1,16 +1,15 @@
 import React from "react";
 import {
+  Autocomplete,
   Box,
   Checkbox,
   Divider,
   FormControlLabel,
   InputAdornment,
   Stack,
-  Typography,
+  TextField,
 } from "@mui/material";
-import CreatableSelect from "react-select/creatable";
 import ExpenseField from "../../../../../components/commons/ExpenseField/ExpenseField";
-import FieldLabel from "../../../../../components/commons/Forms/FieldLabel";
 import FormSection from "../../../../../components/commons/Forms/FormSection";
 import { parseDecimalOrNull } from "../../../utils/numberInput";
 import DiscountCalculatorPanel from "./DiscountCalculatorPanel";
@@ -20,7 +19,6 @@ export default function PriceQuantitySection({
   setExpense,
   selectedProduct,
   measuresOptions,
-  selectStyles,
   controller,
   validationErrors,
   priceInputValue,
@@ -42,17 +40,9 @@ export default function PriceQuantitySection({
   onClearDiscountCalculatorError,
   onApplyDiscountCalculator,
 }) {
-  const menuPortalTarget =
-    typeof document !== "undefined" ? document.body : undefined;
   const hasVolumeOptions = Boolean(
     expense.measurementUnit && selectedProduct?.measures?.length,
   );
-  const currentVolumeOption = expense.volume
-    ? {
-        label: String(expense.volume),
-        value: String(expense.volume),
-      }
-    : null;
   const isValidVolumeOption = (input) => {
     const value = parseDecimalOrNull(input);
     if (value == null || value <= 0) return false;
@@ -65,7 +55,17 @@ export default function PriceQuantitySection({
   return (
     <FormSection title="Pris og mengde">
       <Stack spacing={2}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "repeat(3, minmax(0, 1fr))",
+            },
+            alignItems: "start",
+          }}
+        >
           <ExpenseField
             label="Pris"
             type="text"
@@ -81,45 +81,65 @@ export default function PriceQuantitySection({
           />
 
           {hasVolumeOptions ? (
-            <Box flex={1}>
-              <FieldLabel>
-                Volum {expense.measurementUnit ? `(${expense.measurementUnit})` : ""}
-              </FieldLabel>
-              <CreatableSelect
-                isClearable
-                options={measuresOptions}
-                value={currentVolumeOption}
-                onChange={(option) =>
-                  option
-                    ? onVolumeTextChange(String(option.value))
-                    : controller.handleFieldChange?.("volume", 0, { volumeText: "" })
+            <Autocomplete
+              freeSolo
+              clearOnBlur={false}
+              handleHomeEndKeys
+              options={measuresOptions}
+              value={volumeInputValue || ""}
+              inputValue={volumeInputValue}
+              getOptionLabel={(option) =>
+                typeof option === "string" ? option : option?.label || ""
+              }
+              isOptionEqualToValue={(option, value) =>
+                String(option?.value ?? option) === String(value?.value ?? value)
+              }
+              onInputChange={(event, value, reason) => {
+                if (reason === "input") onVolumeTextChange(value);
+                if (reason === "clear") {
+                  controller.handleFieldChange?.("volume", 0, { volumeText: "" });
                 }
-                onCreateOption={(input) => onVolumeTextChange(input.trim())}
-                placeholder="Velg eller skriv volum"
-                menuPortalTarget={menuPortalTarget}
-                styles={selectStyles}
-                isValidNewOption={isValidVolumeOption}
-                formatCreateLabel={(input) =>
-                  `Bruk ${input}${expense.measurementUnit ? ` ${expense.measurementUnit}` : ""}`
+              }}
+              onChange={(event, option) => {
+                if (!option) {
+                  controller.handleFieldChange?.("volume", 0, { volumeText: "" });
+                  return;
                 }
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ mt: 0.75, display: "block" }}
-              >
-                Velg fra listen eller skriv et nytt volum og trykk Enter.
-              </Typography>
-              {validationErrors?.volume ? (
-                <Typography
-                  variant="caption"
-                  color="error"
-                  sx={{ mt: 0.75, display: "block" }}
-                >
-                  {validationErrors.volume}
-                </Typography>
-              ) : null}
-            </Box>
+
+                onVolumeTextChange(
+                  typeof option === "string" ? option : String(option.value),
+                );
+              }}
+              filterOptions={(options, params) => {
+                const filtered = options.filter((option) =>
+                  String(option.label)
+                    .toLowerCase()
+                    .includes(params.inputValue.toLowerCase()),
+                );
+
+                if (isValidVolumeOption(params.inputValue)) {
+                  filtered.push({
+                    label: `Bruk ${params.inputValue}${
+                      expense.measurementUnit ? ` ${expense.measurementUnit}` : ""
+                    }`,
+                    value: params.inputValue,
+                  });
+                }
+
+                return filtered;
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={`Volum ${
+                    expense.measurementUnit ? `(${expense.measurementUnit})` : ""
+                  }`}
+                  error={Boolean(validationErrors?.volume)}
+                  helperText={validationErrors?.volume}
+                />
+              )}
+              sx={{ minWidth: 0 }}
+            />
           ) : (
             <ExpenseField
               label="Volum (manuelt)"
@@ -147,9 +167,19 @@ export default function PriceQuantitySection({
             InputLabelProps={{ shrink: true }}
             fullWidth
           />
-        </Stack>
+        </Box>
 
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "repeat(3, minmax(0, 1fr))",
+            },
+            alignItems: "start",
+          }}
+        >
           <ExpenseField
             label="Antall"
             type="number"
@@ -194,7 +224,7 @@ export default function PriceQuantitySection({
             }}
             fullWidth
           />
-        </Stack>
+        </Box>
 
         {expense.hasDiscount ? (
           <>
