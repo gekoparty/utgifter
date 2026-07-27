@@ -27,6 +27,11 @@ import {
   INITIAL_SORTING,
 } from "../features/Expenses/constants/expenseScreenConstants";
 import { useExpenseTableColumns } from "../features/Expenses/hooks/useExpenseTableColumns";
+import {
+  clearAddExpenseDialogOpen,
+  markAddExpenseDialogOpen,
+  shouldRestoreAddExpenseDialog,
+} from "../features/Expenses/utils/expenseDraft";
 import { transformExpenseData } from "../features/Expenses/utils/expenseTransform";
 
 const loadExpenseDialog = () =>
@@ -56,7 +61,9 @@ const ExpenseScreen = () => {
     pageSize: initialPageSize,
   }));
   const [dashboardOpen, setDashboardOpen] = useState(false);
-  const [activeModal, setActiveModal] = useState(null);
+  const [activeModal, setActiveModal] = useState(() =>
+    shouldRestoreAddExpenseDialog() ? "ADD" : null,
+  );
   const [selectedExpense, setSelectedExpense] = useState(
     INITIAL_SELECTED_EXPENSE,
   );
@@ -156,9 +163,10 @@ const ExpenseScreen = () => {
   }, [deferredExpenses]);
 
   const handleDialogClose = useCallback(() => {
+    if (activeModal === "ADD") clearAddExpenseDialogOpen();
     setActiveModal(null);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
-  }, []);
+  }, [activeModal]);
 
   const handlePriceFilterModeChange = useCallback((newMode) => {
     if (newMode === "all") return;
@@ -200,7 +208,31 @@ const ExpenseScreen = () => {
 
   const canOpenEditOrDelete = Boolean(selectedExpense?._id);
 
-  const openAdd = useCallback(() => setActiveModal("ADD"), []);
+  const openAdd = useCallback(() => {
+    markAddExpenseDialogOpen();
+    setActiveModal("ADD");
+  }, []);
+
+  useEffect(() => {
+    if (activeModal !== "ADD") return;
+    markAddExpenseDialogOpen();
+    loadExpenseDialog();
+  }, [activeModal]);
+
+  useEffect(() => {
+    const restoreAddDialog = () => {
+      if (activeModal || !shouldRestoreAddExpenseDialog()) return;
+      setActiveModal("ADD");
+    };
+
+    window.addEventListener("pageshow", restoreAddDialog);
+    document.addEventListener("visibilitychange", restoreAddDialog);
+
+    return () => {
+      window.removeEventListener("pageshow", restoreAddDialog);
+      document.removeEventListener("visibilitychange", restoreAddDialog);
+    };
+  }, [activeModal]);
 
   const openEdit = useCallback((expense) => {
     loadExpenseDialog();

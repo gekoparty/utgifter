@@ -6,6 +6,11 @@ import useCustomHttp from "../../../hooks/useHttp";
 import { useStoreDispatch } from "../../../store/Store";
 import { addExpenseValidationSchema } from "../../../validation/validationSchema";
 import { computeDerivedExpense } from "./expenseDerived";
+import {
+  clearAddExpenseDraft,
+  readAddExpenseDraft,
+  writeAddExpenseDraft,
+} from "../utils/expenseDraft";
 
 const API_EXPENSES = "/api/expenses";
 const EXPENSES_QUERY_KEY = ["expenses", "paginated"];
@@ -77,6 +82,7 @@ export const useExpenseDialogForm = ({ open, mode, expenseToEdit }) => {
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
+  const isAdd = mode === "ADD";
   const editId = expenseToEdit?._id;
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -96,7 +102,7 @@ const clearFieldError = useCallback((field) => {
 
   const [expense, dispatchExpense] = useReducer(
     expenseReducer,
-    computeDerivedExpense({ ...INITIAL_EXPENSE_STATE })
+    computeDerivedExpense(getInitialExpenseState())
   );
 
   useEffect(() => {
@@ -132,12 +138,21 @@ const clearFieldError = useCallback((field) => {
     }
 
     if (!isDelete) {
+      const draft = isAdd ? readAddExpenseDraft() : null;
       dispatchExpense({
         type: "RESET",
-        payload: computeDerivedExpense({ ...INITIAL_EXPENSE_STATE }),
+        payload: computeDerivedExpense({
+          ...getInitialExpenseState(),
+          ...(draft ?? {}),
+        }),
       });
     }
-  }, [open, isEdit, isDelete, expenseToEdit?._id, storeDispatch]);
+  }, [open, isAdd, isEdit, isDelete, expenseToEdit?._id, storeDispatch]);
+
+  useEffect(() => {
+    if (!open || !isAdd) return;
+    writeAddExpenseDraft(expense);
+  }, [expense, isAdd, open]);
 
   const setExpense = useCallback((updater) => {
     dispatchExpense({
@@ -153,11 +168,12 @@ const clearFieldError = useCallback((field) => {
   const resetForm = useCallback(() => {
     dispatchExpense({
       type: "RESET",
-      payload: computeDerivedExpense({ ...INITIAL_EXPENSE_STATE }),
+      payload: computeDerivedExpense(getInitialExpenseState()),
     });
+    if (isAdd) clearAddExpenseDraft();
     setValidationErrors({});
     storeDispatch({ type: "RESET_ERROR", resource: "expenses" });
-  }, [storeDispatch]);
+  }, [isAdd, storeDispatch]);
 
   const saveMutation = useMutation({
     mutationFn: async (payload) => {
@@ -212,6 +228,7 @@ const clearFieldError = useCallback((field) => {
     await addExpenseValidationSchema.validate(formatted, { abortEarly: false });
 
     const saved = await saveMutation.mutateAsync(formatted);
+    if (isAdd) clearAddExpenseDraft();
 
     return {
       ...saved,
@@ -232,7 +249,7 @@ const clearFieldError = useCallback((field) => {
 
     return false;
   }
-}, [expense, saveMutation, storeDispatch]);
+}, [expense, isAdd, saveMutation, storeDispatch]);
 
   const handleDeleteExpense = useCallback(
     async (id) => {
@@ -269,3 +286,8 @@ const clearFieldError = useCallback((field) => {
     handleDeleteExpense,
   };
 };
+
+const getInitialExpenseState = () => ({
+  ...INITIAL_EXPENSE_STATE,
+  purchaseDate: dayjs().format("YYYY-MM-DD"),
+});

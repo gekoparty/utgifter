@@ -26,7 +26,19 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
     if (mode === "ADD") {
       setProductSearch("");
       setShopSearch("");
-      setSelectedProduct(null);
+      setSelectedProduct(
+        expense.productId || expense.productName
+          ? {
+              id: expense.productId || "",
+              value: expense.productId || "",
+              name: expense.productName || "",
+              label: expense.productName || "",
+              measurementUnit: expense.measurementUnit || "",
+              variants: [],
+              measures: Number(expense.volume) > 0 ? [Number(expense.volume)] : [],
+            }
+          : null
+      );
     }
   }, [open, mode]);
 
