@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "./useAuth";
 
 export default function ProtectedRoute() {
   const location = useLocation();

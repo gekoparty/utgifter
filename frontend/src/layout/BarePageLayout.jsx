@@ -21,7 +21,7 @@ import debounce from "lodash.debounce";
 import useInfiniteProducts from "../hooks/useInfiniteProducts";
 import { getSelectStyles } from "../styles/theme/selectStyles";
 import ThemeModeSwitch from "../components/commons/ThemeModeSwitch.jsx";
-import { useAuth } from "../auth/AuthContext.jsx";
+import { useAuth } from "../auth/useAuth";
 
 export default function BarePageLayout() {
   const [view, setView] = useState("expenses");
