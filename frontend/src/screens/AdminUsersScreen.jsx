@@ -38,7 +38,7 @@ import PageHeader from "../components/commons/Layout/PageHeader";
 import KpiCard from "../components/commons/DataDisplay/KpiCard";
 import SectionCard from "../components/commons/Layout/SectionCard";
 import { requestJson } from "../api/httpClient";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth } from "../auth/useAuth";
 
 const DATA_LABELS = {
   expenses: "Utgifter",

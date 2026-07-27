@@ -24,7 +24,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import { mainNavbarItems } from "./Consts/NavBarListItems.jsx";
 import { Link, useLocation, matchPath } from "react-router-dom";
 import ThemeModeSwitch from "../commons/ThemeModeSwitch.jsx";
-import { useAuth } from "../../auth/AuthContext.jsx";
+import { useAuth } from "../../auth/useAuth";
 
 const openedWidth = 240;
 const closedWidth = 70;
