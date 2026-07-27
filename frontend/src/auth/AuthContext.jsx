@@ -15,12 +15,26 @@ export function AuthProvider({ children }) {
   const session = authClient.useSession();
   const [appUser, setAppUser] = useState(null);
   const [appUserLoading, setAppUserLoading] = useState(false);
+  const [stableAuthUser, setStableAuthUser] = useState(null);
 
-  const authUser = session.data?.user ?? null;
+  useEffect(() => {
+    if (session.data?.user) {
+      setStableAuthUser(session.data.user);
+      return;
+    }
+
+    if (!session.isPending) {
+      setStableAuthUser(null);
+    }
+  }, [session.data?.user, session.isPending]);
+
+  const authUser = session.data?.user ?? (session.isPending ? stableAuthUser : null);
+  const authUserId = authUser?.id ?? null;
   const isAuthenticated = Boolean(authUser);
+  const isInitialAuthLoading = !stableAuthUser && session.isPending;
 
   const loadAppUser = useCallback(async () => {
-    if (!authUser) {
+    if (!authUserId) {
       setAppUser(null);
       return null;
     }
@@ -31,12 +45,12 @@ export function AuthProvider({ children }) {
       setAppUser(payload?.user ?? null);
       return payload?.user ?? null;
     } catch {
-      setAppUser(null);
+      setAppUser((previousUser) => previousUser);
       return null;
     } finally {
       setAppUserLoading(false);
     }
-  }, [authUser]);
+  }, [authUserId]);
 
   useEffect(() => {
     loadAppUser();
@@ -82,7 +96,7 @@ export function AuthProvider({ children }) {
     () => ({
       user: authUser,
       appUser,
-      loading: session.isPending || appUserLoading,
+      loading: !isAuthenticated && (isInitialAuthLoading || appUserLoading),
       isAuthenticated,
       isAdmin: appUser?.role === "admin",
       login,
@@ -97,6 +111,8 @@ export function AuthProvider({ children }) {
       session.isPending,
       session.refetch,
       appUserLoading,
+      stableAuthUser,
+      isInitialAuthLoading,
       isAuthenticated,
       login,
       signUp,

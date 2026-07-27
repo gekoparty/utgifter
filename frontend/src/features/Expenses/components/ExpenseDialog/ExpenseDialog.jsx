@@ -515,6 +515,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       onClose={handleClose}
       dialogTitle={dialogTitle}
       maxWidth={isDelete ? "sm" : "lg"}
+      disableBackdropClose={!isDelete}
     >
       <form onSubmit={handleSubmit}>
         {body}

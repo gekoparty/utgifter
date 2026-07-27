@@ -20,11 +20,13 @@ const BasicDialog = ({
   confirmButton,
   dialogTitle,
   maxWidth = "sm",
+  disableBackdropClose = false,
 }) => {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const handleClose = () => {
+  const handleClose = (event, reason) => {
+    if (disableBackdropClose && reason === "backdropClick") return;
     onClose();
   };
 
@@ -159,6 +161,7 @@ BasicDialog.propTypes = {
   cancelButton: PropTypes.element,
   dialogTitle: PropTypes.string.isRequired,
   maxWidth: PropTypes.oneOf(["xs", "sm", "md", "lg", "xl", false]),
+  disableBackdropClose: PropTypes.bool,
 };
 
 export default BasicDialog;
