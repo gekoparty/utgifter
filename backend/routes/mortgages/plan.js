@@ -10,9 +10,50 @@ import { buildMortgagePlan } from "../../services/mortgages/planService.js";
 import {
   isMortgageType,
   periodKeyToMonthStart,
+  round2,
 } from "../../services/recurring/scheduleService.js";
 
 const router = express.Router();
+
+const isExtraPayment = (payment) =>
+  String(payment?.status || "").toUpperCase() === "EXTRA";
+
+const buildExtraPaymentSummary = ({ plan, baselinePlan, payments }) => {
+  const totalExtraPaid = round2(
+    (payments || [])
+      .filter(isExtraPayment)
+      .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+  );
+
+  const interestSaved = round2(
+    Number(baselinePlan?.totals?.totalInterest || 0) -
+      Number(plan?.totals?.totalInterest || 0)
+  );
+
+  const feesSaved = round2(
+    Number(baselinePlan?.totals?.totalFees || 0) -
+      Number(plan?.totals?.totalFees || 0)
+  );
+
+  const planMonths = plan?.monthsToPayoff ?? null;
+  const baselineMonths = baselinePlan?.monthsToPayoff ?? null;
+  const monthsSaved =
+    planMonths != null && baselineMonths != null
+      ? Math.max(0, Number(baselineMonths) - Number(planMonths))
+      : null;
+
+  return {
+    totalExtraPaid,
+    interestSaved: Math.max(0, interestSaved),
+    feesSaved: Math.max(0, feesSaved),
+    monthsSaved,
+    payoffWithExtra: plan?.payoffPeriodKey || null,
+    payoffWithoutExtra: baselinePlan?.payoffPeriodKey || null,
+    monthsToPayoffWithExtra: planMonths,
+    monthsToPayoffWithoutExtra: baselineMonths,
+    hasPayoffComparison: planMonths != null && baselineMonths != null,
+  };
+};
 
 router.get("/:id/plan", async (req, res) => {
   try {
@@ -53,6 +94,14 @@ router.get("/:id/plan", async (req, res) => {
       months,
     });
 
+    const baselinePlan = buildMortgagePlan({
+      expense: exp,
+      termsArr,
+      payments: payments.filter((payment) => !isExtraPayment(payment)),
+      from,
+      months,
+    });
+
     res.json({
       recurringExpenseId: String(exp._id),
       mortgage: {
@@ -61,6 +110,11 @@ router.get("/:id/plan", async (req, res) => {
         mortgageKind: exp.mortgageKind,
         dueDay: exp.dueDay,
       },
+      extraPaymentSummary: buildExtraPaymentSummary({
+        plan,
+        baselinePlan,
+        payments,
+      }),
       ...plan,
     });
   } catch (err) {

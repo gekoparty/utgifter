@@ -81,8 +81,8 @@ export default function RecurringExpenseScreen() {
 
   const mortgages = useMemo(
     () =>
-      (templates.expenses || []).filter(
-        (expense) => String(expense.type).toUpperCase() === "MORTGAGE",
+      (templates.expenses || []).filter((expense) =>
+        ["MORTGAGE", "HOUSING"].includes(String(expense.type).toUpperCase()),
       ),
     [templates.expenses],
   );
@@ -204,7 +204,10 @@ export default function RecurringExpenseScreen() {
               <Tab value="overview" label="Oversikt" />
               <Tab value="months" label="Måneder" />
               <Tab value="templates" label="Avtaler" />
-              <Tab value="mortgages" label="Boliglån" />
+              <Tab
+                value="mortgages"
+                label={`Boliglån${mortgages.length ? ` (${mortgages.length})` : ""}`}
+              />
             </Tabs>
           </CardContent>
         </Card>
