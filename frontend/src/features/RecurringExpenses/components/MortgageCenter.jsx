@@ -38,6 +38,59 @@ const monthsDeltaLabel = (value) => {
   return `${sign}${Math.abs(v)}`;
 };
 
+const formatSavedMonths = (value) => {
+  if (value == null) return "Ikke beregnet";
+  const months = Math.max(0, Number(value) || 0);
+  if (months === 0) return "0 måneder";
+
+  const years = Math.floor(months / 12);
+  const restMonths = months % 12;
+  if (years === 0) return `${restMonths} mnd`;
+  if (restMonths === 0) return `${years} år`;
+  return `${years} år ${restMonths} mnd`;
+};
+
+function SummaryMetric({ label, value, helper, tone = "default" }) {
+  const color =
+    tone === "positive"
+      ? "success.main"
+      : tone === "warning"
+        ? "warning.main"
+        : "text.primary";
+
+  return (
+    <Box
+      sx={{
+        p: 1.5,
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 2,
+        minWidth: 0,
+      }}
+    >
+      <Typography variant="caption" color="text.secondary" fontWeight={800}>
+        {label}
+      </Typography>
+      <Typography
+        sx={{
+          mt: 0.25,
+          fontSize: { xs: "1.25rem", md: "1.45rem" },
+          fontWeight: 950,
+          color,
+          lineHeight: 1.15,
+        }}
+      >
+        {value}
+      </Typography>
+      {helper ? (
+        <Typography variant="caption" color="text.secondary">
+          {helper}
+        </Typography>
+      ) : null}
+    </Box>
+  );
+}
+
 export default function MortgageCenter({
   mortgages,
   formatCurrency,
@@ -189,6 +242,7 @@ export default function MortgageCenter({
     totalFees: 0,
     totalPrincipal: 0,
   };
+  const extraPaymentSummary = plan?.extraPaymentSummary || null;
   const simTotals = sim?.totals || {
     totalInterest: 0,
     totalFees: 0,
@@ -357,6 +411,77 @@ export default function MortgageCenter({
             </Stack>
 
             <Divider />
+
+            {extraPaymentSummary && (
+              <>
+                <Box>
+                  <Stack
+                    direction={{ xs: "column", sm: "row" }}
+                    justifyContent="space-between"
+                    spacing={1}
+                    sx={{ mb: 1.25 }}
+                  >
+                    <Box>
+                      <Typography fontWeight={900}>Ekstra nedbetaling</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Effekt av ekstra avdrag registrert i valgt periode.
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Sammenlignet med plan uten ekstra avdrag
+                    </Typography>
+                  </Stack>
+
+                  <Box
+                    sx={{
+                      display: "grid",
+                      gridTemplateColumns: {
+                        xs: "1fr",
+                        sm: "repeat(2, minmax(0, 1fr))",
+                        md: "repeat(4, minmax(0, 1fr))",
+                      },
+                      gap: 1,
+                    }}
+                  >
+                    <SummaryMetric
+                      label="Ekstra betalt"
+                      value={formatCurrency(extraPaymentSummary.totalExtraPaid)}
+                      helper="Registrert som ekstra avdrag"
+                      tone="positive"
+                    />
+                    <SummaryMetric
+                      label="Renter spart"
+                      value={formatCurrency(extraPaymentSummary.interestSaved)}
+                      helper={
+                        extraPaymentSummary.hasPayoffComparison
+                          ? "Estimert over låneplanen"
+                          : "Øk måneder for full sammenligning"
+                      }
+                      tone="positive"
+                    />
+                    <SummaryMetric
+                      label="Kortere nedbetaling"
+                      value={formatSavedMonths(extraPaymentSummary.monthsSaved)}
+                      helper={
+                        extraPaymentSummary.hasPayoffComparison
+                          ? `${extraPaymentSummary.payoffWithoutExtra || "-"} til ${
+                              extraPaymentSummary.payoffWithExtra || "-"
+                            }`
+                          : "Ikke nedbetalt innen valgt horisont"
+                      }
+                      tone="positive"
+                    />
+                    <SummaryMetric
+                      label="Gebyr spart"
+                      value={formatCurrency(extraPaymentSummary.feesSaved)}
+                      helper="Hvis gebyrperioder kuttes"
+                    />
+                  </Box>
+                </Box>
+
+                <Divider />
+              </>
+            )}
 
             <MortgageScenarioEditor
               from={from}
