@@ -127,7 +127,91 @@ export default function ProductPriceChart({ productId }) {
     const locationStats = normalizeAggregateStats(data?.locationStats);
     const variantStats = normalizeAggregateStats(data?.variantStats, "variantName");
 
-    return { cheapestRecord, mostExpensiveRecord, shopStats, brandStats, locationStats, variantStats };
+    const countBy = (key) =>
+      _.countBy(
+        finite.map((item) => String(item?.[key] || "Ukjent").trim() || "Ukjent"),
+      );
+
+    const variantCounts = countBy("variantName");
+    const shopCounts = countBy("shopName");
+
+    const topVariants = Object.entries(variantCounts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 8)
+      .map(([name]) => name);
+
+    const topShops = Object.entries(shopCounts)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 8)
+      .map(([name]) => name);
+
+    const latestPrices = [];
+
+    const matrixRows = topVariants.map((variantName) => {
+      const cells = topShops.map((shopName) => {
+        const records = finite.filter(
+          (item) =>
+            (String(item.variantName || "Ukjent").trim() || "Ukjent") === variantName &&
+            (String(item.shopName || "Ukjent").trim() || "Ukjent") === shopName,
+        );
+
+        if (!records.length) return { shopName, avg: null, count: 0, latest: null };
+
+        const avg =
+          records.reduce((sum, item) => sum + Number(item.pricePerUnit || 0), 0) /
+          records.length;
+        const latest = _.maxBy(records, (item) => new Date(item.date).getTime());
+
+        const latestPrice = Number(latest?.pricePerUnit);
+        if (Number.isFinite(latestPrice)) latestPrices.push(latestPrice);
+
+        return {
+          shopName,
+          avg,
+          count: records.length,
+          latest: Number.isFinite(latestPrice) ? latestPrice : null,
+          date: latest?.date ?? null,
+        };
+      });
+
+      const bestCell = cells
+        .filter((cell) => Number.isFinite(cell.avg))
+        .sort((a, b) => a.avg - b.avg)[0];
+      const bestRecentCell = cells
+        .filter((cell) => {
+          if (!Number.isFinite(cell.latest) || !cell.date) return false;
+          return dayjs().diff(dayjs(cell.date), "day") <= 365;
+        })
+        .sort((a, b) => a.latest - b.latest)[0];
+
+      return {
+        variantName,
+        count: variantCounts[variantName] || 0,
+        cells,
+        bestCell,
+        bestRecentCell,
+      };
+    });
+
+    const minMatrixPrice = Math.min(...latestPrices);
+    const maxMatrixPrice = Math.max(...latestPrices);
+
+    return {
+      cheapestRecord,
+      mostExpensiveRecord,
+      shopStats,
+      brandStats,
+      locationStats,
+      variantStats,
+      variantShopMatrix: {
+        shops: topShops,
+        rows: matrixRows,
+        minPrice: Number.isFinite(minMatrixPrice) ? minMatrixPrice : 0,
+        maxPrice: Number.isFinite(maxMatrixPrice) ? maxMatrixPrice : 0,
+        totalShopCount: Object.keys(shopCounts).length,
+        totalVariantCount: Object.keys(variantCounts).length,
+      },
+    };
   }, [data?.brandStats, data?.locationStats, data?.shopStats, data?.variantStats, history]);
 
   const usageSummary = useMemo(
