@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   Alert,
-  Box,
   Button,
   Checkbox,
   FormControlLabel,
@@ -13,7 +12,7 @@ import {
 import LockResetIcon from "@mui/icons-material/LockReset";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
 import PersonIcon from "@mui/icons-material/Person";
-import PageHeader from "../components/commons/Layout/PageHeader";
+import AppScreen from "../components/commons/Layout/AppScreen";
 import KpiCard from "../components/commons/DataDisplay/KpiCard";
 import SectionCard from "../components/commons/Layout/SectionCard";
 import { requestJson } from "../api/httpClient";
@@ -96,13 +95,16 @@ export default function AccountScreen() {
   };
 
   return (
-    <Box>
-      <PageHeader
-        title="Min konto"
-        subtitle="Administrer profil og innlogging."
-        icon={<ManageAccountsIcon />}
-      />
-
+    <AppScreen
+      title="Min konto"
+      subtitle="Administrer profil og innlogging."
+      icon={<ManageAccountsIcon />}
+      summaryItems={[
+        { label: "Rolle", value: appUser?.role === "admin" ? "Administrator" : "Bruker" },
+        { label: "E-post", value: user?.email || "Ukjent" },
+      ]}
+      maxWidth={1360}
+    >
       <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         <Grid item xs={12} sm={4}>
           <KpiCard label="E-post" value={user?.email || "Ukjent"} subtext="Innloggingskonto" icon={<PersonIcon />} tone="primary" />
@@ -189,6 +191,6 @@ export default function AccountScreen() {
           </SectionCard>
         </Grid>
       </Grid>
-    </Box>
+    </AppScreen>
   );
 }

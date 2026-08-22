@@ -183,7 +183,14 @@ export default function ReceiptImportPanel({ onUseProduct, onUseBrand, onUseShop
   };
 
   return (
-    <FormSection title="Finn produkt fra kvittering">
+    <FormSection
+      title="Kvittering"
+      description="Valgfritt: last opp bilde eller PDF for å få forslag som du bekrefter manuelt."
+      sx={{
+        bgcolor: "background.default",
+        backgroundImage: "none",
+      }}
+    >
       <Stack spacing={1.5}>
         <Stack
           direction={{ xs: "column", sm: "row" }}

@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Paper, Typography, useTheme, Box, CircularProgress } from "@mui/material";
+import { Typography, useTheme, Box } from "@mui/material";
 import dayjs from "dayjs";
 
 import { useAppPreferences } from "../../../store/Store";
+import SectionCard from "../../commons/Layout/SectionCard";
 import useEChart from "../hooks/useEChart";
 import { useExpensesByMonthSummary } from "./hooks/useExpensesByMonth";
 import { buildOption } from "./echarts/buildOption";
@@ -11,6 +12,9 @@ import HeaderControls from "./ui/headerControls";
 import StatsStrip from "./ui/StatsStrip";
 import CategorySpendChart from "./ui/CategorySpendChart";
 import CategoryTrendChart from "./ui/CategoryTrendChart";
+import SpendBreakdownPanel from "./ui/SpendBreakdownPanel";
+import MonthlyInsightCards from "./ui/MonthlyInsightCards";
+import StatsEmptyState from "./ui/StatsEmptyState";
 
 export default function MonthlyExpensesChart({ onMonthClick }) {
   const theme = useTheme();
@@ -37,9 +41,11 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
   const months = data?.months ?? [];
   const categoryBreakdowns = data?.categoryBreakdowns ?? {};
   const categories = categoryBreakdowns?.[categoryScope] ?? data?.categories ?? [];
+  const entityBreakdowns = data?.entityBreakdowns ?? { categories: categoryBreakdowns };
   const categoryMonthlyTrend = data?.categoryMonthlyTrend ?? [];
   const categoryMonth = data?.categoryMonth ?? null;
   const stats = data?.stats ?? null;
+  const activeMonthCount = months.filter((month) => Number(month?.current || 0) > 0).length;
 
   useEffect(() => {
     if (years.length > 0 && !years.includes(selectedYear)) {
@@ -87,40 +93,35 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
 
   if (isLoading) {
     return (
-      <Paper variant="outlined" sx={{ p: 4, borderRadius: 2, textAlign: "center" }}>
-        <CircularProgress />
-        <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Laster statistikk...
-        </Typography>
-      </Paper>
+      <StatsEmptyState
+        title="Laster statistikk"
+        message="Henter månedsdata, kategorier og butikkfordeling fra serveren."
+        loading
+      />
     );
   }
 
   if (error) {
     return (
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-        <Typography color="error">Kunne ikke laste statistikk.</Typography>
-      </Paper>
+      <StatsEmptyState
+        title="Kunne ikke laste statistikk"
+        message="Serveren svarte ikke med statistikkdata. Prøv å oppdatere siden."
+        error
+      />
     );
   }
 
   if (!years.length) {
     return (
-      <Paper variant="outlined" sx={{ p: 3, borderRadius: 2 }}>
-        <Typography color="text.secondary">Ingen data tilgjengelig.</Typography>
-      </Paper>
+      <StatsEmptyState
+        title="Ingen statistikk ennå"
+        message="Når du registrerer utgifter, vises månedlige trender, kategorier og butikker her."
+      />
     );
   }
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: { xs: 2, md: 3 },
-        borderRadius: 2,
-        bgcolor: "background.paper",
-      }}
-    >
+    <Box sx={{ display: "grid", gap: 1.5 }}>
       <HeaderControls
         selectedYear={year}
         setSelectedYear={setSelectedYear}
@@ -132,37 +133,80 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
         previousYearKey={previousYearKey}
         showExtraCharts={showExtraCharts}
         setShowExtraCharts={setShowExtraCharts}
+        hideTitle
       />
 
       <StatsStrip stats={stats} doCompare={doCompare} />
 
+      {activeMonthCount < 3 ? (
+        <SectionCard
+          title="Lite datagrunnlag"
+          subtitle="Statistikk blir tryggere når samme type kjøp finnes over flere måneder."
+          contentSx={{ py: 1.25 }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Akkurat nå har valgt år {activeMonthCount} måned(er) med registrerte utgifter. Diagrammene vises, men trender og årstakt bør leses forsiktig.
+          </Typography>
+        </SectionCard>
+      ) : null}
+
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: showExtraCharts
-            ? {
-                xs: "1fr",
-                lg: "minmax(0, 1.45fr) minmax(300px, 0.55fr)",
-              }
-            : "1fr",
+          gridTemplateColumns: {
+            xs: "1fr",
+            lg: "minmax(0, 1.55fr) minmax(320px, 0.45fr)",
+          },
           gap: 1.5,
+          alignItems: "stretch",
         }}
       >
-        <Box
-          ref={chartBoxRef}
-          sx={{
-            height: { xs: 320, md: showExtraCharts ? 390 : 430 },
-            minWidth: 0,
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
-            overflow: "hidden",
-            bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
-            p: { xs: 0.5, md: 1 },
-          }}
-        />
+        <SectionCard
+          title="Månedlig utvikling"
+          subtitle={
+            doCompare
+              ? `${year} mot ${activeCompareYear}`
+              : `Utgifter per måned i ${year}`
+          }
+          contentSx={{ height: "100%" }}
+        >
+          <Box
+            ref={chartBoxRef}
+            sx={{
+              height: { xs: 320, md: 420 },
+              minWidth: 0,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              overflow: "hidden",
+              bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+              p: { xs: 0.5, md: 1 },
+            }}
+          />
+        </SectionCard>
 
-        {showExtraCharts ? (
+        <SpendBreakdownPanel
+          breakdowns={entityBreakdowns}
+          scope={categoryScope}
+          onScopeChange={setCategoryScope}
+          year={year}
+          month={categoryMonth}
+        />
+      </Box>
+
+      <MonthlyInsightCards stats={stats} doCompare={doCompare} />
+
+      {showExtraCharts ? (
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1.5,
+            gridTemplateColumns: {
+              xs: "1fr",
+              lg: "minmax(320px, 0.45fr) minmax(0, 1.55fr)",
+            },
+          }}
+        >
           <CategorySpendChart
             categories={categories}
             scope={categoryScope}
@@ -170,14 +214,9 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
             year={year}
             month={categoryMonth}
           />
-        ) : null}
-      </Box>
-
-      {showExtraCharts ? (
-        <Box sx={{ mt: 1.5 }}>
           <CategoryTrendChart rows={categoryMonthlyTrend} year={year} />
         </Box>
       ) : null}
-    </Paper>
+    </Box>
   );
 }

@@ -5,6 +5,8 @@ import dayjs from "dayjs";
 import _ from "lodash";
 
 import useEChart from "../hooks/useEChart";
+import SectionCard from "../../commons/Layout/SectionCard";
+import StatsEmptyState from "../MonthlyExpensesChart/ui/StatsEmptyState";
 import { useProductInsights } from "./hooks/useProductInsights";
 import { usePreparedSeries } from "./hooks/usePreparedSeries";
 import { buildOption } from "./echarts/buildOption";
@@ -319,9 +321,40 @@ export default function ProductPriceChart({ productId }) {
     events: onEvents,
   });
 
-  if (!productId) return <Typography>Velg et produkt over.</Typography>;
-  if (isLoading) return <Typography>Laster prishistorikk...</Typography>;
-  if (error) return <Typography color="error">Kunne ikke laste prishistorikk.</Typography>;
+  if (!productId) {
+    return (
+      <StatsEmptyState
+        title="Velg et produkt"
+        message="Søk etter et produkt for å se prisutvikling, butikker, varianter og kjøpsmønster."
+      />
+    );
+  }
+  if (isLoading) {
+    return (
+      <StatsEmptyState
+        title="Laster prishistorikk"
+        message="Henter pris, butikk, variant og rabattdata fra serveren."
+        loading
+      />
+    );
+  }
+  if (error) {
+    return (
+      <StatsEmptyState
+        title="Kunne ikke laste prishistorikk"
+        message="Serveren svarte ikke med produktstatistikk. Prøv å velge produktet på nytt."
+        error
+      />
+    );
+  }
+  if (!history.length) {
+    return (
+      <StatsEmptyState
+        title="Ingen prishistorikk"
+        message="Produktet finnes, men har ingen registrerte kjøp ennå. Når du registrerer kjøp, vises prisendringer her."
+      />
+    );
+  }
 
   const chartHeight = { xs: 300, md: 340, lg: 360 };
 
@@ -403,6 +436,19 @@ export default function ProductPriceChart({ productId }) {
           visibleYearSeries={visibleYearSeries}
           setVisibleYearSeries={setVisibleYearSeries}
         />
+
+        {history.length < 4 ? (
+          <SectionCard
+            title="Lite prishistorikk"
+            subtitle="Sammenligninger blir bedre når produktet er kjøpt flere ganger."
+            contentSx={{ py: 1.25 }}
+            sx={{ mb: 1.5 }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Vi viser det som finnes, men billigste butikk, trend og prognose kan være usikre med få registreringer.
+            </Typography>
+          </SectionCard>
+        ) : null}
 
         <Grid container spacing={2} alignItems="flex-start">
           <Grid size={{ xs: 12, lg: 8 }}>

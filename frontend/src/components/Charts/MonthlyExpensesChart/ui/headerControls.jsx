@@ -22,6 +22,7 @@ export default function HeaderControls({
   previousYearKey,
   showExtraCharts,
   setShowExtraCharts,
+  hideTitle = false,
 }) {
   return (
     <Stack
@@ -32,16 +33,24 @@ export default function HeaderControls({
       gap={2}
       flexWrap="wrap"
     >
-      <Box sx={{ minWidth: 0 }}>
-        <Typography variant="h5" fontWeight={900} sx={{ lineHeight: 1.15 }}>
-          Månedlige utgifter
-        </Typography>
+      {!hideTitle ? (
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h5" fontWeight={900} sx={{ lineHeight: 1.15 }}>
+            Månedlige utgifter
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {doCompare
+              ? `${selectedYear} sammenlignet med ${previousYearKey}`
+              : `Tall for ${selectedYear}`}
+          </Typography>
+        </Box>
+      ) : (
         <Typography variant="body2" color="text.secondary">
           {doCompare
             ? `${selectedYear} sammenlignet med ${previousYearKey}`
             : `Tall for ${selectedYear}`}
         </Typography>
-      </Box>
+      )}
 
       <Stack
         direction={{ xs: "column", sm: "row" }}

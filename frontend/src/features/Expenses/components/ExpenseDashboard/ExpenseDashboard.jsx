@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Box, LinearProgress, useTheme } from "@mui/material";
+import { Box, LinearProgress, Stack, Typography, useTheme } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
@@ -29,23 +29,16 @@ const NOK = new Intl.NumberFormat("nb-NO", {
   maximumFractionDigits: 2,
 });
 
-const dashboardPanelSx = {
-  bgcolor: "rgba(30, 41, 59, 0.62)",
-  borderColor: "rgba(148, 163, 184, 0.18)",
-};
-
 const kpiSx = {
-  bgcolor: "rgba(30, 41, 59, 0.72)",
-  borderColor: "rgba(148, 163, 184, 0.18)",
   height: "100%",
 };
 
-const startOfDay = (date) => {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
-};
+const PERIOD_OPTIONS = [
+  { value: "month", label: "Denne måneden" },
+  { value: "quarter", label: "Siste 3 mnd" },
+  { value: "year", label: "I år" },
+  { value: "all", label: "Alt" },
+];
 
 const fetchExpenseDashboard = async (period) => {
   const url = buildApiUrl("/api/stats/expense-dashboard");
@@ -53,32 +46,39 @@ const fetchExpenseDashboard = async (period) => {
   return requestJson(url);
 };
 
-const toLocalDateKey = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+const formatMonthKey = (key) => {
+  const [year, month] = String(key).split("-").map(Number);
+  if (!year || !month) return key;
+  return new Date(year, month - 1, 1).toLocaleDateString("nb-NO", {
+    month: "short",
+    year: "2-digit",
+  });
 };
 
-const buildDashboardSeries = (summary, period) => {
-  const days = period === "week" ? 7 : 30;
-  const today = startOfDay(new Date());
-  const values = new Map(
-    (summary?.timeline ?? []).map((item) => [item.key, Number(item.value || 0)]),
-  );
+const buildDashboardSeries = (summary) => {
+  const timeline = Array.isArray(summary?.timeline) ? summary.timeline : [];
+  return timeline.map((item) => {
+    const key = String(item.key || "");
+    const isMonth = /^\d{4}-\d{2}$/.test(key);
+    const date = isMonth
+      ? formatMonthKey(key)
+      : new Date(`${key}T00:00:00`).toLocaleDateString("nb-NO", {
+          day: "2-digit",
+          month: "short",
+        });
 
-  return Array.from({ length: days }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (days - 1 - index));
-
-    const key = toLocalDateKey(date);
-    const label = date.toLocaleDateString("nb-NO", {
-      day: "2-digit",
-      month: "short",
-    });
-
-    return { key, date: label, value: values.get(key) || 0 };
+    return { key, date, value: Number(item.value || 0) };
   });
+};
+
+const topShare = (rows, total) => {
+  const first = rows?.[0];
+  if (!first || !total) return null;
+  return {
+    name: first.name,
+    value: Number(first.value || 0),
+    pct: (Number(first.value || 0) / total) * 100,
+  };
 };
 
 function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
@@ -132,7 +132,6 @@ function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
         />
       }
       subtitle="Fordelt på kategori, butikk, merke og sted."
-      sx={dashboardPanelSx}
     >
       <BreakdownList
         icon={activeBreakdown.icon}
@@ -146,9 +145,83 @@ function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
   );
 }
 
+function ActionableInsights({ total, average, count, categories, shops, brands }) {
+  const topCategory = topShare(categories, total);
+  const topShop = topShare(shops, total);
+  const topBrand = topShare(brands, total);
+
+  const rows = [
+    topCategory
+      ? {
+          label: "Største kategori",
+          value: topCategory.name,
+          helper: `${NOK.format(topCategory.value)} · ${topCategory.pct.toFixed(0)}% av perioden`,
+        }
+      : null,
+    topShop
+      ? {
+          label: "Mest brukt butikk",
+          value: topShop.name,
+          helper: `${NOK.format(topShop.value)} · ${topShop.pct.toFixed(0)}% av perioden`,
+        }
+      : null,
+    topBrand
+      ? {
+          label: "Mest brukt merke",
+          value: topBrand.name,
+          helper: `${NOK.format(topBrand.value)} · ${topBrand.pct.toFixed(0)}% av perioden`,
+        }
+      : null,
+    {
+      label: "Typisk kjøp",
+      value: NOK.format(average),
+      helper: `${count || 0} transaksjoner i valgt periode`,
+    },
+  ].filter(Boolean);
+
+  return (
+    <SectionCard
+      title="Innsikt"
+      subtitle="Raske signaler som kan hjelpe deg å rydde i forbruket."
+    >
+      <Box
+        sx={{
+          display: "grid",
+          gap: 1,
+          gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+        }}
+      >
+        {rows.map((row) => (
+          <Box
+            key={`${row.label}-${row.value}`}
+            sx={{
+              p: 1.25,
+              borderRadius: 1.5,
+              border: "1px solid",
+              borderColor: "divider",
+              bgcolor: "background.default",
+              minWidth: 0,
+            }}
+          >
+            <Typography variant="caption" color="text.secondary" fontWeight={850}>
+              {row.label}
+            </Typography>
+            <Typography variant="body2" fontWeight={950} noWrap>
+              {row.value}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {row.helper}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </SectionCard>
+  );
+}
+
 export default function ExpenseDashboard() {
   const theme = useTheme();
-  const [period, setPeriod] = useState("week");
+  const [period, setPeriod] = useState("month");
 
   const { data: summary, isFetching } = useQuery({
     queryKey: ["expenses", "dashboard", period],
@@ -165,20 +238,48 @@ export default function ExpenseDashboard() {
   const brandData = summary?.brands ?? [];
   const locationData = summary?.locations ?? [];
   const timeData = useMemo(
-    () => buildDashboardSeries(summary, period),
-    [summary, period],
+    () => buildDashboardSeries(summary),
+    [summary],
   );
 
   return (
     <Box
       sx={{
-        borderRadius: 4,
-        p: 2,
-        bgcolor: "rgba(15, 23, 42, 0.78)",
-        border: "1px solid rgba(148, 163, 184, 0.16)",
+        display: "grid",
+        gap: 1.5,
       }}
     >
-      {isFetching ? <LinearProgress sx={{ mb: 1.5 }} /> : null}
+      <Stack
+        direction={{ xs: "column", md: "row" }}
+        justifyContent="space-between"
+        alignItems={{ xs: "stretch", md: "center" }}
+        spacing={1}
+      >
+        <Box>
+          <Typography variant="subtitle1" fontWeight={950}>
+            Dashboard
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Oversikt og fordeling basert på valgt periode.
+          </Typography>
+        </Box>
+        <SegmentedControl
+          value={period}
+          onChange={setPeriod}
+          options={PERIOD_OPTIONS}
+          ariaLabel="Dashboardperiode"
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 1,
+              py: 0.35,
+              textTransform: "none",
+              fontWeight: 800,
+            },
+          }}
+        />
+      </Stack>
+
+      {isFetching ? <LinearProgress /> : null}
 
       <Box
         sx={{
@@ -189,14 +290,14 @@ export default function ExpenseDashboard() {
             lg: "repeat(4, 1fr)",
           },
           gap: 1.5,
-          mb: 1.5,
         }}
       >
         <KpiCard
           label="Totale utgifter"
           value={NOK.format(stats.total)}
-          subtext="Alle registrerte rader"
+          subtext="Valgt periode"
           icon={<ReceiptLongIcon fontSize="small" />}
+          tone="primary"
           sx={kpiSx}
         />
 
@@ -211,7 +312,7 @@ export default function ExpenseDashboard() {
         <KpiCard
           label="Antall transaksjoner"
           value={stats.count}
-          subtext="Totalt i databasen"
+          subtext="I valgt periode"
           icon={<ShoppingCartIcon fontSize="small" />}
           sx={kpiSx}
         />
@@ -245,73 +346,72 @@ export default function ExpenseDashboard() {
 
         <SectionCard
           title="Utgifter over tid"
-          action={
-            <SegmentedControl
-              value={period}
-              onChange={setPeriod}
-              options={[
-                { value: "week", label: "Uke" },
-                { value: "month", label: "Måned" },
-              ]}
-              sx={{
-                "& .MuiToggleButton-root": {
-                  px: 1.25,
-                  py: 0.35,
-                  textTransform: "none",
-                  fontWeight: 700,
-                },
-              }}
-            />
-          }
-          sx={dashboardPanelSx}
+          subtitle="Daglig eller månedlig utvikling i valgt periode."
         >
-          <Box sx={{ height: 180 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={timeData}>
-                <defs>
-                  <linearGradient
-                    id="expenseGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor={theme.palette.primary.main}
-                      stopOpacity={0.45}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor={theme.palette.primary.main}
-                      stopOpacity={0.04}
-                    />
-                  </linearGradient>
-                </defs>
+          {timeData.length ? (
+            <Box sx={{ height: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={timeData}>
+                  <defs>
+                    <linearGradient
+                      id="expenseGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor={theme.palette.primary.main}
+                        stopOpacity={0.45}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={theme.palette.primary.main}
+                        stopOpacity={0.04}
+                      />
+                    </linearGradient>
+                  </defs>
 
-                <CartesianGrid strokeDasharray="3 3" opacity={0.14} />
-                <XAxis dataKey="date" fontSize={11} />
-                <YAxis
-                  fontSize={11}
-                  width={46}
-                  tickFormatter={(value) => `${value} kr`}
-                />
-                <Tooltip formatter={(value) => NOK.format(value)} />
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
+                  <XAxis dataKey="date" fontSize={11} />
+                  <YAxis
+                    fontSize={11}
+                    width={54}
+                    tickFormatter={(value) => `${value} kr`}
+                  />
+                  <Tooltip formatter={(value) => NOK.format(value)} />
 
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke={theme.palette.primary.main}
-                  fill="url(#expenseGradient)"
-                  strokeWidth={2.5}
-                  dot={{ r: 2.5 }}
-                  activeDot={{ r: 5 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Box>
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke={theme.palette.primary.main}
+                    fill="url(#expenseGradient)"
+                    strokeWidth={2.5}
+                    dot={{ r: 2.5 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Box>
+          ) : (
+            <Box sx={{ py: 6, textAlign: "center" }}>
+              <Typography variant="body2" color="text.secondary">
+                Ingen utgifter i valgt periode.
+              </Typography>
+            </Box>
+          )}
         </SectionCard>
       </Box>
+
+      <ActionableInsights
+        total={stats.total}
+        average={stats.average}
+        count={stats.count}
+        categories={categoryData}
+        shops={shopData}
+        brands={brandData}
+      />
     </Box>
   );
 }

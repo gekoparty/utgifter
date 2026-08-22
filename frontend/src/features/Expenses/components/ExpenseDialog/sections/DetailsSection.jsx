@@ -1,10 +1,30 @@
 import React from "react";
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Button, Stack, Typography } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
 import VirtualizedSelect from "../../../../../components/commons/VirtualizedSelect/VirtualizedSelect";
-import ExpenseField from "../../../../../components/commons/ExpenseField/ExpenseField";
 import FieldLabel from "../../../../../components/commons/Forms/FieldLabel";
 import FormSection from "../../../../../components/commons/Forms/FormSection";
-import InlineQuickCreatePanel from "./InlineQuickCreatePanel";
+
+const QuickCreateAction = ({ children, disabled, disabledText, onClick }) => (
+  <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1 }}>
+    <Button
+      type="button"
+      size="small"
+      variant="text"
+      startIcon={<AddIcon fontSize="small" />}
+      disabled={disabled}
+      onClick={onClick}
+      sx={{ px: 0.5, minWidth: 0, fontWeight: 850 }}
+    >
+      {children}
+    </Button>
+    {disabled && disabledText ? (
+      <Typography variant="caption" color="text.secondary" fontWeight={700}>
+        {disabledText}
+      </Typography>
+    ) : null}
+  </Stack>
+);
 
 export default function DetailsSection({
   expense,
@@ -30,7 +50,11 @@ export default function DetailsSection({
     typeof document !== "undefined" ? document.body : undefined;
 
   return (
-    <FormSection title="Detaljer">
+    <FormSection
+      step="1"
+      title="Produkt"
+      description="Velg produkt, merke, variant og butikk før du fyller inn pris."
+    >
       <Stack spacing={2}>
         <Box>
           <FieldLabel>Produkt</FieldLabel>
@@ -100,13 +124,13 @@ export default function DetailsSection({
               </Typography>
             ) : null}
 
-            <InlineQuickCreatePanel
-              type="brand"
+            <QuickCreateAction
               disabled={!quickCreate?.hasSelectedProductId}
               disabledText="Velg produkt fra listen først"
-              selectStyles={selectStyles}
-              onCreate={({ name }) => quickCreate?.createBrand?.(name)}
-            />
+              onClick={quickCreate?.openBrandDialog}
+            >
+              Nytt merke
+            </QuickCreateAction>
           </Box>
 
           <Box flex={1}>
@@ -137,13 +161,13 @@ export default function DetailsSection({
               styles={selectStyles}
             />
 
-            <InlineQuickCreatePanel
-              type="variant"
+            <QuickCreateAction
               disabled={!quickCreate?.hasSelectedProductId}
               disabledText="Velg produkt fra listen først"
-              selectStyles={selectStyles}
-              onCreate={({ name }) => quickCreate?.createVariant?.(name)}
-            />
+              onClick={quickCreate?.openVariantDialog}
+            >
+              Ny variant
+            </QuickCreateAction>
           </Box>
         </Stack>
 
@@ -162,26 +186,44 @@ export default function DetailsSection({
               styles={selectStyles}
             />
 
-            <InlineQuickCreatePanel
-              type="shop"
-              selectStyles={selectStyles}
-              locationOptions={quickCreate?.locationOptions}
-              categoryOptions={quickCreate?.categoryOptions}
-              isLoadingLocations={quickCreate?.isLoadingLocations}
-              isLoadingCategories={quickCreate?.isLoadingCategories}
-              isLocationError={quickCreate?.isLocationError}
-              isCategoryError={quickCreate?.isCategoryError}
-              onCreate={(payload) => quickCreate?.createShop?.(payload)}
-            />
+            <QuickCreateAction onClick={quickCreate?.openShopDialog}>
+              Ny butikk
+            </QuickCreateAction>
           </Box>
 
           <Box flex={1}>
-            <ExpenseField
-              label="Sted"
-              value={expense.locationName || ""}
-              InputProps={{ readOnly: true }}
-              fullWidth
-            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", mb: 0.75, fontWeight: 800 }}
+            >
+              Sted
+            </Typography>
+            <Box
+              sx={(theme) => {
+                const hasLocation = Boolean(expense.locationName);
+
+                return {
+                  minHeight: 42,
+                  display: "flex",
+                  alignItems: "center",
+                  px: 1.5,
+                  borderRadius: 1,
+                  border: "1px solid",
+                  borderColor: hasLocation ? "divider" : "action.disabledBackground",
+                  bgcolor: hasLocation
+                    ? "background.paper"
+                    : theme.palette.mode === "dark"
+                      ? "rgba(255,255,255,0.025)"
+                      : "rgba(15,23,42,0.025)",
+                  color: hasLocation ? "text.primary" : "text.disabled",
+                };
+              }}
+            >
+              <Typography variant="body2" fontWeight={expense.locationName ? 700 : 500}>
+                {expense.locationName || "Velg butikk først"}
+              </Typography>
+            </Box>
           </Box>
         </Stack>
       </Stack>

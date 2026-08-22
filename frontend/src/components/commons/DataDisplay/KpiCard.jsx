@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Paper, Stack, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 const toneColor = (tone) => {
   if (tone === "success") return "success.main";
@@ -21,17 +22,39 @@ export default function KpiCard({
   return (
     <Paper
       variant="outlined"
-      sx={{
-        p: 1.5,
+      sx={(theme) => ({
+        p: 1.6,
         borderRadius: 2,
-        minHeight: 78,
+        minHeight: 84,
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
+        borderColor: isPrimary
+          ? "transparent"
+          : theme.palette.mode === "dark"
+            ? "rgba(255,255,255,0.12)"
+            : "rgba(15,23,42,0.10)",
         bgcolor: isPrimary ? "primary.main" : "background.paper",
+        backgroundImage: isPrimary
+          ? "none"
+          : theme.palette.mode === "dark"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.036), rgba(255,255,255,0.010))"
+            : "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.78))",
         color: isPrimary ? "primary.contrastText" : "text.primary",
+        boxShadow: isPrimary
+          ? theme.palette.mode === "dark"
+            ? "0 16px 34px rgba(79,140,255,0.22)"
+            : "0 16px 30px rgba(36,87,214,0.16)"
+          : "none",
+        transition: theme.transitions.create(["transform", "box-shadow", "border-color"], {
+          duration: theme.transitions.duration.short,
+        }),
+        "&:hover": {
+          transform: "translateY(-1px)",
+          borderColor: isPrimary ? "transparent" : alpha(theme.palette.primary.main, 0.34),
+        },
         ...sx,
-      }}
+      })}
     >
       <Stack direction="row" justifyContent="space-between" spacing={1.5}>
         <Box sx={{ minWidth: 0 }}>
@@ -73,10 +96,11 @@ export default function KpiCard({
             sx={{
               width: 36,
               height: 36,
-              borderRadius: "50%",
+              borderRadius: 1.5,
               display: "grid",
               placeItems: "center",
               bgcolor: isPrimary ? "rgba(255,255,255,0.18)" : "primary.main",
+              backgroundImage: "none",
               color: "primary.contrastText",
               flexShrink: 0,
             }}

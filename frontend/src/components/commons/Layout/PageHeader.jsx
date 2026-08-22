@@ -26,14 +26,33 @@ export default function PageHeader({
     <Box
       sx={(theme) => ({
         mb: 2,
-        p: { xs: 2, md: 2.5 },
+        p: { xs: 1.75, md: 2.25 },
         border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 2,
-        background:
+        borderColor:
           theme.palette.mode === "dark"
-            ? "linear-gradient(135deg, rgba(59,130,246,0.14), rgba(31,41,55,0.56) 62%)"
-            : "linear-gradient(135deg, rgba(25,118,210,0.10), rgba(255,255,255,0.78) 62%)",
+            ? "rgba(255,255,255,0.13)"
+            : "rgba(15,23,42,0.10)",
+        borderRadius: 2,
+        backgroundColor: "background.paper",
+        backgroundImage:
+          theme.palette.mode === "dark"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012))"
+            : "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.76))",
+        boxShadow:
+          theme.palette.mode === "dark"
+            ? "0 10px 28px rgba(0,0,0,0.18)"
+            : "0 10px 28px rgba(15,23,42,0.055)",
+        position: "relative",
+        overflow: "hidden",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          width: 4,
+          right: "auto",
+          backgroundColor: theme.palette.primary.main,
+        },
         ...sx,
       })}
     >
@@ -50,11 +69,15 @@ export default function PageHeader({
                 display: "grid",
                 placeItems: "center",
                 flex: "0 0 auto",
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 borderRadius: 1.5,
                 color: "primary.contrastText",
                 bgcolor: "primary.main",
+                boxShadow: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? "0 8px 18px rgba(79,140,255,0.22)"
+                    : "0 8px 16px rgba(36,87,214,0.14)",
               }}
             >
               {icon}
@@ -62,7 +85,7 @@ export default function PageHeader({
           ) : null}
 
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h5" sx={{ fontWeight: 850, lineHeight: 1.1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.08 }}>
               {title}
             </Typography>
             {subtitle ? (
@@ -87,8 +110,8 @@ export default function PageHeader({
               key={item.label}
               label={`${item.label}: ${item.value}`}
               variant={item.value ? "filled" : "outlined"}
-              sx={{
-                borderRadius: 1.5,
+            sx={{
+                borderRadius: 2,
                 fontWeight: 700,
                 bgcolor: item.value ? "action.selected" : "transparent",
               }}

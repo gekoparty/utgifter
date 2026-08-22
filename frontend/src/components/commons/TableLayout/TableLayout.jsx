@@ -16,19 +16,23 @@ const TableLayout = ({ children }) => {
         border: "1px solid",
         borderColor:
           t.palette.mode === "dark"
-            ? "rgba(255,255,255,0.10)"
+            ? "rgba(255,255,255,0.12)"
             : "rgba(0,0,0,0.08)",
 
         bgcolor:
           t.palette.mode === "dark"
-            ? "rgba(18,18,24,0.86)"
-            : "rgba(255,255,255,0.95)",
+            ? "rgba(27,27,39,0.80)"
+            : "rgba(255,255,255,0.86)",
+        backgroundImage:
+          t.palette.mode === "dark"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))"
+            : "linear-gradient(180deg, rgba(255,255,255,0.90), rgba(245,247,251,0.72))",
 
-        backdropFilter: "blur(10px)",
+        backdropFilter: "blur(16px)",
         boxShadow:
           t.palette.mode === "dark"
-            ? "0 14px 38px rgba(0,0,0,0.34)"
-            : "0 12px 28px rgba(15,23,42,0.08)",
+            ? "0 20px 56px rgba(0,0,0,0.34)"
+            : "0 18px 42px rgba(15,23,42,0.08)",
       })}
     >
       {children}

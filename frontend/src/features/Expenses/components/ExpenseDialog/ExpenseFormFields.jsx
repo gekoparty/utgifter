@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Box, Stack } from "@mui/material";
+import { Box, Chip, Stack, Typography } from "@mui/material";
 import DetailsSection from "./sections/DetailsSection";
 import PriceQuantitySection from "./sections/PriceQuantitySection";
 import ReceiptImportPanel from "./sections/ReceiptImportPanel";
@@ -139,8 +139,41 @@ const ExpenseFormFields = ({
   };
 
   return (
-    <Box sx={{ p: { xs: 0, sm: 1, md: 2 }, maxWidth: 1120, mx: "auto" }}>
-      <Stack spacing={2.5}>
+    <Box sx={{ p: { xs: 0, sm: 1, md: 1.5 }, maxWidth: 1080, mx: "auto" }}>
+      <Stack spacing={1.75}>
+        <Box
+          sx={{
+            px: { xs: 1, sm: 1.25 },
+            py: 1,
+            borderRadius: 2,
+            border: "1px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper",
+          }}
+        >
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1}
+            alignItems={{ xs: "stretch", sm: "center" }}
+            justifyContent="space-between"
+          >
+            <Typography variant="body2" color="text.secondary" fontWeight={800}>
+              Registrering
+            </Typography>
+            <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+              {["1 Produkt", "2 Pris", "3 Dato/status"].map((label) => (
+                <Chip
+                  key={label}
+                  size="small"
+                  label={label}
+                  variant="outlined"
+                  sx={{ fontWeight: 850 }}
+                />
+              ))}
+            </Stack>
+          </Stack>
+        </Box>
+
         <ReceiptImportPanel
           onUseProduct={controller.handleProductSelect}
           onUseBrand={controller.handleBrandSelect}

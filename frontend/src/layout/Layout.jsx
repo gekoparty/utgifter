@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useEffect } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import MiniVariantDrawer from "../components/NavBar/MiniVariantDrawer";
 import { useAppPreferences } from "../store/Store";
@@ -26,6 +26,7 @@ export default function Layout() {
     "/locations": "Steder",
     "/products": "Produkter",
     "/recurring-expenses": "Faste kostnader",
+    "/stats": "Statistikk",
     "/account": "Min konto",
     "/admin/users": "Brukere",
   };
@@ -35,13 +36,6 @@ export default function Layout() {
       routeTitles[location.pathname] ?? location.pathname.replace(/\W/g, " "),
     [location.pathname],
   );
-
-  useEffect(() => {
-    const fullscreenRoutes = ["/recurring-expenses"];
-    if (fullscreenRoutes.includes(location.pathname)) {
-      setIsDrawerOpen(false);
-    }
-  }, [location.pathname, setIsDrawerOpen]);
 
   return (
     <MiniVariantDrawer

@@ -1,11 +1,10 @@
 import React, { memo } from "react";
-import { Box, Card, CardContent, Chip, Stack, Typography } from "@mui/material";
+import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
 import { RECURRING_TYPES } from "../utils/recurringTypes";
 
-function FiltersSummaryCard({ filter, onFilter, sum3, formatCurrency }) {
+function FiltersSummaryCard({ filter, onFilter }) {
   return (
-    <Card sx={{ mt: 1, borderRadius: 2 }}>
-      <CardContent sx={{ p: { xs: 1.25, sm: 1.5 }, "&:last-child": { pb: { xs: 1.25, sm: 1.5 } } }}>
+    <Paper variant="outlined" sx={{ p: { xs: 1.25, sm: 1.5 }, borderRadius: 2, boxShadow: "none" }}>
         <Stack
           direction={{ xs: "column", md: "row" }}
           alignItems={{ xs: "stretch", md: "center" }}
@@ -13,10 +12,13 @@ function FiltersSummaryCard({ filter, onFilter, sum3, formatCurrency }) {
           spacing={1.5}
         >
           <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={900}>
-              Vis
+            <Typography variant="subtitle2" fontWeight={950}>
+              Filter
             </Typography>
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+            <Typography variant="caption" color="text.secondary">
+              Velg hvilke faste kostnader som skal vises.
+            </Typography>
+            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
               <Chip
                 size="small"
                 label="Alle"
@@ -33,36 +35,13 @@ function FiltersSummaryCard({ filter, onFilter, sum3, formatCurrency }) {
                   color={filter === t.key ? t.color : undefined}
                   variant={filter === t.key ? "filled" : "outlined"}
                   onClick={() => onFilter(t.key)}
-                  sx={{ fontWeight: 800 }}
+                  sx={{ fontWeight: 850 }}
                 />
               ))}
             </Stack>
           </Box>
-
-          <Box
-            sx={{
-              p: 1.25,
-              borderRadius: 2,
-              bgcolor: "rgba(255,255,255,0.04)",
-              border: "1px solid",
-              borderColor: "divider",
-              minWidth: { md: 300 },
-            }}
-          >
-            <Typography variant="caption" color="text.secondary">
-              Forventet neste 3 måneder
-            </Typography>
-            <Typography variant="h6" fontWeight={950} sx={{ lineHeight: 1.15 }}>
-              {formatCurrency(sum3.min)} - {formatCurrency(sum3.max)}
-            </Typography>
-
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.35 }}>
-              Betalt siste/valgte periode: <strong>{formatCurrency(sum3.paid ?? 0)}</strong>
-            </Typography>
-          </Box>
         </Stack>
-      </CardContent>
-    </Card>
+    </Paper>
   );
 }
 

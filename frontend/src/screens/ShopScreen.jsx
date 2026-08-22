@@ -32,11 +32,6 @@ const ShopScreen = () => (
     endpoint="/api/shops"
     getData={(data) => data?.shops ?? []}
     getMeta={(data) => data?.meta ?? {}}
-    getPreviewLabel={(shop) =>
-      [shop?.name, shop?.locationName, shop?.categoryName]
-        .filter(Boolean)
-        .join(" · ")
-    }
     IconComponent={StorefrontIcon}
     initialSelectedRecord={INITIAL_SELECTED_SHOP}
     loadDialog={loadShopDialog}

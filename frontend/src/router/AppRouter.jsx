@@ -1,7 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "../layout/Layout";
-import BarePageLayout from "../layout/BarePageLayout";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
 const BrandScreen = lazy(() => import("../screens/BrandScreen"));
@@ -67,6 +66,10 @@ const AppRouter = () => (
             element={<LazyRoute><RecurringExpenseScreen /></LazyRoute>}
           />
           <Route
+            path="stats"
+            element={<LazyRoute><StatsScreen /></LazyRoute>}
+          />
+          <Route
             path="account"
             element={<LazyRoute><AccountScreen /></LazyRoute>}
           />
@@ -76,12 +79,6 @@ const AppRouter = () => (
           />
         </Route>
 
-        <Route path="/stats" element={<BarePageLayout />}>
-          <Route
-            index
-            element={<LazyRoute><StatsScreen /></LazyRoute>}
-          />
-        </Route>
       </Route>
     </Routes>
   </BrowserRouter>

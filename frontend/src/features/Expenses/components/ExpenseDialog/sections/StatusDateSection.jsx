@@ -6,7 +6,11 @@ import FormSection from "../../../../../components/commons/Forms/FormSection";
 
 export default function StatusDateSection({ expense, controller }) {
   return (
-    <FormSection title="Status og dato">
+    <FormSection
+      step="3"
+      title="Dato/status"
+      description="Velg om utgiften er kjøpt eller bare registrert, og sett riktig dato."
+    >
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         <Box flex={1}>
           <FieldLabel>Status</FieldLabel>

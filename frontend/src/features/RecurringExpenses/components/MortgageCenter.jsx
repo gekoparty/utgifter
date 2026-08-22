@@ -414,7 +414,21 @@ export default function MortgageCenter({
 
             {extraPaymentSummary && (
               <>
-                <Box>
+                <Box
+                  sx={(theme) => ({
+                    p: { xs: 1.5, md: 2 },
+                    borderRadius: 2,
+                    border: "1px solid",
+                    borderColor:
+                      theme.palette.mode === "dark"
+                        ? "rgba(34,197,94,0.34)"
+                        : "rgba(22,163,74,0.24)",
+                    bgcolor:
+                      theme.palette.mode === "dark"
+                        ? "rgba(34,197,94,0.09)"
+                        : "rgba(240,253,244,0.90)",
+                  })}
+                >
                   <Stack
                     direction={{ xs: "column", sm: "row" }}
                     justifyContent="space-between"
@@ -424,12 +438,24 @@ export default function MortgageCenter({
                     <Box>
                       <Typography fontWeight={900}>Ekstra nedbetaling</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Effekt av ekstra avdrag registrert i valgt periode.
+                        Effekt av ekstra avdrag registrert på dette lånet.
                       </Typography>
                     </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Sammenlignet med plan uten ekstra avdrag
-                    </Typography>
+                    <Box
+                      sx={{
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 999,
+                        bgcolor: "background.paper",
+                        border: "1px solid",
+                        borderColor: "divider",
+                        alignSelf: { xs: "flex-start", sm: "center" },
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary" fontWeight={850}>
+                        Sammenlignet med plan uten ekstra avdrag
+                      </Typography>
+                    </Box>
                   </Stack>
 
                   <Box

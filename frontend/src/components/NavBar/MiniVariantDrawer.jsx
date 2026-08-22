@@ -54,21 +54,15 @@ const StyledDrawer = styled(Drawer)(({ theme, open }) => ({
         : theme.transitions.duration.leavingScreen,
     }),
     backgroundColor:
-      theme.vars?.palette.background.paper || theme.palette.background.paper,
+      theme.palette.mode === "dark"
+        ? alpha("#1D1D2A", 0.96)
+        : alpha(theme.palette.background.paper, 0.98),
+    backgroundImage:
+      theme.palette.mode === "dark"
+        ? "linear-gradient(180deg, rgba(255,255,255,0.030), rgba(255,255,255,0.008))"
+        : "none",
+    backdropFilter: "blur(10px)",
   },
-}));
-
-const ActiveBubble = styled("div")(({ theme }) => ({
-  position: "absolute",
-  left: 8,
-  right: 8,
-  height: 40,
-  borderRadius: 12,
-  pointerEvents: "none",
-  backgroundColor: theme.vars
-    ? `rgba(${theme.vars.palette.primary.mainChannel} / 0.13)`
-    : alpha(theme.palette.primary.main, 0.13),
-  transition: "transform 0.25s ease, opacity 0.25s ease",
 }));
 
 export default function MiniVariantDrawer({
@@ -109,14 +103,19 @@ export default function MiniVariantDrawer({
     [isAdmin],
   );
 
-  const activeIndex = React.useMemo(() => {
-    return visibleNavbarItems.findIndex((item) =>
-      matchPath(
-        { path: item.route, end: item.route === "/" },
-        location.pathname,
-      ),
-    );
-  }, [location.pathname, visibleNavbarItems]);
+  const groupedNavbarItems = React.useMemo(() => {
+    const groups = [];
+    for (const item of visibleNavbarItems) {
+      const section = item.section || "Meny";
+      let group = groups.find((entry) => entry.section === section);
+      if (!group) {
+        group = { section, items: [] };
+        groups.push(group);
+      }
+      group.items.push(item);
+    }
+    return groups;
+  }, [visibleNavbarItems]);
 
   return (
     <Box sx={{ display: "flex" }}>
@@ -135,8 +134,11 @@ export default function MiniVariantDrawer({
             }),
           width: `calc(100% - ${drawerWidth}px)`,
           ml: `${drawerWidth}px`,
-          backgroundColor: "background.paper",
-          opacity: 0.85,
+          backgroundColor: (theme) =>
+            theme.palette.mode === "dark"
+              ? "rgba(25,25,36,0.94)"
+              : "rgba(255,255,255,0.94)",
+          backgroundImage: "none",
           zIndex: (theme) => theme.zIndex.drawer + 1,
         }}
       >
@@ -202,17 +204,28 @@ export default function MiniVariantDrawer({
 
         <Divider />
 
-        <List sx={{ position: "relative" }}>
-          {activeIndex !== -1 && (
-            <ActiveBubble
-              sx={{
-                transform: `translateY(${activeIndex * ROW_HEIGHT}px)`,
-                opacity: drawerOpen ? 1 : 0.5,
-              }}
-            />
-          )}
+        <List sx={{ position: "relative", px: 0.75 }}>
+          {groupedNavbarItems.map((group) => (
+            <React.Fragment key={group.section}>
+              {drawerOpen && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: "block",
+                    px: 1.5,
+                    pt: 1.5,
+                    pb: 0.5,
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                    letterSpacing: 0,
+                  }}
+                >
+                  {group.section}
+                </Typography>
+              )}
 
-          {visibleNavbarItems.map(({ id, icon, label, route }) => {
+              {group.items.map(({ id, icon, label, route }) => {
             const isActive = Boolean(
               matchPath({ path: route, end: route === "/" }, location.pathname),
             );
@@ -228,10 +241,15 @@ export default function MiniVariantDrawer({
                   sx={{
                     minHeight: ROW_HEIGHT,
                     justifyContent: drawerOpen ? "initial" : "center",
-                    px: 2.5,
+                    px: drawerOpen ? 1.5 : 1,
                     position: "relative",
-                    zIndex: 2,
                     color: isActive ? "primary.main" : "text.secondary",
+                    borderRadius: 1.5,
+                    mb: 0.25,
+                    width: "auto",
+                    bgcolor: isActive ? alpha(theme.palette.primary.main, 0.13) : "transparent",
+                    border: "1px solid",
+                    borderColor: isActive ? alpha(theme.palette.primary.main, 0.22) : "transparent",
                     "&:hover": {
                       bgcolor: "action.hover",
                       color: "primary.main",
@@ -258,7 +276,9 @@ export default function MiniVariantDrawer({
                 </ListItemButton>
               </ListItem>
             );
-          })}
+              })}
+            </React.Fragment>
+          ))}
         </List>
       </StyledDrawer>
 

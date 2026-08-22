@@ -1,17 +1,19 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useQueryClient } from "@tanstack/react-query";
-import { Button, CircularProgress, Stack, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { getSelectStyles } from "../../../../styles/theme/selectStyles";
 
 import BasicDialog from "../../../../components/commons/BasicDialog/BasicDialog";
+import DialogFormActions from "../../../../components/commons/Dialogs/DialogFormActions";
 import ExpenseFormFields from "./ExpenseFormFields";
+import QuickCreateEntityDialog from "./QuickCreateEntityDialog";
+import ShopDialog from "../../../Shops/ShopDialogs/ShopDialog";
 import { formatComponentFields } from "../../../../components/commons/Utils/FormatUtil";
 import {
   addBrandValidationSchema,
   addProductValidationSchema,
-  addShopValidationSchema,
 } from "../../../../validation/validationSchema";
 
 import { useExpenseDialogForm } from "../../hooks/useExpenseDialogForm";
@@ -26,6 +28,7 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
   const theme = useTheme();
   const selectStyles = getSelectStyles(theme);
   const queryClient = useQueryClient();
+  const [quickCreateType, setQuickCreateType] = useState(null);
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
@@ -72,24 +75,6 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       // ✅ NEW: used to decide fallback behavior
       isLoadingBrandsForProduct: data.isLoadingBrandsForProduct,
     });
-
-  const locationOptions = useMemo(
-    () =>
-      (data.locations ?? []).map((location) => ({
-        value: String(location._id),
-        label: location.name,
-      })),
-    [data.locations]
-  );
-
-  const categoryOptions = useMemo(
-    () =>
-      (data.categories ?? []).map((category) => ({
-        value: String(category._id),
-        label: category.name,
-      })),
-    [data.categories]
-  );
 
   // ----------------------------
   // Selected product init control
@@ -229,9 +214,8 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       : "Legg til ny utgift";
 
   const confirmLabel = isDelete ? "Slett" : "Lagre";
-  const confirmColor = isDelete ? "error" : "primary";
-
   const handleClose = () => {
+    setQuickCreateType(null);
     resetForm();
     onClose();
   };
@@ -336,49 +320,28 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     return variant;
   };
 
-  const handleCreateShop = async ({ name, locationName, categoryName }) => {
-    const formatted = {
-      name: formatComponentFields(name, "shop", "name"),
-      locationName: formatComponentFields(
-        locationName,
-        "shop",
-        "locationName"
-      ),
-      categoryName: formatComponentFields(
-        categoryName,
-        "shop",
-        "categoryName"
-      ),
-    };
-
-    await addShopValidationSchema.validate(formatted, { abortEarly: false });
-
-    const { data: shop, error } = await data.sendRequest("/api/shops", "POST", {
-      name: formatted.name,
-      locationName: formatted.locationName,
-      categoryName: formatted.categoryName,
-    });
-
-    if (error) throw error;
-
+  const handleShopCreated = (payload) => {
+    const shop = payload?.shop ?? payload;
     const shopId = String(shop?._id ?? shop?.id ?? "");
-    const shopName = String(shop?.name ?? formatted.name).trim();
-    const locationId = String(shop?.location ?? "").trim();
+    const shopName = String(shop?.name ?? "").trim();
+    const locationId = String(shop?.locationId ?? shop?.location ?? "").trim();
     const resolvedLocationName = String(
-      shop?.locationName ?? formatted.locationName ?? ""
+      shop?.locationName ?? shop?.location?.name ?? ""
     ).trim();
 
     queryClient.invalidateQueries({ queryKey: ["shops"] });
+    setQuickCreateType(null);
+
+    if (!shopId || !shopName) return;
+
     controller.handleShopSelect({
-      label: `${shopName}, ${resolvedLocationName}`,
+      label: resolvedLocationName ? `${shopName}, ${resolvedLocationName}` : shopName,
       value: shopId,
       id: shopId,
       name: shopName,
       locationId,
       locationName: resolvedLocationName,
     });
-
-    return shop;
   };
 
   // ✅ Validate brand only on Save
@@ -495,55 +458,71 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       validationErrors={validationErrors}
       clearFieldError={clearFieldError}
       quickCreate={{
-        createBrand: handleCreateBrand,
-        createVariant: handleCreateVariant,
-        createShop: handleCreateShop,
+        openBrandDialog: () => setQuickCreateType("brand"),
+        openVariantDialog: () => setQuickCreateType("variant"),
+        openShopDialog: () => setQuickCreateType("shop"),
         hasSelectedProductId,
-        locationOptions,
-        categoryOptions,
-        isLoadingLocations: data.isLoadingLocations,
-        isLoadingCategories: data.isLoadingCategories,
-        isLocationError: data.isLocationError,
-        isCategoryError: data.isCategoryError,
       }}
     />
   );
 
   return (
-    <BasicDialog
-      open={open}
-      onClose={handleClose}
-      dialogTitle={dialogTitle}
-      maxWidth={isDelete ? "sm" : "lg"}
-      disableBackdropClose={!isDelete}
-    >
-      <form onSubmit={handleSubmit}>
-        {body}
+    <>
+      <BasicDialog
+        open={open}
+        onClose={handleClose}
+        dialogTitle={dialogTitle}
+        maxWidth={isDelete ? "sm" : "lg"}
+        disableBackdropClose={!isDelete}
+      >
+        <form onSubmit={handleSubmit}>
+          {body}
 
-        <Stack
-          direction={{ xs: "column-reverse", sm: "row" }}
-          spacing={1.5}
-          justifyContent="flex-end"
-          sx={{
-            mt: 3,
-            "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
-          }}
-        >
-          <Button onClick={handleClose} disabled={loading}>
-            Avbryt
-          </Button>
-
-          <Button
-            type="submit"
-            variant="contained"
-            color={confirmColor}
-            disabled={loading || (!isDelete && !isFormValid)}
+          <Box
+            sx={{
+              mt: 3,
+              pt: 2,
+              borderTop: "1px solid",
+              borderColor: "divider",
+            }}
           >
-            {loading ? <CircularProgress size={24} /> : confirmLabel}
-          </Button>
-        </Stack>
-      </form>
-    </BasicDialog>
+            <DialogFormActions
+              loading={loading}
+              isDelete={isDelete}
+              disabled={!isDelete && !isFormValid}
+              onCancel={handleClose}
+              submitLabel={confirmLabel}
+            />
+          </Box>
+        </form>
+      </BasicDialog>
+
+      {!isDelete ? (
+        <>
+          <QuickCreateEntityDialog
+            open={quickCreateType === "brand"}
+            type="brand"
+            productName={controller.selectedProduct?.name || expense.productName}
+            onClose={() => setQuickCreateType(null)}
+            onCreate={handleCreateBrand}
+          />
+          <QuickCreateEntityDialog
+            open={quickCreateType === "variant"}
+            type="variant"
+            productName={controller.selectedProduct?.name || expense.productName}
+            onClose={() => setQuickCreateType(null)}
+            onCreate={handleCreateVariant}
+          />
+          <ShopDialog
+            open={quickCreateType === "shop"}
+            mode="ADD"
+            onClose={() => setQuickCreateType(null)}
+            onSuccess={handleShopCreated}
+            onError={onError}
+          />
+        </>
+      ) : null}
+    </>
   );
 };
 

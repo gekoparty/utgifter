@@ -10,6 +10,7 @@ export default function DialogFormActions({
   submitLabel,
   cancelLabel = "Avbryt",
   leadingAction,
+  sx,
 }) {
   const label = submitLabel ?? (isDelete ? "Slett" : "Lagre");
 
@@ -19,7 +20,15 @@ export default function DialogFormActions({
       justifyContent="flex-end"
       spacing={1.5}
       sx={{
-        "& .MuiButton-root": { width: { xs: "100%", sm: "auto" } },
+        alignItems: { xs: "stretch", sm: "center" },
+        "& .MuiButton-root": {
+          width: { xs: "100%", sm: "auto" },
+          minWidth: { sm: 104 },
+          borderRadius: 1.5,
+          px: 2.25,
+          fontWeight: 850,
+        },
+        ...sx,
       }}
     >
       {leadingAction ? (
@@ -27,7 +36,7 @@ export default function DialogFormActions({
           {leadingAction}
         </Stack>
       ) : null}
-      <Button onClick={onCancel} disabled={loading}>
+      <Button onClick={onCancel} disabled={loading} variant="outlined" color="inherit">
         {cancelLabel}
       </Button>
       <Button

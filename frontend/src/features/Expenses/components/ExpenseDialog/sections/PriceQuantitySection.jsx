@@ -53,7 +53,11 @@ export default function PriceQuantitySection({
   };
 
   return (
-    <FormSection title="Pris og mengde">
+    <FormSection
+      step="2"
+      title="Pris"
+      description="Fyll inn pris, volum, antall og eventuell rabatt."
+    >
       <Stack spacing={2}>
         <Box
           sx={{

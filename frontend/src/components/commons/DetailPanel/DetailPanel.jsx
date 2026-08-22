@@ -9,8 +9,8 @@ import {
 } from "@mui/material";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
+import EventAvailableOutlinedIcon from "@mui/icons-material/EventAvailableOutlined";
 import CurrencyBox from "../CurrencyBox/CurrencyBox";
 
 const formatVolume = (volume, unit) => {
@@ -30,7 +30,7 @@ const InfoLine = ({ label, value, strong = false }) => (
   <Box
     sx={{
       display: "grid",
-      gridTemplateColumns: "minmax(72px, 0.8fr) minmax(0, 1.2fr)",
+      gridTemplateColumns: { xs: "1fr", sm: "minmax(92px, 0.7fr) minmax(0, 1.3fr)" },
       gap: 1,
       alignItems: "baseline",
       minWidth: 0,
@@ -53,17 +53,22 @@ const InfoLine = ({ label, value, strong = false }) => (
   </Box>
 );
 
-const Section = ({ icon, title, children }) => (
+const Section = ({ icon, title, children, tone = "default" }) => (
   <Box
     sx={(theme) => ({
       minWidth: 0,
       border: "1px solid",
-      borderColor: "divider",
+      borderColor:
+        tone === "primary"
+          ? alpha(theme.palette.primary.main, 0.28)
+          : "divider",
       borderRadius: 1.5,
       bgcolor:
-        theme.palette.mode === "dark"
-          ? "rgba(255,255,255,0.035)"
-          : "rgba(255,255,255,0.78)",
+        tone === "primary"
+          ? alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.1 : 0.055)
+          : theme.palette.mode === "dark"
+            ? "rgba(255,255,255,0.035)"
+            : "rgba(255,255,255,0.78)",
       p: { xs: 1.5, md: 2 },
     })}
   >
@@ -97,6 +102,7 @@ const DetailPanel = ({ expense }) => {
     purchaseDate,
     purchaseDateDisplay,
     finalPrice,
+    pricePerUnit,
     productCategory,
     brandName,
     locationName,
@@ -105,9 +111,12 @@ const DetailPanel = ({ expense }) => {
     discountValue,
     variantName,
     quantity,
+    purchased,
+    productName,
   } = expense;
 
   const hasDiscount = Number(discountAmount) > 0;
+  const statusLabel = purchased ? "Kjøpt" : "Registrert";
   const rawCategory =
     getTextValue(productCategory) ||
     getTextValue(expense.product?.category) ||
@@ -122,10 +131,7 @@ const DetailPanel = ({ expense }) => {
         position: "sticky",
         left: 0,
         zIndex: 1,
-        width: {
-          xs: "min(100%, calc(100vw - 72px))",
-          md: "min(1040px, calc(100vw - 180px))",
-        },
+        width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",
         px: { xs: 1.25, md: 2 },
@@ -142,36 +148,51 @@ const DetailPanel = ({ expense }) => {
       <Stack spacing={1.5}>
         <Stack
           direction={{ xs: "column", md: "row" }}
-          spacing={1}
+          spacing={1.25}
           alignItems={{ xs: "flex-start", md: "center" }}
           justifyContent="space-between"
         >
-          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-            <Chip
-              icon={<CategoryOutlinedIcon />}
-              label={categoryLabel}
-              size="small"
-              color={hasCategory ? "primary" : "default"}
-              variant={hasCategory ? "filled" : "outlined"}
-              sx={{ fontWeight: 750 }}
-            />
-            {variantName ? (
-              <Chip label={variantName} size="small" variant="outlined" />
-            ) : null}
-            {hasDiscount ? (
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle1" fontWeight={950} sx={{ lineHeight: 1.2 }}>
+              {productName || "Ukjent produkt"}
+            </Typography>
+            <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
               <Chip
-                label={`${discountValue || 0}% rabatt`}
+                icon={<CategoryOutlinedIcon />}
+                label={categoryLabel}
                 size="small"
-                color="success"
-                variant="outlined"
+                color={hasCategory ? "primary" : "default"}
+                variant={hasCategory ? "filled" : "outlined"}
                 sx={{ fontWeight: 750 }}
               />
-            ) : null}
-          </Stack>
+              {variantName ? (
+                <Chip label={variantName} size="small" variant="outlined" />
+              ) : null}
+              <Chip
+                label={statusLabel}
+                size="small"
+                color={purchased ? "success" : "default"}
+                variant={purchased ? "filled" : "outlined"}
+                sx={{ fontWeight: 750 }}
+              />
+              {hasDiscount ? (
+                <Chip
+                  label={`${discountValue || 0}% rabatt`}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  sx={{ fontWeight: 750 }}
+                />
+              ) : null}
+            </Stack>
+          </Box>
 
-          <Typography variant="body2" color="text.secondary">
-            {purchaseDateDisplay || purchaseDate || "Dato mangler"}
-          </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="center" color="text.secondary">
+            <EventAvailableOutlinedIcon fontSize="small" />
+            <Typography variant="body2">
+              {purchaseDateDisplay || purchaseDate || "Dato mangler"}
+            </Typography>
+          </Stack>
         </Stack>
 
         <Box
@@ -179,20 +200,31 @@ const DetailPanel = ({ expense }) => {
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              sm: "repeat(2, minmax(0, 1fr))",
-              lg: "repeat(3, minmax(230px, 1fr))",
+              lg: "minmax(0, 1fr) minmax(0, 1fr)",
             },
             gap: 1.5,
+            width: "100%",
+            minWidth: 0,
           }}
         >
-          <Section icon={<StorefrontIcon fontSize="small" />} title="Butikk">
-            <InfoLine label="Butikk" value={shopName || "Ikke valgt"} strong />
+          <Section icon={<StorefrontIcon fontSize="small" />} title="Produkt og butikk" tone="primary">
+            <InfoLine label="Produkt" value={productName || "Ukjent produkt"} strong />
             <InfoLine label="Merke" value={brandName || "Ukjent"} />
+            <InfoLine label="Variant" value={variantName || "Ingen variant"} />
+            <Divider flexItem />
+            <InfoLine label="Butikk" value={shopName || "Ikke valgt"} strong />
             <InfoLine label="Sted" value={locationName || "Ikke oppgitt"} />
+            <InfoLine label="Kategori" value={categoryLabel} />
+            <InfoLine label="Volum" value={formatVolume(volume, measurementUnit)} />
           </Section>
 
-          <Section icon={<PaymentsOutlinedIcon fontSize="small" />} title="Pris">
+          <Section icon={<PaymentsOutlinedIcon fontSize="small" />} title="Pris og status">
             <InfoLine label="Pris" value={<CurrencyBox value={price} />} strong />
+            <InfoLine
+              label={`Pris per ${measurementUnit || "enhet"}`}
+              value={<CurrencyBox value={pricePerUnit} />}
+            />
+            <InfoLine label="Antall" value={quantity || 1} />
             {hasDiscount ? (
               <>
                 <InfoLine
@@ -208,12 +240,12 @@ const DetailPanel = ({ expense }) => {
               value={<CurrencyBox value={finalPrice} />}
               strong
             />
-          </Section>
-
-          <Section icon={<InfoOutlinedIcon fontSize="small" />} title="Detaljer">
-            <InfoLine label="Kategori" value={categoryLabel} strong />
-            <InfoLine label="Volum" value={formatVolume(volume, measurementUnit)} />
-            <InfoLine label="Antall" value={quantity || 1} />
+            <Divider flexItem />
+            <InfoLine label="Status" value={statusLabel} strong />
+            <InfoLine
+              label="Kjøpsdato"
+              value={purchaseDateDisplay || purchaseDate || "Ikke satt"}
+            />
             <InfoLine
               label="Registrert"
               value={registeredDateDisplay || registeredDate || "Ikke registrert"}

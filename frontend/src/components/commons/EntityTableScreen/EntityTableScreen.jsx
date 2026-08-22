@@ -13,7 +13,7 @@ import AddIcon from "@mui/icons-material/Add";
 import useSnackBar from "../../../hooks/useSnackBar";
 import { usePaginatedData } from "../../../hooks/usePaginatedData";
 import { useAppPreferences } from "../../../store/Store";
-import PageHeader from "../Layout/PageHeader";
+import AppScreen from "../Layout/AppScreen";
 import ReactTable from "../React-Table/react-table";
 import TableLayout from "../TableLayout/TableLayout";
 import { buildPaginatedUrl } from "./buildPaginatedUrl";
@@ -35,7 +35,6 @@ const EntityTableScreen = ({
   endpoint,
   getData,
   getMeta,
-  getPreviewLabel = (record) => record?.name ?? "",
   getRecordName = (record) => record?.name ?? "",
   IconComponent,
   initialSelectedRecord,
@@ -103,10 +102,6 @@ const EntityTableScreen = ({
   const activeFilterCount =
     columnFilters.length + (deferredGlobalFilter ? 1 : 0);
   const pageNumber = pagination.pageIndex + 1;
-  const previewItems = tableData
-    .slice(0, 6)
-    .map((record) => getPreviewLabel(record))
-    .filter(Boolean);
 
   const summaryItems = [
     { label: "Totalt", value: totalRowCount },
@@ -163,61 +158,60 @@ const EntityTableScreen = ({
     : null;
 
   return (
-    <TableLayout>
-      <PageHeader
-        title={screenTitle ?? resourceLabel}
-        subtitle={description}
-        icon={IconComponent ? <IconComponent fontSize="small" /> : null}
-        summaryItems={summaryItems}
-        previewItems={previewItems}
-        emptyPreviewText="Ingen treff ennå."
-        action={
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onMouseEnter={preloadDialog}
-            onFocus={preloadDialog}
-            onClick={() => openModal("ADD")}
-            sx={{ whiteSpace: "nowrap" }}
-          >
-            {addButtonLabel}
-          </Button>
-        }
-      />
-
-      {isLoading ? (
-        <Box sx={{ p: 4, textAlign: "center" }}>
-          <LinearProgress sx={{ mb: 2, maxWidth: 400, mx: "auto" }} />
-          {loadingLabel}
-        </Box>
-      ) : (
-        <ReactTable
-          data={tableData}
-          columns={columns}
-          meta={meta}
-          error={error}
-          isError={isError}
-          isFetching={!activeModal && isFetching}
-          isLoading={isLoading}
-          refetch={refetch}
-          columnFilters={columnFilters}
-          globalFilter={globalFilter}
-          sorting={sorting}
-          pagination={pagination}
-          setColumnFilters={setColumnFilters}
-          setGlobalFilter={setGlobalFilter}
-          setSorting={setSorting}
-          setPagination={setPagination}
-          handleEdit={(record) => openModal("EDIT", record)}
-          handleDelete={(record) => openModal("DELETE", record)}
-          resource={queryKey?.[0]}
-        />
-      )}
+    <AppScreen
+      title={screenTitle ?? resourceLabel}
+      subtitle={description}
+      icon={IconComponent ? <IconComponent fontSize="small" /> : null}
+      summaryItems={summaryItems}
+      action={
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onMouseEnter={preloadDialog}
+          onFocus={preloadDialog}
+          onClick={() => openModal("ADD")}
+          sx={{ whiteSpace: "nowrap" }}
+        >
+          {addButtonLabel}
+        </Button>
+      }
+      maxWidth={1360}
+    >
+      <TableLayout>
+        {isLoading ? (
+          <Box sx={{ p: 4, textAlign: "center" }}>
+            <LinearProgress sx={{ mb: 2, maxWidth: 400, mx: "auto" }} />
+            {loadingLabel}
+          </Box>
+        ) : (
+          <ReactTable
+            data={tableData}
+            columns={columns}
+            meta={meta}
+            error={error}
+            isError={isError}
+            isFetching={!activeModal && isFetching}
+            isLoading={isLoading}
+            refetch={refetch}
+            columnFilters={columnFilters}
+            globalFilter={globalFilter}
+            sorting={sorting}
+            pagination={pagination}
+            setColumnFilters={setColumnFilters}
+            setGlobalFilter={setGlobalFilter}
+            setSorting={setSorting}
+            setPagination={setPagination}
+            handleEdit={(record) => openModal("EDIT", record)}
+            handleDelete={(record) => openModal("DELETE", record)}
+            resource={queryKey?.[0]}
+          />
+        )}
+      </TableLayout>
 
       <Suspense fallback={null}>
         {dialogProps ? <DialogComponent {...dialogProps} /> : null}
       </Suspense>
-    </TableLayout>
+    </AppScreen>
   );
 };
 

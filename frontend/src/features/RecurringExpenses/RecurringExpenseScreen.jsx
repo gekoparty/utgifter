@@ -5,18 +5,25 @@ import {
   AccordionSummary,
   Box,
   Button,
-  Card,
-  CardContent,
   Divider,
   Stack,
   Tab,
   Tabs,
   Typography,
+  Paper,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
+import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
+import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
+import AccountBalanceRoundedIcon from "@mui/icons-material/AccountBalanceRounded";
+import AddIcon from "@mui/icons-material/Add";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import dayjs from "dayjs";
 
-import HeaderBar from "./components/HeaderBar";
+import AppScreen from "../../components/commons/Layout/AppScreen";
+import KpiCard from "../../components/commons/DataDisplay/KpiCard";
 import FiltersSummaryCard from "./components/FiltersSummaryCard";
 import RecurringOverviewCharts from "./components/RecurringOverviewCharts";
 import NextBillsCard from "./components/NextBillsCard";
@@ -72,8 +79,7 @@ export default function RecurringExpenseScreen() {
     enabled: true,
   });
 
-  const { expenses, forecast, nextBills, sum3 } = data || {
-    expenses: [],
+  const { forecast, nextBills, sum3 } = data || {
     forecast: [],
     nextBills: [],
     sum3: { min: 0, max: 0, paid: 0 },
@@ -146,10 +152,32 @@ export default function RecurringExpenseScreen() {
 
   const paymentActions = useRecurringPaymentActions({ payDialog, payments });
 
+  const activeTemplateCount = useMemo(
+    () => (templates.expenses || []).filter((expense) => expense.isActive !== false).length,
+    [templates.expenses],
+  );
+
+  const sectionTabs = useMemo(
+    () => [
+      { value: "overview", label: "Oversikt", icon: <DashboardRoundedIcon fontSize="small" /> },
+      { value: "months", label: "Måneder", icon: <CalendarMonthRoundedIcon fontSize="small" /> },
+      {
+        value: "templates",
+        label: `Avtaler${activeTemplateCount ? ` (${activeTemplateCount})` : ""}`,
+        icon: <ReceiptLongRoundedIcon fontSize="small" />,
+      },
+      {
+        value: "mortgages",
+        label: `Boliglån${mortgages.length ? ` (${mortgages.length})` : ""}`,
+        icon: <AccountBalanceRoundedIcon fontSize="small" />,
+      },
+    ],
+    [activeTemplateCount, mortgages.length],
+  );
+
   const renderStatusCard = () =>
     (isLoading || isError) && (
-      <Card sx={{ mt: 2 }}>
-        <CardContent>
+      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           {isLoading && (
             <Typography color="text.secondary">
               Laster faste kostnader...
@@ -161,26 +189,93 @@ export default function RecurringExpenseScreen() {
               {error?.message ? `: ${error.message}` : "."}
             </Typography>
           )}
-        </CardContent>
-      </Card>
+      </Paper>
     );
 
   return (
-    <Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
-      <HeaderBar onAdd={ctrl.openAdd} />
+    <AppScreen
+      title="Faste kostnader"
+      subtitle="Få oversikt over faste regninger, forfall og betalinger."
+      icon={<ReceiptLongRoundedIcon />}
+      actionLabel="Legg til fast kostnad"
+      actionIcon={<AddIcon />}
+      onAction={ctrl.openAdd}
+      summaryItems={[
+        { label: "Aktive avtaler", value: activeTemplateCount },
+        { label: "Neste betalinger", value: enrichedNextBills.length },
+        ...(mortgages.length ? [{ label: "Boliglån", value: mortgages.length }] : []),
+      ]}
+      maxWidth={1360}
+    >
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1.25,
+            gridTemplateColumns: {
+              xs: "repeat(2, minmax(0, 1fr))",
+              md: "repeat(4, minmax(0, 1fr))",
+            },
+          }}
+        >
+          <KpiCard
+            label="Forventet 3 mnd"
+            value={`${formatCurrency(sum3.min)} - ${formatCurrency(sum3.max)}`}
+            subtext="Basert på valgt filter"
+            icon={<ReceiptLongRoundedIcon />}
+            tone="primary"
+          />
+          <KpiCard
+            label="Betalt"
+            value={formatCurrency(sum3.paid ?? 0)}
+            subtext="Siste/valgte periode"
+            icon={<PaidRoundedIcon />}
+            tone="success"
+          />
+          <KpiCard
+            label="Neste forfall"
+            value={enrichedNextBills.length}
+            subtext="Trenger oppfølging"
+            icon={<EventAvailableRoundedIcon />}
+          />
+          <KpiCard
+            label="Boliglån"
+            value={mortgages.length}
+            subtext="Aktive låneavtaler"
+            icon={<AccountBalanceRoundedIcon />}
+          />
+        </Box>
 
-      <Box sx={{ px: { xs: 1.5, md: 3 }, pb: { xs: 2, md: 3 } }}>
         <FiltersSummaryCard
           filter={ctrl.filter}
           onFilter={ctrl.setFilter}
-          sum3={sum3}
-          formatCurrency={formatCurrency}
         />
 
         {renderStatusCard()}
 
-        <Card sx={{ mt: 1.5, borderRadius: 2 }}>
-          <CardContent sx={{ p: 0.5, "&:last-child": { pb: 0.5 } }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            mt: 1.5,
+            p: 0.75,
+            borderRadius: 2,
+            boxShadow: "none",
+            bgcolor: "background.paper",
+          }}
+        >
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            spacing={1}
+            alignItems={{ xs: "stretch", md: "center" }}
+            justifyContent="space-between"
+          >
+            <Box sx={{ px: { xs: 0.5, md: 1 }, minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={900}>
+                Arbeidsområde
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
+                Bytt mellom oppfølging, månedsliste, avtaler og boliglån.
+              </Typography>
+            </Box>
             <Tabs
               value={activeSection}
               onChange={(_, value) => setActiveSection(value)}
@@ -188,29 +283,36 @@ export default function RecurringExpenseScreen() {
               scrollButtons="auto"
               allowScrollButtonsMobile
               sx={{
-                minHeight: 42,
+                minHeight: 40,
+                maxWidth: { xs: "100%", md: "auto" },
                 "& .MuiTabs-indicator": { display: "none" },
                 "& .MuiTab-root": {
-                  minHeight: 42,
+                  minHeight: 40,
                   borderRadius: 1.5,
                   mx: 0.25,
-                  px: 1.75,
+                  px: 1.5,
+                  gap: 0.75,
+                  border: "1px solid transparent",
                 },
                 "& .Mui-selected": {
-                  bgcolor: "action.selected",
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  borderColor: "primary.dark",
                 },
               }}
             >
-              <Tab value="overview" label="Oversikt" />
-              <Tab value="months" label="Måneder" />
-              <Tab value="templates" label="Avtaler" />
-              <Tab
-                value="mortgages"
-                label={`Boliglån${mortgages.length ? ` (${mortgages.length})` : ""}`}
-              />
+              {sectionTabs.map((tab) => (
+                <Tab
+                  key={tab.value}
+                  value={tab.value}
+                  icon={tab.icon}
+                  iconPosition="start"
+                  label={tab.label}
+                />
+              ))}
             </Tabs>
-          </CardContent>
-        </Card>
+          </Stack>
+        </Paper>
 
         {activeSection === "overview" && (
           <Box
@@ -246,8 +348,7 @@ export default function RecurringExpenseScreen() {
 
         {activeSection === "months" && (
           <Stack spacing={2} sx={{ mt: 2 }}>
-            <Card>
-              <CardContent sx={{ p: { xs: 1.5, sm: 2.25 } }}>
+            <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 2 }}>
                 <Stack
                   direction={{ xs: "column", sm: "row" }}
                   justifyContent="space-between"
@@ -265,8 +366,7 @@ export default function RecurringExpenseScreen() {
                     onChange={setMonthsBack}
                   />
                 </Stack>
-              </CardContent>
-            </Card>
+            </Paper>
 
             <Box
               sx={{
@@ -358,7 +458,6 @@ export default function RecurringExpenseScreen() {
             </Stack>
           </AccordionDetails>
         </Accordion>
-      </Box>
 
       <MonthDrawer
         open={ctrl.monthDrawerOpen}
@@ -425,6 +524,6 @@ export default function RecurringExpenseScreen() {
         onClose={() => maintenance.setPurgeOpen(false)}
         onConfirm={maintenance.doPurgeAll}
       />
-    </Box>
+    </AppScreen>
   );
 }

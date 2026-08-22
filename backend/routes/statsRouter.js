@@ -23,37 +23,56 @@ const osloDateKey = (date = new Date()) => {
   return `${byType.year}-${byType.month}-${byType.day}`;
 };
 
-const addDaysToDateKey = (dateKey, days) => {
-  const [year, month, day] = String(dateKey).split("-").map(Number);
-  const d = new Date(Date.UTC(year, month - 1, day));
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-};
-
 const osloDayRange = (dateKey) => convertToUTC(dateKey);
 
 const yearOfActualDate = { $year: { date: "$actualDate", timezone: TIME_ZONE } };
 const monthOfActualDate = { $month: { date: "$actualDate", timezone: TIME_ZONE } };
 
 /**
- * GET /api/stats/expense-dashboard?period=week|month
+ * GET /api/stats/expense-dashboard?period=month|quarter|year|all
  * Aggregated data for the expenses dashboard. This intentionally does not use
  * the paginated expenses endpoint, so charts are based on all matching rows.
  */
 router.get("/expense-dashboard", async (req, res, next) => {
   try {
-    const period = req.query.period === "month" ? "month" : "week";
-    const days = period === "month" ? 30 : 7;
+    const period = ["month", "quarter", "year", "all"].includes(req.query.period)
+      ? req.query.period
+      : "month";
     const todayKey = osloDateKey();
-    const fromKey = addDaysToDateKey(todayKey, -(days - 1));
-    const from = osloDayRange(fromKey)?.start;
     const to = osloDayRange(todayKey)?.end;
+    const now = new Date();
+    let from = null;
+
+    if (period === "month") {
+      from = osloDayRange(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`)?.start;
+    } else if (period === "quarter") {
+      const fromDate = new Date(now);
+      fromDate.setMonth(fromDate.getMonth() - 2, 1);
+      const fromKey = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-01`;
+      from = osloDayRange(fromKey)?.start;
+    } else if (period === "year") {
+      from = osloDayRange(`${now.getFullYear()}-01-01`)?.start;
+    }
+
+    const dateMatch =
+      from && to ? [{ $match: { actualDate: { $gte: from, $lte: to } } }] : [];
+    const timelineGroup =
+      period === "year" || period === "all"
+        ? {
+            format: "%Y-%m",
+            label: "$_id",
+          }
+        : {
+            format: "%Y-%m-%d",
+            label: "$_id",
+          };
 
     const [result] = await Expense.aggregate([
       { $match: ownedFilter(req) },
       actualDateStage,
       { $addFields: { amount: { $ifNull: ["$finalPrice", "$price"] } } },
       actualDateNotNull,
+      ...dateMatch,
       {
         $lookup: {
           from: "products",
@@ -191,12 +210,11 @@ router.get("/expense-dashboard", async (req, res, next) => {
             },
           ],
           timeline: [
-            { $match: { actualDate: { $gte: from, $lte: to } } },
             {
               $group: {
                 _id: {
                   $dateToString: {
-                    format: "%Y-%m-%d",
+                    format: timelineGroup.format,
                     date: "$actualDate",
                     timezone: "Europe/Oslo",
                   },
@@ -204,7 +222,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
                 value: { $sum: "$amount" },
               },
             },
-            { $project: { _id: 0, key: "$_id", value: 1 } },
+            { $project: { _id: 0, key: timelineGroup.label, value: 1 } },
             { $sort: { key: 1 } },
           ],
         },
@@ -213,9 +231,8 @@ router.get("/expense-dashboard", async (req, res, next) => {
 
     res.json({
       period,
-      days,
-      from: from.toISOString(),
-      to: to.toISOString(),
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
       totals: result?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
       highest: result?.highest?.[0] ?? { value: 0, name: "Ingen" },
       shops: result?.shops ?? [],
@@ -303,10 +320,10 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
         ? requestedCategoryMonth
         : latestMonthWithSpend || new Date().getMonth() + 1;
 
-    const categoryGroupStages = [
+    const makeBreakdownStages = (nameExpr) => [
       {
         $group: {
-          _id: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+          _id: nameExpr,
           value: { $sum: "$amount" },
           count: { $sum: 1 },
         },
@@ -322,7 +339,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       { $sort: { value: -1 } },
     ];
 
-    const [categoryBreakdowns = { month: [], year: [], all: [] }] = await Expense.aggregate([
+    const [breakdownResult = {}] = await Expense.aggregate([
       { $match: ownedFilter(req) },
       actualDateStage,
       actualDateNotNull,
@@ -343,20 +360,73 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       },
       { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "shops",
+          localField: "shopName",
+          foreignField: "_id",
+          as: "shop",
+        },
+      },
+      { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "brands",
+          localField: "brandName",
+          foreignField: "_id",
+          as: "brand",
+        },
+      },
+      { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "locations",
+          localField: "locationName",
+          foreignField: "_id",
+          as: "location",
+        },
+      },
+      { $unwind: { path: "$location", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          categoryDisplayName: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+          shopDisplayName: { $ifNull: ["$shop.name", "Ukjent butikk"] },
+          brandDisplayName: { $ifNull: ["$brand.name", "Ukjent merke"] },
+          locationDisplayName: { $ifNull: ["$location.name", "Ukjent sted"] },
+        },
+      },
+      {
         $facet: {
           month: [
             { $match: { y: Number(year), m: categoryMonth } },
-            ...categoryGroupStages,
+            ...makeBreakdownStages("$categoryDisplayName"),
           ],
-          year: [{ $match: { y: Number(year) } }, ...categoryGroupStages],
-          all: categoryGroupStages,
+          year: [{ $match: { y: Number(year) } }, ...makeBreakdownStages("$categoryDisplayName")],
+          all: makeBreakdownStages("$categoryDisplayName"),
+          shopMonth: [
+            { $match: { y: Number(year), m: categoryMonth } },
+            ...makeBreakdownStages("$shopDisplayName"),
+          ],
+          shopYear: [{ $match: { y: Number(year) } }, ...makeBreakdownStages("$shopDisplayName")],
+          shopAll: makeBreakdownStages("$shopDisplayName"),
+          brandMonth: [
+            { $match: { y: Number(year), m: categoryMonth } },
+            ...makeBreakdownStages("$brandDisplayName"),
+          ],
+          brandYear: [{ $match: { y: Number(year) } }, ...makeBreakdownStages("$brandDisplayName")],
+          brandAll: makeBreakdownStages("$brandDisplayName"),
+          locationMonth: [
+            { $match: { y: Number(year), m: categoryMonth } },
+            ...makeBreakdownStages("$locationDisplayName"),
+          ],
+          locationYear: [{ $match: { y: Number(year) } }, ...makeBreakdownStages("$locationDisplayName")],
+          locationAll: makeBreakdownStages("$locationDisplayName"),
           monthlyTrend: [
             { $match: { y: Number(year) } },
             {
               $group: {
                 _id: {
                   month: "$m",
-                  category: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+                  category: "$categoryDisplayName",
                 },
                 value: { $sum: "$amount" },
                 count: { $sum: 1 },
@@ -376,9 +446,32 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
         },
       },
     ]);
+    const categoryBreakdowns = {
+      month: breakdownResult.month ?? [],
+      year: breakdownResult.year ?? [],
+      all: breakdownResult.all ?? [],
+    };
+    const entityBreakdowns = {
+      categories: categoryBreakdowns,
+      shops: {
+        month: breakdownResult.shopMonth ?? [],
+        year: breakdownResult.shopYear ?? [],
+        all: breakdownResult.shopAll ?? [],
+      },
+      brands: {
+        month: breakdownResult.brandMonth ?? [],
+        year: breakdownResult.brandYear ?? [],
+        all: breakdownResult.brandAll ?? [],
+      },
+      locations: {
+        month: breakdownResult.locationMonth ?? [],
+        year: breakdownResult.locationYear ?? [],
+        all: breakdownResult.locationAll ?? [],
+      },
+    };
     const categoryTotals =
       categoryBreakdowns[categoryScope] ?? categoryBreakdowns.year ?? [];
-    const categoryMonthlyTrend = categoryBreakdowns.monthlyTrend ?? [];
+    const categoryMonthlyTrend = breakdownResult.monthlyTrend ?? [];
 
     // Map: "YYYY-MM" -> total
     const totalsMap = new Map();
@@ -478,6 +571,7 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       months,
       categories: categoryTotals,
       categoryBreakdowns,
+      entityBreakdowns,
       categoryMonthlyTrend,
       categoryScope,
       categoryMonth,

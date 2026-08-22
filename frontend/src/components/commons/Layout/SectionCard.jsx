@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Card, CardContent, Stack, Typography } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 
 export default function SectionCard({
   title,
@@ -13,12 +14,27 @@ export default function SectionCard({
   return (
     <Card
       variant="outlined"
-      sx={{
+      sx={(theme) => ({
         borderRadius: 2,
         bgcolor: "background.paper",
+        borderColor:
+          theme.palette.mode === "dark"
+            ? "rgba(255,255,255,0.12)"
+            : "rgba(15,23,42,0.10)",
+        backgroundImage:
+          theme.palette.mode === "dark"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.010))"
+            : "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.76))",
+        boxShadow: "none",
         height: "100%",
+        transition: theme.transitions.create(["border-color", "box-shadow"], {
+          duration: theme.transitions.duration.short,
+        }),
+        "&:hover": {
+          borderColor: alpha(theme.palette.primary.main, 0.28),
+        },
         ...sx,
-      }}
+      })}
     >
       <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 }, ...contentSx }}>
         {(title || subtitle || action || icon) && (
@@ -31,7 +47,19 @@ export default function SectionCard({
           >
             <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ minWidth: 0 }}>
               {icon ? (
-                <Box sx={{ color: "primary.main", display: "grid", placeItems: "center", mt: 0.15 }}>
+                <Box
+                  sx={{
+                    color: "primary.main",
+                    display: "grid",
+                    placeItems: "center",
+                    mt: 0.15,
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
+                    flexShrink: 0,
+                  }}
+                >
                   {icon}
                 </Box>
               ) : null}

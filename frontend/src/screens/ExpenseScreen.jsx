@@ -7,9 +7,13 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Box, Collapse } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { Box, Button, Collapse, Stack } from "@mui/material";
+import AddIcon from "@mui/icons-material/Add";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 
+import AppScreen from "../components/commons/Layout/AppScreen";
+import SegmentedControl from "../components/commons/Controls/SegmentedControl";
 import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
@@ -18,13 +22,13 @@ import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { useAppPreferences } from "../store/Store";
 
-import ExpenseScreenHeader from "../features/Expenses/components/ExpenseScreenHeader";
 import {
   DEFAULT_COLUMN_VISIBILITY,
   EXPENSES_QUERY_KEY,
   INITIAL_PAGINATION,
   INITIAL_SELECTED_EXPENSE,
   INITIAL_SORTING,
+  PRICE_MODE_LABELS,
 } from "../features/Expenses/constants/expenseScreenConstants";
 import { useExpenseTableColumns } from "../features/Expenses/hooks/useExpenseTableColumns";
 import {
@@ -44,8 +48,6 @@ const ExpenseDashboard = lazy(() =>
 );
 
 const ExpenseScreen = () => {
-  const theme = useTheme();
-  const palette = theme.palette;
   const { preferences, setPreference } = useAppPreferences();
   const initialPageSize =
     Number(preferences.rowsPerPage) > 0
@@ -249,17 +251,83 @@ const ExpenseScreen = () => {
   const dialogOpen =
     Boolean(activeModal) && (activeModal === "ADD" || canOpenEditOrDelete);
 
-  return (
-    <TableLayout>
-      <ExpenseScreenHeader
-        dashboardOpen={dashboardOpen}
-        onAdd={openAdd}
-        onPriceModeChange={handlePriceModeChange}
-        onToggleDashboard={() => setDashboardOpen((value) => !value)}
-        palette={palette}
-        priceDisplayMode={priceDisplayMode}
-        totalRowCount={metaData?.totalRowCount ?? 0}
+  const priceModeOptions = Object.entries(PRICE_MODE_LABELS).map(([mode, label]) => ({
+    value: mode,
+    label,
+  }));
+
+  const filters = (
+    <Stack
+      direction={{ xs: "column", md: "row" }}
+      spacing={1}
+      justifyContent="space-between"
+      alignItems={{ xs: "stretch", md: "center" }}
+    >
+      <SegmentedControl
+        value={priceDisplayMode}
+        onChange={(value) => handlePriceModeChange(null, value)}
+        options={priceModeOptions}
+        ariaLabel="Prisvisning"
+        fullWidth
+        sx={(theme) => ({
+          width: { xs: "100%", md: "auto" },
+          bgcolor:
+            theme.palette.mode === "dark"
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(15,23,42,0.035)",
+          border: "1px solid",
+          borderColor: theme.palette.divider,
+          borderRadius: 999,
+          p: 0.25,
+          "& .MuiToggleButton-root": {
+            border: 0,
+            borderRadius: 999,
+            color: "text.secondary",
+            fontWeight: 800,
+            px: 1.5,
+            py: 0.35,
+            width: { xs: "33.333%", md: "auto" },
+            "&.Mui-selected": {
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              "&:hover": { bgcolor: "primary.dark" },
+            },
+          },
+        })}
       />
+
+      <Button
+        size="small"
+        variant={dashboardOpen ? "contained" : "outlined"}
+        startIcon={<DashboardIcon />}
+        onClick={() => setDashboardOpen((value) => !value)}
+        sx={{
+          borderRadius: 999,
+          fontWeight: 800,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {dashboardOpen ? "Skjul statistikk" : "Vis statistikk"}
+      </Button>
+    </Stack>
+  );
+
+  return (
+    <AppScreen
+      title="Utgifter"
+      subtitle="Registrer, filtrer og følg opp alle kjøp."
+      icon={<ReceiptLongRoundedIcon />}
+      actionLabel="Ny utgift"
+      actionIcon={<AddIcon />}
+      onAction={openAdd}
+      summaryItems={[
+        { label: "Totalt", value: metaData?.totalRowCount ?? 0 },
+        { label: "Viser", value: tableData.length },
+        { label: "Filtre", value: columnFilters.length + (deferredGlobalFilter ? 1 : 0) },
+      ]}
+      filters={filters}
+      maxWidth={1360}
+    >
 
       <Collapse in={dashboardOpen} timeout={350} unmountOnExit>
         <Box sx={{ mb: 2 }}>
@@ -269,30 +337,32 @@ const ExpenseScreen = () => {
         </Box>
       </Collapse>
 
-      <ReactTable
-        data={tableData}
-        columns={tableColumns}
-        meta={metaData}
-        error={error}
-        isError={isError}
-        isLoading={isLoading}
-        isFetching={!activeModal && isFetching}
-        columnFilters={columnFilters}
-        globalFilter={globalFilter}
-        pagination={pagination}
-        sorting={sorting}
-        setColumnFilters={setColumnFilters}
-        setGlobalFilter={setGlobalFilter}
-        setPagination={setPagination}
-        setSorting={setSorting}
-        refetch={refetch}
-        renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
-        handleEdit={openEdit}
-        handleDelete={openDelete}
-        columnVisibility={columnVisibility}
-        setColumnVisibility={setColumnVisibility}
-        resource="expenses"
-      />
+      <TableLayout>
+        <ReactTable
+          data={tableData}
+          columns={tableColumns}
+          meta={metaData}
+          error={error}
+          isError={isError}
+          isLoading={isLoading}
+          isFetching={!activeModal && isFetching}
+          columnFilters={columnFilters}
+          globalFilter={globalFilter}
+          pagination={pagination}
+          sorting={sorting}
+          setColumnFilters={setColumnFilters}
+          setGlobalFilter={setGlobalFilter}
+          setPagination={setPagination}
+          setSorting={setSorting}
+          refetch={refetch}
+          renderDetailPanel={({ row }) => <DetailPanel expense={row.original} />}
+          handleEdit={openEdit}
+          handleDelete={openDelete}
+          columnVisibility={columnVisibility}
+          setColumnVisibility={setColumnVisibility}
+          resource="expenses"
+        />
+      </TableLayout>
 
       <Suspense fallback={null}>
         {dialogOpen && (
@@ -321,7 +391,7 @@ const ExpenseScreen = () => {
         )}
       </Suspense>
 
-    </TableLayout>
+    </AppScreen>
   );
 };
 

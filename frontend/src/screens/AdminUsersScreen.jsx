@@ -34,7 +34,7 @@ import GroupIcon from "@mui/icons-material/Group";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import PersonIcon from "@mui/icons-material/Person";
 import SearchIcon from "@mui/icons-material/Search";
-import PageHeader from "../components/commons/Layout/PageHeader";
+import AppScreen from "../components/commons/Layout/AppScreen";
 import KpiCard from "../components/commons/DataDisplay/KpiCard";
 import SectionCard from "../components/commons/Layout/SectionCard";
 import { requestJson } from "../api/httpClient";
@@ -251,13 +251,27 @@ export default function AdminUsersScreen() {
   }
 
   return (
-    <Box>
-      <PageHeader
-        title="Brukere"
-        subtitle="Administrer roller, brukere og brukerdata."
-        icon={<AdminPanelSettingsIcon />}
-      />
-
+    <AppScreen
+      title="Brukere"
+      subtitle="Administrer roller, brukere og brukerdata."
+      icon={<AdminPanelSettingsIcon />}
+      summaryItems={[
+        { label: "Brukere", value: users.length },
+        { label: "Administratorer", value: adminCount },
+        { label: "Dataposter", value: dataTotal },
+      ]}
+      filters={
+        <TextField
+          size="small"
+          placeholder="Søk etter bruker"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1 }} /> }}
+          sx={{ width: { xs: "100%", sm: 360 } }}
+        />
+      }
+      maxWidth={1360}
+    >
       <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         <Grid item xs={12} sm={4}>
           <KpiCard label="Brukere" value={users.length} subtext="Registrerte kontoer" icon={<GroupIcon />} tone="primary" />
@@ -274,15 +288,6 @@ export default function AdminUsersScreen() {
         title="Brukeroversikt"
         subtitle="Admin kan redigere roller og slette brukere. Sletting av data krever eget valg."
         icon={<PersonIcon />}
-        action={
-          <TextField
-            size="small"
-            placeholder="Søk"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1 }} /> }}
-          />
-        }
       >
         {isLoading ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 2 }}>
@@ -393,6 +398,6 @@ export default function AdminUsersScreen() {
         loading={deleteMutation.isPending}
         error={deleteMutation.error}
       />
-    </Box>
+    </AppScreen>
   );
 }
