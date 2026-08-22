@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Box, LinearProgress, Stack, Typography, useTheme } from "@mui/material";
+import { Alert, Box, LinearProgress, Stack, TextField, Typography, useTheme } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
@@ -34,16 +34,28 @@ const kpiSx = {
 };
 
 const PERIOD_OPTIONS = [
-  { value: "month", label: "Denne måneden" },
+  { value: "month", label: "Valgt måned" },
   { value: "quarter", label: "Siste 3 mnd" },
-  { value: "year", label: "I år" },
+  { value: "year", label: "Valgt år" },
   { value: "all", label: "Alt" },
 ];
 
-const fetchExpenseDashboard = async (period) => {
-  const url = buildApiUrl("/api/stats/expense-dashboard");
+const getCurrentMonthKey = () => {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const fetchExpenseDashboard = async (period, month, signal) => {
+  const url = buildApiUrl("/api/stats/expense-dashboard-v2");
   url.searchParams.set("period", period);
-  return requestJson(url);
+  url.searchParams.set("month", month);
+  url.searchParams.set("_", `${Date.now()}`);
+
+  const result = await requestJson(url, { cache: "no-store", signal });
+  if (result?.period !== period || (period !== "all" && result?.selectedMonth !== month)) {
+    throw new Error("Dashboard-statistikken kom fra en utdatert backend. Start backend på nytt og prøv igjen.");
+  }
+  return result;
 };
 
 const formatMonthKey = (key) => {
@@ -53,6 +65,29 @@ const formatMonthKey = (key) => {
     month: "short",
     year: "2-digit",
   });
+};
+
+const formatApiDate = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("nb-NO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatPeriodLabel = (summary, period, selectedMonth) => {
+  if (period === "all") return "Alle registrerte utgifter";
+
+  const from = formatApiDate(summary?.from);
+  const to = formatApiDate(summary?.to);
+  if (from && to) return from === to ? from : `${from} - ${to}`;
+
+  if (period === "month") return formatMonthKey(selectedMonth);
+  if (period === "quarter") return `Siste 3 mnd til ${formatMonthKey(selectedMonth)}`;
+  return selectedMonth.slice(0, 4);
 };
 
 const buildDashboardSeries = (summary) => {
@@ -145,7 +180,7 @@ function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
   );
 }
 
-function ActionableInsights({ total, average, count, categories, shops, brands }) {
+function ActionableInsights({ total, average, count, categories, shops, brands, periodLabel }) {
   const topCategory = topShare(categories, total);
   const topShop = topShare(shops, total);
   const topBrand = topShare(brands, total);
@@ -155,27 +190,27 @@ function ActionableInsights({ total, average, count, categories, shops, brands }
       ? {
           label: "Største kategori",
           value: topCategory.name,
-          helper: `${NOK.format(topCategory.value)} · ${topCategory.pct.toFixed(0)}% av perioden`,
+          helper: `${NOK.format(topCategory.value)} · ${topCategory.pct.toFixed(0)}% · ${periodLabel}`,
         }
       : null,
     topShop
       ? {
           label: "Mest brukt butikk",
           value: topShop.name,
-          helper: `${NOK.format(topShop.value)} · ${topShop.pct.toFixed(0)}% av perioden`,
+          helper: `${NOK.format(topShop.value)} · ${topShop.pct.toFixed(0)}% · ${periodLabel}`,
         }
       : null,
     topBrand
       ? {
           label: "Mest brukt merke",
           value: topBrand.name,
-          helper: `${NOK.format(topBrand.value)} · ${topBrand.pct.toFixed(0)}% av perioden`,
+          helper: `${NOK.format(topBrand.value)} · ${topBrand.pct.toFixed(0)}% · ${periodLabel}`,
         }
       : null,
     {
       label: "Typisk kjøp",
       value: NOK.format(average),
-      helper: `${count || 0} transaksjoner i valgt periode`,
+      helper: `${count || 0} transaksjoner · ${periodLabel}`,
     },
   ].filter(Boolean);
 
@@ -222,13 +257,14 @@ function ActionableInsights({ total, average, count, categories, shops, brands }
 export default function ExpenseDashboard() {
   const theme = useTheme();
   const [period, setPeriod] = useState("month");
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthKey);
 
-  const { data: summary, isFetching } = useQuery({
-    queryKey: ["expenses", "dashboard", period],
-    queryFn: () => fetchExpenseDashboard(period),
-    staleTime: 60_000,
+  const { data: summary, error, isError, isFetching } = useQuery({
+    queryKey: ["expenses", "dashboard", period, selectedMonth],
+    queryFn: ({ signal }) => fetchExpenseDashboard(period, selectedMonth, signal),
+    staleTime: 0,
     gcTime: 5 * 60_000,
-    placeholderData: (previous) => previous,
+    refetchOnMount: "always",
   });
 
   const stats = summary?.totals ?? { total: 0, average: 0, count: 0 };
@@ -241,6 +277,8 @@ export default function ExpenseDashboard() {
     () => buildDashboardSeries(summary),
     [summary],
   );
+  const periodLabel = formatPeriodLabel(summary, period, selectedMonth);
+  const highestDate = formatApiDate(highest.date);
 
   return (
     <Box
@@ -260,26 +298,50 @@ export default function ExpenseDashboard() {
             Dashboard
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Oversikt og fordeling basert på valgt periode.
+            {periodLabel}
           </Typography>
         </Box>
-        <SegmentedControl
-          value={period}
-          onChange={setPeriod}
-          options={PERIOD_OPTIONS}
-          ariaLabel="Dashboardperiode"
-          sx={{
-            "& .MuiToggleButton-root": {
-              px: 1,
-              py: 0.35,
-              textTransform: "none",
-              fontWeight: 800,
-            },
-          }}
-        />
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          alignItems={{ xs: "stretch", sm: "center" }}
+        >
+          <TextField
+            size="small"
+            type="month"
+            label="Måned"
+            value={selectedMonth}
+            onChange={(event) => {
+              if (event.target.value) setSelectedMonth(event.target.value);
+            }}
+            sx={{ minWidth: { xs: "100%", sm: 168 } }}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <SegmentedControl
+            value={period}
+            onChange={setPeriod}
+            options={PERIOD_OPTIONS}
+            ariaLabel="Dashboardperiode"
+            sx={{
+              "& .MuiToggleButton-root": {
+                px: 1,
+                py: 0.35,
+                textTransform: "none",
+                fontWeight: 800,
+              },
+            }}
+          />
+        </Stack>
       </Stack>
 
       {isFetching ? <LinearProgress /> : null}
+
+      {isError ? (
+        <Alert severity="error" variant="outlined">
+          {error?.message || "Kunne ikke hente dashboard-statistikk."}
+        </Alert>
+      ) : (
+        <>
 
       <Box
         sx={{
@@ -295,7 +357,7 @@ export default function ExpenseDashboard() {
         <KpiCard
           label="Totale utgifter"
           value={NOK.format(stats.total)}
-          subtext="Valgt periode"
+          subtext={periodLabel}
           icon={<ReceiptLongIcon fontSize="small" />}
           tone="primary"
           sx={kpiSx}
@@ -304,7 +366,7 @@ export default function ExpenseDashboard() {
         <KpiCard
           label="Gjennomsnitt"
           value={NOK.format(stats.average)}
-          subtext="Per utgift"
+          subtext={`Per utgift · ${periodLabel}`}
           icon={<TrendingUpIcon fontSize="small" />}
           sx={kpiSx}
         />
@@ -312,7 +374,7 @@ export default function ExpenseDashboard() {
         <KpiCard
           label="Antall transaksjoner"
           value={stats.count}
-          subtext="I valgt periode"
+          subtext={periodLabel}
           icon={<ShoppingCartIcon fontSize="small" />}
           sx={kpiSx}
         />
@@ -320,7 +382,7 @@ export default function ExpenseDashboard() {
         <KpiCard
           label="Høyeste utgift"
           value={NOK.format(highest.value)}
-          subtext={highest.name}
+          subtext={highestDate ? `${highest.name} · ${highestDate}` : highest.name}
           icon={<StorefrontIcon fontSize="small" />}
           sx={kpiSx}
         />
@@ -411,7 +473,10 @@ export default function ExpenseDashboard() {
         categories={categoryData}
         shops={shopData}
         brands={brandData}
+        periodLabel={periodLabel}
       />
+        </>
+      )}
     </Box>
   );
 }

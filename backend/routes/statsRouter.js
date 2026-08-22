@@ -28,30 +28,50 @@ const osloDayRange = (dateKey) => convertToUTC(dateKey);
 const yearOfActualDate = { $year: { date: "$actualDate", timezone: TIME_ZONE } };
 const monthOfActualDate = { $month: { date: "$actualDate", timezone: TIME_ZONE } };
 
+const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
+
+const normalizeMonthKey = (value) => {
+  if (typeof value !== "string" || !MONTH_KEY_RE.test(value)) return osloDateKey().slice(0, 7);
+  const [year, month] = value.split("-").map(Number);
+  return month >= 1 && month <= 12 ? value : osloDateKey().slice(0, 7);
+};
+
+const addMonthsToMonthKey = (monthKey, months) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + months, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+
+const lastDateOfMonthKey = (monthKey) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  return `${monthKey}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
+};
+
 /**
- * GET /api/stats/expense-dashboard?period=month|quarter|year|all
+ * GET /api/stats/expense-dashboard?period=month|quarter|year|all&month=YYYY-MM
  * Aggregated data for the expenses dashboard. This intentionally does not use
  * the paginated expenses endpoint, so charts are based on all matching rows.
  */
-router.get("/expense-dashboard", async (req, res, next) => {
+router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, next) => {
   try {
     const period = ["month", "quarter", "year", "all"].includes(req.query.period)
       ? req.query.period
       : "month";
-    const todayKey = osloDateKey();
-    const to = osloDayRange(todayKey)?.end;
-    const now = new Date();
+    const selectedMonth = normalizeMonthKey(req.query.month);
+    const selectedYear = selectedMonth.slice(0, 4);
+    const selectedMonthEndKey = lastDateOfMonthKey(selectedMonth);
     let from = null;
+    let to = null;
 
     if (period === "month") {
-      from = osloDayRange(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`)?.start;
+      from = osloDayRange(`${selectedMonth}-01`)?.start;
+      to = osloDayRange(selectedMonthEndKey)?.end;
     } else if (period === "quarter") {
-      const fromDate = new Date(now);
-      fromDate.setMonth(fromDate.getMonth() - 2, 1);
-      const fromKey = `${fromDate.getFullYear()}-${String(fromDate.getMonth() + 1).padStart(2, "0")}-01`;
-      from = osloDayRange(fromKey)?.start;
+      from = osloDayRange(`${addMonthsToMonthKey(selectedMonth, -2)}-01`)?.start;
+      to = osloDayRange(selectedMonthEndKey)?.end;
     } else if (period === "year") {
-      from = osloDayRange(`${now.getFullYear()}-01-01`)?.start;
+      from = osloDayRange(`${selectedYear}-01-01`)?.start;
+      to = osloDayRange(`${selectedYear}-12-31`)?.end;
     }
 
     const dateMatch =
@@ -103,6 +123,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
                 _id: 0,
                 value: "$amount",
                 name: { $ifNull: ["$product.name", "Ukjent produkt"] },
+                date: "$actualDate",
               },
             },
           ],
@@ -231,6 +252,7 @@ router.get("/expense-dashboard", async (req, res, next) => {
 
     res.json({
       period,
+      selectedMonth,
       from: from ? from.toISOString() : null,
       to: to ? to.toISOString() : null,
       totals: result?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
