@@ -1,7 +1,7 @@
-import { API_URL } from "../Consts/constants";
+import { buildApiUrl } from "../../../api/httpClient";
 
 export const buildPaginatedUrl = (endpoint, params) => {
-  const url = new URL(endpoint, API_URL);
+  const url = buildApiUrl(endpoint);
   url.searchParams.set("start", params.pageIndex * params.pageSize);
   url.searchParams.set("size", params.pageSize);
   url.searchParams.set("sorting", JSON.stringify(params.sorting ?? []));

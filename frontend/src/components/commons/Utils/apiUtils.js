@@ -1,5 +1,4 @@
-import { API_URL } from "../Consts/constants";
-import { requestJson } from "../../../api/httpClient";
+import { buildApiUrl, requestJson } from "../../../api/httpClient";
 
 const asArray = (data, key) => {
   if (Array.isArray(data)) return data;
@@ -8,29 +7,29 @@ const asArray = (data, key) => {
 };
 
 export const fetchLocations = async ({ signal }) => {
-  const fetchURL = new URL("/api/locations", API_URL);
+  const fetchURL = buildApiUrl("/api/locations");
   return requestJson(fetchURL, { signal });
 };
   
 export const fetchShops = async ({ signal }) => {
-  const fetchShopsURL = new URL("/api/shops", API_URL);
+  const fetchShopsURL = buildApiUrl("/api/shops");
   const shopsData = await requestJson(fetchShopsURL, { signal });
   return asArray(shopsData, "shops");
 };
 
 export const fetchProducts = async ({ signal }) => {
-  const fetchURL = new URL("/api/products", API_URL);
+  const fetchURL = buildApiUrl("/api/products");
   return requestJson(fetchURL, { signal });
 };
 
 
 export const fetchCategories = async ({ signal }) => {
-  const fetchURL = new URL("/api/categories", API_URL);
+  const fetchURL = buildApiUrl("/api/categories");
   return requestJson(fetchURL, { signal });
 };
 
 export const fetchBrands = async ({ infinite = false, page, search, signal } = {}) => {
-  const fetchURL = new URL("/api/brands", API_URL);
+  const fetchURL = buildApiUrl("/api/brands");
     
   if (infinite) {
     fetchURL.searchParams.set("start", String((Number(page) || 0) * 20));
@@ -46,12 +45,14 @@ export const fetchBrands = async ({ infinite = false, page, search, signal } = {
   
 
 export const fetchExpenses = async ({ signal }) => {
-  const fetchURL = new URL("/api/expenses", API_URL);
+  const fetchURL = buildApiUrl("/api/expenses");
   return requestJson(fetchURL, { signal });
 };
 
-export const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter, API_URL) => {
-  const fetchURL = new URL("/api/products", API_URL);
+export const buildFetchURL = (pageIndex, pageSize, sorting, columnFilters, globalFilter, apiBaseUrl) => {
+  const fetchURL = apiBaseUrl
+    ? new URL("/api/products", apiBaseUrl)
+    : buildApiUrl("/api/products");
   fetchURL.searchParams.set("start", `${pageIndex * pageSize}`);
   fetchURL.searchParams.set("size", `${pageSize}`);
   fetchURL.searchParams.set("sorting", JSON.stringify(sorting ?? []));
@@ -67,7 +68,7 @@ export const prefetchPageData = async (
   sorting,
   columnFilters,
   globalFilter,
-  API_URL
+  apiBaseUrl
 ) => {
   const fetchURL = buildFetchURL(
     nextPageIndex,
@@ -75,7 +76,7 @@ export const prefetchPageData = async (
     sorting,
     columnFilters,
     globalFilter,
-    API_URL
+    apiBaseUrl
   );
   queryClient.prefetchQuery({
     queryKey: [

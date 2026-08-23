@@ -3,14 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { buildApiUrl, requestJson } from "../../../../api/httpClient";
 
 export function useProductInsights(productId, includeDiscounts, variantIds = []) {
+  const normalizedVariantIds = Array.isArray(variantIds)
+    ? [...new Set(variantIds.map(String).filter(Boolean))].sort()
+    : [];
+
   return useQuery({
-    queryKey: ["stats", "productInsights", productId, includeDiscounts, variantIds],
+    queryKey: ["stats", "productInsights", productId, includeDiscounts, normalizedVariantIds],
     queryFn: async ({ signal }) => {
       const url = buildApiUrl("/api/stats/product-insights");
       url.searchParams.set("productId", productId);
       url.searchParams.set("includeDiscounts", String(includeDiscounts));
-      if (Array.isArray(variantIds) && variantIds.length) {
-        url.searchParams.set("variantIds", variantIds.join(","));
+      if (normalizedVariantIds.length) {
+        url.searchParams.set("variantIds", normalizedVariantIds.join(","));
       }
 
       return requestJson(url, { signal });
