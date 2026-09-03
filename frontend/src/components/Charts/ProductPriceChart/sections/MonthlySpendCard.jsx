@@ -23,7 +23,7 @@ export default function MonthlySpendCard({ monthlySpend }) {
     return Array.isArray(monthlySpend) ? monthlySpend : [];
   }, [monthlySpend]);
 
-  const latestRows = useMemo(() => allRows.slice(-2).reverse(), [allRows]);
+  const latestRows = useMemo(() => allRows.slice(-4).reverse(), [allRows]);
 
   const totalPurchases = allRows.reduce((sum, row) => sum + Number(row.purchases || 0), 0);
   const totalSpend = allRows.reduce((sum, row) => sum + Number(row.totalSpend || 0), 0);
@@ -43,7 +43,7 @@ export default function MonthlySpendCard({ monthlySpend }) {
             <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
               Kjøpsmåneder
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
               Siste {latestRows.length} av {allRows.length} måneder med kjøp.
             </Typography>
           </Box>

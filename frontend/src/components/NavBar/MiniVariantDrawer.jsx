@@ -296,9 +296,9 @@ export default function MiniVariantDrawer({
         })}
       >
         <Container
-          maxWidth="lg"
+          maxWidth={false}
           disableGutters
-          sx={{ width: "100%", maxWidth: "100%" }}
+          sx={{ width: "100%" }}
         >
           {children}
         </Container>

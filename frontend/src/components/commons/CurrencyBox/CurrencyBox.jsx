@@ -27,6 +27,9 @@ const CurrencyBox = ({ value = null, emptyPlaceholder = "-" }) => {
   );
 };
 
+
+
+
 CurrencyBox.propTypes = {
   value: PropTypes.number,
   emptyPlaceholder: PropTypes.node,

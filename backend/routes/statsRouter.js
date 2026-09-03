@@ -47,6 +47,133 @@ const lastDateOfMonthKey = (monthKey) => {
   return `${monthKey}-${String(new Date(Date.UTC(year, month, 0)).getUTCDate()).padStart(2, "0")}`;
 };
 
+const buildPriceChangesPipeline = ({ req, from, to }) => {
+  const selectedDateMatch = from && to ? { actualDate: { $gte: from, $lte: to } } : {};
+
+  return [
+    { $match: ownedFilter(req) },
+    actualDateStage,
+    {
+      $addFields: {
+        comparePrice: {
+          $cond: [
+            { $gt: ["$pricePerUnit", 0] },
+            "$pricePerUnit",
+            { $ifNull: ["$finalPrice", "$price"] },
+          ],
+        },
+      },
+    },
+    actualDateNotNull,
+    ...(to ? [{ $match: { actualDate: { $lte: to } } }] : []),
+    { $match: { comparePrice: { $gt: 0 } } },
+    {
+      $setWindowFields: {
+        partitionBy: {
+          productName: "$productName",
+          variant: "$variant",
+          brandName: "$brandName",
+          shopName: "$shopName",
+        },
+        sortBy: { actualDate: 1, _id: 1 },
+        output: {
+          previousPrice: { $shift: { output: "$comparePrice", by: -1 } },
+          previousDate: { $shift: { output: "$actualDate", by: -1 } },
+        },
+      },
+    },
+    { $match: { ...selectedDateMatch, previousPrice: { $gt: 0 } } },
+    {
+      $addFields: {
+        changeAmount: { $subtract: ["$comparePrice", "$previousPrice"] },
+        changePercent: {
+          $multiply: [
+            { $divide: [{ $subtract: ["$comparePrice", "$previousPrice"] }, "$previousPrice"] },
+            100,
+          ],
+        },
+        variantObjectId: {
+          $convert: {
+            input: "$variant",
+            to: "objectId",
+            onError: null,
+            onNull: null,
+          },
+        },
+      },
+    },
+    { $match: { changeAmount: { $ne: 0 } } },
+    {
+      $lookup: {
+        from: "products",
+        localField: "productName",
+        foreignField: "_id",
+        as: "product",
+      },
+    },
+    { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "brands",
+        localField: "brandName",
+        foreignField: "_id",
+        as: "brand",
+      },
+    },
+    { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "shops",
+        localField: "shopName",
+        foreignField: "_id",
+        as: "shop",
+      },
+    },
+    { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: "variants",
+        localField: "variantObjectId",
+        foreignField: "_id",
+        as: "variantDoc",
+      },
+    },
+    { $unwind: { path: "$variantDoc", preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        _id: 0,
+        productId: "$productName",
+        productName: { $ifNull: ["$product.name", "Ukjent produkt"] },
+        brandName: { $ifNull: ["$brand.name", "Ukjent merke"] },
+        shopName: { $ifNull: ["$shop.name", "Ukjent butikk"] },
+        variantName: { $ifNull: ["$variantDoc.name", ""] },
+        currentPrice: "$comparePrice",
+        previousPrice: 1,
+        changeAmount: 1,
+        changePercent: 1,
+        currentDate: "$actualDate",
+        previousDate: 1,
+        measurementUnit: "$measurementUnit",
+        usedUnitPrice: { $gt: ["$pricePerUnit", 0] },
+      },
+    },
+    {
+      $facet: {
+        increases: [
+          { $match: { changeAmount: { $gt: 0 } } },
+          { $sort: { changePercent: -1, changeAmount: -1 } },
+          { $limit: 5 },
+        ],
+        decreases: [
+          { $match: { changeAmount: { $lt: 0 } } },
+          { $sort: { changePercent: 1, changeAmount: 1 } },
+          { $limit: 5 },
+        ],
+      },
+    },
+  ];
+};
+
 /**
  * GET /api/stats/expense-dashboard?period=month|quarter|year|all&month=YYYY-MM
  * Aggregated data for the expenses dashboard. This intentionally does not use
@@ -87,167 +214,170 @@ router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, nex
             label: "$_id",
           };
 
-    const [result] = await Expense.aggregate([
-      { $match: ownedFilter(req) },
-      actualDateStage,
-      { $addFields: { amount: { $ifNull: ["$finalPrice", "$price"] } } },
-      actualDateNotNull,
-      ...dateMatch,
-      {
-        $lookup: {
-          from: "products",
-          localField: "productName",
-          foreignField: "_id",
-          as: "product",
+    const [[result], [priceChanges = { increases: [], decreases: [] }]] = await Promise.all([
+      Expense.aggregate([
+        { $match: ownedFilter(req) },
+        actualDateStage,
+        { $addFields: { amount: { $ifNull: ["$finalPrice", "$price"] } } },
+        actualDateNotNull,
+        ...dateMatch,
+        {
+          $lookup: {
+            from: "products",
+            localField: "productName",
+            foreignField: "_id",
+            as: "product",
+          },
         },
-      },
-      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
-      {
-        $facet: {
-          totals: [
-            {
-              $group: {
-                _id: null,
-                total: { $sum: "$amount" },
-                average: { $avg: "$amount" },
-                count: { $sum: 1 },
-              },
-            },
-            { $project: { _id: 0, total: 1, average: 1, count: 1 } },
-          ],
-          highest: [
-            { $sort: { amount: -1 } },
-            { $limit: 1 },
-            {
-              $project: {
-                _id: 0,
-                value: "$amount",
-                name: { $ifNull: ["$product.name", "Ukjent produkt"] },
-                date: "$actualDate",
-              },
-            },
-          ],
-          shops: [
-            {
-              $group: {
-                _id: "$shopName",
-                value: { $sum: "$amount" },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { value: -1 } },
-            { $limit: 5 },
-            {
-              $lookup: {
-                from: "shops",
-                localField: "_id",
-                foreignField: "_id",
-                as: "shop",
-              },
-            },
-            { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
-            {
-              $project: {
-                _id: 0,
-                name: { $ifNull: ["$shop.name", "Ukjent"] },
-                value: 1,
-                count: 1,
-              },
-            },
-          ],
-          brands: [
-            {
-              $group: {
-                _id: "$brandName",
-                value: { $sum: "$amount" },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { value: -1 } },
-            { $limit: 5 },
-            {
-              $lookup: {
-                from: "brands",
-                localField: "_id",
-                foreignField: "_id",
-                as: "brand",
-              },
-            },
-            { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
-            {
-              $project: {
-                _id: 0,
-                name: { $ifNull: ["$brand.name", "Ukjent"] },
-                value: 1,
-                count: 1,
-              },
-            },
-          ],
-          locations: [
-            {
-              $group: {
-                _id: "$locationName",
-                value: { $sum: "$amount" },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { value: -1 } },
-            { $limit: 5 },
-            {
-              $lookup: {
-                from: "locations",
-                localField: "_id",
-                foreignField: "_id",
-                as: "location",
-              },
-            },
-            { $unwind: { path: "$location", preserveNullAndEmptyArrays: true } },
-            {
-              $project: {
-                _id: 0,
-                name: { $ifNull: ["$location.name", "Ukjent"] },
-                value: 1,
-                count: 1,
-              },
-            },
-          ],
-          categories: [
-            {
-              $group: {
-                _id: { $ifNull: ["$product.category", "Ikke kategorisert"] },
-                value: { $sum: "$amount" },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { value: -1 } },
-            { $limit: 5 },
-            {
-              $project: {
-                _id: 0,
-                name: "$_id",
-                value: 1,
-                count: 1,
-              },
-            },
-          ],
-          timeline: [
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: timelineGroup.format,
-                    date: "$actualDate",
-                    timezone: "Europe/Oslo",
-                  },
+        { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+        {
+          $facet: {
+            totals: [
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: "$amount" },
+                  average: { $avg: "$amount" },
+                  count: { $sum: 1 },
                 },
-                value: { $sum: "$amount" },
               },
-            },
-            { $project: { _id: 0, key: timelineGroup.label, value: 1 } },
-            { $sort: { key: 1 } },
-          ],
+              { $project: { _id: 0, total: 1, average: 1, count: 1 } },
+            ],
+            highest: [
+              { $sort: { amount: -1 } },
+              { $limit: 1 },
+              {
+                $project: {
+                  _id: 0,
+                  value: "$amount",
+                  name: { $ifNull: ["$product.name", "Ukjent produkt"] },
+                  date: "$actualDate",
+                },
+              },
+            ],
+            shops: [
+              {
+                $group: {
+                  _id: "$shopName",
+                  value: { $sum: "$amount" },
+                  count: { $sum: 1 },
+                },
+              },
+              { $sort: { value: -1 } },
+              { $limit: 5 },
+              {
+                $lookup: {
+                  from: "shops",
+                  localField: "_id",
+                  foreignField: "_id",
+                  as: "shop",
+                },
+              },
+              { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+              {
+                $project: {
+                  _id: 0,
+                  name: { $ifNull: ["$shop.name", "Ukjent"] },
+                  value: 1,
+                  count: 1,
+                },
+              },
+            ],
+            brands: [
+              {
+                $group: {
+                  _id: "$brandName",
+                  value: { $sum: "$amount" },
+                  count: { $sum: 1 },
+                },
+              },
+              { $sort: { value: -1 } },
+              { $limit: 5 },
+              {
+                $lookup: {
+                  from: "brands",
+                  localField: "_id",
+                  foreignField: "_id",
+                  as: "brand",
+                },
+              },
+              { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+              {
+                $project: {
+                  _id: 0,
+                  name: { $ifNull: ["$brand.name", "Ukjent"] },
+                  value: 1,
+                  count: 1,
+                },
+              },
+            ],
+            locations: [
+              {
+                $group: {
+                  _id: "$locationName",
+                  value: { $sum: "$amount" },
+                  count: { $sum: 1 },
+                },
+              },
+              { $sort: { value: -1 } },
+              { $limit: 5 },
+              {
+                $lookup: {
+                  from: "locations",
+                  localField: "_id",
+                  foreignField: "_id",
+                  as: "location",
+                },
+              },
+              { $unwind: { path: "$location", preserveNullAndEmptyArrays: true } },
+              {
+                $project: {
+                  _id: 0,
+                  name: { $ifNull: ["$location.name", "Ukjent"] },
+                  value: 1,
+                  count: 1,
+                },
+              },
+            ],
+            categories: [
+              {
+                $group: {
+                  _id: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+                  value: { $sum: "$amount" },
+                  count: { $sum: 1 },
+                },
+              },
+              { $sort: { value: -1 } },
+              { $limit: 5 },
+              {
+                $project: {
+                  _id: 0,
+                  name: "$_id",
+                  value: 1,
+                  count: 1,
+                },
+              },
+            ],
+            timeline: [
+              {
+                $group: {
+                  _id: {
+                    $dateToString: {
+                      format: timelineGroup.format,
+                      date: "$actualDate",
+                      timezone: "Europe/Oslo",
+                    },
+                  },
+                  value: { $sum: "$amount" },
+                },
+              },
+              { $project: { _id: 0, key: timelineGroup.label, value: 1 } },
+              { $sort: { key: 1 } },
+            ],
+          },
         },
-      },
+      ]),
+      Expense.aggregate(buildPriceChangesPipeline({ req, from, to })),
     ]);
 
     res.json({
@@ -262,6 +392,7 @@ router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, nex
       locations: result?.locations ?? [],
       categories: result?.categories ?? [],
       timeline: result?.timeline ?? [],
+      priceChanges,
     });
   } catch (err) {
     next(err);

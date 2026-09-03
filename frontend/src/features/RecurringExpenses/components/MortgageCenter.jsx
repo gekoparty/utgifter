@@ -50,6 +50,12 @@ const formatSavedMonths = (value) => {
   return `${years} år ${restMonths} mnd`;
 };
 
+const formatPaymentDate = (value, fallbackPeriodKey) => {
+  const date = dayjs(value);
+  if (date.isValid()) return date.format("DD. MMM YYYY");
+  return fallbackPeriodKey || "-";
+};
+
 function SummaryMetric({ label, value, helper, tone = "default" }) {
   const color =
     tone === "positive"
@@ -243,6 +249,37 @@ export default function MortgageCenter({
     totalPrincipal: 0,
   };
   const extraPaymentSummary = plan?.extraPaymentSummary || null;
+  const extraPayments = useMemo(
+    () => {
+      if (Array.isArray(plan?.registeredExtraPayments)) {
+        return plan.registeredExtraPayments;
+      }
+      if (Array.isArray(plan?.extraPayments)) {
+        return plan.extraPayments;
+      }
+      return [];
+    },
+    [plan],
+  );
+  const registeredExtraTotal = useMemo(
+    () =>
+      extraPayments.reduce(
+        (sum, payment) => sum + Number(payment?.amount || 0),
+        0,
+      ),
+    [extraPayments],
+  );
+  const visibleExtraPayments = useMemo(
+    () => extraPayments.slice(0, 6),
+    [extraPayments],
+  );
+  const hasRegisteredExtraPayments = useMemo(
+    () =>
+      registeredExtraTotal > 0 ||
+      Number(extraPaymentSummary?.totalExtraPaid || 0) > 0 ||
+      Number(extraPaymentSummary?.totalExtraCount || 0) > 0,
+    [registeredExtraTotal, extraPaymentSummary],
+  );
   const simTotals = sim?.totals || {
     totalInterest: 0,
     totalFees: 0,
@@ -471,7 +508,9 @@ export default function MortgageCenter({
                   >
                     <SummaryMetric
                       label="Ekstra betalt"
-                      value={formatCurrency(extraPaymentSummary.totalExtraPaid)}
+                      value={formatCurrency(
+                        extraPaymentSummary.totalExtraPaid || registeredExtraTotal,
+                      )}
                       helper="Registrert som ekstra avdrag"
                       tone="positive"
                     />
@@ -503,6 +542,98 @@ export default function MortgageCenter({
                       helper="Hvis gebyrperioder kuttes"
                     />
                   </Box>
+
+                  <Divider sx={{ my: 1.5, opacity: 0.55 }} />
+
+                  <Stack
+                    direction={{ xs: "column", lg: "row" }}
+                    justifyContent="space-between"
+                    spacing={1.5}
+                  >
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle2" fontWeight={950}>
+                        Registrerte ekstra avdrag
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Vises automatisk for valgt boliglån.
+                      </Typography>
+                    </Box>
+
+                    {extraPayments.length > 6 ? (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ alignSelf: { lg: "center" }, whiteSpace: "nowrap" }}
+                      >
+                        Viser 6 av {extraPayments.length}
+                      </Typography>
+                    ) : null}
+                  </Stack>
+
+                  {visibleExtraPayments.length ? (
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          md: "repeat(2, minmax(0, 1fr))",
+                          xl: "repeat(3, minmax(0, 1fr))",
+                        },
+                        gap: 1,
+                        mt: 1,
+                      }}
+                    >
+                      {visibleExtraPayments.map((payment) => (
+                        <Box
+                          key={String(payment.paymentId)}
+                          sx={{
+                            p: 1.1,
+                            borderRadius: 1.5,
+                            border: "1px solid",
+                            borderColor: "divider",
+                            bgcolor: "background.default",
+                          }}
+                        >
+                          <Stack direction="row" justifyContent="space-between" spacing={1}>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="body2" fontWeight={950}>
+                                {formatPaymentDate(payment.paidDate, payment.periodKey)}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {payment.periodKey}
+                                {payment.note ? ` · ${payment.note}` : ""}
+                              </Typography>
+                            </Box>
+                            <Typography
+                              variant="body2"
+                              fontWeight={950}
+                              color="success.main"
+                              sx={{ whiteSpace: "nowrap" }}
+                            >
+                              {formatCurrency(payment.amount)}
+                            </Typography>
+                          </Stack>
+                        </Box>
+                      ))}
+                    </Box>
+                  ) : hasRegisteredExtraPayments ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 1 }}
+                    >
+                      Ekstra avdrag er registrert, men detaljlisten er ikke lastet inn.
+                      Oppdater plan eller start backend på nytt for å hente radene.
+                    </Typography>
+                  ) : (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mt: 1 }}
+                    >
+                      Ingen ekstra avdrag er registrert på dette lånet ennå.
+                    </Typography>
+                  )}
                 </Box>
 
                 <Divider />

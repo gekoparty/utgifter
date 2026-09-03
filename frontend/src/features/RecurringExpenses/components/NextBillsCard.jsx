@@ -14,7 +14,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Edit, Event, Paid } from "@mui/icons-material";
+import { Edit, Event } from "@mui/icons-material";
 import dayjs from "dayjs";
 import SectionCard from "../../../components/commons/Layout/SectionCard";
 import { TYPE_META_BY_KEY, normalizeRecurringType } from "../utils/recurringTypes";
@@ -63,14 +63,14 @@ function NextBillsCard({
               borderRadius: 1.5,
             }}
           >
-            <Table size="small" stickyHeader sx={{ minWidth: 720 }}>
+            <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell>Forfall</TableCell>
                   <TableCell>Regning</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align="right">Beløp</TableCell>
-                  <TableCell align="right">Handling</TableCell>
+                  <TableCell align="right" sx={{ width: 116 }}>Handling</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -80,6 +80,10 @@ function NextBillsCard({
                   const typeLabel = TYPE_META_BY_KEY[typeKey]?.label ?? bill.type;
                   const amount = bill.expected?.max ?? bill.expectedMax ?? 0;
                   const dueDate = dayjs(bill.dueDate);
+                  const isOverdue =
+                    status.label === "Mangler" &&
+                    dueDate.isValid() &&
+                    dueDate.isBefore(dayjs().endOf("day"));
                   const periodKey =
                     bill.periodKey || (dueDate.isValid() ? dueDate.format("YYYY-MM") : "");
                   const hasPayment = Boolean(bill.actual?.paymentId);
@@ -88,8 +92,15 @@ function NextBillsCard({
                     !["SKIPPED", "PAUSED"].includes(String(bill.status || "").toUpperCase());
 
                   return (
-                    <TableRow key={`${bill.recurringExpenseId}-${String(bill.dueDate)}`} hover>
-                      <TableCell sx={{ width: 132 }}>
+                    <TableRow
+                      key={`${bill.recurringExpenseId}-${String(bill.dueDate)}`}
+                      hover
+                      sx={{
+                        bgcolor: isOverdue ? "rgba(245, 158, 11, 0.08)" : undefined,
+                        "& td": { py: 0.85 },
+                      }}
+                    >
+                      <TableCell sx={{ width: 96 }}>
                         <Typography variant="body2" fontWeight={900}>
                           {dueShortLabel(bill.dueDate)}
                         </Typography>
@@ -102,7 +113,7 @@ function NextBillsCard({
                           variant="body2"
                           fontWeight={900}
                           sx={{
-                            maxWidth: 260,
+                            maxWidth: { xs: 150, xl: 220 },
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -118,7 +129,7 @@ function NextBillsCard({
                         <Chip
                           size="small"
                           label={status.label}
-                          color={status.color}
+                          color={isOverdue ? "warning" : status.color}
                           sx={{ height: 22, fontWeight: 800 }}
                         />
                       </TableCell>
@@ -147,10 +158,10 @@ function NextBillsCard({
                             <Button
                               size="small"
                               variant={hasPayment ? "outlined" : "contained"}
-                              startIcon={hasPayment ? <Edit /> : <Paid />}
+                              startIcon={hasPayment ? <Edit /> : undefined}
                               disabled={pending}
                               onClick={() => onOpenPay({ ...bill, paymentKind: "MAIN" })}
-                              sx={{ whiteSpace: "nowrap" }}
+                              sx={{ whiteSpace: "nowrap", minWidth: 86 }}
                             >
                               {hasPayment ? "Rediger" : "Registrer"}
                             </Button>

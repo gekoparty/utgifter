@@ -1,6 +1,6 @@
 // src/components/Charts/ProductPriceChart/ProductPriceChart.jsx
 import React, { useMemo, useState, useCallback } from "react";
-import { Paper, Typography, useTheme, Box, Chip, Grid } from "@mui/material";
+import { Paper, Typography, useTheme, Box, Chip } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
 
@@ -356,7 +356,7 @@ export default function ProductPriceChart({ productId }) {
     );
   }
 
-  const chartHeight = { xs: 300, md: 340, lg: 360 };
+  const chartHeight = { xs: 300, md: 360, lg: 420 };
 
   return (
     <Box>
@@ -450,37 +450,37 @@ export default function ProductPriceChart({ productId }) {
           </SectionCard>
         ) : null}
 
-        <Grid container spacing={2} alignItems="flex-start">
-          <Grid size={{ xs: 12, lg: 8 }}>
-            <Box
-              ref={chartBoxRef}
-              sx={{
-                height: chartHeight,
-                border: "1px solid",
-                borderColor: "divider",
-                borderRadius: 2,
-                overflow: "hidden",
-                bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
-                p: { xs: 0.5, md: 1 },
-              }}
-            />
-          </Grid>
+        <Box
+          ref={chartBoxRef}
+          sx={{
+            height: chartHeight,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+            overflow: "hidden",
+            bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+            p: { xs: 0.5, md: 1 },
+          }}
+        />
 
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <Box
-              sx={{
-                display: "grid",
-                gap: 1.25,
-                alignContent: "start",
-              }}
-            >
-              <UsageSummaryCard usage={usageSummary} />
-              <YearlyIncreaseCard yearly={yearly} />
-              <MonthlySpendCard monthlySpend={monthlySpend} />
-              <ForecastCard freq={freq} discount={discount} />
-            </Box>
-          </Grid>
-        </Grid>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1.25,
+            mt: 1.25,
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, minmax(0, 1fr))",
+              xl: "repeat(4, minmax(0, 1fr))",
+            },
+            alignItems: "stretch",
+          }}
+        >
+          <UsageSummaryCard usage={usageSummary} />
+          <YearlyIncreaseCard yearly={yearly} />
+          <MonthlySpendCard monthlySpend={monthlySpend} />
+          <ForecastCard freq={freq} discount={discount} />
+        </Box>
 
         {(mode === "shops" || mode === "yearly") && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>

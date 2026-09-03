@@ -16,6 +16,7 @@ import {
 const router = express.Router();
 
 const isExtraPayment = (payment) =>
+  String(payment?.kind || "").toUpperCase() === "EXTRA" ||
   String(payment?.status || "").toUpperCase() === "EXTRA";
 
 const buildExtraPaymentSummary = ({ plan, baselinePlan, payments }) => {
@@ -42,10 +43,11 @@ const buildExtraPaymentSummary = ({ plan, baselinePlan, payments }) => {
       ? Math.max(0, Number(baselineMonths) - Number(planMonths))
       : null;
 
-  return {
-    totalExtraPaid,
-    interestSaved: Math.max(0, interestSaved),
-    feesSaved: Math.max(0, feesSaved),
+    return {
+      totalExtraPaid,
+      totalExtraCount: (payments || []).filter(isExtraPayment).length,
+      interestSaved: Math.max(0, interestSaved),
+      feesSaved: Math.max(0, feesSaved),
     monthsSaved,
     payoffWithExtra: plan?.payoffPeriodKey || null,
     payoffWithoutExtra: baselinePlan?.payoffPeriodKey || null,
@@ -54,6 +56,21 @@ const buildExtraPaymentSummary = ({ plan, baselinePlan, payments }) => {
     hasPayoffComparison: planMonths != null && baselineMonths != null,
   };
 };
+
+const toExtraPaymentRow = (payment) => ({
+  paymentId: String(payment._id),
+  periodKey: payment.periodKey,
+  paidDate: payment.paidDate,
+  amount: Number(payment.amount || 0),
+  note: payment.note || "",
+  status: payment.status,
+  kind: payment.kind || "EXTRA",
+});
+
+const minPeriodKey = (...values) =>
+  values
+    .filter((value) => /^\d{4}-\d{2}$/.test(String(value || "")))
+    .sort((a, b) => String(a).localeCompare(String(b)))[0] || null;
 
 router.get("/:id/plan", async (req, res) => {
   try {
@@ -82,6 +99,57 @@ router.get("/:id/plan", async (req, res) => {
       periodKey: { $gte: from, $lte: toKey },
     }).lean();
 
+    const extraPayments = await RecurringPayment.find({
+      ...ownedFilter(req),
+      recurringExpenseId: exp._id,
+      $or: [{ kind: "EXTRA" }, { status: "EXTRA" }],
+    })
+      .sort({ periodKey: -1, paidDate: -1 })
+      .lean();
+
+    const earliestMainPayment = await RecurringPayment.findOne({
+      ...ownedFilter(req),
+      recurringExpenseId: exp._id,
+      kind: "MAIN",
+    })
+      .sort({ periodKey: 1, paidDate: 1 })
+      .select("periodKey")
+      .lean();
+
+    const summaryFrom =
+      minPeriodKey(
+        exp.firstPaymentMonth,
+        earliestMainPayment?.periodKey,
+        extraPayments.at(-1)?.periodKey,
+        from,
+      ) || from;
+
+    const summaryMonths = Math.min(
+      600,
+      Math.max(
+        months,
+        dayjs(periodKeyToMonthStart(from)).diff(
+          dayjs(periodKeyToMonthStart(summaryFrom)),
+          "month",
+        ) + months,
+      ),
+    );
+
+    const summaryToKey = dayjs(periodKeyToMonthStart(summaryFrom))
+      .add(summaryMonths - 1, "month")
+      .format("YYYY-MM");
+
+    const summaryPayments = await RecurringPayment.find({
+      ...ownedFilter(req),
+      recurringExpenseId: exp._id,
+      periodKey: { $gte: summaryFrom, $lte: summaryToKey },
+    }).lean();
+
+    const summaryExpense = {
+      ...exp,
+      remainingBalance: Number(exp.initialBalance || exp.remainingBalance || 0),
+    };
+
     const termsArr = await RecurringTermsHistory.find(ownedFilter(req, { recurringExpenseId: exp._id }))
       .sort({ fromDate: 1 })
       .lean();
@@ -95,14 +163,25 @@ router.get("/:id/plan", async (req, res) => {
     });
 
     const baselinePlan = buildMortgagePlan({
-      expense: exp,
+      expense: summaryExpense,
       termsArr,
-      payments: payments.filter((payment) => !isExtraPayment(payment)),
-      from,
-      months,
+      payments: summaryPayments.filter((payment) => !isExtraPayment(payment)),
+      from: summaryFrom,
+      months: summaryMonths,
     });
 
+    const summaryPlan = buildMortgagePlan({
+      expense: summaryExpense,
+      termsArr,
+      payments: summaryPayments,
+      from: summaryFrom,
+      months: summaryMonths,
+    });
+
+    const registeredExtraPayments = extraPayments.map(toExtraPaymentRow);
+
     res.json({
+      ...plan,
       recurringExpenseId: String(exp._id),
       mortgage: {
         title: exp.title,
@@ -111,11 +190,12 @@ router.get("/:id/plan", async (req, res) => {
         dueDay: exp.dueDay,
       },
       extraPaymentSummary: buildExtraPaymentSummary({
-        plan,
+        plan: summaryPlan,
         baselinePlan,
-        payments,
+        payments: extraPayments,
       }),
-      ...plan,
+      extraPayments: registeredExtraPayments,
+      registeredExtraPayments,
     });
   } catch (err) {
     console.error("Error in GET /api/mortgages/:id/plan:", err);

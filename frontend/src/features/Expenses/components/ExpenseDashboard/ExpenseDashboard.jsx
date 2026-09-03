@@ -8,6 +8,7 @@ import StorefrontIcon from "@mui/icons-material/Storefront";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
 import {
   Area,
   AreaChart,
@@ -114,6 +115,14 @@ const topShare = (rows, total) => {
     value: Number(first.value || 0),
     pct: (Number(first.value || 0) / total) * 100,
   };
+};
+
+const formatPercent = (value) =>
+  `${Number(value || 0) > 0 ? "+" : ""}${Number(value || 0).toFixed(1)}%`;
+
+const formatComparisonPrice = (row) => {
+  const suffix = row?.usedUnitPrice && row?.measurementUnit ? ` per ${row.measurementUnit}` : "";
+  return `${NOK.format(row?.previousPrice || 0)} -> ${NOK.format(row?.currentPrice || 0)}${suffix}`;
 };
 
 function UsageBreakdownCard({ categories, shops, brands, locations, total }) {
@@ -254,6 +263,101 @@ function ActionableInsights({ total, average, count, categories, shops, brands, 
   );
 }
 
+function PriceChangesCard({ changes, periodLabel }) {
+  const [mode, setMode] = useState("increases");
+  const rows = changes?.[mode] ?? [];
+  const isIncrease = mode === "increases";
+
+  return (
+    <SectionCard
+      title="Hva endret seg?"
+      subtitle={`Sammenligner med forrige kjøp av samme produkt i samme butikk · ${periodLabel}.`}
+      action={
+        <SegmentedControl
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "increases", label: "Opp" },
+            { value: "decreases", label: "Ned" },
+          ]}
+          sx={{
+            "& .MuiToggleButton-root": {
+              px: 1,
+              py: 0.35,
+              textTransform: "none",
+              fontWeight: 800,
+              fontSize: 12,
+            },
+          }}
+        />
+      }
+    >
+      {rows.length ? (
+        <Box sx={{ display: "grid", gap: 1 }}>
+          {rows.map((row) => {
+            const variant = row.variantName ? ` · ${row.variantName}` : "";
+            const date = formatApiDate(row.currentDate);
+            return (
+              <Box
+                key={`${row.productId}-${row.brandName}-${row.shopName}-${row.currentDate}-${row.changeAmount}`}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) auto" },
+                  gap: 1,
+                  alignItems: "center",
+                  p: 1.15,
+                  borderRadius: 1.5,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  bgcolor: "background.default",
+                }}
+              >
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={950} noWrap>
+                    {row.productName}{variant}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                    {row.brandName} · {row.shopName} · {date}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                    {formatComparisonPrice(row)}
+                  </Typography>
+                </Box>
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  alignItems="center"
+                  justifyContent={{ xs: "flex-start", sm: "flex-end" }}
+                  sx={{
+                    color: isIncrease ? "error.main" : "success.main",
+                    fontWeight: 950,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isIncrease ? (
+                    <TrendingUpIcon fontSize="small" />
+                  ) : (
+                    <TrendingDownIcon fontSize="small" />
+                  )}
+                  <Typography variant="body2" fontWeight={950}>
+                    {formatPercent(row.changePercent)}
+                  </Typography>
+                </Stack>
+              </Box>
+            );
+          })}
+        </Box>
+      ) : (
+        <Box sx={{ py: 4, textAlign: "center" }}>
+          <Typography variant="body2" color="text.secondary">
+            Ingen {isIncrease ? "prisøkninger" : "prisfall"} funnet for valgt periode ennå.
+          </Typography>
+        </Box>
+      )}
+    </SectionCard>
+  );
+}
+
 export default function ExpenseDashboard() {
   const theme = useTheme();
   const [period, setPeriod] = useState("month");
@@ -273,6 +377,7 @@ export default function ExpenseDashboard() {
   const categoryData = summary?.categories ?? [];
   const brandData = summary?.brands ?? [];
   const locationData = summary?.locations ?? [];
+  const priceChanges = summary?.priceChanges ?? { increases: [], decreases: [] };
   const timeData = useMemo(
     () => buildDashboardSeries(summary),
     [summary],
@@ -475,6 +580,8 @@ export default function ExpenseDashboard() {
         brands={brandData}
         periodLabel={periodLabel}
       />
+
+      <PriceChangesCard changes={priceChanges} periodLabel={periodLabel} />
         </>
       )}
     </Box>

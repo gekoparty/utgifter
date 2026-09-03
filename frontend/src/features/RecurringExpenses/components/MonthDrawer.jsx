@@ -248,7 +248,7 @@ function MonthDrawer({
                   const status = statusInfo(it);
                   const isPaused = status.label === "Pauset";
                   const isSkipped = status.label === "Hoppet over";
-                  const isMortgage = String(it?.type || "").toUpperCase() === "MORTGAGE";
+                  const isMortgage = normalizeRecurringType(it?.type) === "MORTGAGE";
                   const typeKey = normalizeRecurringType(it.type);
                   const typeLabel = TYPE_META_BY_KEY[typeKey]?.label ?? it.type;
                   const key = `${selected.key}-${it.recurringExpenseId}-${String(it.dueDate)}`;

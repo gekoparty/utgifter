@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { normalizeRecurringType } from "../utils/recurringTypes";
 
 const toISODate = (d) => {
   if (!d) return new Date().toISOString().slice(0, 10);
@@ -45,7 +46,7 @@ export function usePayDialog() {
 
   const openDialog = useCallback((item) => {
     const desiredKind = String(item?.paymentKind || "MAIN").toUpperCase();
-    const isMortgage = String(item?.type || "").toUpperCase() === "MORTGAGE";
+    const isMortgage = normalizeRecurringType(item?.type) === "MORTGAGE";
     const pk = item?.periodKey ? String(item.periodKey) : toPeriodKey(new Date());
 
     const mainPayment = item?.actual || null;

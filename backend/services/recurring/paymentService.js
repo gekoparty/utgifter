@@ -1,5 +1,6 @@
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
+import { isMortgageType } from "./scheduleService.js";
 
 export const normalizePeriodKey = (value) => {
   const periodKey = String(value || "").trim();
@@ -60,7 +61,7 @@ const computeMortgageRemaining = ({
 
 export const recomputeMortgageBalance = async (recurringExpenseId) => {
   const expense = await RecurringExpense.findById(recurringExpenseId);
-  if (!expense || expense.type !== "MORTGAGE") return;
+  if (!expense || !isMortgageType(expense.type)) return;
 
   if (!Number(expense.initialBalance) && Number(expense.remainingBalance) > 0) {
     expense.initialBalance = Number(expense.remainingBalance);
