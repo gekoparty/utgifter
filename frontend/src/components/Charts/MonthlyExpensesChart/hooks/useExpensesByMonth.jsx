@@ -15,6 +15,10 @@ export function useExpensesByMonthSummary({ year, compare }) {
       return requestJson(url, { signal });
     },
     staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    placeholderData: (previousData) => previousData,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 

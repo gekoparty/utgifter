@@ -33,6 +33,7 @@ const BASE_DEFAULT_PREFERENCES = {
   sidebarOpen: true,
   expenseColumnVisibility: {},
   monthlyStatsExtraCharts: false,
+  monthlyStatsRecurringCosts: false,
 };
 
 const getPreferredThemeMode = () => {

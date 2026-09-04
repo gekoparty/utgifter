@@ -7,6 +7,7 @@ const toSafeAppUser = (appUser) => ({
   email: appUser.email,
   name: appUser.name,
   role: appUser.role,
+  expectedMonthlyIncome: Number(appUser.expectedMonthlyIncome || 0),
 });
 
 const ensureAppUser = async (authUser) => {

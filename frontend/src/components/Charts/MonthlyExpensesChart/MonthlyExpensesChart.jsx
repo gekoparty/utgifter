@@ -24,9 +24,14 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
   const [selectedYear, setSelectedYear] = useState(dayjs().year().toString());
   const [categoryScope, setCategoryScope] = useState("year");
   const showExtraCharts = preferences.monthlyStatsExtraCharts === true;
+  const showRecurringCosts = preferences.monthlyStatsRecurringCosts === true;
 
   const setShowExtraCharts = useCallback(
     (value) => setPreference("monthlyStatsExtraCharts", Boolean(value)),
+    [setPreference],
+  );
+  const setShowRecurringCosts = useCallback(
+    (value) => setPreference("monthlyStatsRecurringCosts", Boolean(value)),
     [setPreference],
   );
 
@@ -65,8 +70,9 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
       doCompare,
       selectedYear: year,
       compareYear: activeCompareYear,
+      showRecurringCosts,
     });
-  }, [theme, months, doCompare, year, activeCompareYear]);
+  }, [theme, months, doCompare, year, activeCompareYear, showRecurringCosts]);
 
   const chartEvents = useMemo(
     () => ({
@@ -133,6 +139,8 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
         previousYearKey={previousYearKey}
         showExtraCharts={showExtraCharts}
         setShowExtraCharts={setShowExtraCharts}
+        showRecurringCosts={showRecurringCosts}
+        setShowRecurringCosts={setShowRecurringCosts}
         hideTitle
       />
 
@@ -213,8 +221,16 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
             onScopeChange={setCategoryScope}
             year={year}
             month={categoryMonth}
+            months={months}
+            includeRecurringCosts={showRecurringCosts}
+            allTimeRecurringTotal={stats?.recurringPaidAllTime ?? 0}
           />
-          <CategoryTrendChart rows={categoryMonthlyTrend} year={year} />
+          <CategoryTrendChart
+            rows={categoryMonthlyTrend}
+            year={year}
+            months={months}
+            includeRecurringCosts={showRecurringCosts}
+          />
         </Box>
       ) : null}
     </Box>

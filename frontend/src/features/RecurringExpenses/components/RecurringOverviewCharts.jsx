@@ -1,10 +1,9 @@
-// src/features/RecurringExpenses/components/RecurringOverviewCharts.jsx
-import React, { useMemo, useId } from "react";
+import React, { useId, useMemo } from "react";
 import PropTypes from "prop-types";
-import { Box, Card, CardContent, Typography, Divider } from "@mui/material";
-import { useTheme, alpha } from "@mui/material/styles";
-import { ResponsiveLine } from "@nivo/line";
+import { Box, Card, CardContent, Divider, Typography } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import { ResponsiveBar } from "@nivo/bar";
+import { ResponsiveLine } from "@nivo/line";
 
 import {
   RECURRING_TYPES,
@@ -12,38 +11,38 @@ import {
   normalizeRecurringType,
 } from "../utils/recurringTypes";
 
-const monthLabel = (d) =>
-  new Date(d).toLocaleDateString("nb-NO", { month: "short", year: "2-digit" });
+const monthLabel = (date) =>
+  new Date(date).toLocaleDateString("nb-NO", { month: "short", year: "2-digit" });
 
-const formatCurrency = (val) =>
+const formatCurrency = (value) =>
   new Intl.NumberFormat("nb-NO", { style: "currency", currency: "NOK" }).format(
-    Number(val || 0),
+    Number(value || 0),
   );
 
-// Better NOK compact formatter (native Intl)
 const compactFmt = new Intl.NumberFormat("nb-NO", {
   notation: "compact",
   compactDisplay: "short",
   maximumFractionDigits: 0,
 });
-const compactNok = (v) => compactFmt.format(Number(v || 0));
+
+const compactNok = (value) => compactFmt.format(Number(value || 0));
 
 export default function RecurringOverviewCharts({
   forecast,
   monthsForTypeSplit = 3,
   showTypeSplit = true,
+  showExpectedCosts = true,
+  showPaidCosts = true,
+  showActualIncome = false,
+  showExpectedIncome = false,
   title = "Forventet vs betalt",
   subtitle = "Forventet intervall (min-maks) + registrert betalt per måned.",
 }) {
   const mui = useTheme();
-  const reactId = useId(); // unique per mount (React 18/19)
+  const reactId = useId();
   const clipPathId = `expected-band-clip-${reactId}`;
 
-  // ---------- Nivo theme derived from MUI ----------
   const nivoTheme = useMemo(() => {
-    const text = mui.palette.text.primary;
-    const text2 = mui.palette.text.secondary;
-
     const grid = alpha(
       mui.palette.common.white,
       mui.palette.mode === "dark" ? 0.12 : 0.18,
@@ -54,142 +53,156 @@ export default function RecurringOverviewCharts({
     );
 
     return {
-      textColor: text,
+      textColor: mui.palette.text.primary,
       fontSize: 12,
       axis: {
         domain: { line: { stroke: axis, strokeWidth: 1 } },
         ticks: {
           line: { stroke: axis, strokeWidth: 1 },
-          text: { fill: text2 },
+          text: { fill: mui.palette.text.secondary },
         },
-        legend: { text: { fill: text2 } },
+        legend: { text: { fill: mui.palette.text.secondary } },
       },
       grid: { line: { stroke: grid, strokeWidth: 1 } },
-      legends: { text: { fill: text2 } },
+      legends: { text: { fill: mui.palette.text.secondary } },
       tooltip: {
         container: {
           background: mui.palette.background.paper,
-          color: text,
+          color: mui.palette.text.primary,
           borderRadius: 12,
           boxShadow:
             mui.palette.mode === "dark"
               ? "0 12px 24px rgba(0,0,0,0.45)"
               : "0 12px 24px rgba(0,0,0,0.18)",
-          border: `1px solid ${alpha(
-            mui.palette.common.white,
-            mui.palette.mode === "dark" ? 0.12 : 0.12,
-          )}`,
+          border: `1px solid ${alpha(mui.palette.common.white, 0.12)}`,
         },
       },
     };
   }, [mui]);
 
-  // ---------- Palette ----------
-  const expectedColor = useMemo(
+  const expectedColor =
+    mui.palette.mode === "dark" ? mui.palette.info.light : mui.palette.info.main;
+  const paidColor =
+    mui.palette.mode === "dark" ? mui.palette.success.light : mui.palette.success.main;
+  const actualIncomeColor =
+    mui.palette.mode === "dark" ? "#fbbf24" : "#d97706";
+  const expectedIncomeColor =
+    mui.palette.mode === "dark" ? "#f59e0b" : "#92400e";
+  const bandFill = alpha(expectedColor, mui.palette.mode === "dark" ? 0.18 : 0.16);
+  const barColor =
+    mui.palette.mode === "dark" ? mui.palette.warning.light : mui.palette.warning.main;
+
+  const bandPoints = useMemo(
     () =>
-      mui.palette.mode === "dark"
-        ? mui.palette.info.light
-        : mui.palette.info.main,
-    [mui],
+      (forecast ?? []).map((month) => ({
+        x: monthLabel(month.date),
+        min: Number(month.expectedMin ?? 0),
+        max: Number(month.expectedMax ?? 0),
+      })),
+    [forecast],
   );
 
-  const paidColor = useMemo(
+  const lineData = useMemo(
     () =>
-      mui.palette.mode === "dark"
-        ? mui.palette.success.light
-        : mui.palette.success.main,
-    [mui],
+      [
+        showExpectedCosts
+          ? {
+              id: "Faste kostnader",
+              color: expectedColor,
+              data: (forecast ?? []).map((month) => ({
+                x: monthLabel(month.date),
+                y: Number(month.expectedMax ?? 0),
+              })),
+            }
+          : null,
+        showPaidCosts
+          ? {
+              id: "Betalt",
+              color: paidColor,
+              data: (forecast ?? []).map((month) => ({
+                x: monthLabel(month.date),
+                y: Number(month.paidTotal ?? 0),
+              })),
+            }
+          : null,
+        showActualIncome
+          ? {
+              id: "Inntekt",
+              color: actualIncomeColor,
+              data: (forecast ?? []).map((month) => ({
+                x: monthLabel(month.date),
+                y: Number(month.incomeActual ?? 0),
+              })),
+            }
+          : null,
+        showExpectedIncome
+          ? {
+              id: "Forventet inntekt",
+              color: expectedIncomeColor,
+              data: (forecast ?? []).map((month) => ({
+                x: monthLabel(month.date),
+                y: Number(month.incomeExpected ?? 0),
+              })),
+            }
+          : null,
+      ].filter(Boolean),
+    [
+      actualIncomeColor,
+      expectedColor,
+      expectedIncomeColor,
+      forecast,
+      paidColor,
+      showActualIncome,
+      showExpectedCosts,
+      showExpectedIncome,
+      showPaidCosts,
+    ],
   );
 
-  const bandFill = useMemo(
-    () => alpha(expectedColor, mui.palette.mode === "dark" ? 0.18 : 0.16),
-    [expectedColor, mui],
-  );
+  const ExpectedBandLayer = ({ xScale, yScale, innerHeight, innerWidth }) => {
+    if (!showExpectedCosts || !bandPoints.length) return null;
+    if (!Number.isFinite(innerWidth) || innerWidth <= 0) return null;
+    if (!Number.isFinite(innerHeight) || innerHeight <= 0) return null;
 
-  const barColor = useMemo(
-    () =>
-      mui.palette.mode === "dark"
-        ? mui.palette.warning.light
-        : mui.palette.warning.main,
-    [mui],
-  );
-
-  // ---------- Line chart data ----------
-  const bandPoints = useMemo(() => {
-    return (forecast ?? []).map((m) => ({
-      x: monthLabel(m.date),
-      min: Number(m.expectedMin ?? 0),
-      max: Number(m.expectedMax ?? 0),
+    const topCoords = bandPoints.map((point) => ({
+      x: xScale(point.x),
+      y: yScale(point.max),
     }));
-  }, [forecast]);
-
-  const lineData = useMemo(() => {
-    const points = (forecast ?? []).map((m) => ({
-      x: monthLabel(m.date),
-      expectedMax: Number(m.expectedMax ?? 0),
-      paid: Number(m.paidTotal ?? 0),
+    const bottomCoords = [...bandPoints].reverse().map((point) => ({
+      x: xScale(point.x),
+      y: yScale(point.min),
     }));
+    const coords = [...topCoords, ...bottomCoords];
 
-    return [
-      {
-        id: "Forventet (maks)",
-        color: expectedColor,
-        data: points.map((p) => ({ x: p.x, y: p.expectedMax })),
-      },
-      {
-        id: "Betalt",
-        color: paidColor,
-        data: points.map((p) => ({ x: p.x, y: p.paid })),
-      },
-    ];
-  }, [forecast, expectedColor, paidColor]);
+    if (coords.some((coord) => !Number.isFinite(coord.x) || !Number.isFinite(coord.y))) {
+      return null;
+    }
 
-  // Band layer between expected min/max
- const ExpectedBandLayer = ({ xScale, yScale, innerHeight, innerWidth }) => {
-  if (!bandPoints?.length) return null;
-  if (!Number.isFinite(innerWidth) || innerWidth <= 0) return null;
-  if (!Number.isFinite(innerHeight) || innerHeight <= 0) return null;
+    const top = topCoords
+      .map((coord, index) => `${index === 0 ? "M" : "L"} ${coord.x} ${coord.y}`)
+      .join(" ");
+    const bottom = bottomCoords.map((coord) => `L ${coord.x} ${coord.y}`).join(" ");
 
-  const topCoords = bandPoints.map((p) => {
-    const x = xScale(p.x);
-    const y = yScale(p.max);
-    return { x, y };
-  });
+    return (
+      <g>
+        <defs>
+          <clipPath id={clipPathId}>
+            <rect x="0" y="0" width={innerWidth} height={innerHeight} />
+          </clipPath>
+        </defs>
+        <path
+          d={`${top} ${bottom} Z`}
+          clipPath={`url(#${clipPathId})`}
+          fill={bandFill}
+          stroke="none"
+        />
+      </g>
+    );
+  };
 
-  const bottomCoords = [...bandPoints].reverse().map((p) => {
-    const x = xScale(p.x);
-    const y = yScale(p.min);
-    return { x, y };
-  });
-
-  const all = [...topCoords, ...bottomCoords];
-  if (all.some((c) => !Number.isFinite(c.x) || !Number.isFinite(c.y))) {
-    console.warn("ExpectedBandLayer: invalid coords", { topCoords, bottomCoords });
-    return null;
-  }
-
-  const top = topCoords
-    .map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`)
-    .join(" ");
-
-  const bottom = bottomCoords.map((c) => `L ${c.x} ${c.y}`).join(" ");
-
-  const d = `${top} ${bottom} Z`;
-
-  return (
-    <g>
-      <defs>
-        <clipPath id={clipPathId}>
-          <rect x="0" y="0" width={innerWidth} height={innerHeight} />
-        </clipPath>
-      </defs>
-      <path d={d} clipPath={`url(#${clipPathId})`} fill={bandFill} stroke="none" />
-    </g>
-  );
-};
-  // Overlay dashed paid line ON TOP of normal lines (so we keep the "lines" layer)
   const DashedPaidLineLayer = ({ series }) => {
-    const paid = series.find((s) => s.id === "Betalt");
+    if (!showPaidCosts) return null;
+    const paid = series.find((item) => item.id === "Betalt");
     if (!paid?.path) return null;
 
     return (
@@ -203,39 +216,37 @@ export default function RecurringOverviewCharts({
     );
   };
 
-  // ---------- Bar chart data ----------
   const typeBars = useMemo(() => {
     const slice = (forecast ?? []).slice(0, Math.max(1, monthsForTypeSplit));
     const sums = new Map();
 
-    for (const m of slice) {
-      for (const it of m.items ?? []) {
-        const normalized = normalizeRecurringType(it.type);
-        const v = Number(it.expected?.max ?? it.expected?.fixed ?? 0);
-        sums.set(normalized, (sums.get(normalized) ?? 0) + v);
+    for (const month of slice) {
+      for (const item of month.items ?? []) {
+        const normalized = normalizeRecurringType(item.type);
+        const value = Number(item.expected?.max ?? item.expected?.fixed ?? 0);
+        sums.set(normalized, (sums.get(normalized) ?? 0) + value);
       }
     }
 
-    const rows = RECURRING_TYPES.map((t) => ({
-      type: TYPE_META_BY_KEY[t.key]?.label ?? t.key,
-      amount: Number(sums.get(t.key) ?? 0),
-    })).filter((r) => r.amount > 0);
+    const rows = RECURRING_TYPES.map((type) => ({
+      type: TYPE_META_BY_KEY[type.key]?.label ?? type.key,
+      amount: Number(sums.get(type.key) ?? 0),
+    })).filter((row) => row.amount > 0);
 
-    return rows.length ? rows : [{ type: "—", amount: 0 }];
+    return rows.length ? rows : [{ type: "-", amount: 0 }];
   }, [forecast, monthsForTypeSplit]);
+
+  const hasLines = lineData.length > 0;
 
   return (
     <Box
       sx={{
         display: "grid",
         gap: 2,
-        gridTemplateColumns: showTypeSplit
-          ? { xs: "1fr", lg: "2fr 1fr" }
-          : "1fr",
+        gridTemplateColumns: showTypeSplit ? { xs: "1fr", lg: "2fr 1fr" } : "1fr",
         alignItems: "stretch",
       }}
     >
-      {/* Line */}
       <Card>
         <CardContent sx={{ pb: 1 }}>
           <Typography fontWeight={900} variant="h6">
@@ -248,123 +259,136 @@ export default function RecurringOverviewCharts({
         </CardContent>
 
         <Box sx={{ height: showTypeSplit ? 260 : 310, px: 1, pb: 1 }}>
-          <ResponsiveLine
-            theme={nivoTheme}
-            data={lineData}
-            colors={(d) => d.color}
-            margin={{ top: 10, right: 18, bottom: 56, left: 64 }}
-            xScale={{ type: "point" }}
-            yScale={{ type: "linear", min: 0, max: "auto", stacked: false }}
-            curve="monotoneX"
-            axisBottom={{ tickRotation: -25, tickPadding: 8 }}
-            axisLeft={{
-              format: compactNok,
-              legend: "NOK",
-              legendOffset: -52,
-              legendPosition: "middle",
-            }}
-            gridYValues={6}
-            pointSize={7}
-            pointBorderWidth={2}
-            pointBorderColor={{ from: "serieColor" }}
-            pointColor={mui.palette.background.paper}
-            useMesh
-            enablePoints
-            lineWidth={3}
-            layers={[
-              "grid",
-              "markers",
-              "axes",
-              ExpectedBandLayer, // behind
-              "lines", // ✅ required
-              DashedPaidLineLayer, // dashed overlay
-              "points",
-              "mesh",
-              "legends",
-            ]}
-            tooltip={({ point }) => (
-              <Box sx={{ px: 1.25, py: 0.75 }}>
-                <Typography fontWeight={900} variant="caption">
-                  {point.serieId}
-                </Typography>
-                <Typography variant="body2">
-                  {point.data.xFormatted}:{" "}
-                  <strong>{formatCurrency(point.data.yFormatted)}</strong>
-                </Typography>
-              </Box>
-            )}
-            legends={[
-              {
-                anchor: "bottom",
-                direction: "row",
-                translateY: 52,
-                itemWidth: 150,
-                itemHeight: 18,
-                itemsSpacing: 14,
-                symbolSize: 10,
-                symbolShape: "circle",
-                data: ["Forventet (maks)", "Betalt"].map((id) => ({
-                  id,
-                  label: id,
-                  color: id === "Betalt" ? paidColor : expectedColor,
-                })),
-              },
-            ]}
-          />
+          {hasLines ? (
+            <ResponsiveLine
+              theme={nivoTheme}
+              data={lineData}
+              colors={(line) => line.color}
+              margin={{ top: 10, right: 18, bottom: 56, left: 64 }}
+              xScale={{ type: "point" }}
+              yScale={{ type: "linear", min: 0, max: "auto", stacked: false }}
+              curve="monotoneX"
+              axisBottom={{ tickRotation: -25, tickPadding: 8 }}
+              axisLeft={{
+                format: compactNok,
+                legend: "NOK",
+                legendOffset: -52,
+                legendPosition: "middle",
+              }}
+              gridYValues={6}
+              pointSize={7}
+              pointBorderWidth={2}
+              pointBorderColor={{ from: "serieColor" }}
+              pointColor={mui.palette.background.paper}
+              useMesh
+              enablePoints
+              lineWidth={3}
+              layers={[
+                "grid",
+                "markers",
+                "axes",
+                ExpectedBandLayer,
+                "lines",
+                DashedPaidLineLayer,
+                "points",
+                "mesh",
+                "legends",
+              ]}
+              tooltip={({ point }) => (
+                <Box sx={{ px: 1.25, py: 0.75 }}>
+                  <Typography fontWeight={900} variant="caption">
+                    {point.serieId}
+                  </Typography>
+                  <Typography variant="body2">
+                    {point.data.xFormatted}:{" "}
+                    <strong>{formatCurrency(point.data.yFormatted)}</strong>
+                  </Typography>
+                </Box>
+              )}
+              legends={[
+                {
+                  anchor: "bottom",
+                  direction: "row",
+                  translateY: 52,
+                  itemWidth: 150,
+                  itemHeight: 18,
+                  itemsSpacing: 14,
+                  symbolSize: 10,
+                  symbolShape: "circle",
+                  data: lineData.map((line) => ({
+                    id: line.id,
+                    label: line.id,
+                    color: line.color,
+                  })),
+                },
+              ]}
+            />
+          ) : (
+            <Box
+              sx={{
+                height: "100%",
+                display: "grid",
+                placeItems: "center",
+                color: "text.secondary",
+              }}
+            >
+              <Typography variant="body2">Velg minst en linje å vise.</Typography>
+            </Box>
+          )}
         </Box>
       </Card>
 
-      {showTypeSplit && (
-      <Card>
-        <CardContent sx={{ pb: 1 }}>
-          <Typography fontWeight={900} variant="h6">
-            Fordeling (neste {monthsForTypeSplit} mnd)
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Summerer forventet maks per type i perioden.
-          </Typography>
-          <Divider sx={{ my: 1.5, opacity: 0.4 }} />
-        </CardContent>
+      {showTypeSplit ? (
+        <Card>
+          <CardContent sx={{ pb: 1 }}>
+            <Typography fontWeight={900} variant="h6">
+              Fordeling (neste {monthsForTypeSplit} mnd)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Summerer forventet maks per type i perioden.
+            </Typography>
+            <Divider sx={{ my: 1.5, opacity: 0.4 }} />
+          </CardContent>
 
-        <Box sx={{ height: 260, px: 1, pb: 1 }}>
-          <ResponsiveBar
-            theme={nivoTheme}
-            data={typeBars}
-            keys={["amount"]}
-            indexBy="type"
-            layout="horizontal"
-            margin={{ top: 10, right: 18, bottom: 56, left: 160 }}
-            padding={0.28}
-            colors={barColor}
-            borderRadius={6}
-            valueScale={{ type: "linear" }}
-            indexScale={{ type: "band", round: true }}
-            enableGridY={false}
-            enableLabel={false}
-            axisBottom={{
-              format: compactNok,
-              tickValues: 5,
-              tickRotation: -20,
-              tickPadding: 6,
-              legend: "NOK",
-              legendOffset: 42,
-              legendPosition: "middle",
-            }}
-            axisLeft={{ tickSize: 0, tickPadding: 10 }}
-            tooltip={({ indexValue, value }) => (
-              <Box sx={{ px: 1.25, py: 0.75 }}>
-                <Typography fontWeight={900} variant="caption">
-                  {indexValue}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>{formatCurrency(value)}</strong>
-                </Typography>
-              </Box>
-            )}
-          />
-        </Box>
-      </Card>
-      )}
+          <Box sx={{ height: 260, px: 1, pb: 1 }}>
+            <ResponsiveBar
+              theme={nivoTheme}
+              data={typeBars}
+              keys={["amount"]}
+              indexBy="type"
+              layout="horizontal"
+              margin={{ top: 10, right: 18, bottom: 56, left: 160 }}
+              padding={0.28}
+              colors={barColor}
+              borderRadius={6}
+              valueScale={{ type: "linear" }}
+              indexScale={{ type: "band", round: true }}
+              enableGridY={false}
+              enableLabel={false}
+              axisBottom={{
+                format: compactNok,
+                tickValues: 5,
+                tickRotation: -20,
+                tickPadding: 6,
+                legend: "NOK",
+                legendOffset: 42,
+                legendPosition: "middle",
+              }}
+              axisLeft={{ tickSize: 0, tickPadding: 10 }}
+              tooltip={({ indexValue, value }) => (
+                <Box sx={{ px: 1.25, py: 0.75 }}>
+                  <Typography fontWeight={900} variant="caption">
+                    {indexValue}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>{formatCurrency(value)}</strong>
+                  </Typography>
+                </Box>
+              )}
+            />
+          </Box>
+        </Card>
+      ) : null}
     </Box>
   );
 }
@@ -373,6 +397,10 @@ RecurringOverviewCharts.propTypes = {
   forecast: PropTypes.array,
   monthsForTypeSplit: PropTypes.number,
   showTypeSplit: PropTypes.bool,
+  showExpectedCosts: PropTypes.bool,
+  showPaidCosts: PropTypes.bool,
+  showActualIncome: PropTypes.bool,
+  showExpectedIncome: PropTypes.bool,
   title: PropTypes.string,
   subtitle: PropTypes.string,
 };

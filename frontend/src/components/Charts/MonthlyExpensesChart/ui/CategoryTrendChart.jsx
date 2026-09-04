@@ -15,6 +15,7 @@ const CHART_COLORS = [
   "#ef4444",
   "#8b5cf6",
   "#14b8a6",
+  "#f97316",
 ];
 
 const MONTH_LABELS = [
@@ -39,7 +40,9 @@ const compactNOK = (value) =>
     maximumFractionDigits: 1,
   }).format(value ?? 0);
 
-const prepareSeries = (rows = []) => {
+const fixedCostValue = (month) => Number(month?.recurringPaid ?? 0);
+
+const prepareSeries = (rows = [], months = [], includeRecurringCosts = false, year) => {
   const totalsByCategory = new Map();
 
   rows.forEach((row) => {
@@ -72,6 +75,19 @@ const prepareSeries = (rows = []) => {
     valuesByName[name][monthIndex] += Number(row?.value || 0);
   });
 
+  if (includeRecurringCosts) {
+    if (!valuesByName["Faste kostnader"]) {
+      valuesByName["Faste kostnader"] = Array.from({ length: 12 }, () => 0);
+      names.push("Faste kostnader");
+    }
+
+    months.forEach((month) => {
+      const monthIndex = Number(month?.monthIndex ?? -1);
+      if (monthIndex < 0 || monthIndex > 11) return;
+      valuesByName["Faste kostnader"][monthIndex] += fixedCostValue(month);
+    });
+  }
+
   return names.map((name, index) => ({
     name,
     type: "bar",
@@ -86,9 +102,17 @@ const prepareSeries = (rows = []) => {
   }));
 };
 
-export default function CategoryTrendChart({ rows = [], year }) {
+export default function CategoryTrendChart({
+  rows = [],
+  year,
+  months = [],
+  includeRecurringCosts = false,
+}) {
   const theme = useTheme();
-  const series = useMemo(() => prepareSeries(rows), [rows]);
+  const series = useMemo(
+    () => prepareSeries(rows, months, includeRecurringCosts, year),
+    [includeRecurringCosts, months, rows, year],
+  );
   const hasData = series.some((serie) =>
     serie.data.some((value) => Number(value || 0) > 0),
   );

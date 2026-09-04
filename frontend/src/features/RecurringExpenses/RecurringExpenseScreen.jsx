@@ -8,10 +8,12 @@ import {
   Chip,
   Divider,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Stack,
   Select,
+  Switch,
   Tab,
   Tabs,
   Typography,
@@ -68,24 +70,6 @@ const monthSelectLabel = (month) => {
   const label = date.isValid() ? date.format("MMM YYYY") : month?.key;
   const missing = (month?.items || []).filter((item) => item.status === "UNPAID").length;
   return missing ? `${label} - ${missing} mangler` : label;
-};
-
-const buildAttentionItems = (forecast) => {
-  const todayEnd = dayjs().endOf("day");
-
-  return (forecast || [])
-    .flatMap((month) =>
-      (month.items || []).map((item) => ({
-        ...item,
-        monthKey: month.key,
-      })),
-    )
-    .filter((item) => {
-      if (item.status !== "UNPAID") return false;
-      const due = dayjs(item.dueDate);
-      return due.isValid() && due.isBefore(todayEnd);
-    })
-    .sort((a, b) => dayjs(a.dueDate).valueOf() - dayjs(b.dueDate).valueOf());
 };
 
 function RecurringControlPanel({
@@ -174,6 +158,7 @@ function RecurringControlPanel({
 
 function MissedPaymentsPanel({
   items,
+  monthLabel,
   formatCurrency,
   onOpenPay,
   onOpenMonth,
@@ -183,8 +168,8 @@ function MissedPaymentsPanel({
 
   return (
     <SectionCard
-      title="Mangler betaling"
-      subtitle="Forfalte faste kostnader som ikke er registrert betalt."
+      title={`Ubetalt ${monthLabel || "valgt måned"}`}
+      subtitle="Faste kostnader i valgt måned som ikke er registrert betalt."
       icon={<WarningAmberRoundedIcon fontSize="small" />}
       action={
         <Chip
@@ -256,7 +241,7 @@ function MissedPaymentsPanel({
         </Stack>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          Ingen forfalte betalinger mangler akkurat nå.
+          Alt i valgt måned er betalt eller det finnes ingen forfall.
         </Typography>
       )}
     </SectionCard>
@@ -279,6 +264,8 @@ export default function RecurringExpenseScreen() {
   const [monthsBack, setMonthsBack] = useState(12);
   const [controlMonthKey, setControlMonthKey] = useState("");
   const [overviewRange, setOverviewRange] = useState("withHistory");
+  const [showChartIncome, setShowChartIncome] = useState(false);
+  const [showChartExpectedIncome, setShowChartExpectedIncome] = useState(false);
 
   const templates = useRecurringData({ enabled: true, includeInactive: true });
   const { data, isLoading, isError, error } = useRecurringSummary({
@@ -318,11 +305,38 @@ export default function RecurringExpenseScreen() {
   }, [forecast, ctrl.selectedMonthKey]);
 
   const monthOptions = useMemo(() => forecast || [], [forecast]);
-  const missedPayments = useMemo(() => buildAttentionItems(forecast), [forecast]);
   const selectedControlMonth =
     controlMonthKey && monthOptions.some((month) => month.key === controlMonthKey)
       ? controlMonthKey
       : thisMonthKey;
+  const selectedSummaryMonth = useMemo(
+    () => monthOptions.find((month) => month.key === selectedControlMonth) || null,
+    [monthOptions, selectedControlMonth],
+  );
+  const unpaidSelectedMonth = useMemo(
+    () =>
+      (selectedSummaryMonth?.items || [])
+        .filter((item) => item.status === "UNPAID")
+        .map((item) => ({ ...item, monthKey: selectedSummaryMonth.key }))
+        .sort((a, b) => dayjs(a.dueDate).valueOf() - dayjs(b.dueDate).valueOf()),
+    [selectedSummaryMonth],
+  );
+  const selectedMonthLabel = selectedSummaryMonth
+    ? dayjs(selectedSummaryMonth.date).format("MMM YYYY")
+    : "";
+  const summaryWindow = selectedSummaryMonth
+    ? {
+        label: selectedMonthLabel,
+        min: selectedSummaryMonth.expectedMin ?? 0,
+        max: selectedSummaryMonth.expectedMax ?? 0,
+        paid: selectedSummaryMonth.paidTotal ?? 0,
+      }
+    : {
+        label: "3 mnd",
+        min: sum3.min ?? 0,
+        max: sum3.max ?? 0,
+        paid: sum3.paid ?? 0,
+      };
 
   useEffect(() => {
     if (!monthOptions.length) return;
@@ -437,7 +451,7 @@ export default function RecurringExpenseScreen() {
       onAction={ctrl.openAdd}
       summaryItems={[
         { label: "Aktive avtaler", value: activeTemplateCount },
-        { label: "Mangler", value: missedPayments.length },
+        { label: "Ubetalt valgt måned", value: unpaidSelectedMonth.length },
         { label: "Neste betalinger", value: enrichedNextBills.length },
         ...(mortgages.length ? [{ label: "Boliglån", value: mortgages.length }] : []),
       ]}
@@ -461,25 +475,25 @@ export default function RecurringExpenseScreen() {
           }}
         >
           <KpiCard
-            label="Forventet 3 mnd"
-            value={`${formatCurrency(sum3.min)} - ${formatCurrency(sum3.max)}`}
+            label={`Forventet ${summaryWindow.label}`}
+            value={`${formatCurrency(summaryWindow.min)} - ${formatCurrency(summaryWindow.max)}`}
             subtext="Basert på valgt filter"
             icon={<ReceiptLongRoundedIcon />}
             tone="primary"
           />
           <KpiCard
-            label="Betalt"
-            value={formatCurrency(sum3.paid ?? 0)}
-            subtext="Siste/valgte periode"
+            label={`Betalt ${summaryWindow.label}`}
+            value={formatCurrency(summaryWindow.paid ?? 0)}
+            subtext="Registrert på valgt regnskapsmåned"
             icon={<PaidRoundedIcon />}
             tone="success"
           />
           <KpiCard
-            label="Mangler betaling"
-            value={missedPayments.length}
-            subtext={missedPayments.length ? "Forfalt og ikke registrert" : "Ingen forfalte betalinger"}
+            label={`Ubetalt ${summaryWindow.label}`}
+            value={unpaidSelectedMonth.length}
+            subtext={unpaidSelectedMonth.length ? "Ikke registrert betalt" : "Alt ok i valgt måned"}
             icon={<WarningAmberRoundedIcon />}
-            tone={missedPayments.length ? "warning" : "success"}
+            tone={unpaidSelectedMonth.length ? "warning" : "success"}
           />
           <KpiCard
             label="Boliglån"
@@ -511,7 +525,8 @@ export default function RecurringExpenseScreen() {
               onOpenMonth={ctrl.openMonth}
             />
             <MissedPaymentsPanel
-              items={missedPayments}
+              items={unpaidSelectedMonth}
+              monthLabel={selectedMonthLabel}
               formatCurrency={formatCurrency}
               onOpenPay={payDialog.openDialog}
               onOpenMonth={ctrl.openMonth}
@@ -646,12 +661,42 @@ export default function RecurringExpenseScreen() {
                             fullWidth={false}
                           />
                         </Stack>
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={{ xs: 0, sm: 1.5 }}
+                          sx={{ mt: 0.5 }}
+                        >
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                size="small"
+                                checked={showChartIncome}
+                                onChange={(event) => setShowChartIncome(event.target.checked)}
+                              />
+                            }
+                            label="Vis inntekt"
+                          />
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                size="small"
+                                checked={showChartExpectedIncome}
+                                onChange={(event) =>
+                                  setShowChartExpectedIncome(event.target.checked)
+                                }
+                              />
+                            }
+                            label="Vis forventet inntekt"
+                          />
+                        </Stack>
                       </Paper>
 
                       <RecurringOverviewCharts
                         forecast={overviewForecast}
                         monthsForTypeSplit={3}
                         showTypeSplit={false}
+                        showActualIncome={showChartIncome}
+                        showExpectedIncome={showChartExpectedIncome}
                         title={
                           overviewRange === "withHistory"
                             ? "Historikk, forventet og betalt"

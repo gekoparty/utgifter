@@ -8,6 +8,26 @@ export default function StatsStrip({ stats, doCompare }) {
 
   const metrics = [
     { label: "Årssum", value: currencyFormatter(stats.currentSum), tone: "primary" },
+    Number.isFinite(stats.incomeSum)
+      ? { label: "Inntekt", value: currencyFormatter(stats.incomeSum), tone: "success" }
+      : null,
+    Number.isFinite(stats.expectedIncomeSum) && stats.expectedIncomeSum > 0
+      ? { label: "Planlagt inntekt", value: currencyFormatter(stats.expectedIncomeSum) }
+      : null,
+    Number.isFinite(stats.netSum)
+      ? {
+          label: "Igjen",
+          value: currencyFormatter(stats.netSum),
+          tone: stats.netSum >= 0 ? "success" : "warning",
+        }
+      : null,
+    Number.isFinite(stats.savingsRate)
+      ? {
+          label: "Sparerate",
+          value: pct(stats.savingsRate),
+          tone: stats.savingsRate >= 0 ? "success" : "warning",
+        }
+      : null,
     Number.isFinite(stats.avgPerActiveMonth)
       ? { label: "Snitt per måned", value: currencyFormatter(stats.avgPerActiveMonth) }
       : null,
@@ -55,6 +75,7 @@ export default function StatsStrip({ stats, doCompare }) {
           xs: "repeat(2, minmax(0, 1fr))",
           sm: "repeat(3, minmax(0, 1fr))",
           md: "repeat(4, minmax(0, 1fr))",
+          xl: "repeat(5, minmax(0, 1fr))",
         },
       }}
     >

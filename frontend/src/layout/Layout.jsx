@@ -20,6 +20,7 @@ export default function Layout() {
   const routeTitles = {
     "/": "Hjem",
     "/expenses": "Utgifter",
+    "/incomes": "Inntekter",
     "/categories": "Kategorier",
     "/shops": "Butikker",
     "/brands": "Merker",

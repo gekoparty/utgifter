@@ -20,6 +20,8 @@ const CHART_COLORS = [
   "#94a3b8",
 ];
 
+const fixedCostValue = (month) => Number(month?.recurringPaid ?? 0);
+
 const monthLabel = (year, month) => {
   const numericYear = Number(year);
   const numericMonth = Number(month);
@@ -50,8 +52,13 @@ const compactCategories = (categories) => {
 
   if (rows.length <= 7) return rows;
 
-  const visible = rows.slice(0, 6);
-  const other = rows.slice(6).reduce(
+  const fixedCosts = rows.find((row) => row.name === "Faste kostnader");
+  const ordinaryRows = fixedCosts
+    ? rows.filter((row) => row.name !== "Faste kostnader")
+    : rows;
+  const visibleLimit = fixedCosts ? 5 : 6;
+  const visible = ordinaryRows.slice(0, visibleLimit);
+  const other = ordinaryRows.slice(visibleLimit).reduce(
     (acc, row) => ({
       name: "Annet",
       value: acc.value + row.value,
@@ -60,7 +67,8 @@ const compactCategories = (categories) => {
     { name: "Annet", value: 0, count: 0 },
   );
 
-  return other.value > 0 ? [...visible, other] : visible;
+  const compacted = other.value > 0 ? [...visible, other] : visible;
+  return fixedCosts ? [...compacted, fixedCosts] : compacted;
 };
 
 export default function CategorySpendChart({
@@ -69,9 +77,35 @@ export default function CategorySpendChart({
   onScopeChange,
   year,
   month,
+  months = [],
+  includeRecurringCosts = false,
+  allTimeRecurringTotal = 0,
 }) {
   const theme = useTheme();
-  const rows = useMemo(() => compactCategories(categories), [categories]);
+  const rows = useMemo(() => {
+    const baseRows = compactCategories(categories);
+    if (!includeRecurringCosts) return baseRows;
+
+    const selectedMonthIndex = Number(month || 0) - 1;
+    const recurringTotal =
+      scope === "all"
+        ? Number(allTimeRecurringTotal || 0)
+        : (months || []).reduce((sum, row) => {
+            if (scope === "month" && Number(row?.monthIndex) !== selectedMonthIndex) return sum;
+            return sum + fixedCostValue(row);
+          }, 0);
+
+    if (recurringTotal <= 0) return baseRows;
+
+    return compactCategories([
+      ...baseRows,
+      {
+        name: "Faste kostnader",
+        value: recurringTotal,
+        count: 0,
+      },
+    ]);
+  }, [allTimeRecurringTotal, categories, includeRecurringCosts, month, months, scope, year]);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
 
   const option = useMemo(

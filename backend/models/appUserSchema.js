@@ -25,6 +25,11 @@ const appUserSchema = new mongoose.Schema(
       default: "user",
       index: true,
     },
+    expectedMonthlyIncome: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );

@@ -1,6 +1,7 @@
 // src/components/NavBar/Consts/NavBarListItems.jsx
 import HomeIcon from "@mui/icons-material/Home";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import PaymentsIcon from "@mui/icons-material/Payments";
 import CategoryIcon from "@mui/icons-material/Category";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import StoreIcon from "@mui/icons-material/Store";
@@ -15,6 +16,7 @@ export const mainNavbarItems = [
   { id: 0, icon: <HomeIcon />, label: "Hjem", route: "/", section: "Oversikt" },
 
   { id: 1, icon: <ReceiptLongIcon />, label: "Utgifter", route: "/expenses", section: "Oversikt" },
+  { id: 11, icon: <PaymentsIcon />, label: "Inntekter", route: "/incomes", section: "Oversikt" },
   {
     id: 7,
     icon: <AccountBalanceIcon />,

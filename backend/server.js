@@ -17,6 +17,7 @@ import locationsRouter from "./routes/locationsRouter.js";
 import brandsRouter from "./routes/brandsRouter.js";
 import productsRouter from "./routes/productsRouter.js";
 import expensesRouter from "./routes/expensesRouter.js";
+import incomesRouter from "./routes/incomesRouter.js";
 import variantsRouter from "./routes/variantsRouter.js";
 import statsRouter from "./routes/statsRouter.js";
 import receiptsRouter from "./routes/receiptsRouter.js";
@@ -136,6 +137,7 @@ async function startServer() {
     app.use("/api/products", productsRouter);
     app.use("/api/variants", variantsRouter);
     app.use("/api/expenses", expensesRouter);
+    app.use("/api/incomes", incomesRouter);
     app.use("/api/receipts", receiptsRouter);
     app.use("/api/stats", statsRouter);
     app.use("/api/recurring-payments", recurringPaymentsRouter);

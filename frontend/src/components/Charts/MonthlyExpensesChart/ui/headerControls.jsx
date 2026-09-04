@@ -22,6 +22,8 @@ export default function HeaderControls({
   previousYearKey,
   showExtraCharts,
   setShowExtraCharts,
+  showRecurringCosts,
+  setShowRecurringCosts,
   hideTitle = false,
 }) {
   return (
@@ -88,6 +90,26 @@ export default function HeaderControls({
             />
           }
           label="Ekstra grafer"
+          sx={{
+            color: "text.secondary",
+            m: 0,
+            px: 1.25,
+            py: 0.5,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: 2,
+          }}
+        />
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={showRecurringCosts}
+              onChange={(event) => setShowRecurringCosts(event.target.checked)}
+              color="primary"
+            />
+          }
+          label="Faste kostnader"
           sx={{
             color: "text.secondary",
             m: 0,

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Box, LinearProgress, Stack, TextField, Typography, useTheme } from "@mui/material";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
@@ -93,8 +93,21 @@ const formatPeriodLabel = (summary, period, selectedMonth) => {
 
 const buildDashboardSeries = (summary) => {
   const timeline = Array.isArray(summary?.timeline) ? summary.timeline : [];
-  return timeline.map((item) => {
-    const key = String(item.key || "");
+  const incomeByKey = new Map(
+    (summary?.income?.timeline || []).map((item) => [
+      String(item.key || ""),
+      Number(item.value || 0),
+    ]),
+  );
+  const keys = [...new Set([...timeline.map((item) => String(item.key || "")), ...incomeByKey.keys()])]
+    .filter(Boolean)
+    .sort();
+
+  const expenseByKey = new Map(
+    timeline.map((item) => [String(item.key || ""), Number(item.value || 0)]),
+  );
+
+  return keys.map((key) => {
     const isMonth = /^\d{4}-\d{2}$/.test(key);
     const date = isMonth
       ? formatMonthKey(key)
@@ -103,7 +116,9 @@ const buildDashboardSeries = (summary) => {
           month: "short",
         });
 
-    return { key, date, value: Number(item.value || 0) };
+    const expenses = Number(expenseByKey.get(key) || 0);
+    const income = Number(incomeByKey.get(key) || 0);
+    return { key, date, expenses, income, net: income - expenses };
   });
 };
 
@@ -378,6 +393,16 @@ export default function ExpenseDashboard() {
   const brandData = summary?.brands ?? [];
   const locationData = summary?.locations ?? [];
   const priceChanges = summary?.priceChanges ?? { increases: [], decreases: [] };
+  const income = summary?.income ?? {
+    totals: { total: 0, average: 0, count: 0 },
+    net: 0,
+    savingsRate: null,
+  };
+  const incomeTotal = Number(income?.totals?.total || 0);
+  const netAmount = Number(income?.net || 0);
+  const expectedIncome = Number.isFinite(Number(income?.expected))
+    ? Number(income.expected)
+    : null;
   const timeData = useMemo(
     () => buildDashboardSeries(summary),
     [summary],
@@ -469,18 +494,30 @@ export default function ExpenseDashboard() {
         />
 
         <KpiCard
-          label="Gjennomsnitt"
-          value={NOK.format(stats.average)}
-          subtext={`Per utgift · ${periodLabel}`}
-          icon={<TrendingUpIcon fontSize="small" />}
+          label="Inntekt"
+          value={NOK.format(incomeTotal)}
+          subtext={
+            expectedIncome != null && expectedIncome > 0
+              ? `Plan ${NOK.format(expectedIncome)} · ${periodLabel}`
+              : income?.totals?.count
+                ? `${income.totals.count} registreringer · ${periodLabel}`
+                : periodLabel
+          }
+          icon={<PaymentsRoundedIcon fontSize="small" />}
+          tone="success"
           sx={kpiSx}
         />
 
         <KpiCard
-          label="Antall transaksjoner"
-          value={stats.count}
-          subtext={periodLabel}
-          icon={<ShoppingCartIcon fontSize="small" />}
+          label="Igjen etter utgifter"
+          value={NOK.format(netAmount)}
+          subtext={
+            income?.savingsRate == null
+              ? "Mangler inntekt i valgt periode"
+              : `${formatPercent(income.savingsRate)} av inntekt`
+          }
+          icon={<TrendingUpIcon fontSize="small" />}
+          tone={netAmount >= 0 ? "success" : "error"}
           sx={kpiSx}
         />
 
@@ -512,8 +549,8 @@ export default function ExpenseDashboard() {
         />
 
         <SectionCard
-          title="Utgifter over tid"
-          subtitle="Daglig eller månedlig utvikling i valgt periode."
+          title="Inntekt mot utgifter"
+          subtitle="Viser hva som kom inn, hva som gikk ut, og netto per periode."
         >
           {timeData.length ? (
             <Box sx={{ height: 220 }}>
@@ -551,9 +588,20 @@ export default function ExpenseDashboard() {
 
                   <Area
                     type="monotone"
-                    dataKey="value"
+                    dataKey="expenses"
+                    name="Utgifter"
                     stroke={theme.palette.primary.main}
                     fill="url(#expenseGradient)"
+                    strokeWidth={2.5}
+                    dot={{ r: 2.5 }}
+                    activeDot={{ r: 5 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="income"
+                    name="Inntekt"
+                    stroke={theme.palette.success.main}
+                    fill={theme.palette.mode === "dark" ? "rgba(34,197,94,0.14)" : "rgba(34,197,94,0.12)"}
                     strokeWidth={2.5}
                     dot={{ r: 2.5 }}
                     activeDot={{ r: 5 }}
@@ -564,7 +612,7 @@ export default function ExpenseDashboard() {
           ) : (
             <Box sx={{ py: 6, textAlign: "center" }}>
               <Typography variant="body2" color="text.secondary">
-                Ingen utgifter i valgt periode.
+                Ingen inntekt eller utgifter i valgt periode.
               </Typography>
             </Box>
           )}

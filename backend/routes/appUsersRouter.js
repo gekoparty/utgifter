@@ -4,6 +4,7 @@ import AppUser from "../models/appUserSchema.js";
 import Brand from "../models/brandSchema.js";
 import Category from "../models/categorySchema.js";
 import Expense from "../models/expenseSchema.js";
+import Income from "../models/incomeSchema.js";
 import Location from "../models/locationSchema.js";
 import Product from "../models/productSchema.js";
 import ReceiptMatchAlias from "../models/receiptMatchAliasSchema.js";
@@ -20,6 +21,7 @@ const OWNED_MODELS = [
   ["brands", Brand],
   ["categories", Category],
   ["expenses", Expense],
+  ["incomes", Income],
   ["locations", Location],
   ["products", Product],
   ["receiptAliases", ReceiptMatchAlias],
@@ -36,6 +38,7 @@ const toSafeUser = (user, dataSummary = null) => ({
   email: user.email,
   name: user.name,
   role: user.role,
+  expectedMonthlyIncome: Number(user.expectedMonthlyIncome || 0),
   dataSummary,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
@@ -95,17 +98,36 @@ appUsersRouter.get("/me", (req, res) => {
 
 appUsersRouter.patch("/me", async (req, res, next) => {
   try {
-    const name = String(req.body?.name ?? "").trim();
-    if (!name) return res.status(400).json({ message: "Navn er påkrevd." });
+    const updates = {};
+
+    if (typeof req.body?.name === "string") {
+      const name = req.body.name.trim();
+      if (!name) return res.status(400).json({ message: "Navn er påkrevd." });
+      updates.name = name;
+    }
+
+    if (req.body?.expectedMonthlyIncome != null) {
+      const expectedMonthlyIncome = Number(req.body.expectedMonthlyIncome);
+      if (!Number.isFinite(expectedMonthlyIncome) || expectedMonthlyIncome < 0) {
+        return res.status(400).json({ message: "Forventet månedsinntekt er ugyldig." });
+      }
+      updates.expectedMonthlyIncome = expectedMonthlyIncome;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ message: "Ingen endringer å lagre." });
+    }
 
     const user = await AppUser.findByIdAndUpdate(
       req.appUser.id,
-      { $set: { name } },
+      { $set: updates },
       { new: true, runValidators: true },
     ).lean();
 
     if (!user) return res.status(404).json({ message: "Bruker finnes ikke." });
-    await updateBetterAuthUserName({ betterAuthUserId: user.betterAuthUserId, name });
+    if (updates.name != null) {
+      await updateBetterAuthUserName({ betterAuthUserId: user.betterAuthUserId, name: updates.name });
+    }
 
     res.json({ user: toSafeUser(user) });
   } catch (error) {

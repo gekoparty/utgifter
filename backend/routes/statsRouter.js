@@ -2,8 +2,20 @@
 import express from "express";
 import mongoose from "mongoose";
 import Expense from "../models/expenseSchema.js";
+import Income from "../models/incomeSchema.js";
+import RecurringExpense from "../models/recurringExpenseSchema.js";
+import RecurringPayment from "../models/recurringPaymentSchema.js";
+import RecurringTermsHistory from "../models/recurringTermsHistorySchema.js";
 import { convertToUTC, TIME_ZONE } from "../utils/dateUtils.js";
 import { ownedFilter } from "../middleware/dataOwnership.js";
+import { buildSummary } from "./recurring/summary.js";
+import {
+  addMonths,
+  buildRecurringTermsIndex,
+  monthStart,
+  round2,
+  yyyymmKey,
+} from "../services/recurring/scheduleService.js";
 
 const router = express.Router();
 
@@ -27,6 +39,19 @@ const osloDayRange = (dateKey) => convertToUTC(dateKey);
 
 const yearOfActualDate = { $year: { date: "$actualDate", timezone: TIME_ZONE } };
 const monthOfActualDate = { $month: { date: "$actualDate", timezone: TIME_ZONE } };
+const incomeDateStage = { $addFields: { actualDate: "$incomeDate" } };
+const incomeDateNotNull = { $match: { actualDate: { $ne: null } } };
+const recurringPaidMatch = {
+  amount: { $gt: 0 },
+  $or: [
+    { kind: "EXTRA" },
+    { status: "EXTRA" },
+    {
+      kind: { $ne: "EXTRA" },
+      status: { $in: ["PAID", "PARTIAL"] },
+    },
+  ],
+};
 
 const MONTH_KEY_RE = /^\d{4}-\d{2}$/;
 
@@ -40,6 +65,61 @@ const addMonthsToMonthKey = (monthKey, months) => {
   const [year, month] = monthKey.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1 + months, 1));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+
+const buildRecurringMonthlyOverlay = async (req, year) => {
+  const numericYear = Number(year);
+  if (!Number.isFinite(numericYear)) return new Map();
+
+  const timelineStart = monthStart(new Date(numericYear, 0, 1));
+  const historyFromKey = yyyymmKey(addMonths(timelineStart, -48));
+  const toKey = `${numericYear}-12`;
+
+  const recurringExpenses = await RecurringExpense.find(
+    ownedFilter(req, { isActive: true }),
+  ).lean();
+
+  const recurringIds = recurringExpenses.map((expense) => expense._id);
+  const [paymentsInRange, termsRows] = await Promise.all([
+    RecurringPayment.find({
+      ...ownedFilter(req),
+      ...(recurringIds.length ? { recurringExpenseId: { $in: recurringIds } } : {}),
+      periodKey: { $gte: historyFromKey, $lte: toKey },
+    }).lean(),
+    recurringIds.length
+      ? RecurringTermsHistory.find({
+          ...ownedFilter(req),
+          recurringExpenseId: { $in: recurringIds },
+        })
+          .sort({ recurringExpenseId: 1, fromDate: 1 })
+          .lean()
+      : [],
+  ]);
+
+  const summary = buildSummary({
+    expenses: recurringExpenses,
+    paymentsInRange,
+    recurringTermsIndex: buildRecurringTermsIndex(termsRows),
+    filter: "ALL",
+    months: 12,
+    timelineStart,
+    realNow: new Date(),
+  });
+  const overlay = new Map();
+
+  for (const month of summary.forecast || []) {
+    const missing = (month.items || [])
+      .filter((item) => item.status === "UNPAID")
+      .reduce((sum, item) => sum + Number(item.expected?.max ?? item.expected?.fixed ?? 0), 0);
+
+    overlay.set(month.key, {
+      expected: round2(Number(month.expectedMax || 0)),
+      paid: round2(Number(month.paidTotal || 0)),
+      missing: round2(missing),
+    });
+  }
+
+  return overlay;
 };
 
 const lastDateOfMonthKey = (monthKey) => {
@@ -203,6 +283,11 @@ router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, nex
 
     const dateMatch =
       from && to ? [{ $match: { actualDate: { $gte: from, $lte: to } } }] : [];
+    const expectedMonthlyIncome = Number(req.appUser?.expectedMonthlyIncome || 0);
+    const expectedMonths =
+      period === "month" ? 1 : period === "quarter" ? 3 : period === "year" ? 12 : null;
+    const expectedIncome =
+      expectedMonths == null ? null : expectedMonthlyIncome * expectedMonths;
     const timelineGroup =
       period === "year" || period === "all"
         ? {
@@ -214,7 +299,7 @@ router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, nex
             label: "$_id",
           };
 
-    const [[result], [priceChanges = { increases: [], decreases: [] }]] = await Promise.all([
+    const [[result], [incomeResult = {}], [priceChanges = { increases: [], decreases: [] }]] = await Promise.all([
       Expense.aggregate([
         { $match: ownedFilter(req) },
         actualDateStage,
@@ -377,8 +462,58 @@ router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, nex
           },
         },
       ]),
+      Income.aggregate([
+        { $match: ownedFilter(req) },
+        incomeDateStage,
+        incomeDateNotNull,
+        ...dateMatch,
+        {
+          $facet: {
+            totals: [
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: "$amount" },
+                  average: { $avg: "$amount" },
+                  count: { $sum: 1 },
+                },
+              },
+              { $project: { _id: 0, total: 1, average: 1, count: 1 } },
+            ],
+            categories: [
+              {
+                $group: {
+                  _id: { $ifNull: ["$category", "Annet"] },
+                  value: { $sum: "$amount" },
+                  count: { $sum: 1 },
+                },
+              },
+              { $sort: { value: -1 } },
+              { $project: { _id: 0, name: "$_id", value: 1, count: 1 } },
+            ],
+            timeline: [
+              {
+                $group: {
+                  _id: {
+                    $dateToString: {
+                      format: timelineGroup.format,
+                      date: "$actualDate",
+                      timezone: TIME_ZONE,
+                    },
+                  },
+                  value: { $sum: "$amount" },
+                },
+              },
+              { $project: { _id: 0, key: "$_id", value: 1 } },
+              { $sort: { key: 1 } },
+            ],
+          },
+        },
+      ]),
       Expense.aggregate(buildPriceChangesPipeline({ req, from, to })),
     ]);
+    const expenseTotal = Number(result?.totals?.[0]?.total || 0);
+    const incomeTotal = Number(incomeResult?.totals?.[0]?.total || 0);
 
     res.json({
       period,
@@ -386,6 +521,16 @@ router.get(["/expense-dashboard", "/expense-dashboard-v2"], async (req, res, nex
       from: from ? from.toISOString() : null,
       to: to ? to.toISOString() : null,
       totals: result?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
+      income: {
+        totals: incomeResult?.totals?.[0] ?? { total: 0, average: 0, count: 0 },
+        categories: incomeResult?.categories ?? [],
+        timeline: incomeResult?.timeline ?? [],
+        net: incomeTotal - expenseTotal,
+        savingsRate: incomeTotal > 0 ? ((incomeTotal - expenseTotal) / incomeTotal) * 100 : null,
+        expectedMonthly: expectedMonthlyIncome,
+        expected: expectedIncome,
+        expectedNet: expectedIncome == null ? null : expectedIncome - expenseTotal,
+      },
       highest: result?.highest?.[0] ?? { value: 0, name: "Ingen" },
       shops: result?.shops ?? [],
       brands: result?.brands ?? [],
@@ -411,21 +556,44 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       : "year";
 
     // 1) Find available years
-    const yearsAgg = await Expense.aggregate([
-      { $match: ownedFilter(req) },
-      actualDateStage,
-      actualDateNotNull,
-      { $group: { _id: yearOfActualDate } },
-      { $project: { _id: 0, year: { $toString: "$_id" } } },
-      { $sort: { year: -1 } },
+    const [expenseYearsAgg, incomeYearsAgg, recurringYearsAgg] = await Promise.all([
+      Expense.aggregate([
+        { $match: ownedFilter(req) },
+        actualDateStage,
+        actualDateNotNull,
+        { $group: { _id: yearOfActualDate } },
+        { $project: { _id: 0, year: { $toString: "$_id" } } },
+      ]),
+      Income.aggregate([
+        { $match: ownedFilter(req) },
+        incomeDateStage,
+        incomeDateNotNull,
+        { $group: { _id: yearOfActualDate } },
+        { $project: { _id: 0, year: { $toString: "$_id" } } },
+      ]),
+      RecurringPayment.aggregate([
+        { $match: ownedFilter(req, recurringPaidMatch) },
+        {
+          $project: {
+            _id: 0,
+            year: { $substrBytes: ["$periodKey", 0, 4] },
+          },
+        },
+        { $match: { year: /^\d{4}$/ } },
+        { $group: { _id: "$year" } },
+        { $project: { _id: 0, year: "$_id" } },
+      ]),
     ]);
 
-    const years = yearsAgg.map((x) => x.year);
+    const years = [...new Set([...expenseYearsAgg, ...incomeYearsAgg, ...recurringYearsAgg].map((x) => x.year))]
+      .filter(Boolean)
+      .sort((a, b) => Number(b) - Number(a));
     if (!years.length) {
       return res.json({ years: [], year: null, compareYear: null, months: [], categories: [], stats: null });
     }
 
     const year = requestedYear && years.includes(requestedYear) ? requestedYear : years[0];
+    const expectedMonthlyIncome = Number(req.appUser?.expectedMonthlyIncome || 0);
     const candidateCompareYear = String(Number(year) - 1);
     const doCompare = compare && years.includes(candidateCompareYear);
     const compareYear = doCompare ? candidateCompareYear : null;
@@ -433,32 +601,75 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
     // 2) Pull month totals (only year + optional compareYear)
     const matchYears = doCompare ? [Number(year), Number(compareYear)] : [Number(year)];
 
-    const monthTotals = await Expense.aggregate([
-      { $match: ownedFilter(req) },
-      actualDateStage,
-      actualDateNotNull,
-      {
-        $addFields: {
-          y: yearOfActualDate,
-          m: monthOfActualDate,
-          amount: { $ifNull: ["$finalPrice", "$price"] },
+    const [monthTotals, incomeMonthTotals, recurringOverlay, [recurringAllTime = {}]] = await Promise.all([
+      Expense.aggregate([
+        { $match: ownedFilter(req) },
+        actualDateStage,
+        actualDateNotNull,
+        {
+          $addFields: {
+            y: yearOfActualDate,
+            m: monthOfActualDate,
+            amount: { $ifNull: ["$finalPrice", "$price"] },
+          },
         },
-      },
-      { $match: { y: { $in: matchYears } } },
-      {
-        $group: {
-          _id: { y: "$y", m: "$m" },
-          total: { $sum: "$amount" },
+        { $match: { y: { $in: matchYears } } },
+        {
+          $group: {
+            _id: { y: "$y", m: "$m" },
+            total: { $sum: "$amount" },
+          },
         },
-      },
-      {
-        $project: {
-          _id: 0,
-          y: "$_id.y",
-          m: "$_id.m",
-          total: 1,
+        {
+          $project: {
+            _id: 0,
+            y: "$_id.y",
+            m: "$_id.m",
+            total: 1,
+          },
         },
-      },
+      ]),
+      Income.aggregate([
+        { $match: ownedFilter(req) },
+        incomeDateStage,
+        incomeDateNotNull,
+        {
+          $addFields: {
+            y: yearOfActualDate,
+            m: monthOfActualDate,
+            amount: "$amount",
+          },
+        },
+        { $match: { y: { $in: matchYears } } },
+        {
+          $group: {
+            _id: { y: "$y", m: "$m" },
+            total: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            y: "$_id.y",
+            m: "$_id.m",
+            total: 1,
+            count: 1,
+          },
+        },
+      ]),
+      buildRecurringMonthlyOverlay(req, year),
+      RecurringPayment.aggregate([
+        { $match: ownedFilter(req, recurringPaidMatch) },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $project: { _id: 0, total: 1, count: 1 } },
+      ]),
     ]);
 
     const requestedCategoryMonth = Number(req.query.categoryMonth);
@@ -633,6 +844,14 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       totalsMap.set(`${r.y}-${mm}`, Number(r.total || 0));
     }
 
+    const incomeTotalsMap = new Map();
+    const incomeCountsMap = new Map();
+    for (const r of incomeMonthTotals) {
+      const mm = String(r.m).padStart(2, "0");
+      incomeTotalsMap.set(`${r.y}-${mm}`, Number(r.total || 0));
+      incomeCountsMap.set(`${r.y}-${mm}`, Number(r.count || 0));
+    }
+
     // 3) Generate 12 months
     const monthShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -642,6 +861,9 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
 
       const current = totalsMap.get(`${year}-${mm}`) || 0;
       const previous = doCompare ? totalsMap.get(`${compareYear}-${mm}`) || 0 : null;
+      const income = incomeTotalsMap.get(`${year}-${mm}`) || 0;
+      const previousIncome = doCompare ? incomeTotalsMap.get(`${compareYear}-${mm}`) || 0 : null;
+      const recurring = recurringOverlay.get(`${year}-${mm}`) || { expected: 0, paid: 0 };
       const yoyPct = doCompare && previous && previous > 0 ? ((current - previous) / previous) * 100 : null;
 
       months.push({
@@ -649,6 +871,15 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
         month: monthShort[i],
         current,
         previous,
+        income,
+        previousIncome,
+        expectedIncome: expectedMonthlyIncome,
+        incomeCount: incomeCountsMap.get(`${year}-${mm}`) || 0,
+        net: income - current,
+        expectedNet: expectedMonthlyIncome - current,
+        recurringExpected: recurring.expected || 0,
+        recurringPaid: recurring.paid || 0,
+        recurringMissing: recurring.missing || 0,
         yoyPct,
       });
     }
@@ -661,6 +892,16 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
 
     const currentSum = sum(currentVals);
     const previousSum = doCompare ? sum(prevVals) : null;
+    const incomeVals = months.map((x) => x.income || 0);
+    const incomeSum = sum(incomeVals);
+    const netSum = incomeSum - currentSum;
+    const savingsRate = incomeSum > 0 ? (netSum / incomeSum) * 100 : null;
+    const expectedIncomeSum = expectedMonthlyIncome * 12;
+    const expectedNetSum = expectedIncomeSum - currentSum;
+    const recurringExpectedSum = sum(months.map((x) => x.recurringExpected || 0));
+    const recurringPaidSum = sum(months.map((x) => x.recurringPaid || 0));
+    const recurringPaidAllTime = Number(recurringAllTime.total || 0);
+    const recurringPaidAllTimeCount = Number(recurringAllTime.count || 0);
 
     const activeMonths = currentVals.filter((v) => v > 0).length;
     const avgPerActiveMonth = activeMonths ? currentSum / activeMonths : null;
@@ -731,6 +972,16 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       stats: {
         currentSum,
         previousSum,
+        incomeSum,
+        netSum,
+        savingsRate,
+        expectedMonthlyIncome,
+        expectedIncomeSum,
+        expectedNetSum,
+        recurringExpectedSum,
+        recurringPaidSum,
+        recurringPaidAllTime,
+        recurringPaidAllTimeCount,
         yoyTotalPct,
         avgPerActiveMonth,
         medianPerMonth,

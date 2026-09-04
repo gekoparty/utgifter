@@ -2,6 +2,7 @@ import express from "express";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import Income from "../../models/incomeSchema.js";
 import {
   buildPaymentHistoryIndex,
   estimateExpectedExpense,
@@ -26,9 +27,16 @@ import {
 
 const router = express.Router();
 
-const buildSummary = ({
+const monthEndExclusive = (monthKey) => {
+  const start = monthStart(new Date(`${monthKey}-01T00:00:00`));
+  return addMonths(start, 1);
+};
+
+export const buildSummary = ({
   expenses,
   paymentsInRange,
+  incomesInRange = [],
+  expectedMonthlyIncome = 0,
   recurringTermsIndex = new Map(),
   filter = "ALL",
   months = 12,
@@ -45,6 +53,14 @@ const buildSummary = ({
   const start = monthStart(timelineStart);
   const today = new Date(realNow);
   const paymentHistoryIndex = buildPaymentHistoryIndex(paymentsInRange);
+  const incomeByMonth = new Map();
+
+  for (const income of incomesInRange) {
+    const date = income?.incomeDate ? new Date(income.incomeDate) : null;
+    if (!date || Number.isNaN(date.getTime())) continue;
+    const key = yyyymmKey(date);
+    incomeByMonth.set(key, round2((incomeByMonth.get(key) || 0) + Number(income.amount || 0)));
+  }
 
   // MAIN payment by expense+month
   const paymentIndex = new Map();
@@ -105,8 +121,14 @@ const buildSummary = ({
       expectedMin: 0,
       expectedMax: 0,
       paidTotal: 0,
+      incomeActual: 0,
+      incomeExpected: round2(Number(expectedMonthlyIncome || 0)),
     };
   });
+
+  for (const b of monthBuckets) {
+    b.incomeActual = round2(incomeByMonth.get(b.key) || 0);
+  }
 
   const mortgageBalanceById = new Map();
 
@@ -394,6 +416,10 @@ const buildSummary = ({
     expectedMin: b.expectedMin,
     expectedMax: b.expectedMax,
     paidTotal: b.paidTotal,
+    incomeActual: b.incomeActual,
+    incomeExpected: b.incomeExpected,
+    netActual: round2(b.incomeActual - b.paidTotal),
+    netExpected: round2(b.incomeExpected - b.expectedMax),
     items: b.items,
   }));
 
@@ -424,6 +450,7 @@ router.get("/summary", async (req, res) => {
 
     const toKey = yyyymmKey(addMonths(timelineStart, totalMonths - 1));
     const histFromKey = yyyymmKey(addMonths(timelineStart, -36));
+    const timelineEndExclusive = monthEndExclusive(toKey);
 
     const includeInactive = String(req.query.includeInactive || "false") === "true";
     const q = ownedFilter(req, includeInactive ? {} : { isActive: true });
@@ -434,11 +461,22 @@ router.get("/summary", async (req, res) => {
 
     const expIds = expenses.map((e) => e._id);
 
-    const paymentsInRange = await RecurringPayment.find({
-      ...ownedFilter(req),
-      ...(expIds.length ? { recurringExpenseId: { $in: expIds } } : {}),
-      periodKey: { $gte: histFromKey, $lte: toKey },
-    }).lean();
+    const [paymentsInRange, incomesInRange] = await Promise.all([
+      RecurringPayment.find({
+        ...ownedFilter(req),
+        ...(expIds.length ? { recurringExpenseId: { $in: expIds } } : {}),
+        periodKey: { $gte: histFromKey, $lte: toKey },
+      }).lean(),
+      Income.find({
+        ...ownedFilter(req),
+        incomeDate: {
+          $gte: timelineStart,
+          $lt: timelineEndExclusive,
+        },
+      })
+        .select("amount incomeDate")
+        .lean(),
+    ]);
 
     const termsRows = expIds.length
       ? await RecurringTermsHistory.find({
@@ -454,6 +492,8 @@ router.get("/summary", async (req, res) => {
     const summary = buildSummary({
       expenses,
       paymentsInRange,
+      incomesInRange,
+      expectedMonthlyIncome: Number(req.appUser?.expectedMonthlyIncome || 0),
       recurringTermsIndex,
       filter,
       months: totalMonths,
