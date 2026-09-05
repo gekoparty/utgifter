@@ -16,7 +16,7 @@ import SpendBreakdownPanel from "./ui/SpendBreakdownPanel";
 import MonthlyInsightCards from "./ui/MonthlyInsightCards";
 import StatsEmptyState from "./ui/StatsEmptyState";
 
-export default function MonthlyExpensesChart({ onMonthClick }) {
+export default function MonthlyExpensesChart({ onDrilldown, onMonthClick }) {
   const theme = useTheme();
   const { preferences, setPreference } = useAppPreferences();
 
@@ -83,12 +83,21 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
         const mm = String(event.dataIndex + 1).padStart(2, "0");
         const yyyyMm = `${year}-${mm}`;
 
-        if (typeof onMonthClick === "function") {
-          onMonthClick(yyyyMm);
+        if (typeof onDrilldown === "function") {
+          onDrilldown({
+            kind: String(event?.seriesName || "").startsWith("Faste")
+              ? "fixed-costs"
+              : "expenses",
+            month: yyyyMm,
+            seriesName: event?.seriesName || "",
+          });
+          return;
         }
+
+        if (typeof onMonthClick === "function") onMonthClick(yyyyMm);
       },
     }),
-    [onMonthClick, year],
+    [onDrilldown, onMonthClick, year],
   );
 
   const { elementRef: chartBoxRef } = useEChart({
@@ -177,18 +186,16 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
               : `Utgifter per måned i ${year}`
           }
           contentSx={{ height: "100%" }}
+          compact
         >
           <Box
             ref={chartBoxRef}
             sx={{
               height: { xs: 320, md: 420 },
               minWidth: 0,
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 2,
               overflow: "hidden",
-              bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
-              p: { xs: 0.5, md: 1 },
+              p: { xs: 0, md: 0.5 },
+              cursor: onDrilldown || onMonthClick ? "pointer" : "default",
             }}
           />
         </SectionCard>
@@ -199,6 +206,7 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
           onScopeChange={setCategoryScope}
           year={year}
           month={categoryMonth}
+          onDrilldown={onDrilldown}
         />
       </Box>
 
@@ -224,6 +232,9 @@ export default function MonthlyExpensesChart({ onMonthClick }) {
             months={months}
             includeRecurringCosts={showRecurringCosts}
             allTimeRecurringTotal={stats?.recurringPaidAllTime ?? 0}
+            onCategoryClick={({ name }) =>
+              onDrilldown?.({ kind: name === "Faste kostnader" ? "fixed-costs" : "category", name, scope: categoryScope, year, month: categoryMonth })
+            }
           />
           <CategoryTrendChart
             rows={categoryMonthlyTrend}

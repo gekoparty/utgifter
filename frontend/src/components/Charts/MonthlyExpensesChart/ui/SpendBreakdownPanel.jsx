@@ -39,6 +39,7 @@ export default function SpendBreakdownPanel({
   onScopeChange,
   year,
   month,
+  onDrilldown,
 }) {
   const [type, setType] = useState("categories");
   const config = TYPE_CONFIG[type] ?? TYPE_CONFIG.categories;
@@ -59,6 +60,7 @@ export default function SpendBreakdownPanel({
         </Typography>
       }
       contentSx={{ height: "100%" }}
+      compact
     >
       <Stack spacing={1.25}>
         <SegmentedControl
@@ -100,6 +102,11 @@ export default function SpendBreakdownPanel({
           maxRows={7}
           formatValue={currencyFormatter}
           emptyText="Ingen utgifter i denne perioden."
+          onRowClick={
+            onDrilldown
+              ? (row) => onDrilldown({ type, row, scope, year, month })
+              : undefined
+          }
         />
 
         {rows.length < 3 ? (
@@ -107,7 +114,9 @@ export default function SpendBreakdownPanel({
             sx={{
               p: 1,
               borderRadius: 1.5,
-              bgcolor: "action.selected",
+              bgcolor: "transparent",
+              border: "1px dashed",
+              borderColor: "divider",
               color: "text.secondary",
             }}
           >

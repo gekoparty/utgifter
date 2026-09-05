@@ -7,12 +7,26 @@ export default function StatsStrip({ stats, doCompare }) {
   if (!stats) return null;
 
   const metrics = [
-    { label: "Årssum", value: currencyFormatter(stats.currentSum), tone: "primary" },
+    {
+      label: "Årssum",
+      value: currencyFormatter(stats.currentSum),
+      subtext: "Dette er faktisk registrerte kjøp",
+      tone: "primary",
+    },
     Number.isFinite(stats.incomeSum)
-      ? { label: "Inntekt", value: currencyFormatter(stats.incomeSum), tone: "success" }
+      ? {
+          label: "Inntekt",
+          value: currencyFormatter(stats.incomeSum),
+          subtext: "Dette er faktisk registrert inntekt",
+          tone: "success",
+        }
       : null,
     Number.isFinite(stats.expectedIncomeSum) && stats.expectedIncomeSum > 0
-      ? { label: "Planlagt inntekt", value: currencyFormatter(stats.expectedIncomeSum) }
+      ? {
+          label: "Planlagt inntekt",
+          value: currencyFormatter(stats.expectedIncomeSum),
+          subtext: "Dette er forventet fremover",
+        }
       : null,
     Number.isFinite(stats.netSum)
       ? {
@@ -61,7 +75,7 @@ export default function StatsStrip({ stats, doCompare }) {
         }
       : null,
     Number.isFinite(stats.runRate)
-      ? { label: "Årstakt", value: currencyFormatter(stats.runRate) }
+      ? { label: "Årstakt", value: currencyFormatter(stats.runRate), subtext: "Estimert fra aktive måneder" }
       : null,
   ].filter(Boolean);
 
@@ -84,6 +98,7 @@ export default function StatsStrip({ stats, doCompare }) {
           key={metric.label}
           label={metric.label}
           value={metric.value}
+          subtext={metric.subtext}
           tone={metric.tone}
         />
       ))}

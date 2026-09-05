@@ -1,6 +1,5 @@
 import React from "react";
 import { Box, Paper, Stack, Typography } from "@mui/material";
-import { alpha } from "@mui/material/styles";
 
 const toneColor = (tone) => {
   if (tone === "success") return "success.main";
@@ -43,16 +42,9 @@ export default function KpiCard({
         color: isPrimary ? "primary.contrastText" : "text.primary",
         boxShadow: isPrimary
           ? theme.palette.mode === "dark"
-            ? "0 16px 34px rgba(79,140,255,0.22)"
-            : "0 16px 30px rgba(36,87,214,0.16)"
+            ? "0 10px 24px rgba(79,140,255,0.16)"
+            : "0 10px 22px rgba(36,87,214,0.12)"
           : "none",
-        transition: theme.transitions.create(["transform", "box-shadow", "border-color"], {
-          duration: theme.transitions.duration.short,
-        }),
-        "&:hover": {
-          transform: "translateY(-1px)",
-          borderColor: isPrimary ? "transparent" : alpha(theme.palette.primary.main, 0.34),
-        },
         ...sx,
       })}
     >

@@ -10,6 +10,7 @@ import {
 import { alpha, useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import { formatCurrency } from "../utils/format";
+import DecisionLabel from "../../../commons/DataDisplay/DecisionLabel";
 
 const StatList = ({ rows }) => (
   <Box sx={{ mt: 0.8, maxHeight: 110, overflow: "auto", pr: 1, display: "grid", gap: 0.35 }}>
@@ -71,6 +72,20 @@ const recencyLabel = (date) => {
 const isStalePrice = (date) => {
   if (!date || !dayjs(date).isValid()) return true;
   return dayjs().diff(dayjs(date), "day") > 365;
+};
+
+const priceDecisionLabel = (date, isBest) => {
+  if (!isBest) return null;
+  if (isStalePrice(date)) {
+    return {
+      tone: "warning",
+      label: "Billigst, men prisen er gammel",
+    };
+  }
+  return {
+    tone: "success",
+    label: "Billigst basert på fersk pris",
+  };
 };
 
 const VariantShopMatrix = ({ matrix }) => {
@@ -185,6 +200,7 @@ const VariantShopMatrix = ({ matrix }) => {
                   const isBest =
                     bestTarget?.shopName === cell.shopName &&
                     Number.isFinite(row.bestRecentCell ? cell.latest : cell.avg);
+                  const decision = priceDecisionLabel(cell.date, isBest);
                   const tone = priceTone({
                     value: cell.latest,
                     min: matrix.minPrice,
@@ -216,6 +232,13 @@ const VariantShopMatrix = ({ matrix }) => {
                             {recencyLabel(cell.date)}
                             {isBest ? (row.bestRecentCell ? " · billigst nå" : " · billigst historisk") : ""}
                           </Typography>
+                          {decision ? (
+                            <DecisionLabel
+                              tone={decision.tone}
+                              label={decision.label}
+                              sx={{ mt: 0.6 }}
+                            />
+                          ) : null}
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                             Snitt {formatCurrency(cell.avg)} · {cell.count} kjøp
                           </Typography>
@@ -259,6 +282,7 @@ const BestVariantList = ({ rows }) => {
           {bestRows.map((row) => {
             const best = row.bestRecentCell || row.bestCell;
             const historicalOnly = !row.bestRecentCell;
+            const decision = priceDecisionLabel(best.date, true);
             return (
             <Box
               key={row.variantName}
@@ -282,6 +306,11 @@ const BestVariantList = ({ rows }) => {
                   {best.shopName} · {recencyLabel(best.date)}
                   {historicalOnly ? " · bare historisk" : ""}
                 </Typography>
+                {decision ? (
+                  <Box sx={{ mt: 0.6 }}>
+                    <DecisionLabel tone={decision.tone} label={decision.label} />
+                  </Box>
+                ) : null}
               </Box>
               <Typography fontWeight={950} color="success.main" sx={{ whiteSpace: "nowrap" }}>
                 {formatCurrency(best.latest ?? best.avg)}

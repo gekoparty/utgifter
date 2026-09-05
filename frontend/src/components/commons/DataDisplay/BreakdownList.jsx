@@ -11,6 +11,7 @@ export default function BreakdownList({
   maxRows = 4,
   formatValue = defaultFormatter,
   emptyText = "Ingen data å vise",
+  onRowClick,
 }) {
   const visibleRows = rows.slice(0, maxRows);
   const maxValue = Math.max(...visibleRows.map((row) => Number(row.value || 0)), 1);
@@ -48,7 +49,36 @@ export default function BreakdownList({
           const pct = total > 0 ? (value / total) * 100 : 0;
 
           return (
-            <Box key={`${row.name}-${value}`}>
+            <Box
+              key={`${row.name}-${value}`}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              role={onRowClick ? "button" : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") onRowClick(row);
+                    }
+                  : undefined
+              }
+              sx={{
+                borderRadius: 1.25,
+                cursor: onRowClick ? "pointer" : "default",
+                outline: "none",
+                p: onRowClick ? 0.5 : 0,
+                mx: onRowClick ? -0.5 : 0,
+                "&:hover": onRowClick
+                  ? {
+                      bgcolor: "action.hover",
+                    }
+                  : undefined,
+                "&:focus-visible": onRowClick
+                  ? {
+                      boxShadow: (theme) => `0 0 0 2px ${theme.palette.primary.main}`,
+                    }
+                  : undefined,
+              }}
+            >
               <Stack direction="row" justifyContent="space-between" spacing={1.5}>
                 <Typography variant="body2" fontWeight={800} noWrap>
                   {row.name}

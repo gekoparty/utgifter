@@ -8,6 +8,7 @@ const AccountScreen = lazy(() => import("../screens/AccountScreen"));
 const AdminUsersScreen = lazy(() => import("../screens/AdminUsersScreen"));
 const CategoryScreen = lazy(() => import("../screens/CategoryScreen"));
 const ExpenseScreen = lazy(() => import("../screens/ExpenseScreen"));
+const HomeScreen = lazy(() => import("../screens/HomeScreen"));
 const IncomeScreen = lazy(() => import("../features/Incomes/IncomeScreen"));
 const LocationScreen = lazy(() => import("../screens/LocationScreen"));
 const LoginScreen = lazy(() => import("../screens/LoginScreen"));
@@ -36,7 +37,7 @@ const AppRouter = () => (
         <Route path="/" element={<Layout />}>
           <Route
             index
-            element={<LazyRoute><ExpenseScreen /></LazyRoute>}
+            element={<LazyRoute><HomeScreen /></LazyRoute>}
           />
           <Route
             path="expenses"

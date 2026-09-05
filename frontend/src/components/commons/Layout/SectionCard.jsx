@@ -10,6 +10,7 @@ export default function SectionCard({
   children,
   sx,
   contentSx,
+  compact = false,
 }) {
   return (
     <Card
@@ -23,20 +24,20 @@ export default function SectionCard({
             : "rgba(15,23,42,0.10)",
         backgroundImage:
           theme.palette.mode === "dark"
-            ? "linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.010))"
+            ? "linear-gradient(180deg, rgba(255,255,255,0.024), rgba(255,255,255,0.006))"
             : "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.76))",
         boxShadow: "none",
         height: "100%",
-        transition: theme.transitions.create(["border-color", "box-shadow"], {
-          duration: theme.transitions.duration.short,
-        }),
-        "&:hover": {
-          borderColor: alpha(theme.palette.primary.main, 0.28),
-        },
         ...sx,
       })}
     >
-      <CardContent sx={{ p: 1.75, "&:last-child": { pb: 1.75 }, ...contentSx }}>
+      <CardContent
+        sx={{
+          p: compact ? 1.25 : 1.75,
+          "&:last-child": { pb: compact ? 1.25 : 1.75 },
+          ...contentSx,
+        }}
+      >
         {(title || subtitle || action || icon) && (
           <Stack
             direction="row"
@@ -53,8 +54,8 @@ export default function SectionCard({
                     display: "grid",
                     placeItems: "center",
                     mt: 0.15,
-                    width: 32,
-                    height: 32,
+                    width: compact ? 28 : 32,
+                    height: compact ? 28 : 32,
                     borderRadius: 1.5,
                     bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
                     flexShrink: 0,

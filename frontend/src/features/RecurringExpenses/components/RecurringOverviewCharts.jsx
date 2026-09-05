@@ -247,7 +247,7 @@ export default function RecurringOverviewCharts({
         alignItems: "stretch",
       }}
     >
-      <Card>
+      <Card variant="outlined" sx={{ boxShadow: "none", borderRadius: 2 }}>
         <CardContent sx={{ pb: 1 }}>
           <Typography fontWeight={900} variant="h6">
             {title} ({forecast?.length ?? 0} mnd)
@@ -339,7 +339,7 @@ export default function RecurringOverviewCharts({
       </Card>
 
       {showTypeSplit ? (
-        <Card>
+        <Card variant="outlined" sx={{ boxShadow: "none", borderRadius: 2 }}>
           <CardContent sx={{ pb: 1 }}>
             <Typography fontWeight={900} variant="h6">
               Fordeling (neste {monthsForTypeSplit} mnd)

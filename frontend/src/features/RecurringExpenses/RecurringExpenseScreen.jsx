@@ -28,6 +28,7 @@ import AddIcon from "@mui/icons-material/Add";
 import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
 import dayjs from "dayjs";
+import { useSearchParams } from "react-router-dom";
 
 import AppScreen from "../../components/commons/Layout/AppScreen";
 import KpiCard from "../../components/commons/DataDisplay/KpiCard";
@@ -249,6 +250,7 @@ function MissedPaymentsPanel({
 }
 
 export default function RecurringExpenseScreen() {
+  const [searchParams] = useSearchParams();
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
   const payDialog = usePayDialog();
@@ -280,6 +282,8 @@ export default function RecurringExpenseScreen() {
     nextBills: [],
     sum3: { min: 0, max: 0, paid: 0 },
   };
+
+  const routeMonthKey = searchParams.get("month");
 
   const mortgages = useMemo(
     () =>
@@ -347,6 +351,13 @@ export default function RecurringExpenseScreen() {
   }, [controlMonthKey, monthOptions, thisMonthKey]);
 
   useEffect(() => {
+    if (!routeMonthKey || !/^\d{4}-\d{2}$/.test(routeMonthKey)) return;
+    setControlMonthKey(routeMonthKey);
+    setActiveSection("overview");
+    ctrl.openMonth(routeMonthKey);
+  }, [ctrl.openMonth, routeMonthKey]);
+
+  useEffect(() => {
     if (monthsBack === 0 && overviewRange === "withHistory") {
       setOverviewRange("future");
     }
@@ -408,8 +419,8 @@ export default function RecurringExpenseScreen() {
 
   const sectionTabs = useMemo(
     () => [
-      { value: "overview", label: "Oversikt", icon: <DashboardRoundedIcon fontSize="small" /> },
-      { value: "months", label: "Måneder", icon: <CalendarMonthRoundedIcon fontSize="small" /> },
+      { value: "overview", label: "Denne måneden", icon: <DashboardRoundedIcon fontSize="small" /> },
+      { value: "months", label: "Kø og måneder", icon: <CalendarMonthRoundedIcon fontSize="small" /> },
       {
         value: "templates",
         label: `Avtaler${activeTemplateCount ? ` (${activeTemplateCount})` : ""}`,
@@ -455,6 +466,11 @@ export default function RecurringExpenseScreen() {
         { label: "Neste betalinger", value: enrichedNextBills.length },
         ...(mortgages.length ? [{ label: "Boliglån", value: mortgages.length }] : []),
       ]}
+      workflow={{
+        question: "Hva forfaller, hva er betalt, og hvordan påvirker det måneden?",
+        answer: "Velg måned i kontrollpanelet, følg opp ubetalte regninger først, og bruk oversikten til å se belastningen fremover.",
+        steps: ["Velg måned", "Registrer betaling", "Sjekk effekt"],
+      }}
       maxWidth={1720}
       contentSx={{
         gap: { xs: 1.5, lg: 1.35 },
@@ -477,21 +493,25 @@ export default function RecurringExpenseScreen() {
           <KpiCard
             label={`Forventet ${summaryWindow.label}`}
             value={`${formatCurrency(summaryWindow.min)} - ${formatCurrency(summaryWindow.max)}`}
-            subtext="Basert på valgt filter"
+            subtext="Dette er forventet fremover"
             icon={<ReceiptLongRoundedIcon />}
             tone="primary"
           />
           <KpiCard
             label={`Betalt ${summaryWindow.label}`}
             value={formatCurrency(summaryWindow.paid ?? 0)}
-            subtext="Registrert på valgt regnskapsmåned"
+            subtext="Dette er faktisk betalt"
             icon={<PaidRoundedIcon />}
             tone="success"
           />
           <KpiCard
             label={`Ubetalt ${summaryWindow.label}`}
             value={unpaidSelectedMonth.length}
-            subtext={unpaidSelectedMonth.length ? "Ikke registrert betalt" : "Alt ok i valgt måned"}
+            subtext={
+              unpaidSelectedMonth.length
+                ? `Denne måneden mangler ${unpaidSelectedMonth.length} faste kostnader`
+                : "Alt er betalt i valgt måned"
+            }
             icon={<WarningAmberRoundedIcon />}
             tone={unpaidSelectedMonth.length ? "warning" : "success"}
           />

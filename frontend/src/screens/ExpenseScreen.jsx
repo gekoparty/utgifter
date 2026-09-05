@@ -11,6 +11,8 @@ import { Box, Button, Collapse, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
+import { useSearchParams } from "react-router-dom";
+import dayjs from "dayjs";
 
 import AppScreen from "../components/commons/Layout/AppScreen";
 import SegmentedControl from "../components/commons/Controls/SegmentedControl";
@@ -47,15 +49,35 @@ const ExpenseDashboard = lazy(() =>
   import("../features/Expenses/components/ExpenseDashboard/ExpenseDashboard")
 );
 
+const monthDateRange = (month) => {
+  const parsed = dayjs(`${month}-01`);
+  if (!parsed.isValid()) return null;
+  return [parsed.startOf("month").format("YYYY-MM-DD"), parsed.endOf("month").format("YYYY-MM-DD")];
+};
+
+const buildInitialFilters = (searchParams) => {
+  const filters = [];
+  const month = searchParams.get("month");
+  const range = monthDateRange(month);
+  if (range) filters.push({ id: "purchaseDate", value: range });
+
+  const filterId = searchParams.get("filterId");
+  const filterValue = searchParams.get("filterValue");
+  if (filterId && filterValue) filters.push({ id: filterId, value: filterValue });
+
+  return filters;
+};
+
 const ExpenseScreen = () => {
+  const [searchParams] = useSearchParams();
   const { preferences, setPreference } = useAppPreferences();
   const initialPageSize =
     Number(preferences.rowsPerPage) > 0
       ? Number(preferences.rowsPerPage)
       : INITIAL_PAGINATION.pageSize;
 
-  const [columnFilters, setColumnFilters] = useState([]);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState(() => buildInitialFilters(searchParams));
+  const [globalFilter, setGlobalFilter] = useState(() => searchParams.get("q") || "");
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
   const [pagination, setPagination] = useState(() => ({
@@ -72,6 +94,12 @@ const ExpenseScreen = () => {
   const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
   const { showSnackbar } = useSnackBar();
+
+  useEffect(() => {
+    setColumnFilters(buildInitialFilters(searchParams));
+    setGlobalFilter(searchParams.get("q") || "");
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
+  }, [searchParams]);
 
   const columnVisibility = useMemo(
     () => ({
@@ -325,6 +353,11 @@ const ExpenseScreen = () => {
         { label: "Viser", value: tableData.length },
         { label: "Filtre", value: columnFilters.length + (deferredGlobalFilter ? 1 : 0) },
       ]}
+      workflow={{
+        question: "Hva kjøpte jeg, og hva må rettes?",
+        answer: "Start med listen, åpne raden for detaljer, og bruk statistikken når du vil se mønsteret bak kjøpene.",
+        steps: ["Finn kjøp", "Sjekk detaljer", "Rett pris eller kategori"],
+      }}
       filters={filters}
       maxWidth={1360}
     >

@@ -67,6 +67,13 @@ const ProductScreen = () => {
       loadingLabel="Laster produkter..."
       queryKey={QUERY_KEY}
       resourceLabel="Produkt"
+      screenTitle="Produkter"
+      description="Hold produktlisten ryddig slik at utgifter, varianter og prisstatistikk henger sammen."
+      workflow={{
+        question: "Hva er den reelle prisutviklingen for dette produktet?",
+        answer: "Rydd navn, variant, merke og mål her først, så blir sammenligningene i prishistorikken mer pålitelige.",
+        steps: ["Finn produkt", "Rydd variant og mål", "Sammenlign i statistikk"],
+      }}
     />
   );
 };

@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { Box, Button, LinearProgress } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import { useSearchParams } from "react-router-dom";
 
 import useSnackBar from "../../../hooks/useSnackBar";
 import { usePaginatedData } from "../../../hooks/usePaginatedData";
@@ -24,6 +25,12 @@ const ACTION_LABELS = {
   ADD: "lagt til",
   EDIT: "oppdatert",
   DELETE: "slettet",
+};
+
+const buildInitialFilters = (searchParams) => {
+  const filterId = searchParams.get("filterId");
+  const filterValue = searchParams.get("filterValue");
+  return filterId && filterValue ? [{ id: filterId, value: filterValue }] : [];
 };
 
 const EntityTableScreen = ({
@@ -44,16 +51,18 @@ const EntityTableScreen = ({
   queryKey,
   resourceLabel,
   screenTitle,
+  workflow,
   urlBuilder = buildPaginatedUrl,
 }) => {
+  const [searchParams] = useSearchParams();
   const { preferences, setPreference } = useAppPreferences();
   const initialPageSize =
     Number(preferences.rowsPerPage) > 0
       ? Number(preferences.rowsPerPage)
       : INITIAL_PAGINATION.pageSize;
 
-  const [columnFilters, setColumnFilters] = useState([]);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState(() => buildInitialFilters(searchParams));
+  const [globalFilter, setGlobalFilter] = useState(() => searchParams.get("q") || "");
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(initialSorting);
   const [pagination, setPagination] = useState(() => ({
@@ -64,6 +73,12 @@ const EntityTableScreen = ({
   const [selectedRecord, setSelectedRecord] = useState(initialSelectedRecord);
 
   const { showSnackbar } = useSnackBar();
+
+  useEffect(() => {
+    setColumnFilters(buildInitialFilters(searchParams));
+    setGlobalFilter(searchParams.get("q") || "");
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
+  }, [searchParams]);
 
   useEffect(() => {
     if (pagination.pageSize && pagination.pageSize !== preferences.rowsPerPage) {
@@ -163,6 +178,7 @@ const EntityTableScreen = ({
       subtitle={description}
       icon={IconComponent ? <IconComponent fontSize="small" /> : null}
       summaryItems={summaryItems}
+      workflow={workflow}
       action={
         <Button
           variant="contained"

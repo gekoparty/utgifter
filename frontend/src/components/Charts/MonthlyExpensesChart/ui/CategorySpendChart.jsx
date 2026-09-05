@@ -80,6 +80,7 @@ export default function CategorySpendChart({
   months = [],
   includeRecurringCosts = false,
   allTimeRecurringTotal = 0,
+  onCategoryClick,
 }) {
   const theme = useTheme();
   const rows = useMemo(() => {
@@ -150,9 +151,24 @@ export default function CategorySpendChart({
     [rows, theme],
   );
 
+  const chartEvents = useMemo(
+    () =>
+      onCategoryClick
+        ? {
+            click: (event) => {
+              const name = event?.data?.name || event?.name;
+              if (!name) return;
+              onCategoryClick({ name, scope, year, month });
+            },
+          }
+        : undefined,
+    [month, onCategoryClick, scope, year],
+  );
+
   const { elementRef: chartRef } = useEChart({
     option,
     enabled: rows.length > 0,
+    events: chartEvents,
   });
 
   return (
@@ -211,7 +227,14 @@ export default function CategorySpendChart({
       </Stack>
 
       {rows.length ? (
-        <Box ref={chartRef} sx={{ flex: 1, minHeight: 260 }} />
+        <Box
+          ref={chartRef}
+          sx={{
+            flex: 1,
+            minHeight: 260,
+            cursor: onCategoryClick ? "pointer" : "default",
+          }}
+        />
       ) : (
         <Box sx={{ flex: 1, display: "grid", placeItems: "center" }}>
           <Typography variant="body2" color="text.secondary">
