@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { Box, Button, Collapse, Stack } from "@mui/material";
+import { Alert, Box, Button, Collapse, Stack } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
@@ -55,6 +55,69 @@ const monthDateRange = (month) => {
   return [parsed.startOf("month").format("YYYY-MM-DD"), parsed.endOf("month").format("YYYY-MM-DD")];
 };
 
+const monthLabel = (month) => {
+  const parsed = dayjs(`${month}-01`);
+  return parsed.isValid() ? parsed.format("MMMM YYYY") : month;
+};
+
+const isSupportedUrlFilter = (filterId) =>
+  ["productName", "brandName", "shopName", "locationName", "category", "productCategory"].includes(filterId);
+
+const hasTextValue = (value) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
+const isDateValue = (value) =>
+  typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && dayjs(value).isValid();
+
+const isPhantomDateRange = (value) =>
+  Array.isArray(value) &&
+  value[0] === "2001-01-01" &&
+  value[1] === "2001-01-31";
+
+const sanitizeFilters = (filters) =>
+  (Array.isArray(filters) ? filters : []).reduce((acc, filter) => {
+    if (!filter?.id) return acc;
+
+    if (
+      ["displayPrice", "price", "pricePerUnit", "finalPrice"].includes(filter.id) &&
+      filter.value &&
+      typeof filter.value === "object" &&
+      !Array.isArray(filter.value)
+    ) {
+      if (hasTextValue(filter.value.min) || hasTextValue(filter.value.max)) {
+        acc.push(filter);
+      }
+      return acc;
+    }
+
+    if (["purchaseDate", "registeredDate"].includes(filter.id)) {
+      if (isPhantomDateRange(filter.value)) return acc;
+
+      if (Array.isArray(filter.value) && filter.value.some(isDateValue)) {
+        acc.push({
+          ...filter,
+          value: filter.value.map((value) => (isDateValue(value) ? value : "")),
+        });
+      } else if (isDateValue(filter.value)) {
+        acc.push(filter);
+      }
+      return acc;
+    }
+
+    if (
+      ["productName", "variantName", "brandName", "shopName", "locationName", "category", "productCategory"].includes(
+        filter.id,
+      ) &&
+      hasTextValue(filter.value)
+    ) {
+      acc.push(filter);
+    }
+
+    return acc;
+  }, []);
+
+const sameJson = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+
 const buildInitialFilters = (searchParams) => {
   const filters = [];
   const month = searchParams.get("month");
@@ -63,20 +126,23 @@ const buildInitialFilters = (searchParams) => {
 
   const filterId = searchParams.get("filterId");
   const filterValue = searchParams.get("filterValue");
-  if (filterId && filterValue) filters.push({ id: filterId, value: filterValue });
+  if (isSupportedUrlFilter(filterId) && filterValue) {
+    filters.push({ id: filterId, value: filterValue });
+  }
 
-  return filters;
+  return sanitizeFilters(filters);
 };
 
 const ExpenseScreen = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchKey = searchParams.toString();
   const { preferences, setPreference } = useAppPreferences();
   const initialPageSize =
     Number(preferences.rowsPerPage) > 0
       ? Number(preferences.rowsPerPage)
       : INITIAL_PAGINATION.pageSize;
 
-  const [columnFilters, setColumnFilters] = useState(() => buildInitialFilters(searchParams));
+  const [columnFilters, setColumnFiltersState] = useState(() => buildInitialFilters(searchParams));
   const [globalFilter, setGlobalFilter] = useState(() => searchParams.get("q") || "");
   const deferredGlobalFilter = useDeferredValue(globalFilter);
   const [sorting, setSorting] = useState(INITIAL_SORTING);
@@ -95,11 +161,29 @@ const ExpenseScreen = () => {
 
   const { showSnackbar } = useSnackBar();
 
+  const setColumnFilters = useCallback((nextValue) => {
+    setColumnFiltersState((current) => {
+      const resolved = typeof nextValue === "function" ? nextValue(current) : nextValue;
+      const cleaned = sanitizeFilters(resolved);
+      return sameJson(current, cleaned) ? current : cleaned;
+    });
+  }, []);
+
   useEffect(() => {
-    setColumnFilters(buildInitialFilters(searchParams));
-    setGlobalFilter(searchParams.get("q") || "");
-    setPagination((current) => ({ ...current, pageIndex: 0 }));
-  }, [searchParams]);
+    const nextSearchParams = new URLSearchParams(searchKey);
+    const nextFilters = buildInitialFilters(nextSearchParams);
+    const nextGlobalFilter = nextSearchParams.get("q") || "";
+
+    setColumnFiltersState((current) =>
+      sameJson(current, nextFilters) ? current : nextFilters,
+    );
+    setGlobalFilter((current) =>
+      current === nextGlobalFilter ? current : nextGlobalFilter,
+    );
+    setPagination((current) =>
+      current.pageIndex === 0 ? current : { ...current, pageIndex: 0 },
+    );
+  }, [searchKey]);
 
   const columnVisibility = useMemo(
     () => ({
@@ -130,19 +214,21 @@ const ExpenseScreen = () => {
     }
   }, [pagination.pageSize, preferences.rowsPerPage, setPreference]);
 
+  const activeColumnFilters = useMemo(() => sanitizeFilters(columnFilters), [columnFilters]);
+
   const fetchParams = useMemo(
     () => ({
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
       sorting,
-      filters: columnFilters,
+      filters: activeColumnFilters,
       globalFilter: deferredGlobalFilter,
     }),
     [
       pagination.pageIndex,
       pagination.pageSize,
       sorting,
-      columnFilters,
+      activeColumnFilters,
       deferredGlobalFilter,
     ],
   );
@@ -235,6 +321,16 @@ const ExpenseScreen = () => {
     priceStatsByType,
     onPriceFilterModeChange: handlePriceFilterModeChange,
   });
+
+  const urlMonth = searchParams.get("month");
+  const urlFilterLabel = searchParams.get("filterValue");
+  const activeFilterCount = activeColumnFilters.length + (deferredGlobalFilter ? 1 : 0);
+  const hasUrlFilters = Boolean(urlMonth || urlFilterLabel || searchParams.get("q"));
+  const clearAllFilters = useCallback(() => {
+    setColumnFiltersState([]);
+    setGlobalFilter("");
+    setSearchParams({});
+  }, [setSearchParams]);
 
   const canOpenEditOrDelete = Boolean(selectedExpense?._id);
 
@@ -351,7 +447,7 @@ const ExpenseScreen = () => {
       summaryItems={[
         { label: "Totalt", value: metaData?.totalRowCount ?? 0 },
         { label: "Viser", value: tableData.length },
-        { label: "Filtre", value: columnFilters.length + (deferredGlobalFilter ? 1 : 0) },
+        { label: "Filtre", value: activeFilterCount },
       ]}
       workflow={{
         question: "Hva kjøpte jeg, og hva må rettes?",
@@ -370,6 +466,22 @@ const ExpenseScreen = () => {
         </Box>
       </Collapse>
 
+      {activeFilterCount > 0 ? (
+        <Alert
+          severity="info"
+          variant="outlined"
+          action={
+            <Button color="inherit" size="small" onClick={clearAllFilters}>
+              Vis alle
+            </Button>
+          }
+        >
+          {hasUrlFilters
+            ? `Viser filtrerte utgifter${urlMonth ? ` for ${monthLabel(urlMonth)}` : ""}${urlFilterLabel ? `: ${urlFilterLabel}` : ""}.`
+            : "Viser filtrerte utgifter."}
+        </Alert>
+      ) : null}
+
       <TableLayout>
         <ReactTable
           data={tableData}
@@ -379,7 +491,7 @@ const ExpenseScreen = () => {
           isError={isError}
           isLoading={isLoading}
           isFetching={!activeModal && isFetching}
-          columnFilters={columnFilters}
+          columnFilters={activeColumnFilters}
           globalFilter={globalFilter}
           pagination={pagination}
           sorting={sorting}

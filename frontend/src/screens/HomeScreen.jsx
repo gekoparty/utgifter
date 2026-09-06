@@ -4,6 +4,8 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
+  Divider,
   LinearProgress,
   Stack,
   TextField,
@@ -11,18 +13,14 @@ import {
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
-import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
-import PaymentsRoundedIcon from "@mui/icons-material/PaymentsRounded";
 import AccountBalanceWalletRoundedIcon from "@mui/icons-material/AccountBalanceWalletRounded";
 import WarningAmberRoundedIcon from "@mui/icons-material/WarningAmberRounded";
-import TrendingUpRoundedIcon from "@mui/icons-material/TrendingUpRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import dayjs from "dayjs";
 
 import { buildApiUrl, requestJson } from "../api/httpClient";
 import AppScreen from "../components/commons/Layout/AppScreen";
 import SectionCard from "../components/commons/Layout/SectionCard";
-import KpiCard from "../components/commons/DataDisplay/KpiCard";
 import BreakdownList from "../components/commons/DataDisplay/BreakdownList";
 import DecisionLabel from "../components/commons/DataDisplay/DecisionLabel";
 import { buildPaginatedUrl } from "../components/commons/EntityTableScreen/buildPaginatedUrl";
@@ -50,6 +48,9 @@ const getFixedActualForMonth = (summary, monthKey) => {
   const month = (summary?.forecast || []).find((item) => item.key === monthKey);
   return Number(month?.paidTotal || 0);
 };
+
+const getFixedMonth = (summary, monthKey) =>
+  (summary?.forecast || []).find((item) => item.key === monthKey) || null;
 
 const getUnpaidForMonth = (summary, monthKey) => {
   const month = (summary?.forecast || []).find((item) => item.key === monthKey);
@@ -119,17 +120,25 @@ export default function HomeScreen() {
 
   const dashboard = dashboardQuery.data || {};
   const recurring = recurringQuery.data || {};
+  const fixedMonth = getFixedMonth(recurring, selectedMonth);
   const variableExpenses = Number(dashboard?.totals?.total || 0);
   const income = Number(dashboard?.income?.totals?.total || 0);
   const expectedIncome = Number(dashboard?.income?.expected || 0);
   const fixedActual = getFixedActualForMonth(recurring, selectedMonth);
+  const fixedExpected = Number(fixedMonth?.expectedMax ?? fixedMonth?.expectedMin ?? 0);
   const visibleExpenses = variableExpenses + fixedActual;
-  const remaining = income - visibleExpenses;
-  const expectedRemaining = expectedIncome - visibleExpenses;
   const unpaid = useMemo(
     () => getUnpaidForMonth(recurring, selectedMonth),
     [recurring, selectedMonth],
   );
+  const unpaidAmount = unpaid.reduce(
+    (sum, item) => sum + Number(item.expected?.max ?? item.expected?.fixed ?? 0),
+    0,
+  );
+  const plannedMonthExpenses = variableExpenses + fixedExpected;
+  const incomeBasis = income > 0 ? income : expectedIncome;
+  const remaining = incomeBasis - visibleExpenses;
+  const plannedRemaining = incomeBasis - plannedMonthExpenses;
   const priceChanges = dashboard?.priceChanges || { increases: [], decreases: [] };
   const changes = [...(priceChanges.increases || []), ...(priceChanges.decreases || [])]
     .slice(0, 5);
@@ -138,6 +147,42 @@ export default function HomeScreen() {
   const hasError = dashboardQuery.error || recurringQuery.error || recentQuery.error;
 
   const categoryRows = dashboard?.categories || [];
+  const expenseMonthUrl = `/expenses?month=${selectedMonth}`;
+  const recurringMonthUrl = `/recurring-expenses?month=${selectedMonth}`;
+  const statusTone = remaining >= 0 && !unpaid.length ? "success" : unpaid.length ? "warning" : "error";
+  const statusLabel =
+    remaining >= 0
+      ? unpaid.length
+        ? `${unpaid.length} faste kostnader må følges opp`
+        : "Måneden er i rute"
+      : "Utgiftene er over inntekt";
+  const biggestChange = changes[0];
+  const actionItems = [
+    remaining < 0
+      ? {
+          title: "Måneden går i minus",
+          text: `${NOK.format(Math.abs(remaining))} over ${income > 0 ? "faktisk inntekt" : "planlagt inntekt"}.`,
+          tone: "error",
+          to: expenseMonthUrl,
+        }
+      : null,
+    unpaid.length
+      ? {
+          title: "Faste kostnader mangler",
+          text: `${unpaid.length} ubetalt, totalt cirka ${NOK.format(unpaidAmount)}.`,
+          tone: "warning",
+          to: recurringMonthUrl,
+        }
+      : null,
+    biggestChange
+      ? {
+          title: "Prisendring å sjekke",
+          text: `${biggestChange.productName}: ${Number(biggestChange.changePercent || 0) > 0 ? "+" : ""}${Number(biggestChange.changePercent || 0).toFixed(1)}%.`,
+          tone: Number(biggestChange.changePercent || 0) > 0 ? "warning" : "success",
+          to: "/stats",
+        }
+      : null,
+  ].filter(Boolean);
 
   const toolbar = (
     <Stack
@@ -161,7 +206,7 @@ export default function HomeScreen() {
         <Button component={RouterLink} to="/expenses" variant="outlined" size="small">
           Utgifter
         </Button>
-        <Button component={RouterLink} to="/recurring-expenses" variant="outlined" size="small">
+        <Button component={RouterLink} to={recurringMonthUrl} variant="outlined" size="small">
           Faste kostnader
         </Button>
         <Button component={RouterLink} to="/stats" variant="contained" size="small">
@@ -196,45 +241,188 @@ export default function HomeScreen() {
         </Alert>
       ) : null}
 
-      <Box
+      <SectionCard
+        title={`Månedskontroll: ${monthLabel(selectedMonth)}`}
+        subtitle="Inntekt minus variable utgifter minus faste kostnader gir det som er igjen."
+        icon={<AccountBalanceWalletRoundedIcon />}
+        action={<DecisionLabel tone={statusTone} label={statusLabel} />}
+        compact
         sx={{
-          display: "grid",
-          gap: 1.5,
-          gridTemplateColumns: {
-            xs: "1fr",
-            sm: "repeat(2, minmax(0, 1fr))",
-            lg: "repeat(4, minmax(0, 1fr))",
-          },
+          borderColor: statusTone === "success" ? "success.main" : statusTone === "warning" ? "warning.main" : "error.main",
         }}
       >
-        <KpiCard
-          label="Inntekt"
-          value={NOK.format(income)}
-          subtext={income > 0 ? "Dette er faktisk registrert inntekt" : `Plan ${NOK.format(expectedIncome)}`}
-          icon={<PaymentsRoundedIcon />}
-          tone="success"
-        />
-        <KpiCard
-          label="Variable utgifter"
-          value={NOK.format(variableExpenses)}
-          subtext="Dette er faktisk registrerte kjøp"
-          icon={<ReceiptLongRoundedIcon />}
-          tone="primary"
-        />
-        <KpiCard
-          label="Faste kostnader"
-          value={NOK.format(fixedActual)}
-          subtext="Dette er faktisk betalt"
-          icon={<AccountBalanceWalletRoundedIcon />}
-        />
-        <KpiCard
-          label="Igjen"
-          value={NOK.format(income > 0 ? remaining : expectedRemaining)}
-          subtext={income > 0 ? "Mot faktisk inntekt" : "Mot planlagt inntekt"}
-          icon={<TrendingUpRoundedIcon />}
-          tone={(income > 0 ? remaining : expectedRemaining) >= 0 ? "success" : "error"}
-        />
-      </Box>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1,
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "1fr auto 1fr auto 1fr auto 1.1fr",
+            },
+            alignItems: "stretch",
+          }}
+        >
+          {[
+            {
+              label: income > 0 ? "Faktisk inntekt" : "Planlagt inntekt",
+              value: incomeBasis,
+              tone: "success",
+              help: income > 0 ? "Dette er faktisk registrert inntekt" : "Dette er forventet inntekt",
+            },
+            {
+              label: "Variable utgifter",
+              value: variableExpenses,
+              tone: "primary",
+              help: "Dette er faktisk registrerte kjøp",
+              to: expenseMonthUrl,
+            },
+            {
+              label: "Faste kostnader",
+              value: fixedActual,
+              tone: "default",
+              help: `Betalt av forventet ${NOK.format(fixedExpected)}`,
+              to: recurringMonthUrl,
+            },
+            {
+              label: "Igjen",
+              value: remaining,
+              tone: remaining >= 0 ? "success" : "error",
+              help: `Planlagt igjen: ${NOK.format(plannedRemaining)}`,
+            },
+          ].map((item, index, list) => (
+            <React.Fragment key={item.label}>
+              <Box
+                component={item.to ? RouterLink : "div"}
+                to={item.to}
+                sx={{
+                  p: 1.25,
+                  borderRadius: 1.5,
+                  bgcolor: "background.default",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  textDecoration: "none",
+                  color: "inherit",
+                  minWidth: 0,
+                  "&:hover": item.to ? { borderColor: "primary.main" } : undefined,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" fontWeight={900}>
+                  {item.label}
+                </Typography>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    mt: 0.25,
+                    fontWeight: 950,
+                    color:
+                      item.tone === "success"
+                        ? "success.main"
+                        : item.tone === "error"
+                          ? "error.main"
+                          : item.tone === "primary"
+                            ? "primary.main"
+                            : "text.primary",
+                    overflowWrap: "anywhere",
+                  }}
+                >
+                  {NOK.format(item.value)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.35 }}>
+                  {item.help}
+                </Typography>
+              </Box>
+              {index < list.length - 1 ? (
+                <Box
+                  sx={{
+                    display: { xs: "none", md: "grid" },
+                    placeItems: "center",
+                    color: "text.secondary",
+                    fontWeight: 950,
+                    px: 0.25,
+                  }}
+                >
+                  {index === list.length - 2 ? "=" : "-"}
+                </Box>
+              ) : null}
+            </React.Fragment>
+          ))}
+        </Box>
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ mt: 1.25 }}>
+          <Chip
+            size="small"
+            color={unpaid.length ? "warning" : "success"}
+            label={
+              unpaid.length
+                ? `${NOK.format(unpaidAmount)} mangler i faste kostnader`
+                : "Alle faste kostnader er betalt"
+            }
+            sx={{ fontWeight: 900 }}
+          />
+          <Chip
+            size="small"
+            color={plannedRemaining >= 0 ? "success" : "error"}
+            label={`Forventet månedsslutt: ${NOK.format(plannedRemaining)}`}
+            sx={{ fontWeight: 900 }}
+          />
+        </Stack>
+
+        <Divider sx={{ my: 1.25 }} />
+
+        <Box>
+          <Typography variant="subtitle2" fontWeight={950} sx={{ mb: 0.75 }}>
+            Hva trenger handling
+          </Typography>
+          <Box
+            sx={{
+              display: "grid",
+              gap: 1,
+              gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+            }}
+          >
+            {(actionItems.length
+              ? actionItems
+              : [
+                  {
+                    title: "Ingen akutte avvik",
+                    text: "Måneden ser ryddig ut med valgte data.",
+                    tone: "success",
+                    to: expenseMonthUrl,
+                  },
+                ]
+            ).map((item) => (
+              <Box
+                key={item.title}
+                component={RouterLink}
+                to={item.to}
+                sx={{
+                  p: 1,
+                  borderRadius: 1.5,
+                  bgcolor: "background.default",
+                  border: "1px solid",
+                  borderColor:
+                    item.tone === "error"
+                      ? "error.main"
+                      : item.tone === "warning"
+                        ? "warning.main"
+                        : "divider",
+                  color: "inherit",
+                  textDecoration: "none",
+                  minWidth: 0,
+                  "&:hover": { borderColor: "primary.main" },
+                }}
+              >
+                <Typography variant="body2" fontWeight={950} noWrap>
+                  {item.title}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {item.text}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      </SectionCard>
 
       <Box
         sx={{

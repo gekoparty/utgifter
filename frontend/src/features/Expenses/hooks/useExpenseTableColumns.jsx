@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import DateRangeFilter from "../components/ExpenseFilters/DateRangeFilter";
 import PriceRangeFilter from "../components/ExpenseFilters/PriceRangeFilter";
 import {
   DateCell,
@@ -63,8 +62,7 @@ export const useExpenseTableColumns = ({
     () => ({
       accessorKey: "purchaseDate",
       header: "Kjøpsdato",
-      Filter: ({ column }) => <DateRangeFilter column={column} />,
-      enableColumnFilter: true,
+      enableColumnFilter: false,
       Cell: ({ row }) => (
         <DateCell
           value={formatExpenseDate(

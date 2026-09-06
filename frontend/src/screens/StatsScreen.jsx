@@ -16,6 +16,9 @@ import { getSelectStyles } from "../styles/theme/selectStyles";
 const MonthlyExpensesChart = lazy(() =>
   import("../components/Charts/MonthlyExpensesChart/MonthlyExpensesChart")
 );
+const StatsDrilldownDrawer = lazy(() =>
+  import("../components/Charts/MonthlyExpensesChart/ui/StatsDrilldownDrawer")
+);
 const ProductPriceChart = lazy(() =>
   import("../components/Charts/ProductPriceChart/ProductPriceChart")
 );
@@ -40,6 +43,7 @@ export default function StatsScreen() {
   const [view, setView] = useState("expenses");
   const [productId, setProductId] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const [drilldown, setDrilldown] = useState(null);
 
   const {
     data: infiniteData,
@@ -93,23 +97,30 @@ export default function StatsScreen() {
   const handleStatsDrilldown = useCallback(
     ({ kind, month, year: drillYear, type, row, name }) => {
       const normalizedMonth = normalizeMonthParam(month, drillYear);
+      const drillName = row?.name || name;
 
       if (kind === "fixed-costs" || name === "Faste kostnader") {
-        const params = new URLSearchParams();
-        if (normalizedMonth) params.set("month", normalizedMonth);
-        navigate(`/recurring-expenses?${params.toString()}`);
+        setDrilldown({
+          kind: "fixed-costs",
+          month: normalizedMonth,
+          row,
+          name: drillName,
+        });
         return;
       }
 
       if (kind === "category") {
-        const params = new URLSearchParams();
-        params.set("filterId", "category");
-        params.set("filterValue", name);
-        navigate(`/products?${params.toString()}`);
+        setDrilldown({
+          kind: "category",
+          month: normalizedMonth,
+          filterId: "category",
+          filterValue: drillName,
+          row,
+          name: drillName,
+        });
         return;
       }
 
-      const drillName = row?.name || name;
       const filterMap = {
         shops: "shopName",
         brands: "brandName",
@@ -117,21 +128,53 @@ export default function StatsScreen() {
       };
 
       if (type === "categories") {
+        setDrilldown({
+          kind: "category",
+          month: normalizedMonth,
+          filterId: "category",
+          filterValue: drillName,
+          type,
+          row,
+          name: drillName,
+        });
+        return;
+      }
+
+      setDrilldown({
+        kind: "expenses",
+        month: normalizedMonth,
+        filterId: filterMap[type],
+        filterValue: drillName,
+        type,
+        row,
+        name: drillName,
+      });
+    },
+    [],
+  );
+
+  const handleOpenFullDrilldown = useCallback(
+    (target) => {
+      if (!target) return;
+
+      if (target.kind === "fixed-costs") {
         const params = new URLSearchParams();
-        if (drillName) {
+        if (target.month) params.set("month", target.month);
+        navigate(`/recurring-expenses?${params.toString()}`);
+        return;
+      }
+
+      if (target.kind === "category") {
+        const params = new URLSearchParams();
+        if (target.filterValue || target.name) {
           params.set("filterId", "category");
-          params.set("filterValue", drillName);
+          params.set("filterValue", target.filterValue || target.name);
         }
         navigate(`/products?${params.toString()}`);
         return;
       }
 
-      openExpenseDrilldown({
-        month: normalizedMonth,
-        year: drillYear,
-        filterId: filterMap[type],
-        filterValue: drillName,
-      });
+      openExpenseDrilldown(target);
     },
     [navigate, openExpenseDrilldown],
   );
@@ -270,6 +313,15 @@ export default function StatsScreen() {
             </Typography>
           </Paper>
         ))}
+
+      <Suspense fallback={null}>
+        <StatsDrilldownDrawer
+          open={Boolean(drilldown)}
+          drilldown={drilldown}
+          onClose={() => setDrilldown(null)}
+          onOpenFullView={handleOpenFullDrilldown}
+        />
+      </Suspense>
     </AppScreen>
   );
 }

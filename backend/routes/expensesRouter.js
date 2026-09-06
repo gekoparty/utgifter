@@ -156,6 +156,7 @@ const filterByRange = (query, defaultField, value) => {
 const applyFilters = async (req, query, filters) => {
   const referenceFilters = [];
   const variantFilters = [];
+  const categoryFilters = [];
   const dateFilters = [];
   const regexFilters = [];
 
@@ -168,6 +169,8 @@ const applyFilters = async (req, query, filters) => {
       filterByRange(query, id, value);
     } else if (["productName", "brandName", "shopName", "locationName"].includes(id)) {
       referenceFilters.push({ id, value });
+    } else if (["category", "productCategory"].includes(id)) {
+      categoryFilters.push({ value });
     } else if (["variant", "variantName"].includes(id)) {
       variantFilters.push({ value });
     } else {
@@ -199,6 +202,27 @@ const applyFilters = async (req, query, filters) => {
     results.forEach(({ id, ids }) => {
       query.where(id).in(ids);
     });
+  }
+
+  if (categoryFilters.length > 0) {
+    const productIdSets = await Promise.all(
+      categoryFilters.map(async ({ value }) => {
+        const ids = await Product.find(
+          ownedFilter(req, {
+            category: { $regex: new RegExp(escapeRegex(value), "i") },
+          })
+        ).distinct("_id");
+
+        return ids.map(String);
+      })
+    );
+
+    const matchingProductIds = productIdSets.reduce(
+      (matches, ids) => matches.filter((id) => ids.includes(id)),
+      productIdSets[0] ?? []
+    );
+
+    query.where("productName").in(matchingProductIds);
   }
 
   if (variantFilters.length > 0) {
