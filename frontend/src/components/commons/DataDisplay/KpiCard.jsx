@@ -76,8 +76,12 @@ export default function KpiCard({
             <Typography
               variant="caption"
               color={isPrimary ? "inherit" : "text.secondary"}
-              sx={{ display: "block", mt: 0.5, opacity: isPrimary ? 0.82 : 1 }}
-              noWrap
+              sx={{
+                display: "block",
+                mt: 0.5,
+                opacity: isPrimary ? 0.82 : 1,
+                lineHeight: 1.25,
+              }}
             >
               {subtext}
             </Typography>

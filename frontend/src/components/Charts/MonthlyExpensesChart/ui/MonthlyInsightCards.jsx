@@ -43,38 +43,38 @@ export default function MonthlyInsightCards({ stats, doCompare }) {
       }}
     >
       <SectionCard
-        title="Trend"
-        subtitle="Endring i siste aktive måneder"
+        title="Bruker du mer eller mindre?"
+        subtitle="Sammenligner registrerte kjøp over tid."
         icon={<TrendingUpRoundedIcon fontSize="small" />}
       >
         <Stack spacing={1}>
           <InsightLine
-            label="Siste måned"
+            label="Mot måneden før"
             value={pct(stats.momPct)}
             tone={stats.momPct > 0 ? "warning" : "success"}
           />
           {doCompare ? (
             <InsightLine
-              label="Mot fjoråret"
+              label="Mot samme år i fjor"
               value={pct(stats.yoyTotalPct)}
               tone={stats.yoyTotalPct > 0 ? "warning" : "success"}
             />
           ) : null}
           <InsightLine
-            label="Variasjon"
+            label="Hvor ujevnt forbruket er"
             value={pct(stats.volatilityPct)}
           />
         </Stack>
       </SectionCard>
 
       <SectionCard
-        title="Måneder"
-        subtitle={`${stats.activeMonths ?? 0} måneder med registrerte kjøp`}
+        title="Månedene dine"
+        subtitle={`${stats.activeMonths ?? 0} måneder har registrerte kjøp.`}
         icon={<CalendarViewMonthRoundedIcon fontSize="small" />}
       >
         <Stack spacing={1}>
           <InsightLine
-            label="Høyeste"
+            label="Dyreste måned"
             value={
               stats.maxMonth
                 ? `${stats.maxMonth.month} · ${currencyFormatter(stats.maxMonth.value)}`
@@ -82,20 +82,20 @@ export default function MonthlyInsightCards({ stats, doCompare }) {
             }
           />
           <InsightLine
-            label="Laveste"
+            label="Billigste måned"
             value={
               stats.minMonth
                 ? `${stats.minMonth.month} · ${currencyFormatter(stats.minMonth.value)}`
                 : "-"
             }
           />
-          <InsightLine label="Årstakt" value={currencyFormatter(stats.runRate)} />
+          <InsightLine label="Estimert helår" value={currencyFormatter(stats.runRate)} />
         </Stack>
       </SectionCard>
 
       <SectionCard
         title="Kvartaler"
-        subtitle="Summering basert på valgt år"
+        subtitle="Tre måneder samlet, basert på valgt år."
         icon={<ShowChartRoundedIcon fontSize="small" />}
       >
         <Stack spacing={1}>

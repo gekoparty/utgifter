@@ -57,6 +57,7 @@ import { useRecurringPaymentActions } from "./hooks/useRecurringPaymentActions";
 import { useRecurringMaintenanceActions } from "./hooks/useRecurringMaintenanceActions";
 import { makeCurrencyFormatter } from "./utils/recurringFormatters";
 import { RECURRING_TYPES, TYPE_META_BY_KEY, normalizeRecurringType } from "./utils/recurringTypes";
+import { useTranslation } from "../../i18n/useTranslation";
 
 const MONTHS_FORWARD = 12;
 const HISTORY_OPTIONS = [0, 3, 6, 12, 18, 24];
@@ -66,11 +67,11 @@ const dueKey = (value) => {
   return date.isValid() ? date.format("YYYY-MM-DD") : String(value ?? "");
 };
 
-const monthSelectLabel = (month) => {
+const monthSelectLabel = (month, t) => {
   const date = dayjs(month?.date || `${month?.key}-01`);
   const label = date.isValid() ? date.format("MMM YYYY") : month?.key;
   const missing = (month?.items || []).filter((item) => item.status === "UNPAID").length;
-  return missing ? `${label} - ${missing} mangler` : label;
+  return missing ? `${label} - ${missing} ${t("recurring.missing")}` : label;
 };
 
 function RecurringControlPanel({
@@ -83,6 +84,7 @@ function RecurringControlPanel({
   onSelectedMonth,
   onOpenMonth,
 }) {
+  const { t } = useTranslation();
   const monthValue =
     selectedMonthKey && monthOptions.some((month) => month.key === selectedMonthKey)
       ? selectedMonthKey
@@ -90,20 +92,20 @@ function RecurringControlPanel({
 
   return (
     <SectionCard
-      title="Kontroll"
-      subtitle="Filtrer og åpne riktig måned raskt."
+      title={t("recurring.control")}
+      subtitle={t("recurring.controlSubtitle")}
       contentSx={{ p: 1.25 }}
     >
       <Stack spacing={1}>
         <FormControl size="small" fullWidth>
-          <InputLabel id="recurring-type-filter-label">Vis</InputLabel>
+          <InputLabel id="recurring-type-filter-label">{t("recurring.show")}</InputLabel>
           <Select
             labelId="recurring-type-filter-label"
-            label="Vis"
+            label={t("recurring.show")}
             value={filter}
             onChange={(event) => onFilter(event.target.value)}
           >
-            <MenuItem value="ALL">Alle faste kostnader</MenuItem>
+            <MenuItem value="ALL">{t("recurring.allFixedCosts")}</MenuItem>
             {RECURRING_TYPES.map((type) => (
               <MenuItem key={type.key} value={type.key}>
                 {type.label}
@@ -113,32 +115,32 @@ function RecurringControlPanel({
         </FormControl>
 
         <FormControl size="small" fullWidth>
-          <InputLabel id="recurring-history-label">Historikk</InputLabel>
+          <InputLabel id="recurring-history-label">{t("recurring.history")}</InputLabel>
           <Select
             labelId="recurring-history-label"
-            label="Historikk"
+            label={t("recurring.history")}
             value={monthsBack}
             onChange={(event) => onMonthsBack(Number(event.target.value))}
           >
             {HISTORY_OPTIONS.map((months) => (
               <MenuItem key={months} value={months}>
-                {months === 0 ? "Ingen historikk" : `${months} måneder bakover`}
+                {months === 0 ? t("recurring.noHistory") : t("recurring.monthsBack", { count: months })}
               </MenuItem>
             ))}
           </Select>
         </FormControl>
 
         <FormControl size="small" fullWidth disabled={!monthOptions.length}>
-          <InputLabel id="recurring-month-label">Måned</InputLabel>
+          <InputLabel id="recurring-month-label">{t("common.month")}</InputLabel>
           <Select
             labelId="recurring-month-label"
-            label="Måned"
+            label={t("common.month")}
             value={monthValue}
             onChange={(event) => onSelectedMonth(event.target.value)}
           >
             {monthOptions.map((month) => (
               <MenuItem key={month.key} value={month.key}>
-                {monthSelectLabel(month)}
+                {monthSelectLabel(month, t)}
               </MenuItem>
             ))}
           </Select>
@@ -150,7 +152,7 @@ function RecurringControlPanel({
           disabled={!monthValue}
           onClick={() => onOpenMonth(monthValue)}
         >
-          Åpne valgt måned
+          {t("recurring.openSelectedMonth")}
         </Button>
       </Stack>
     </SectionCard>
@@ -165,18 +167,19 @@ function MissedPaymentsPanel({
   onOpenMonth,
   pending,
 }) {
+  const { t } = useTranslation();
   const visibleItems = items.slice(0, 8);
 
   return (
     <SectionCard
-      title={`Ubetalt ${monthLabel || "valgt måned"}`}
-      subtitle="Faste kostnader i valgt måned som ikke er registrert betalt."
+      title={t("recurring.unpaidTitle", { month: monthLabel || t("recurring.selectedMonth") })}
+      subtitle={t("recurring.unpaidSubtitle")}
       icon={<WarningAmberRoundedIcon fontSize="small" />}
       action={
         <Chip
           size="small"
           color={items.length ? "warning" : "success"}
-          label={items.length ? `${items.length} åpne` : "Alt ok"}
+          label={items.length ? `${items.length} ${t("recurring.open")}` : t("recurring.allOk")}
           sx={{ fontWeight: 900 }}
         />
       }
@@ -225,7 +228,7 @@ function MissedPaymentsPanel({
                     onClick={() => onOpenPay({ ...item, paymentKind: "MAIN" })}
                     sx={{ flex: 1 }}
                   >
-                    Registrer
+                    {t("recurring.register")}
                   </Button>
                   <Button
                     size="small"
@@ -233,7 +236,7 @@ function MissedPaymentsPanel({
                     onClick={() => onOpenMonth(item.monthKey)}
                     sx={{ flex: 1 }}
                   >
-                    Måned
+                    {t("recurring.monthButton")}
                   </Button>
                 </Stack>
               </Box>
@@ -242,7 +245,7 @@ function MissedPaymentsPanel({
         </Stack>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          Alt i valgt måned er betalt eller det finnes ingen forfall.
+          {t("recurring.unpaidEmpty")}
         </Typography>
       )}
     </SectionCard>
@@ -251,6 +254,7 @@ function MissedPaymentsPanel({
 
 export default function RecurringExpenseScreen() {
   const [searchParams] = useSearchParams();
+  const { t } = useTranslation();
   const ctrl = useRecurringController();
   const payments = useRecurringPayments();
   const payDialog = usePayDialog();
@@ -336,7 +340,7 @@ export default function RecurringExpenseScreen() {
         paid: selectedSummaryMonth.paidTotal ?? 0,
       }
     : {
-        label: "3 mnd",
+        label: t("recurring.threeMonths"),
         min: sum3.min ?? 0,
         max: sum3.max ?? 0,
         paid: sum3.paid ?? 0,
@@ -419,20 +423,20 @@ export default function RecurringExpenseScreen() {
 
   const sectionTabs = useMemo(
     () => [
-      { value: "overview", label: "Denne måneden", icon: <DashboardRoundedIcon fontSize="small" /> },
-      { value: "months", label: "Kø og måneder", icon: <CalendarMonthRoundedIcon fontSize="small" /> },
+      { value: "overview", label: t("recurring.thisMonth"), icon: <DashboardRoundedIcon fontSize="small" /> },
+      { value: "months", label: t("recurring.queueAndMonths"), icon: <CalendarMonthRoundedIcon fontSize="small" /> },
       {
         value: "templates",
-        label: `Avtaler${activeTemplateCount ? ` (${activeTemplateCount})` : ""}`,
+        label: `${t("recurring.agreements")}${activeTemplateCount ? ` (${activeTemplateCount})` : ""}`,
         icon: <ReceiptLongRoundedIcon fontSize="small" />,
       },
       {
         value: "mortgages",
-        label: `Boliglån${mortgages.length ? ` (${mortgages.length})` : ""}`,
+        label: `${t("recurring.mortgage")}${mortgages.length ? ` (${mortgages.length})` : ""}`,
         icon: <AccountBalanceRoundedIcon fontSize="small" />,
       },
     ],
-    [activeTemplateCount, mortgages.length],
+    [activeTemplateCount, mortgages.length, t],
   );
 
   const renderStatusCard = () =>
@@ -440,12 +444,12 @@ export default function RecurringExpenseScreen() {
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           {isLoading && (
             <Typography color="text.secondary">
-              Laster faste kostnader...
+              {t("recurring.loading")}
             </Typography>
           )}
           {isError && (
             <Typography color="error">
-              Kunne ikke hente faste kostnader
+              {t("recurring.fetchFailed")}
               {error?.message ? `: ${error.message}` : "."}
             </Typography>
           )}
@@ -454,22 +458,22 @@ export default function RecurringExpenseScreen() {
 
   return (
     <AppScreen
-      title="Faste kostnader"
-      subtitle="Få oversikt over faste regninger, forfall og betalinger."
+      title={t("recurring.title")}
+      subtitle={t("recurring.subtitle")}
       icon={<ReceiptLongRoundedIcon />}
-      actionLabel="Legg til fast kostnad"
+      actionLabel={t("recurring.add")}
       actionIcon={<AddIcon />}
       onAction={ctrl.openAdd}
       summaryItems={[
-        { label: "Aktive avtaler", value: activeTemplateCount },
-        { label: "Ubetalt valgt måned", value: unpaidSelectedMonth.length },
-        { label: "Neste betalinger", value: enrichedNextBills.length },
-        ...(mortgages.length ? [{ label: "Boliglån", value: mortgages.length }] : []),
+        { label: t("recurring.activeAgreements"), value: activeTemplateCount },
+        { label: t("recurring.unpaidSelectedMonth"), value: unpaidSelectedMonth.length },
+        { label: t("recurring.nextPayments"), value: enrichedNextBills.length },
+        ...(mortgages.length ? [{ label: t("recurring.mortgage"), value: mortgages.length }] : []),
       ]}
       workflow={{
-        question: "Hva forfaller, hva er betalt, og hvordan påvirker det måneden?",
-        answer: "Velg måned i kontrollpanelet, følg opp ubetalte regninger først, og bruk oversikten til å se belastningen fremover.",
-        steps: ["Velg måned", "Registrer betaling", "Sjekk effekt"],
+        question: t("recurring.question"),
+        answer: t("recurring.answer"),
+        steps: [t("recurring.stepMonth"), t("recurring.stepPayment"), t("recurring.stepEffect")],
       }}
       maxWidth={1720}
       contentSx={{
@@ -491,34 +495,34 @@ export default function RecurringExpenseScreen() {
           }}
         >
           <KpiCard
-            label={`Forventet ${summaryWindow.label}`}
+            label={t("recurring.expected", { period: summaryWindow.label })}
             value={`${formatCurrency(summaryWindow.min)} - ${formatCurrency(summaryWindow.max)}`}
-            subtext="Dette er forventet fremover"
+            subtext={t("recurring.expectedFuture")}
             icon={<ReceiptLongRoundedIcon />}
             tone="primary"
           />
           <KpiCard
-            label={`Betalt ${summaryWindow.label}`}
+            label={t("recurring.paid", { period: summaryWindow.label })}
             value={formatCurrency(summaryWindow.paid ?? 0)}
-            subtext="Dette er faktisk betalt"
+            subtext={t("recurring.actualPaid")}
             icon={<PaidRoundedIcon />}
             tone="success"
           />
           <KpiCard
-            label={`Ubetalt ${summaryWindow.label}`}
+            label={t("recurring.unpaid", { period: summaryWindow.label })}
             value={unpaidSelectedMonth.length}
             subtext={
               unpaidSelectedMonth.length
-                ? `Denne måneden mangler ${unpaidSelectedMonth.length} faste kostnader`
-                : "Alt er betalt i valgt måned"
+                ? t("recurring.missingCount", { count: unpaidSelectedMonth.length })
+                : t("recurring.paidInSelected")
             }
             icon={<WarningAmberRoundedIcon />}
             tone={unpaidSelectedMonth.length ? "warning" : "success"}
           />
           <KpiCard
-            label="Boliglån"
+            label={t("recurring.mortgage")}
             value={mortgages.length}
-            subtext="Aktive låneavtaler"
+            subtext={t("recurring.activeLoans")}
             icon={<AccountBalanceRoundedIcon />}
           />
         </Box>
@@ -573,10 +577,10 @@ export default function RecurringExpenseScreen() {
               >
                 <Box sx={{ px: { xs: 0.5, md: 1 }, minWidth: 0, display: { xs: "block", xl: "none" } }}>
                   <Typography variant="caption" color="text.secondary" fontWeight={900}>
-                    Arbeidsområde
+                    {t("recurring.workArea")}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
-                    Oppfølging først, detaljer når du trenger dem.
+                    {t("recurring.workAreaHelp")}
                   </Typography>
                 </Box>
                 <Tabs
@@ -658,23 +662,23 @@ export default function RecurringExpenseScreen() {
                         >
                           <Box sx={{ minWidth: 0 }}>
                             <Typography variant="body2" fontWeight={900}>
-                              Periode i graf
+                              {t("recurring.graphPeriod")}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               {overviewRange === "withHistory"
-                                ? `${forecastPast.length} historiske og ${forecastFuture.length} kommende måneder`
-                                : `${forecastFuture.length} kommende måneder`}
+                                ? t("recurring.historicalAndFuture", { past: forecastPast.length, future: forecastFuture.length })
+                                : t("recurring.futureMonths", { count: forecastFuture.length })}
                             </Typography>
                           </Box>
                           <SegmentedControl
                             value={overviewRange}
                             onChange={setOverviewRange}
-                            ariaLabel="Velg periode i oversiktsgraf"
+                            ariaLabel={t("recurring.graphPeriodAria")}
                             options={[
-                              { value: "future", label: "Fremover" },
+                              { value: "future", label: t("recurring.future") },
                               {
                                 value: "withHistory",
-                                label: "Historikk + fremover",
+                                label: t("recurring.historyAndFuture"),
                                 disabled: monthsBack === 0,
                               },
                             ]}
@@ -694,7 +698,7 @@ export default function RecurringExpenseScreen() {
                                 onChange={(event) => setShowChartIncome(event.target.checked)}
                               />
                             }
-                            label="Vis inntekt"
+                            label={t("recurring.showIncome")}
                           />
                           <FormControlLabel
                             control={
@@ -706,7 +710,7 @@ export default function RecurringExpenseScreen() {
                                 }
                               />
                             }
-                            label="Vis forventet inntekt"
+                            label={t("recurring.showExpectedIncome")}
                           />
                         </Stack>
                       </Paper>
@@ -719,13 +723,13 @@ export default function RecurringExpenseScreen() {
                         showExpectedIncome={showChartExpectedIncome}
                         title={
                           overviewRange === "withHistory"
-                            ? "Historikk, forventet og betalt"
-                            : "Forventet vs betalt"
+                            ? t("recurring.historyExpectedPaid")
+                            : t("recurring.expectedVsPaid")
                         }
                         subtitle={
                           overviewRange === "withHistory"
-                            ? "Historikk fra valgt periode vises sammen med kommende måneder."
-                            : "Kommende forventet intervall og registrert betalt per måned."
+                            ? t("recurring.historySubtitle")
+                            : t("recurring.futureSubtitle")
                         }
                       />
                     </Stack>
@@ -751,7 +755,7 @@ export default function RecurringExpenseScreen() {
                 }}
               >
                 <ForecastSection
-                  title="Kommende måneder"
+                  title={t("recurring.upcomingMonths")}
                   forecast={forecastFuture}
                   tab={ctrl.tab}
                   onTab={ctrl.setTab}
@@ -761,7 +765,7 @@ export default function RecurringExpenseScreen() {
                 />
 
                 <ForecastSection
-                  title="Historikk"
+                  title={t("recurring.history")}
                   forecast={forecastPast}
                   tab={ctrl.tab}
                   onTab={ctrl.setTab}
@@ -806,13 +810,12 @@ export default function RecurringExpenseScreen() {
 
         <Accordion sx={{ mt: 2 }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography fontWeight={900}>Avansert</Typography>
+            <Typography fontWeight={900}>{t("recurring.advanced")}</Typography>
           </AccordionSummary>
           <AccordionDetails>
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                Bruk dette kun når du vil rydde all historikk og alle faste
-                kostnader.
+                {t("recurring.advancedText")}
               </Typography>
               <Divider />
               <Button
@@ -824,7 +827,7 @@ export default function RecurringExpenseScreen() {
                   width: { xs: "100%", sm: "auto" },
                 }}
               >
-                Slett alt
+                {t("recurring.deleteAll")}
               </Button>
             </Stack>
           </AccordionDetails>

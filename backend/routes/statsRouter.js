@@ -3,6 +3,8 @@ import express from "express";
 import mongoose from "mongoose";
 import Expense from "../models/expenseSchema.js";
 import Income from "../models/incomeSchema.js";
+import Product from "../models/productSchema.js";
+import DataQualityIgnore from "../models/dataQualityIgnoreSchema.js";
 import RecurringExpense from "../models/recurringExpenseSchema.js";
 import RecurringPayment from "../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../models/recurringTermsHistorySchema.js";
@@ -253,6 +255,420 @@ const buildPriceChangesPipeline = ({ req, from, to }) => {
     },
   ];
 };
+
+const todayAtOsloStart = () => osloDayRange(osloDateKey())?.start || new Date();
+
+/**
+ * GET /api/stats/data-quality
+ * Compact issue summary used by the home screen cleanup panel.
+ */
+router.get("/data-quality", async (req, res, next) => {
+  try {
+    const staleBefore = new Date(todayAtOsloStart());
+    staleBefore.setUTCFullYear(staleBefore.getUTCFullYear() - 1);
+    const ignoredSuspiciousExpenseIds = (
+      await DataQualityIgnore.find(
+        ownedFilter(req, {
+          issueType: "suspicious-volume-price",
+          entityType: "expense",
+        }),
+      )
+        .select("entityId")
+        .lean()
+    ).map((item) => item.entityId);
+
+    const [
+      productsWithoutCategory,
+      expensesMissingPlace,
+      duplicateProductNames,
+      staleCheapest,
+      suspiciousExpenses,
+    ] = await Promise.all([
+      Product.aggregate([
+        { $match: ownedFilter(req) },
+        {
+          $match: {
+            $or: [
+              { category: { $exists: false } },
+              { category: null },
+              { category: "" },
+              { category: /^ikke kategorisert$/i },
+            ],
+          },
+        },
+        {
+          $facet: {
+            rows: [
+              { $sort: { updatedAt: -1, name: 1 } },
+              { $limit: 6 },
+              { $project: { _id: 1, name: 1, category: 1 } },
+            ],
+            total: [{ $count: "count" }],
+          },
+        },
+      ]),
+      Expense.aggregate([
+        { $match: ownedFilter(req) },
+        {
+          $match: {
+            $or: [
+              { locationName: { $exists: false } },
+              { locationName: null },
+            ],
+          },
+        },
+        actualDateStage,
+        {
+          $lookup: {
+            from: "products",
+            localField: "productName",
+            foreignField: "_id",
+            as: "product",
+          },
+        },
+        { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+        { $sort: { actualDate: -1, updatedAt: -1 } },
+        {
+          $facet: {
+            rows: [
+              { $limit: 6 },
+              {
+                $project: {
+                  _id: 1,
+                  productName: { $ifNull: ["$product.name", "Ukjent produkt"] },
+                  finalPrice: { $ifNull: ["$finalPrice", "$price"] },
+                  date: "$actualDate",
+                },
+              },
+            ],
+            total: [{ $count: "count" }],
+          },
+        },
+      ]),
+      Product.aggregate([
+        { $match: ownedFilter(req) },
+        {
+          $addFields: {
+            normalizedName: {
+              $toLower: {
+                $trim: { input: "$name" },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$normalizedName",
+            count: { $sum: 1 },
+            names: { $addToSet: "$name" },
+            ids: { $push: "$_id" },
+          },
+        },
+        { $match: { count: { $gt: 1 }, _id: { $ne: "" } } },
+        {
+          $facet: {
+            rows: [
+              { $sort: { count: -1, _id: 1 } },
+              { $limit: 6 },
+              { $project: { _id: 0, name: "$_id", count: 1, names: 1, ids: 1 } },
+            ],
+            total: [{ $count: "count" }],
+          },
+        },
+      ]),
+      Expense.aggregate([
+        { $match: ownedFilter(req) },
+        actualDateStage,
+        actualDateNotNull,
+        {
+          $addFields: {
+            comparePrice: {
+              $cond: [
+                { $gt: ["$pricePerUnit", 0] },
+                "$pricePerUnit",
+                { $ifNull: ["$finalPrice", "$price"] },
+              ],
+            },
+            variantKey: { $ifNull: ["$variant", ""] },
+          },
+        },
+        { $match: { comparePrice: { $gt: 0 } } },
+        { $sort: { productName: 1, variantKey: 1, comparePrice: 1, actualDate: -1, _id: 1 } },
+        {
+          $group: {
+            _id: { productName: "$productName", variant: "$variantKey" },
+            cheapest: { $first: "$$ROOT" },
+            latestDate: { $max: "$actualDate" },
+            purchaseCount: { $sum: 1 },
+          },
+        },
+        {
+          $match: {
+            purchaseCount: { $gt: 1 },
+            "cheapest.actualDate": { $lt: staleBefore },
+            $expr: { $gt: ["$latestDate", "$cheapest.actualDate"] },
+          },
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "cheapest.productName",
+            foreignField: "_id",
+            as: "product",
+          },
+        },
+        { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: "shops",
+            localField: "cheapest.shopName",
+            foreignField: "_id",
+            as: "shop",
+          },
+        },
+        { $unwind: { path: "$shop", preserveNullAndEmptyArrays: true } },
+        { $sort: { "cheapest.actualDate": 1 } },
+        {
+          $facet: {
+            rows: [
+              { $limit: 6 },
+              {
+                $project: {
+                  _id: "$cheapest._id",
+                  productId: "$cheapest.productName",
+                  productName: { $ifNull: ["$product.name", "Ukjent produkt"] },
+                  shopName: { $ifNull: ["$shop.name", "Ukjent butikk"] },
+                  price: "$cheapest.comparePrice",
+                  date: "$cheapest.actualDate",
+                  latestDate: 1,
+                },
+              },
+            ],
+            total: [{ $count: "count" }],
+          },
+        },
+      ]),
+      Expense.aggregate([
+        {
+          $match: ownedFilter(req, {
+            ...(ignoredSuspiciousExpenseIds.length
+              ? { _id: { $nin: ignoredSuspiciousExpenseIds } }
+              : {}),
+          }),
+        },
+        actualDateStage,
+        {
+          $addFields: {
+            amount: { $ifNull: ["$finalPrice", "$price"] },
+            unitPrice: { $ifNull: ["$pricePerUnit", 0] },
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { volume: { $lte: 0 } },
+              { quantity: { $lte: 0 } },
+              { amount: { $lte: 0 } },
+              { unitPrice: { $lte: 0 } },
+              { unitPrice: { $gte: 10000 } },
+              { amount: { $gte: 50000 } },
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "productName",
+            foreignField: "_id",
+            as: "product",
+          },
+        },
+        { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+        { $sort: { actualDate: -1, updatedAt: -1 } },
+        {
+          $facet: {
+            rows: [
+              { $limit: 6 },
+              {
+                $project: {
+                  _id: 1,
+                  productName: { $ifNull: ["$product.name", "Ukjent produkt"] },
+                  finalPrice: "$amount",
+                  pricePerUnit: "$unitPrice",
+                  volume: 1,
+                  quantity: 1,
+                  date: "$actualDate",
+                },
+              },
+            ],
+            total: [{ $count: "count" }],
+          },
+        },
+      ]),
+    ]);
+
+    const productCategoryRows = productsWithoutCategory?.[0]?.rows || [];
+    const productCategoryCount = Number(productsWithoutCategory?.[0]?.total?.[0]?.count || 0);
+    const missingPlaceRows = expensesMissingPlace?.[0]?.rows || [];
+    const missingPlaceCount = Number(expensesMissingPlace?.[0]?.total?.[0]?.count || 0);
+    const duplicateRows = duplicateProductNames?.[0]?.rows || [];
+    const duplicateCount = Number(duplicateProductNames?.[0]?.total?.[0]?.count || 0);
+    const staleRows = staleCheapest?.[0]?.rows || [];
+    const staleCount = Number(staleCheapest?.[0]?.total?.[0]?.count || 0);
+    const suspiciousRows = suspiciousExpenses?.[0]?.rows || [];
+    const suspiciousCount = Number(suspiciousExpenses?.[0]?.total?.[0]?.count || 0);
+    const issues = [
+      {
+        id: "products-without-category",
+        label: "Produkter uten kategori",
+        count: productCategoryCount,
+        severity: productCategoryCount ? "warning" : "ok",
+        decision: productCategoryCount
+          ? "Disse produktene gjør kategoristatistikken svakere."
+          : "Alle viste produkter har kategori.",
+        to: "/products",
+        examples: productCategoryRows.map((item) => ({
+          id: String(item._id),
+          label: item.name || "Ukjent produkt",
+          detail: "Mangler kategori",
+          to: `/products?filterId=name&filterValue=${encodeURIComponent(item.name || "")}`,
+        })),
+      },
+      {
+        id: "expenses-missing-place",
+        label: "Utgifter uten sted",
+        count: missingPlaceCount,
+        severity: missingPlaceCount ? "warning" : "ok",
+        decision: missingPlaceCount
+          ? "Sted mangler, så butikk/sted-statistikk blir mindre presis."
+          : "Ingen utgifter uten sted funnet.",
+        to: "/expenses",
+        examples: missingPlaceRows.map((item) => ({
+          id: String(item._id),
+          label: item.productName,
+          detail: `${round2(Number(item.finalPrice || 0))} kr`,
+          to: "/expenses",
+        })),
+      },
+      {
+        id: "duplicate-product-names",
+        label: "Dupliserte produktnavn",
+        count: duplicateCount,
+        severity: duplicateCount ? "warning" : "ok",
+        decision: duplicateCount
+          ? "Samme navn finnes flere ganger og kan splitte historikken."
+          : "Ingen dupliserte produktnavn funnet.",
+        to: "/products",
+        examples: duplicateRows.map((item) => ({
+          id: item.name,
+          label: item.names?.[0] || item.name,
+          detail: `${item.count} produkter`,
+          to: `/products?filterId=name&filterValue=${encodeURIComponent(item.names?.[0] || item.name || "")}`,
+        })),
+      },
+      {
+        id: "stale-cheapest-prices",
+        label: "Gamle billigste priser",
+        count: staleCount,
+        severity: staleCount ? "info" : "ok",
+        decision: staleCount
+          ? "Noen billigste priser er gamle og bør ikke stoles blindt på."
+          : "Ingen gamle billigste priser funnet.",
+        to: "/stats",
+        examples: staleRows.map((item) => ({
+          id: String(item._id),
+          label: item.productName,
+          detail: `${round2(Number(item.price || 0))} kr hos ${item.shopName}`,
+          to: `/stats?productId=${encodeURIComponent(String(item.productId || ""))}`,
+        })),
+      },
+      {
+        id: "suspicious-volume-price",
+        label: "Mistenkelig pris/volum",
+        count: suspiciousCount,
+        severity: suspiciousCount ? "error" : "ok",
+        decision: suspiciousCount
+          ? "Pris, volum eller enhetspris ser uvanlig ut."
+          : "Ingen åpenbare pris/volum-feil funnet.",
+        to: "/expenses",
+        examples: suspiciousRows.map((item) => ({
+          id: String(item._id),
+          label: item.productName,
+          detail: `${round2(Number(item.finalPrice || 0))} kr, volum ${round2(Number(item.volume || 0))}`,
+          to: `/expenses?openExpense=${encodeURIComponent(String(item._id))}`,
+          canIgnore: true,
+          ignorePayload: {
+            issueType: "suspicious-volume-price",
+            entityType: "expense",
+            entityId: String(item._id),
+          },
+        })),
+      },
+    ];
+
+    const totals = {
+      issues: issues.reduce((sum, issue) => sum + Number(issue.count || 0), 0),
+      warnings: issues.filter((issue) => issue.severity === "warning").length,
+      errors: issues.filter((issue) => issue.severity === "error").length,
+      stale: staleCount,
+    };
+
+    res.json({ generatedAt: new Date().toISOString(), totals, issues });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/data-quality/ignore", async (req, res, next) => {
+  try {
+    const issueType = String(req.body?.issueType || "").trim();
+    const entityType = String(req.body?.entityType || "").trim();
+    const entityId = String(req.body?.entityId || "").trim();
+
+    if (!issueType || !entityType || !mongoose.Types.ObjectId.isValid(entityId)) {
+      return res.status(400).json({ message: "Ugyldig datakvalitetspunkt." });
+    }
+
+    if (issueType !== "suspicious-volume-price" || entityType !== "expense") {
+      return res.status(400).json({ message: "Dette punktet kan ikke skjules ennå." });
+    }
+
+    const expense = await Expense.findOne(
+      ownedFilter(req, { _id: new mongoose.Types.ObjectId(entityId) }),
+    )
+      .select("_id ownerUserId")
+      .lean();
+
+    if (!expense) return res.status(404).json({ message: "Utgiften ble ikke funnet." });
+
+    const ignored = await DataQualityIgnore.findOneAndUpdate(
+      ownedFilter(req, {
+        issueType,
+        entityType,
+        entityId: new mongoose.Types.ObjectId(entityId),
+      }),
+      {
+        $set: { reason: String(req.body?.reason || "Bekreftet som riktig").trim() },
+        $setOnInsert: {
+          ownerUserId: expense.ownerUserId,
+          issueType,
+          entityType,
+          entityId: new mongoose.Types.ObjectId(entityId),
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean();
+
+    res.json({
+      _id: String(ignored._id),
+      issueType: ignored.issueType,
+      entityType: ignored.entityType,
+      entityId: String(ignored.entityId),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /api/stats/expense-dashboard?period=month|quarter|year|all&month=YYYY-MM

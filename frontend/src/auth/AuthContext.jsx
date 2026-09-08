@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { requestJson } from "../api/httpClient";
 import { authClient } from "./authClient";
+import { useAppPreferences } from "../store/Store";
 
 export const AuthContext = createContext(null);
 
@@ -15,6 +16,7 @@ export function AuthProvider({ children }) {
   const [appUser, setAppUser] = useState(null);
   const [appUserLoading, setAppUserLoading] = useState(false);
   const [stableAuthUser, setStableAuthUser] = useState(null);
+  const { preferences, setPreference } = useAppPreferences();
 
   useEffect(() => {
     if (session.data?.user) {
@@ -41,15 +43,19 @@ export function AuthProvider({ children }) {
     setAppUserLoading(true);
     try {
       const payload = await requestJson("/api/app-users/me");
-      setAppUser(payload?.user ?? null);
-      return payload?.user ?? null;
+      const nextUser = payload?.user ?? null;
+      setAppUser(nextUser);
+      if (nextUser?.preferences?.language && nextUser.preferences.language !== preferences.language) {
+        setPreference("language", nextUser.preferences.language);
+      }
+      return nextUser;
     } catch {
       setAppUser((previousUser) => previousUser);
       return null;
     } finally {
       setAppUserLoading(false);
     }
-  }, [authUserId]);
+  }, [authUserId, preferences.language, setPreference]);
 
   useEffect(() => {
     loadAppUser();

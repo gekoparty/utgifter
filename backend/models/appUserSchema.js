@@ -30,6 +30,13 @@ const appUserSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    preferences: {
+      language: {
+        type: String,
+        enum: ["nb", "en"],
+        default: "nb",
+      },
+    },
   },
   { timestamps: true }
 );

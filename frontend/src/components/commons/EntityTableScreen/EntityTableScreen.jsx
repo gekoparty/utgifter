@@ -14,6 +14,7 @@ import { useSearchParams } from "react-router-dom";
 import useSnackBar from "../../../hooks/useSnackBar";
 import { usePaginatedData } from "../../../hooks/usePaginatedData";
 import { useAppPreferences } from "../../../store/Store";
+import { useTranslation } from "../../../i18n/useTranslation";
 import AppScreen from "../Layout/AppScreen";
 import ReactTable from "../React-Table/react-table";
 import TableLayout from "../TableLayout/TableLayout";
@@ -22,9 +23,9 @@ import { buildPaginatedUrl } from "./buildPaginatedUrl";
 const INITIAL_PAGINATION = { pageIndex: 0, pageSize: 10 };
 
 const ACTION_LABELS = {
-  ADD: "lagt til",
-  EDIT: "oppdatert",
-  DELETE: "slettet",
+  ADD: "added",
+  EDIT: "updated",
+  DELETE: "deleted",
 };
 
 const buildInitialFilters = (searchParams) => {
@@ -56,6 +57,7 @@ const EntityTableScreen = ({
 }) => {
   const [searchParams] = useSearchParams();
   const { preferences, setPreference } = useAppPreferences();
+  const { t } = useTranslation();
   const initialPageSize =
     Number(preferences.rowsPerPage) > 0
       ? Number(preferences.rowsPerPage)
@@ -119,10 +121,10 @@ const EntityTableScreen = ({
   const pageNumber = pagination.pageIndex + 1;
 
   const summaryItems = [
-    { label: "Totalt", value: totalRowCount },
-    { label: "Viser", value: tableData.length },
-    { label: "Filtre", value: activeFilterCount },
-    { label: "Side", value: pageNumber },
+    { label: t("common.total"), value: totalRowCount },
+    { label: t("common.showing"), value: tableData.length },
+    { label: t("common.filters"), value: activeFilterCount },
+    { label: t("common.page"), value: pageNumber },
   ];
 
   const preloadDialog = useCallback(() => {
@@ -148,7 +150,13 @@ const EntityTableScreen = ({
   const handleSuccess = useCallback(
     (payload) => {
       const name = getRecordName(payload) || getRecordName(selectedRecord);
-      showSnackbar(`${resourceLabel} "${name}" ble ${ACTION_LABELS[activeModal]}`);
+      showSnackbar(
+        t("entity.savedMessage", {
+          resource: resourceLabel,
+          name,
+          action: t(`entity.${ACTION_LABELS[activeModal]}`),
+        }),
+      );
       closeDialog();
     },
     [
@@ -158,6 +166,7 @@ const EntityTableScreen = ({
       resourceLabel,
       selectedRecord,
       showSnackbar,
+      t,
     ],
   );
 
@@ -168,7 +177,7 @@ const EntityTableScreen = ({
         [dialogRecordProp]: selectedRecord,
         onClose: closeDialog,
         onSuccess: handleSuccess,
-        onError: () => showSnackbar("Kunne ikke utføre handling", "error"),
+        onError: () => showSnackbar(t("entity.actionFailed"), "error"),
       }
     : null;
 

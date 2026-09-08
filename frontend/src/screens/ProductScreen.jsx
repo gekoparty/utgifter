@@ -2,6 +2,7 @@ import React, { lazy, useMemo } from "react";
 
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 import ChipsOverflow from "../components/tableCells/ChipsOverflow";
+import { useTranslation } from "../i18n/useTranslation";
 
 const loadProductDialog = () =>
   import("../features/Products/ProductDialogs/ProductDialog");
@@ -11,28 +12,29 @@ const QUERY_KEY = ["products", "paginated"];
 const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 
 const ProductScreen = () => {
+  const { t } = useTranslation();
   const columns = useMemo(
     () => [
-      { accessorKey: "name", header: "Produkter" },
-      { accessorKey: "brand", header: "Merker" },
+      { accessorKey: "name", header: t("registers.productName") },
+      { accessorKey: "brand", header: t("registers.brands") },
       {
         accessorKey: "variants",
-        header: "Varianter",
+        header: t("registers.variants"),
         Cell: ({ cell }) => (
           <ChipsOverflow
             items={Array.isArray(cell.getValue()) ? cell.getValue() : []}
             maxVisible={3}
-            popoverTitle="Varianter"
+            popoverTitle={t("registers.variants")}
             tone="primary"
             getLabel={(x) => (typeof x === "object" ? x?.name : String(x))}
             getKey={(x) => (typeof x === "object" ? x?._id : String(x))}
           />
         ),
       },
-      { accessorKey: "category", header: "Kategori" },
+      { accessorKey: "category", header: t("registers.category") },
       {
         accessorKey: "expenseCount",
-        header: "Brukt i utgifter",
+        header: t("registers.expenseCount"),
         Cell: ({ cell }) => {
           const count = Number(cell.getValue());
           return Number.isFinite(count) ? count : 0;
@@ -40,7 +42,7 @@ const ProductScreen = () => {
       },
       {
         accessorKey: "measures",
-        header: "Mål",
+        header: t("registers.measures"),
         Cell: ({ cell }) => {
           const measures = cell.getValue();
           return Array.isArray(measures)
@@ -49,12 +51,12 @@ const ProductScreen = () => {
         },
       },
     ],
-    [],
+    [t],
   );
 
   return (
     <EntityTableScreen
-      addButtonLabel="Nytt produkt"
+      addButtonLabel={t("registers.newProduct")}
       columns={columns}
       DialogComponent={ProductDialog}
       dialogRecordProp="productToEdit"
@@ -64,15 +66,19 @@ const ProductScreen = () => {
       getRecordName={(record) => record?.name ?? record?.data?.name ?? ""}
       initialSelectedRecord={INITIAL_SELECTED_PRODUCT}
       loadDialog={loadProductDialog}
-      loadingLabel="Laster produkter..."
+      loadingLabel={t("registers.loadingProducts")}
       queryKey={QUERY_KEY}
-      resourceLabel="Produkt"
-      screenTitle="Produkter"
-      description="Hold produktlisten ryddig slik at utgifter, varianter og prisstatistikk henger sammen."
+      resourceLabel={t("registers.product")}
+      screenTitle={t("registers.productsTitle")}
+      description={t("registers.productsDescription")}
       workflow={{
-        question: "Hva er den reelle prisutviklingen for dette produktet?",
-        answer: "Rydd navn, variant, merke og mål her først, så blir sammenligningene i prishistorikken mer pålitelige.",
-        steps: ["Finn produkt", "Rydd variant og mål", "Sammenlign i statistikk"],
+        question: t("registers.productsQuestion"),
+        answer: t("registers.productsAnswer"),
+        steps: [
+          t("registers.productStepFind"),
+          t("registers.productStepClean"),
+          t("registers.productStepCompare"),
+        ],
       }}
     />
   );

@@ -12,6 +12,7 @@ import SegmentedControl from "../components/commons/Controls/SegmentedControl";
 import VirtualizedSelect from "../components/commons/VirtualizedSelect/VirtualizedSelect";
 import useInfiniteProducts from "../hooks/useInfiniteProducts";
 import { getSelectStyles } from "../styles/theme/selectStyles";
+import { useTranslation } from "../i18n/useTranslation";
 
 const MonthlyExpensesChart = lazy(() =>
   import("../components/Charts/MonthlyExpensesChart/MonthlyExpensesChart")
@@ -39,6 +40,7 @@ const normalizeMonthParam = (month, year) => {
 export default function StatsScreen() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
   const [view, setView] = useState("expenses");
   const [productId, setProductId] = useState("");
@@ -192,7 +194,7 @@ export default function StatsScreen() {
               setView(nextView);
               if (nextView !== "price") setProductId("");
             }}
-            ariaLabel="Statistikkvisning"
+            ariaLabel={t("stats.viewLabel")}
             fullWidth
             options={[
               {
@@ -200,7 +202,7 @@ export default function StatsScreen() {
                 label: (
                   <Stack direction="row" spacing={0.75} alignItems="center">
                     <BarChartRoundedIcon fontSize="small" />
-                    <span>Måneder</span>
+                    <span>{t("stats.months")}</span>
                   </Stack>
                 ),
               },
@@ -209,7 +211,7 @@ export default function StatsScreen() {
                 label: (
                   <Stack direction="row" spacing={0.75} alignItems="center">
                     <TimelineRoundedIcon fontSize="small" />
-                    <span>Prishistorikk</span>
+                    <span>{t("stats.priceHistory")}</span>
                   </Stack>
                 ),
               },
@@ -226,7 +228,7 @@ export default function StatsScreen() {
                 onChange={(option) => setProductId(option?.value || "")}
                 onInputChange={handleInputChange}
                 isLoading={isLoadingProducts}
-                placeholder="Søk etter produkt..."
+                placeholder={t("stats.searchProduct")}
                 menuPortalTarget={menuPortalTarget}
                 styles={selectStyles}
                 hasNextPage={hasNextPage}
@@ -235,7 +237,7 @@ export default function StatsScreen() {
             </Box>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ px: 1 }}>
-              Sammenlign månedene og åpne ekstra grafer for kategoriutvikling.
+              {t("stats.compareHint")}
             </Typography>
           )}
         </Stack>
@@ -243,26 +245,26 @@ export default function StatsScreen() {
 
   return (
     <AppScreen
-      title="Statistikk"
-      subtitle="Analyser månedlige utgifter, produktpriser, butikker og varianter."
+      title={t("stats.title")}
+      subtitle={t("stats.subtitle")}
       icon={<BarChartRoundedIcon />}
       summaryItems={[
-        { label: "Visning", value: view === "expenses" ? "Måneder" : "Prishistorikk" },
-        ...(selectedProduct ? [{ label: "Produkt", value: selectedProduct.label }] : []),
+        { label: t("common.view"), value: view === "expenses" ? t("stats.months") : t("stats.priceHistory") },
+        ...(selectedProduct ? [{ label: t("stats.product"), value: selectedProduct.label }] : []),
       ]}
       workflow={{
         question:
           view === "price"
-            ? "Hva er den reelle prisutviklingen for produktet?"
-            : "Bruker jeg mer eller mindre, og hvorfor?",
+            ? t("stats.priceQuestion")
+            : t("stats.expensesQuestion"),
         answer:
           view === "price"
-            ? "Velg produkt først, sammenlign butikker og varianter, og se hvor ferske prisene er før du konkluderer."
-            : "Start med månedsutviklingen, slå på faste kostnader eller inntekt ved behov, og bruk fordelingen til å finne årsaken.",
+            ? t("stats.priceAnswer")
+            : t("stats.expensesAnswer"),
         steps:
           view === "price"
-            ? ["Velg produkt", "Sammenlign pris", "Sjekk butikk og dato"]
-            : ["Velg år", "Se trend", "Finn driverne"],
+            ? [t("stats.chooseProduct"), t("stats.comparePrice"), t("stats.checkShopDate")]
+            : [t("stats.chooseYear"), t("stats.seeTrend"), t("stats.findDrivers")],
       }}
       toolbar={toolbar}
       maxWidth={1360}
@@ -306,10 +308,10 @@ export default function StatsScreen() {
               <SearchRoundedIcon />
             </Box>
             <Typography variant="h6" fontWeight={900}>
-              Velg et produkt
+              {t("stats.chooseProductTitle")}
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 1 }}>
-              Søk etter et produkt for å se prishistorikk, trender og butikkoversikt.
+              {t("stats.chooseProductText")}
             </Typography>
           </Paper>
         ))}

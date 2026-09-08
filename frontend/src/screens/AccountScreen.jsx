@@ -17,9 +17,11 @@ import KpiCard from "../components/commons/DataDisplay/KpiCard";
 import SectionCard from "../components/commons/Layout/SectionCard";
 import { requestJson } from "../api/httpClient";
 import { useAuth } from "../auth/useAuth";
+import { useTranslation } from "../i18n/useTranslation";
 
 export default function AccountScreen() {
   const { user, appUser, refreshAppUser, refreshSession } = useAuth();
+  const { t } = useTranslation();
   const [name, setName] = useState(appUser?.name || user?.name || "");
   const [profileMessage, setProfileMessage] = useState("");
   const [profileError, setProfileError] = useState("");
@@ -52,9 +54,9 @@ export default function AccountScreen() {
       }).catch(() => null);
       await refreshAppUser();
       await refreshSession();
-      setProfileMessage("Profilen er oppdatert.");
+      setProfileMessage(t("account.profileSaved"));
     } catch (error) {
-      setProfileError(error.message || "Kunne ikke lagre profil.");
+      setProfileError(error.message || t("account.profileSaveFailed"));
     } finally {
       setProfileSaving(false);
     }
@@ -65,11 +67,11 @@ export default function AccountScreen() {
     setPasswordMessage("");
 
     if (newPassword.length < 8) {
-      setPasswordError("Nytt passord må ha minst 8 tegn.");
+      setPasswordError(t("account.passwordMinError"));
       return;
     }
     if (newPassword !== repeatPassword) {
-      setPasswordError("Passordene er ikke like.");
+      setPasswordError(t("account.passwordMatchError"));
       return;
     }
 
@@ -86,9 +88,9 @@ export default function AccountScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setRepeatPassword("");
-      setPasswordMessage("Passordet er endret.");
+      setPasswordMessage(t("account.passwordSaved"));
     } catch (error) {
-      setPasswordError(error.message || "Kunne ikke endre passord.");
+      setPasswordError(error.message || t("account.passwordFailed"));
     } finally {
       setPasswordSaving(false);
     }
@@ -96,35 +98,35 @@ export default function AccountScreen() {
 
   return (
     <AppScreen
-      title="Min konto"
-      subtitle="Administrer profil og innlogging."
+      title={t("account.title")}
+      subtitle={t("account.subtitle")}
       icon={<ManageAccountsIcon />}
       summaryItems={[
-        { label: "Rolle", value: appUser?.role === "admin" ? "Administrator" : "Bruker" },
-        { label: "E-post", value: user?.email || "Ukjent" },
+        { label: t("account.role"), value: appUser?.role === "admin" ? t("account.admin") : t("account.user") },
+        { label: t("account.email"), value: user?.email || t("common.unknown") },
       ]}
       maxWidth={1360}
     >
       <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="E-post" value={user?.email || "Ukjent"} subtext="Innloggingskonto" icon={<PersonIcon />} tone="primary" />
+          <KpiCard label={t("account.email")} value={user?.email || t("common.unknown")} subtext={t("account.loginAccount")} icon={<PersonIcon />} tone="primary" />
         </Grid>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="Rolle" value={appUser?.role === "admin" ? "Administrator" : "Bruker"} subtext="Tilgangsnivå" />
+          <KpiCard label={t("account.role")} value={appUser?.role === "admin" ? t("account.admin") : t("account.user")} subtext={t("account.accessLevel")} />
         </Grid>
         <Grid item xs={12} sm={4}>
-          <KpiCard label="Bruker-ID" value={appUser?.id?.slice(-8) || "-"} subtext="Intern eier-id" />
+          <KpiCard label={t("account.userId")} value={appUser?.id?.slice(-8) || "-"} subtext={t("account.internalOwnerId")} />
         </Grid>
       </Grid>
 
       <Grid container spacing={1.5}>
         <Grid item xs={12} md={6}>
-          <SectionCard title="Profil" subtitle="Navnet vises i admin og kontooversikt." icon={<PersonIcon />}>
+          <SectionCard title={t("account.profile")} subtitle={t("account.profileSubtitle")} icon={<PersonIcon />}>
             <Stack spacing={2}>
               {profileMessage ? <Alert severity="success">{profileMessage}</Alert> : null}
               {profileError ? <Alert severity="error">{profileError}</Alert> : null}
               <TextField
-                label="Navn"
+                label={t("common.name")}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 fullWidth
@@ -135,33 +137,33 @@ export default function AccountScreen() {
                 disabled={profileSaving || !name.trim()}
                 sx={{ alignSelf: "flex-start" }}
               >
-                Lagre profil
+                {t("account.saveProfile")}
               </Button>
             </Stack>
           </SectionCard>
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <SectionCard title="Passord" subtitle="Endre passord for din egen konto." icon={<LockResetIcon />}>
+          <SectionCard title={t("account.password")} subtitle={t("account.passwordSubtitle")} icon={<LockResetIcon />}>
             <Stack spacing={2}>
               {passwordMessage ? <Alert severity="success">{passwordMessage}</Alert> : null}
               {passwordError ? <Alert severity="error">{passwordError}</Alert> : null}
               <TextField
-                label="Nåværende passord"
+                label={t("account.currentPassword")}
                 type="password"
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
                 fullWidth
               />
               <TextField
-                label="Nytt passord"
+                label={t("account.newPassword")}
                 type="password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
                 fullWidth
               />
               <TextField
-                label="Gjenta nytt passord"
+                label={t("account.repeatPassword")}
                 type="password"
                 value={repeatPassword}
                 onChange={(event) => setRepeatPassword(event.target.value)}
@@ -174,7 +176,7 @@ export default function AccountScreen() {
                     onChange={(event) => setRevokeOtherSessions(event.target.checked)}
                   />
                 }
-                label="Logg ut andre økter"
+                label={t("account.revokeOtherSessions")}
               />
               <Button
                 variant="contained"
@@ -182,10 +184,10 @@ export default function AccountScreen() {
                 disabled={passwordSaving || !currentPassword || !newPassword || !repeatPassword}
                 sx={{ alignSelf: "flex-start" }}
               >
-                Endre passord
+                {t("account.changePassword")}
               </Button>
               <Typography variant="caption" color="text.secondary">
-                Minst 8 tegn.
+                {t("account.minPassword")}
               </Typography>
             </Stack>
           </SectionCard>

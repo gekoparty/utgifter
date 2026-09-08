@@ -31,6 +31,7 @@ const BASE_DEFAULT_PREFERENCES = {
   tableDensity: "compact",
   rowsPerPage: 10,
   sidebarOpen: true,
+  language: "nb",
   expenseColumnVisibility: {},
   monthlyStatsExtraCharts: false,
   monthlyStatsRecurringCosts: false,

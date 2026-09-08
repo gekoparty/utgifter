@@ -33,10 +33,18 @@ import DialogFormActions from "../../components/commons/Dialogs/DialogFormAction
 import SectionCard from "../../components/commons/Layout/SectionCard";
 import { requestJson } from "../../api/httpClient";
 import { useAuth } from "../../auth/useAuth";
+import { useTranslation } from "../../i18n/useTranslation";
 import { incomeApi } from "./api/incomeApi";
 
 const INCOME_QUERY_KEY = ["incomes"];
-const INCOME_CATEGORIES = ["Lønn", "Bonus", "Trygd", "Salg", "Rente", "Annet"];
+const INCOME_CATEGORIES = [
+  { value: "Lønn", key: "salary" },
+  { value: "Bonus", key: "bonus" },
+  { value: "Trygd", key: "benefits" },
+  { value: "Salg", key: "sale" },
+  { value: "Rente", key: "interest" },
+  { value: "Annet", key: "other" },
+];
 
 const NOK = new Intl.NumberFormat("nb-NO", {
   style: "currency",
@@ -75,7 +83,13 @@ const toMonthKey = (value) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 };
 
+const incomeCategoryLabel = (value, t) => {
+  const category = INCOME_CATEGORIES.find((item) => item.value === value);
+  return category ? t(`income.${category.key}`) : value || t("income.other");
+};
+
 function IncomeDialog({ open, initial, pending, error, onClose, onSubmit, onDelete }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState(emptyForm);
 
   React.useEffect(() => {
@@ -102,19 +116,19 @@ function IncomeDialog({ open, initial, pending, error, onClose, onSubmit, onDele
 
   return (
     <Dialog open={open} onClose={pending ? undefined : onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{initial ? "Rediger inntekt" : "Ny inntekt"}</DialogTitle>
+      <DialogTitle>{initial ? t("income.edit") : t("income.new")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error ? <Alert severity="error">{error}</Alert> : null}
           <TextField
-            label="Navn"
+            label={t("common.name")}
             value={form.title}
             onChange={(event) => setField("title", event.target.value)}
             fullWidth
             autoFocus
           />
           <TextField
-            label="Beløp"
+            label={t("common.amount")}
             type="number"
             value={form.amount}
             onChange={(event) => setField("amount", event.target.value)}
@@ -122,7 +136,7 @@ function IncomeDialog({ open, initial, pending, error, onClose, onSubmit, onDele
             slotProps={{ htmlInput: { min: 0, step: 1 } }}
           />
           <TextField
-            label="Dato"
+            label={t("common.date")}
             type="date"
             value={form.incomeDate}
             onChange={(event) => setField("incomeDate", event.target.value)}
@@ -131,19 +145,19 @@ function IncomeDialog({ open, initial, pending, error, onClose, onSubmit, onDele
           />
           <TextField
             select
-            label="Type"
+            label={t("common.type")}
             value={form.category}
             onChange={(event) => setField("category", event.target.value)}
             fullWidth
           >
             {INCOME_CATEGORIES.map((category) => (
-              <MenuItem key={category} value={category}>
-                {category}
+              <MenuItem key={category.value} value={category.value}>
+                {t(`income.${category.key}`)}
               </MenuItem>
             ))}
           </TextField>
           <TextField
-            label="Notat"
+            label={t("income.note")}
             value={form.note}
             onChange={(event) => setField("note", event.target.value)}
             fullWidth
@@ -158,11 +172,11 @@ function IncomeDialog({ open, initial, pending, error, onClose, onSubmit, onDele
           disabled={disabled}
           onCancel={onClose}
           onConfirm={() => onSubmit(form)}
-          submitLabel="Lagre"
+          submitLabel={t("actions.save")}
           leadingAction={
             initial ? (
               <Button color="error" onClick={() => onDelete(initial._id)} disabled={pending}>
-                Slett
+                {t("actions.delete")}
               </Button>
             ) : null
           }
@@ -175,6 +189,7 @@ function IncomeDialog({ open, initial, pending, error, onClose, onSubmit, onDele
 export default function IncomeScreen() {
   const queryClient = useQueryClient();
   const { appUser, refreshAppUser } = useAuth();
+  const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
@@ -222,7 +237,7 @@ export default function IncomeScreen() {
       setEditing(null);
       setError("");
     },
-    onError: (err) => setError(err?.message || "Kunne ikke lagre inntekt"),
+    onError: (err) => setError(err?.message || t("income.saveFailed")),
   });
 
   const deleteMutation = useMutation({
@@ -233,7 +248,7 @@ export default function IncomeScreen() {
       setEditing(null);
       setError("");
     },
-    onError: (err) => setError(err?.message || "Kunne ikke slette inntekt"),
+    onError: (err) => setError(err?.message || t("income.deleteFailed")),
   });
 
   const expectedMutation = useMutation({
@@ -246,11 +261,11 @@ export default function IncomeScreen() {
       await refreshAppUser();
       invalidate();
       setExpectedError("");
-      setExpectedMessage("Forventet månedsinntekt er lagret.");
+      setExpectedMessage(t("income.planSaved"));
     },
     onError: (err) => {
       setExpectedMessage("");
-      setExpectedError(err?.message || "Kunne ikke lagre forventet inntekt.");
+      setExpectedError(err?.message || t("income.planSaveFailed"));
     },
   });
 
@@ -268,15 +283,15 @@ export default function IncomeScreen() {
 
   return (
     <AppScreen
-      title="Inntekter"
-      subtitle="Registrer lønn og andre inntekter så dashboardet kan sammenligne inntekt mot utgifter."
+      title={t("income.title")}
+      subtitle={t("income.subtitle")}
       icon={<PaymentsRoundedIcon />}
-      actionLabel="Legg til inntekt"
+      actionLabel={t("income.add")}
       actionIcon={<AddIcon />}
       onAction={openCreate}
       summaryItems={[
-        { label: "Registrert", value: totals.count },
-        { label: "Typer", value: totals.categories },
+        { label: t("common.registered"), value: totals.count },
+        { label: t("income.categories"), value: totals.categories },
       ]}
       maxWidth={1360}
     >
@@ -287,14 +302,14 @@ export default function IncomeScreen() {
           gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" },
         }}
       >
-        <KpiCard label="Denne måneden" value={NOK.format(totals.thisMonth)} tone="primary" />
-        <KpiCard label="Totalt registrert" value={NOK.format(totals.total)} />
-        <KpiCard label="Antall inntekter" value={totals.count} />
+        <KpiCard label={t("income.thisMonth")} value={NOK.format(totals.thisMonth)} tone="primary" />
+        <KpiCard label={t("income.totalRegistered")} value={NOK.format(totals.total)} />
+        <KpiCard label={t("income.count")} value={totals.count} />
       </Box>
 
       <SectionCard
-        title="Forventet inntekt"
-        subtitle="Brukes som månedlig plan i dashboard og statistikk. Registrerte inntekter under viser hva du faktisk fikk."
+        title={t("income.expectedTitle")}
+        subtitle={t("income.expectedSubtitle")}
         contentSx={{ py: 1.5 }}
       >
         <Stack
@@ -303,7 +318,7 @@ export default function IncomeScreen() {
           alignItems={{ xs: "stretch", sm: "flex-start" }}
         >
           <TextField
-            label="Forventet per måned"
+            label={t("income.expectedPerMonth")}
             type="number"
             value={expectedMonthlyIncome}
             onChange={(event) => {
@@ -313,7 +328,7 @@ export default function IncomeScreen() {
             }}
             fullWidth
             slotProps={{ htmlInput: { min: 0, step: 1 } }}
-            helperText="For eksempel fast lønn etter skatt."
+            helperText={t("income.expectedHelp")}
             sx={{ maxWidth: { sm: 360 } }}
           />
           <Button
@@ -326,7 +341,7 @@ export default function IncomeScreen() {
             }
             sx={{ minWidth: 140 }}
           >
-            Lagre plan
+            {t("income.savePlan")}
           </Button>
         </Stack>
         {expectedMessage ? <Alert severity="success" sx={{ mt: 1.5 }}>{expectedMessage}</Alert> : null}
@@ -335,7 +350,7 @@ export default function IncomeScreen() {
 
       {(isLoading || isError) && (
         <Alert severity={isError ? "error" : "info"}>
-          {isError ? "Kunne ikke hente inntekter." : "Laster inntekter..."}
+          {isError ? t("income.fetchFailed") : t("income.loading")}
         </Alert>
       )}
 
@@ -344,11 +359,11 @@ export default function IncomeScreen() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Dato</TableCell>
-                <TableCell>Navn</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell align="right">Beløp</TableCell>
-                <TableCell align="right">Handling</TableCell>
+                <TableCell>{t("common.date")}</TableCell>
+                <TableCell>{t("common.name")}</TableCell>
+                <TableCell>{t("common.type")}</TableCell>
+                <TableCell align="right">{t("common.amount")}</TableCell>
+                <TableCell align="right">{t("income.action")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -364,7 +379,7 @@ export default function IncomeScreen() {
                     ) : null}
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" label={income.category || "Annet"} variant="outlined" />
+                    <Chip size="small" label={incomeCategoryLabel(income.category, t)} variant="outlined" />
                   </TableCell>
                   <TableCell align="right">
                     <Typography fontWeight={950} color="success.main">
@@ -372,12 +387,12 @@ export default function IncomeScreen() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Rediger">
+                    <Tooltip title={t("actions.edit")}>
                       <IconButton size="small" onClick={() => openEdit(income)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Slett">
+                    <Tooltip title={t("actions.delete")}>
                       <IconButton
                         size="small"
                         color="error"
@@ -395,7 +410,7 @@ export default function IncomeScreen() {
                 <TableRow>
                   <TableCell colSpan={5}>
                     <Typography color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                      Ingen inntekter registrert ennå.
+                      {t("income.noIncome")}
                     </Typography>
                   </TableCell>
                 </TableRow>

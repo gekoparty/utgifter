@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import AppUser from "../models/appUserSchema.js";
 import Brand from "../models/brandSchema.js";
 import Category from "../models/categorySchema.js";
+import DataQualityIgnore from "../models/dataQualityIgnoreSchema.js";
 import Expense from "../models/expenseSchema.js";
 import Income from "../models/incomeSchema.js";
 import Location from "../models/locationSchema.js";
@@ -20,6 +21,7 @@ const appUsersRouter = express.Router();
 const OWNED_MODELS = [
   ["brands", Brand],
   ["categories", Category],
+  ["dataQualityIgnores", DataQualityIgnore],
   ["expenses", Expense],
   ["incomes", Income],
   ["locations", Location],
@@ -39,6 +41,11 @@ const toSafeUser = (user, dataSummary = null) => ({
   name: user.name,
   role: user.role,
   expectedMonthlyIncome: Number(user.expectedMonthlyIncome || 0),
+  preferences: {
+    language: ["nb", "en"].includes(user.preferences?.language)
+      ? user.preferences.language
+      : "nb",
+  },
   dataSummary,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
@@ -112,6 +119,15 @@ appUsersRouter.patch("/me", async (req, res, next) => {
         return res.status(400).json({ message: "Forventet månedsinntekt er ugyldig." });
       }
       updates.expectedMonthlyIncome = expectedMonthlyIncome;
+    }
+
+    if (req.body?.preferences && typeof req.body.preferences === "object") {
+      if (req.body.preferences.language != null) {
+        if (!["nb", "en"].includes(req.body.preferences.language)) {
+          return res.status(400).json({ message: "Språkvalg er ugyldig." });
+        }
+        updates["preferences.language"] = req.body.preferences.language;
+      }
     }
 
     if (!Object.keys(updates).length) {

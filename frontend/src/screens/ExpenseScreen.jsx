@@ -5,6 +5,7 @@ import React, {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Alert, Box, Button, Collapse, Stack } from "@mui/material";
@@ -20,9 +21,11 @@ import ReactTable from "../components/commons/React-Table/react-table";
 import TableLayout from "../components/commons/TableLayout/TableLayout";
 import { DetailPanel } from "../components/commons/DetailPanel/DetailPanel";
 import { buildPaginatedUrl } from "../components/commons/EntityTableScreen/buildPaginatedUrl";
+import { requestJson } from "../api/httpClient";
 import useSnackBar from "../hooks/useSnackBar";
 import { usePaginatedData } from "../hooks/usePaginatedData";
 import { useAppPreferences } from "../store/Store";
+import { useTranslation } from "../i18n/useTranslation";
 
 import {
   DEFAULT_COLUMN_VISIBILITY,
@@ -137,6 +140,7 @@ const ExpenseScreen = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchKey = searchParams.toString();
   const { preferences, setPreference } = useAppPreferences();
+  const { t } = useTranslation();
   const initialPageSize =
     Number(preferences.rowsPerPage) > 0
       ? Number(preferences.rowsPerPage)
@@ -157,6 +161,7 @@ const ExpenseScreen = () => {
   const [selectedExpense, setSelectedExpense] = useState(
     INITIAL_SELECTED_EXPENSE,
   );
+  const openingExpenseIdRef = useRef(null);
   const [priceDisplayMode, setPriceDisplayMode] = useState("pricePerUnit");
 
   const { showSnackbar } = useSnackBar();
@@ -282,7 +287,14 @@ const ExpenseScreen = () => {
     if (activeModal === "ADD") clearAddExpenseDialogOpen();
     setActiveModal(null);
     setSelectedExpense(INITIAL_SELECTED_EXPENSE);
-  }, [activeModal]);
+    openingExpenseIdRef.current = null;
+
+    if (searchParams.has("openExpense")) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("openExpense");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [activeModal, searchParams, setSearchParams]);
 
   const handlePriceFilterModeChange = useCallback((newMode) => {
     if (newMode === "all") return;
@@ -302,19 +314,50 @@ const ExpenseScreen = () => {
 
   const handleSuccess = useCallback(
     (action, expenseName) => {
-      showSnackbar(`Utgift for "${expenseName || "Ukjent produkt"}" ${action}`);
+      showSnackbar(t("expenses.success", { name: expenseName || t("expenses.productUnknown"), action }));
       handleDialogClose();
     },
-    [showSnackbar, handleDialogClose],
+    [showSnackbar, handleDialogClose, t],
   );
 
   const handleError = useCallback(
     (action) => {
-      showSnackbar(`Klarte ikke å ${action} utgiften. Prøv igjen.`, "error");
+      showSnackbar(t("expenses.failedAction", { action }), "error");
       handleDialogClose();
     },
-    [showSnackbar, handleDialogClose],
+    [showSnackbar, handleDialogClose, t],
   );
+
+  useEffect(() => {
+    const openExpenseId = searchParams.get("openExpense");
+    if (!openExpenseId || openingExpenseIdRef.current === openExpenseId || selectedExpense?._id === openExpenseId) return;
+
+    let ignore = false;
+    openingExpenseIdRef.current = openExpenseId;
+    loadExpenseDialog();
+
+    requestJson(`/api/expenses/${openExpenseId}`)
+      .then((expense) => {
+        if (ignore) return;
+        setSelectedExpense(transformExpenseData({ expenses: [expense] })?.expenses?.[0] || expense);
+        setActiveModal("EDIT");
+      })
+      .catch(() => {
+        if (!ignore) showSnackbar(t("expenses.failedOpen"), "error");
+      })
+      .finally(() => {
+        if (!ignore && openingExpenseIdRef.current === openExpenseId) {
+          openingExpenseIdRef.current = null;
+        }
+      });
+
+    return () => {
+      ignore = true;
+      if (openingExpenseIdRef.current === openExpenseId) {
+        openingExpenseIdRef.current = null;
+      }
+    };
+  }, [searchParams, selectedExpense?._id, showSnackbar, t]);
 
   const tableColumns = useExpenseTableColumns({
     priceDisplayMode,
@@ -391,7 +434,7 @@ const ExpenseScreen = () => {
         value={priceDisplayMode}
         onChange={(value) => handlePriceModeChange(null, value)}
         options={priceModeOptions}
-        ariaLabel="Prisvisning"
+        ariaLabel={t("expenses.priceView")}
         fullWidth
         sx={(theme) => ({
           width: { xs: "100%", md: "auto" },
@@ -431,28 +474,28 @@ const ExpenseScreen = () => {
           whiteSpace: "nowrap",
         }}
       >
-        {dashboardOpen ? "Skjul statistikk" : "Vis statistikk"}
+        {dashboardOpen ? t("actions.hideStats") : t("actions.showStats")}
       </Button>
     </Stack>
   );
 
   return (
     <AppScreen
-      title="Utgifter"
-      subtitle="Registrer, filtrer og følg opp alle kjøp."
+      title={t("expenses.title")}
+      subtitle={t("expenses.subtitle")}
       icon={<ReceiptLongRoundedIcon />}
-      actionLabel="Ny utgift"
+      actionLabel={t("expenses.newExpense")}
       actionIcon={<AddIcon />}
       onAction={openAdd}
       summaryItems={[
-        { label: "Totalt", value: metaData?.totalRowCount ?? 0 },
-        { label: "Viser", value: tableData.length },
-        { label: "Filtre", value: activeFilterCount },
+        { label: t("common.total"), value: metaData?.totalRowCount ?? 0 },
+        { label: t("common.showing"), value: tableData.length },
+        { label: t("common.filters"), value: activeFilterCount },
       ]}
       workflow={{
-        question: "Hva kjøpte jeg, og hva må rettes?",
-        answer: "Start med listen, åpne raden for detaljer, og bruk statistikken når du vil se mønsteret bak kjøpene.",
-        steps: ["Finn kjøp", "Sjekk detaljer", "Rett pris eller kategori"],
+        question: t("expenses.question"),
+        answer: t("expenses.answer"),
+        steps: [t("expenses.stepFind"), t("expenses.stepDetails"), t("expenses.stepFix")],
       }}
       filters={filters}
       maxWidth={1360}
@@ -472,13 +515,18 @@ const ExpenseScreen = () => {
           variant="outlined"
           action={
             <Button color="inherit" size="small" onClick={clearAllFilters}>
-              Vis alle
+              {t("actions.showAll")}
             </Button>
           }
         >
           {hasUrlFilters
-            ? `Viser filtrerte utgifter${urlMonth ? ` for ${monthLabel(urlMonth)}` : ""}${urlFilterLabel ? `: ${urlFilterLabel}` : ""}.`
-            : "Viser filtrerte utgifter."}
+            ? urlMonth
+              ? t("expenses.filteredFor", {
+                  month: monthLabel(urlMonth),
+                  suffix: urlFilterLabel ? `: ${urlFilterLabel}` : "",
+                })
+              : t("expenses.filteredBy", { filter: urlFilterLabel || deferredGlobalFilter })
+            : t("expenses.filtered")}
         </Alert>
       ) : null}
 
@@ -521,16 +569,16 @@ const ExpenseScreen = () => {
                 payload?.productName?.name ||
                 payload?.productName ||
                 selectedExpense?.productName ||
-                "Ukjent produkt";
+                t("expenses.productUnknown");
 
-              if (activeModal === "ADD") handleSuccess("registrert", name);
-              if (activeModal === "EDIT") handleSuccess("oppdatert", name);
-              if (activeModal === "DELETE") handleSuccess("slettet", name);
+              if (activeModal === "ADD") handleSuccess(t("expenses.actionRegistered"), name);
+              if (activeModal === "EDIT") handleSuccess(t("expenses.actionUpdated"), name);
+              if (activeModal === "DELETE") handleSuccess(t("expenses.actionDeleted"), name);
             }}
             onError={() => {
-              if (activeModal === "ADD") handleError("registrere");
-              if (activeModal === "EDIT") handleError("oppdatere");
-              if (activeModal === "DELETE") handleError("slette");
+              if (activeModal === "ADD") handleError(t("expenses.actionRegister"));
+              if (activeModal === "EDIT") handleError(t("expenses.actionUpdate"));
+              if (activeModal === "DELETE") handleError(t("expenses.actionDelete"));
             }}
           />
         )}

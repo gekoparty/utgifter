@@ -24,7 +24,9 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import { mainNavbarItems } from "./Consts/NavBarListItems.jsx";
 import { Link, useLocation, matchPath } from "react-router-dom";
 import ThemeModeSwitch from "../commons/ThemeModeSwitch.jsx";
+import LanguageToggle from "../commons/LanguageToggle.jsx";
 import { useAuth } from "../../auth/useAuth";
+import { useTranslation } from "../../i18n/useTranslation.jsx";
 
 const openedWidth = 240;
 const closedWidth = 70;
@@ -75,7 +77,36 @@ export default function MiniVariantDrawer({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const location = useLocation();
   const { isAdmin, logout } = useAuth();
+  const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+
+  const labelByRoute = React.useMemo(
+    () => ({
+      "/": t("navHome"),
+      "/expenses": t("navExpenses"),
+      "/incomes": t("navIncomes"),
+      "/recurring-expenses": t("navRecurring"),
+      "/stats": t("navStats"),
+      "/products": t("navProducts"),
+      "/brands": t("navBrands"),
+      "/shops": t("navShops"),
+      "/locations": t("navLocations"),
+      "/categories": t("navCategories"),
+      "/account": t("navAccount"),
+      "/admin/users": t("navUsers"),
+    }),
+    [t],
+  );
+
+  const sectionByName = React.useMemo(
+    () => ({
+      Oversikt: t("navOverview"),
+      Analyse: t("navAnalysis"),
+      Register: t("navRegister"),
+      Administrasjon: t("navAdministration"),
+    }),
+    [t],
+  );
 
   const handleToggle = React.useCallback(() => {
     if (isMobile) {
@@ -106,7 +137,7 @@ export default function MiniVariantDrawer({
   const groupedNavbarItems = React.useMemo(() => {
     const groups = [];
     for (const item of visibleNavbarItems) {
-      const section = item.section || "Meny";
+      const section = sectionByName[item.section] || item.section || "Meny";
       let group = groups.find((entry) => entry.section === section);
       if (!group) {
         group = { section, items: [] };
@@ -115,7 +146,7 @@ export default function MiniVariantDrawer({
       group.items.push(item);
     }
     return groups;
-  }, [visibleNavbarItems]);
+  }, [visibleNavbarItems, sectionByName]);
 
   return (
     <Box sx={{ display: "flex" }}>
@@ -164,6 +195,7 @@ export default function MiniVariantDrawer({
             {title}
           </Typography>
 
+          <LanguageToggle />
           <ThemeModeSwitch />
           <IconButton onClick={logout} color="inherit" aria-label="Logg ut">
             <LogoutIcon fontSize="small" />
@@ -229,6 +261,7 @@ export default function MiniVariantDrawer({
             const isActive = Boolean(
               matchPath({ path: route, end: route === "/" }, location.pathname),
             );
+            const translatedLabel = labelByRoute[route] || label;
 
             return (
               <ListItem key={id} disablePadding sx={{ display: "block" }}>
@@ -269,7 +302,7 @@ export default function MiniVariantDrawer({
 
                   {drawerOpen && (
                     <ListItemText
-                      primary={label}
+                      primary={translatedLabel}
                       sx={{ opacity: 1, transition: "opacity 0.25s" }}
                     />
                   )}
