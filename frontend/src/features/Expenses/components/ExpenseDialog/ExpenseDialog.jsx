@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useQueryClient } from "@tanstack/react-query";
 import { Box, Typography } from "@mui/material";
@@ -9,7 +9,6 @@ import BasicDialog from "../../../../components/commons/BasicDialog/BasicDialog"
 import DialogFormActions from "../../../../components/commons/Dialogs/DialogFormActions";
 import ExpenseFormFields from "./ExpenseFormFields";
 import QuickCreateEntityDialog from "./QuickCreateEntityDialog";
-import ShopDialog from "../../../Shops/ShopDialogs/ShopDialog";
 import { formatComponentFields } from "../../../../components/commons/Utils/FormatUtil";
 import {
   addBrandValidationSchema,
@@ -20,6 +19,8 @@ import { useExpenseDialogForm } from "../../hooks/useExpenseDialogForm";
 import { useExpenseDialogData } from "../../hooks/useExpenseDialogData";
 import { useExpenseDialogOptions } from "../../hooks/useExpenseDialogOptions";
 import { useExpenseDialogController } from "../../hooks/useExpenseDialogController";
+
+const ShopDialog = lazy(() => import("../../../Shops/ShopDialogs/ShopDialog"));
 
 const isHexObjectId = (value) =>
   /^[a-f\d]{24}$/i.test(String(value ?? "").trim());
@@ -513,13 +514,17 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
             onClose={() => setQuickCreateType(null)}
             onCreate={handleCreateVariant}
           />
-          <ShopDialog
-            open={quickCreateType === "shop"}
-            mode="ADD"
-            onClose={() => setQuickCreateType(null)}
-            onSuccess={handleShopCreated}
-            onError={onError}
-          />
+          {quickCreateType === "shop" ? (
+            <Suspense fallback={null}>
+              <ShopDialog
+                open
+                mode="ADD"
+                onClose={() => setQuickCreateType(null)}
+                onSuccess={handleShopCreated}
+                onError={onError}
+              />
+            </Suspense>
+          ) : null}
         </>
       ) : null}
     </>

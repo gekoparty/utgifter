@@ -4,10 +4,14 @@ import "./styles/index.css";
 import AppRouter from "./router/AppRouter";
 import App from "./App";
 
+const RootWrapper = import.meta.env.VITE_STRICT_MODE === "true"
+  ? React.StrictMode
+  : React.Fragment;
+
 createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
+  <RootWrapper>
     <App>
       <AppRouter />
     </App>
-  </React.StrictMode>
+  </RootWrapper>
 );

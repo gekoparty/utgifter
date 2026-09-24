@@ -16,6 +16,7 @@ export const usePaginatedData = ({
   baseQueryKey,
   enabled = true,
   staleTime = 60_000,
+  prefetchNextPage = false,
 }) => {
   const queryClient = useQueryClient();
 
@@ -51,7 +52,7 @@ export const usePaginatedData = ({
   const totalRowCount = queryResult.data?.meta?.totalRowCount ?? 0;
 
   const nextParams = useMemo(() => {
-    if (!totalRowCount) return null;
+    if (!prefetchNextPage || !totalRowCount) return null;
 
     const totalPages = Math.ceil(totalRowCount / params.pageSize);
     const nextPageIndex = params.pageIndex + 1;
@@ -60,7 +61,7 @@ export const usePaginatedData = ({
 
     // ✅ only copy what you must; keep reference churn low
     return { ...params, pageIndex: nextPageIndex };
-  }, [totalRowCount, params]);
+  }, [prefetchNextPage, totalRowCount, params]);
 
   useEffect(() => {
     if (!nextParams) return;

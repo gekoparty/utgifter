@@ -35,7 +35,7 @@ export const useBrandsForSelectedProduct = ({ open, selectedProduct, sendRequest
 export const useRecentBrands = ({ open, sendRequest }) => {
   return useQuery({
     queryKey: ["brands", "recent"],
-    enabled: open,
+    enabled: false,
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await sendRequest(`/api/brands/recent?limit=20`, "GET");

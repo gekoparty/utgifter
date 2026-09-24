@@ -346,7 +346,13 @@ export default function HomeScreen() {
   const [selectedMonth, setSelectedMonth] = useState(monthKeyNow);
   const queryClient = useQueryClient();
   const [ignoringQualityKey, setIgnoringQualityKey] = useState("");
+  const [qualityChecksEnabled, setQualityChecksEnabled] = useState(false);
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQualityChecksEnabled(true), 900);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const dashboardQuery = useQuery({
     queryKey: ["home", "dashboard", selectedMonth],
@@ -374,7 +380,8 @@ export default function HomeScreen() {
   const dataQualityQuery = useQuery({
     queryKey: ["home", "data-quality"],
     queryFn: ({ signal }) => fetchDataQuality(signal),
-    staleTime: 120_000,
+    enabled: qualityChecksEnabled,
+    staleTime: 5 * 60_000,
     placeholderData: (previousData) => previousData,
     refetchOnWindowFocus: false,
   });

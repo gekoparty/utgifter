@@ -1,12 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import useInfiniteProducts from "../../../hooks/useInfiniteProducts";
 import useCustomHttp from "../../../hooks/useHttp";
 import { useBrandsForSelectedProduct, useRecentBrands } from "./useBrandsForSelectedProduct";
 import { useShopSearch } from "./useShopSearch";
-import {
-  fetchCategories,
-  fetchLocations,
-} from "../../../components/commons/Utils/apiUtils";
 
 export const useExpenseDialogData = ({ open, productSearch, selectedProduct, shopSearch }) => {
   // You can use your existing base URL config, this is just to get sendRequest
@@ -31,28 +26,6 @@ export const useExpenseDialogData = ({ open, productSearch, selectedProduct, sho
     sendRequest,
   });
 
-  const {
-    data: locationsPayload,
-    isLoading: isLoadingLocations,
-    isError: isLocationError,
-  } = useQuery({
-    queryKey: ["locations"],
-    queryFn: ({ signal }) => fetchLocations({ signal }),
-    enabled: open,
-    staleTime: 10 * 60 * 1000,
-  });
-
-  const {
-    data: categoriesPayload,
-    isLoading: isLoadingCategories,
-    isError: isCategoryError,
-  } = useQuery({
-    queryKey: ["categories"],
-    queryFn: ({ signal }) => fetchCategories({ signal }),
-    enabled: open,
-    staleTime: 10 * 60 * 1000,
-  });
-
   return {
     sendRequest,
     infiniteData,
@@ -64,11 +37,5 @@ export const useExpenseDialogData = ({ open, productSearch, selectedProduct, sho
     isLoadingBrands: isLoadingBrandsForProduct || isLoadingRecentBrands,
     shops,
     isLoadingShops,
-    locations: locationsPayload?.locations ?? [],
-    categories: categoriesPayload?.categories ?? [],
-    isLoadingLocations,
-    isLoadingCategories,
-    isLocationError,
-    isCategoryError,
   };
 };

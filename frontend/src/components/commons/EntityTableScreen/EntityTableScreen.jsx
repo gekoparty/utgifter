@@ -52,6 +52,7 @@ const EntityTableScreen = ({
   queryKey,
   resourceLabel,
   screenTitle,
+  preloadOnIntent = false,
   workflow,
   urlBuilder = buildPaginatedUrl,
 }) => {
@@ -192,8 +193,8 @@ const EntityTableScreen = ({
         <Button
           variant="contained"
           startIcon={<AddIcon />}
-          onMouseEnter={preloadDialog}
-          onFocus={preloadDialog}
+          onMouseEnter={preloadOnIntent ? preloadDialog : undefined}
+          onFocus={preloadOnIntent ? preloadDialog : undefined}
           onClick={() => openModal("ADD")}
           sx={{ whiteSpace: "nowrap" }}
         >

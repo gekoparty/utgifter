@@ -1,14 +1,16 @@
-import React, { useMemo, useState } from "react";
-import { Box, Chip, Stack, Typography } from "@mui/material";
+import React, { lazy, Suspense, useMemo, useState } from "react";
+import { Box, Button, Chip, Stack, Typography } from "@mui/material";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DetailsSection from "./sections/DetailsSection";
 import PriceQuantitySection from "./sections/PriceQuantitySection";
-import ReceiptImportPanel from "./sections/ReceiptImportPanel";
 import StatusDateSection from "./sections/StatusDateSection";
 import {
   formatDecimalForInput,
   parseDecimalOrNull,
   roundMoney,
 } from "../../utils/numberInput";
+
+const ReceiptImportPanel = lazy(() => import("./sections/ReceiptImportPanel"));
 
 const ExpenseFormFields = ({
   expense,
@@ -29,6 +31,7 @@ const ExpenseFormFields = ({
   clearFieldError,
   quickCreate,
 }) => {
+  const [receiptPanelOpen, setReceiptPanelOpen] = useState(false);
   const [discountCalculatorOpen, setDiscountCalculatorOpen] = useState(false);
   const [knownDiscountedPrice, setKnownDiscountedPrice] = useState("");
   const [knownDiscountPercent, setKnownDiscountPercent] = useState("");
@@ -174,11 +177,52 @@ const ExpenseFormFields = ({
           </Stack>
         </Box>
 
-        <ReceiptImportPanel
-          onUseProduct={controller.handleProductSelect}
-          onUseBrand={controller.handleBrandSelect}
-          onUseShop={controller.handleShopSelect}
-        />
+        {receiptPanelOpen ? (
+          <Suspense fallback={null}>
+            <ReceiptImportPanel
+              onUseProduct={controller.handleProductSelect}
+              onUseBrand={controller.handleBrandSelect}
+              onUseShop={controller.handleShopSelect}
+            />
+          </Suspense>
+        ) : (
+          <Box
+            sx={{
+              px: { xs: 1, sm: 1.25 },
+              py: 1,
+              borderRadius: 2,
+              border: "1px dashed",
+              borderColor: "divider",
+              bgcolor: "background.default",
+            }}
+          >
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              alignItems={{ xs: "stretch", sm: "center" }}
+              justifyContent="space-between"
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" fontWeight={850}>
+                  Kvittering
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Valgfritt. Åpnes bare når du vil analysere bilde eller PDF.
+                </Typography>
+              </Box>
+              <Button
+                type="button"
+                size="small"
+                variant="outlined"
+                startIcon={<UploadFileIcon />}
+                onClick={() => setReceiptPanelOpen(true)}
+                sx={{ alignSelf: { sm: "center" }, fontWeight: 850 }}
+              >
+                Bruk kvittering
+              </Button>
+            </Stack>
+          </Box>
+        )}
 
         <DetailsSection
           expense={expense}

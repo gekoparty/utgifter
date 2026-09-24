@@ -1,5 +1,7 @@
 import React from "react";
 import { Box, FormControlLabel, Radio, RadioGroup, Stack } from "@mui/material";
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import FieldLabel from "../../../../../components/commons/Forms/FieldLabel";
 import FormSection from "../../../../../components/commons/Forms/FormSection";
@@ -47,12 +49,14 @@ export default function StatusDateSection({ expense, controller }) {
         </Box>
 
         <Box flex={1}>
-          <DatePicker
-            label="Dato"
-            value={controller.pickerDate}
-            onChange={controller.handleDateChange}
-            slotProps={{ textField: { fullWidth: true } }}
-          />
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
+            <DatePicker
+              label="Dato"
+              value={controller.pickerDate}
+              onChange={controller.handleDateChange}
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+          </LocalizationProvider>
         </Box>
       </Stack>
     </FormSection>

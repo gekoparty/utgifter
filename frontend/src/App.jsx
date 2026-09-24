@@ -1,14 +1,11 @@
-import React, { useMemo } from "react";
+import React, { lazy, Suspense, useMemo } from "react";
 import "./styles/App.css";
-import "@fontsource/roboto/300.css";
+import "@fontsource/roboto/latin-300.css";
 // ... all other font imports ...
 import { StoreProvider, useAppPreferences } from "./store/Store";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { LocalizationProvider } from "@mui/x-date-pickers";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "dayjs/locale/nb";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "@mui/material/styles";
 import { createDashboardTheme } from "./styles/theme/dashboardTheme";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -16,6 +13,14 @@ import GlobalErrorBanner from "./components/commons/ErrorHandling/GlobalErrorBan
 import GlobalNotificationSnackbar from "./components/commons/Feedback/GlobalNotificationSnackbar.jsx";
 import { ColorModeContext } from "./styles/theme/ColorModeContext.jsx";
 import { AuthProvider } from "./auth/AuthContext.jsx";
+
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import("@tanstack/react-query-devtools").then((module) => ({
+        default: module.ReactQueryDevtools,
+      })),
+    )
+  : null;
 
 // Create a QueryClient instance for React Query v5
 const queryClient = new QueryClient({
@@ -47,16 +52,18 @@ function AppThemeProvider({ children }) {
     <ColorModeContext.Provider value={colorMode}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="nb">
-          <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <GlobalErrorBanner />
-              {children}
-              <GlobalNotificationSnackbar />
-            </AuthProvider>
-            <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
-          </QueryClientProvider>
-        </LocalizationProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <GlobalErrorBanner />
+            {children}
+            <GlobalNotificationSnackbar />
+          </AuthProvider>
+          {ReactQueryDevtools ? (
+            <Suspense fallback={null}>
+              <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
+            </Suspense>
+          ) : null}
+        </QueryClientProvider>
       </ThemeProvider>
     </ColorModeContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -34,7 +34,6 @@ import AppScreen from "../../components/commons/Layout/AppScreen";
 import KpiCard from "../../components/commons/DataDisplay/KpiCard";
 import SectionCard from "../../components/commons/Layout/SectionCard";
 import SegmentedControl from "../../components/commons/Controls/SegmentedControl";
-import RecurringOverviewCharts from "./components/RecurringOverviewCharts";
 import NextBillsCard from "./components/NextBillsCard";
 import ForecastSection from "./components/ForecastSection";
 import ExpenseTemplatesSection from "./components/ExpenseTemplatesSection";
@@ -58,6 +57,8 @@ import { useRecurringMaintenanceActions } from "./hooks/useRecurringMaintenanceA
 import { makeCurrencyFormatter } from "./utils/recurringFormatters";
 import { RECURRING_TYPES, TYPE_META_BY_KEY, normalizeRecurringType } from "./utils/recurringTypes";
 import { useTranslation } from "../../i18n/useTranslation";
+
+const RecurringOverviewCharts = lazy(() => import("./components/RecurringOverviewCharts"));
 
 const MONTHS_FORWARD = 12;
 const HISTORY_OPTIONS = [0, 3, 6, 12, 18, 24];
@@ -715,23 +716,25 @@ export default function RecurringExpenseScreen() {
                         </Stack>
                       </Paper>
 
-                      <RecurringOverviewCharts
-                        forecast={overviewForecast}
-                        monthsForTypeSplit={3}
-                        showTypeSplit={false}
-                        showActualIncome={showChartIncome}
-                        showExpectedIncome={showChartExpectedIncome}
-                        title={
-                          overviewRange === "withHistory"
-                            ? t("recurring.historyExpectedPaid")
-                            : t("recurring.expectedVsPaid")
-                        }
-                        subtitle={
-                          overviewRange === "withHistory"
-                            ? t("recurring.historySubtitle")
-                            : t("recurring.futureSubtitle")
-                        }
-                      />
+                      <Suspense fallback={null}>
+                        <RecurringOverviewCharts
+                          forecast={overviewForecast}
+                          monthsForTypeSplit={3}
+                          showTypeSplit={false}
+                          showActualIncome={showChartIncome}
+                          showExpectedIncome={showChartExpectedIncome}
+                          title={
+                            overviewRange === "withHistory"
+                              ? t("recurring.historyExpectedPaid")
+                              : t("recurring.expectedVsPaid")
+                          }
+                          subtitle={
+                            overviewRange === "withHistory"
+                              ? t("recurring.historySubtitle")
+                              : t("recurring.futureSubtitle")
+                          }
+                        />
+                      </Suspense>
                     </Stack>
                   )}
                 </Box>
