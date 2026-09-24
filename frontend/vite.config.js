@@ -25,7 +25,6 @@ export default defineConfig({
           if (id.includes("better-auth")) return "vendor-auth";
           if (id.includes("tesseract.js")) return "vendor-ocr";
           if (id.includes("lodash")) return "vendor-lodash";
-          if (id.includes("react") || id.includes("scheduler")) return "vendor-react";
 
           return "vendor";
         },
