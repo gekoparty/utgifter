@@ -1,32 +1,92 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
+import { Box, LinearProgress, Stack, Typography } from "@mui/material";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Layout from "../layout/Layout";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
-const BrandScreen = lazy(() => import("../screens/BrandScreen"));
-const AccountScreen = lazy(() => import("../screens/AccountScreen"));
-const AdminUsersScreen = lazy(() => import("../screens/AdminUsersScreen"));
-const CategoryScreen = lazy(() => import("../screens/CategoryScreen"));
-const ExpenseScreen = lazy(() => import("../screens/ExpenseScreen"));
-const HomeScreen = lazy(() => import("../screens/HomeScreen"));
-const IncomeScreen = lazy(() => import("../features/Incomes/IncomeScreen"));
-const LocationScreen = lazy(() => import("../screens/LocationScreen"));
-const LoginScreen = lazy(() => import("../screens/LoginScreen"));
-const ProductScreen = lazy(() => import("../screens/ProductScreen"));
-const ShopScreen = lazy(() => import("../screens/ShopScreen"));
-const StatsScreen = lazy(() => import("../screens/StatsScreen"));
-const RecurringExpenseScreen = lazy(() =>
-  import("../features/RecurringExpenses/RecurringExpenseScreen")
+const loadBrandScreen = () => import("../screens/BrandScreen");
+const loadAccountScreen = () => import("../screens/AccountScreen");
+const loadAdminUsersScreen = () => import("../screens/AdminUsersScreen");
+const loadCategoryScreen = () => import("../screens/CategoryScreen");
+const loadExpenseScreen = () => import("../screens/ExpenseScreen");
+const loadHomeScreen = () => import("../screens/HomeScreen");
+const loadIncomeScreen = () => import("../features/Incomes/IncomeScreen");
+const loadLocationScreen = () => import("../screens/LocationScreen");
+const loadLoginScreen = () => import("../screens/LoginScreen");
+const loadProductScreen = () => import("../screens/ProductScreen");
+const loadShopScreen = () => import("../screens/ShopScreen");
+const loadStatsScreen = () => import("../screens/StatsScreen");
+const loadRecurringExpenseScreen = () =>
+  import("../features/RecurringExpenses/RecurringExpenseScreen");
+
+const BrandScreen = lazy(loadBrandScreen);
+const AccountScreen = lazy(loadAccountScreen);
+const AdminUsersScreen = lazy(loadAdminUsersScreen);
+const CategoryScreen = lazy(loadCategoryScreen);
+const ExpenseScreen = lazy(loadExpenseScreen);
+const HomeScreen = lazy(loadHomeScreen);
+const IncomeScreen = lazy(loadIncomeScreen);
+const LocationScreen = lazy(loadLocationScreen);
+const LoginScreen = lazy(loadLoginScreen);
+const ProductScreen = lazy(loadProductScreen);
+const ShopScreen = lazy(loadShopScreen);
+const StatsScreen = lazy(loadStatsScreen);
+const RecurringExpenseScreen = lazy(loadRecurringExpenseScreen);
+
+const PageLoadingFallback = () => (
+  <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 2, md: 4 } }}>
+    <Stack spacing={1.5} sx={{ maxWidth: 520 }}>
+      <Typography variant="body2" color="text.secondary" fontWeight={800}>
+        Laster siden...
+      </Typography>
+      <LinearProgress sx={{ borderRadius: 999 }} />
+    </Stack>
+  </Box>
 );
 
 const LazyRoute = ({ children }) => (
-  <Suspense fallback={null}>
+  <Suspense fallback={<PageLoadingFallback />}>
     {children}
   </Suspense>
 );
 
+const prefetchWhenIdle = (loader) => {
+  const run = () => loader().catch(() => {});
+  if (typeof window.requestIdleCallback === "function") {
+    return window.requestIdleCallback(run, { timeout: 5000 });
+  }
+  return window.setTimeout(run, 1500);
+};
+
+const cancelIdlePrefetch = (handle) => {
+  if (typeof window.cancelIdleCallback === "function") {
+    window.cancelIdleCallback(handle);
+  } else {
+    window.clearTimeout(handle);
+  }
+};
+
+const RoutePrefetcher = () => {
+  useEffect(() => {
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection?.saveData || ["slow-2g", "2g"].includes(connection?.effectiveType)) return undefined;
+
+    const handles = [
+      prefetchWhenIdle(loadExpenseScreen),
+      prefetchWhenIdle(loadRecurringExpenseScreen),
+      prefetchWhenIdle(loadStatsScreen),
+      prefetchWhenIdle(loadProductScreen),
+    ];
+
+    return () => handles.forEach(cancelIdlePrefetch);
+  }, []);
+
+  return null;
+};
+
 const AppRouter = () => (
   <BrowserRouter>
+    <RoutePrefetcher />
     <Routes>
       <Route
         path="/login"
