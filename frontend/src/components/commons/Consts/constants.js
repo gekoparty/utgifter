@@ -20,7 +20,8 @@ export const INITIAL_SELECTED_PRODUCT = { _id: "", name: "" };
 const trimTrailingSlash = (value) => String(value || "").replace(/\/+$/, "");
 
 export const API_URL = trimTrailingSlash(
-    import.meta.env.VITE_REACT_APP_API_URL ||
-    (import.meta.env.DEV ? "http://localhost:5000" : window.location.origin)
+    import.meta.env.DEV
+        ? import.meta.env.VITE_REACT_APP_API_URL || "http://localhost:5000"
+        : window.location.origin
 );
 
