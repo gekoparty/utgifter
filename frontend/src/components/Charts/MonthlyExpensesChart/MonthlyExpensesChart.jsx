@@ -155,7 +155,11 @@ export default function MonthlyExpensesChart({ onDrilldown, onMonthClick }) {
         hideTitle
       />
 
-      <StatsStrip stats={stats} doCompare={doCompare} />
+      <StatsStrip
+        stats={stats}
+        doCompare={doCompare}
+        sameDateComparison={sameDateComparison}
+      />
 
       {doCompare ? <SameDateComparisonCard comparison={sameDateComparison} /> : null}
 

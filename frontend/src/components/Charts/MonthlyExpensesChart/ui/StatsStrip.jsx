@@ -4,12 +4,23 @@ import KpiCard from "../../../commons/DataDisplay/KpiCard";
 import { currencyFormatter, pct } from "../utils/format";
 import { useTranslation } from "../../../../i18n/useTranslation";
 
-export default function StatsStrip({ stats, doCompare }) {
+const formatShortDate = (value) =>
+  value
+    ? new Intl.DateTimeFormat("nb-NO", {
+        day: "numeric",
+        month: "short",
+      }).format(new Date(value))
+    : "";
+
+export default function StatsStrip({ stats, doCompare, sameDateComparison }) {
   const { t } = useTranslation();
   if (!stats) return null;
 
   const activeMonths = stats.activeMonths ?? 0;
   const monthWord = activeMonths === 1 ? t("statsActiveMonthSingular") : t("statsActiveMonthPlural");
+  const sameDateDiff = Number(sameDateComparison?.diff ?? 0);
+  const sameDatePct = sameDateComparison?.pct;
+  const hasSameDateComparison = doCompare && sameDateComparison;
 
   const metrics = [
     {
@@ -18,6 +29,14 @@ export default function StatsStrip({ stats, doCompare }) {
       subtext: `${t("statsActualPurchases")} i ${activeMonths} aktive ${monthWord}`,
       tone: "primary",
     },
+    hasSameDateComparison
+      ? {
+          label: "Hittil mot fjoråret",
+          value: `${sameDateDiff >= 0 ? "+" : ""}${currencyFormatter(sameDateDiff)}`,
+          subtext: `${pct(sameDatePct)} til ${formatShortDate(sameDateComparison.currentEnd)} mot samme dato`,
+          tone: sameDateDiff > 0 ? "warning" : "success",
+        }
+      : null,
     Number.isFinite(stats.incomeSum)
       ? {
           label: "Inntekt",
@@ -71,7 +90,7 @@ export default function StatsStrip({ stats, doCompare }) {
           tone: stats.momPct > 0 ? "warning" : "success",
         }
       : null,
-    doCompare && Number.isFinite(stats.yoyTotalPct)
+    doCompare && !hasSameDateComparison && Number.isFinite(stats.yoyTotalPct)
       ? {
           label: "Mot fjoråret",
           value: pct(stats.yoyTotalPct),
