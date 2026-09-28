@@ -15,6 +15,7 @@ import CategoryTrendChart from "./ui/CategoryTrendChart";
 import SpendBreakdownPanel from "./ui/SpendBreakdownPanel";
 import MonthlyInsightCards from "./ui/MonthlyInsightCards";
 import StatsEmptyState from "./ui/StatsEmptyState";
+import SameDateComparisonCard from "./ui/SameDateComparisonCard";
 
 export default function MonthlyExpensesChart({ onDrilldown, onMonthClick }) {
   const theme = useTheme();
@@ -49,6 +50,7 @@ export default function MonthlyExpensesChart({ onDrilldown, onMonthClick }) {
   const entityBreakdowns = data?.entityBreakdowns ?? { categories: categoryBreakdowns };
   const categoryMonthlyTrend = data?.categoryMonthlyTrend ?? [];
   const categoryMonth = data?.categoryMonth ?? null;
+  const sameDateComparison = data?.sameDateComparison ?? null;
   const stats = data?.stats ?? null;
   const activeMonthCount = months.filter((month) => Number(month?.current || 0) > 0).length;
 
@@ -154,6 +156,8 @@ export default function MonthlyExpensesChart({ onDrilldown, onMonthClick }) {
       />
 
       <StatsStrip stats={stats} doCompare={doCompare} />
+
+      {doCompare ? <SameDateComparisonCard comparison={sameDateComparison} /> : null}
 
       {activeMonthCount < 3 ? (
         <SectionCard

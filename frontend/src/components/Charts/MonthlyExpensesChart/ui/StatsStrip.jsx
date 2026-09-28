@@ -10,11 +10,10 @@ export default function StatsStrip({ stats, doCompare }) {
 
   const activeMonths = stats.activeMonths ?? 0;
   const monthWord = activeMonths === 1 ? t("statsActiveMonthSingular") : t("statsActiveMonthPlural");
-  const currentSumLabel = doCompare ? "Årssum hittil" : "Årssum";
 
   const metrics = [
     {
-      label: currentSumLabel,
+      label: "Årssum",
       value: currencyFormatter(stats.currentSum),
       subtext: `${t("statsActualPurchases")} i ${activeMonths} aktive ${monthWord}`,
       tone: "primary",

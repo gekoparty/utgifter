@@ -69,6 +69,34 @@ const addMonthsToMonthKey = (monthKey, months) => {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 };
 
+const sameDateCompareKeys = (year) => {
+  const numericYear = Number(year);
+  const todayKey = osloDateKey();
+  const [, month, day] = todayKey.split("-").map(Number);
+  const endDay = Math.min(
+    day,
+    new Date(Date.UTC(numericYear, month, 0)).getUTCDate(),
+  );
+  const compareYear = numericYear - 1;
+  const compareEndDay = Math.min(
+    day,
+    new Date(Date.UTC(compareYear, month, 0)).getUTCDate(),
+  );
+
+  return {
+    currentStartKey: `${numericYear}-01-01`,
+    currentEndKey: `${numericYear}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`,
+    previousStartKey: `${compareYear}-01-01`,
+    previousEndKey: `${compareYear}-${String(month).padStart(2, "0")}-${String(compareEndDay).padStart(2, "0")}`,
+  };
+};
+
+const dateKeyRangeFilter = (fieldName, startKey, endKey) => {
+  const start = osloDayRange(startKey).start;
+  const end = osloDayRange(endKey).end;
+  return { [fieldName]: { $gte: start, $lte: end } };
+};
+
 const buildRecurringMonthlyOverlay = async (req, year) => {
   const numericYear = Number(year);
   if (!Number.isFinite(numericYear)) return new Map();
@@ -1253,6 +1281,104 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       categoryBreakdowns[categoryScope] ?? categoryBreakdowns.year ?? [];
     const categoryMonthlyTrend = breakdownResult.monthlyTrend ?? [];
 
+    const sameDateKeys = sameDateCompareKeys(year);
+    const [sameDateBreakdown = {}] = doCompare
+      ? await Expense.aggregate([
+          { $match: ownedFilter(req) },
+          actualDateStage,
+          actualDateNotNull,
+          {
+            $addFields: {
+              amount: { $ifNull: ["$finalPrice", "$price"] },
+            },
+          },
+          {
+            $lookup: {
+              from: "products",
+              localField: "productName",
+              foreignField: "_id",
+              as: "product",
+            },
+          },
+          { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+          {
+            $addFields: {
+              categoryDisplayName: { $ifNull: ["$product.category", "Ikke kategorisert"] },
+            },
+          },
+          {
+            $facet: {
+              current: [
+                {
+                  $match: dateKeyRangeFilter(
+                    "actualDate",
+                    sameDateKeys.currentStartKey,
+                    sameDateKeys.currentEndKey,
+                  ),
+                },
+                ...makeBreakdownStages("$categoryDisplayName"),
+              ],
+              previous: [
+                {
+                  $match: dateKeyRangeFilter(
+                    "actualDate",
+                    sameDateKeys.previousStartKey,
+                    sameDateKeys.previousEndKey,
+                  ),
+                },
+                ...makeBreakdownStages("$categoryDisplayName"),
+              ],
+            },
+          },
+        ])
+      : [];
+
+    const ytdCategoryMap = new Map();
+    for (const row of sameDateBreakdown.current ?? []) {
+      const name = row.name || "Ikke kategorisert";
+      ytdCategoryMap.set(name, {
+        name,
+        current: Number(row.value || 0),
+        currentCount: Number(row.count || 0),
+        previous: 0,
+        previousCount: 0,
+      });
+    }
+    for (const row of sameDateBreakdown.previous ?? []) {
+      const name = row.name || "Ikke kategorisert";
+      const existing = ytdCategoryMap.get(name) || {
+        name,
+        current: 0,
+        currentCount: 0,
+        previous: 0,
+        previousCount: 0,
+      };
+      existing.previous = Number(row.value || 0);
+      existing.previousCount = Number(row.count || 0);
+      ytdCategoryMap.set(name, existing);
+    }
+    const sameDateCategories = Array.from(ytdCategoryMap.values())
+      .map((row) => ({
+        ...row,
+        diff: row.current - row.previous,
+        pct:
+          row.previous > 0
+            ? ((row.current - row.previous) / row.previous) * 100
+            : row.current > 0
+              ? 100
+              : null,
+      }))
+      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    const sameDateCurrentSum = sameDateCategories.reduce((acc, row) => acc + row.current, 0);
+    const sameDatePreviousSum = sameDateCategories.reduce((acc, row) => acc + row.previous, 0);
+    const sameDateDiff = sameDateCurrentSum - sameDatePreviousSum;
+    const sameDatePct =
+      sameDatePreviousSum > 0
+        ? (sameDateDiff / sameDatePreviousSum) * 100
+        : sameDateCurrentSum > 0
+          ? 100
+          : null;
+
     // Map: "YYYY-MM" -> total
     const totalsMap = new Map();
     for (const r of monthTotals) {
@@ -1385,6 +1511,21 @@ router.get("/expenses-by-month-summary", async (req, res, next) => {
       categoryMonthlyTrend,
       categoryScope,
       categoryMonth,
+      sameDateComparison: doCompare
+        ? {
+            currentYear: year,
+            previousYear: compareYear,
+            currentStart: sameDateKeys.currentStartKey,
+            currentEnd: sameDateKeys.currentEndKey,
+            previousStart: sameDateKeys.previousStartKey,
+            previousEnd: sameDateKeys.previousEndKey,
+            currentSum: sameDateCurrentSum,
+            previousSum: sameDatePreviousSum,
+            diff: sameDateDiff,
+            pct: sameDatePct,
+            categories: sameDateCategories,
+          }
+        : null,
       stats: {
         currentSum,
         previousSum,
