@@ -6,6 +6,12 @@ const categorySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    type: {
+      type: String,
+      enum: ["product", "shop"],
+      default: "shop",
+      index: true,
+    },
     slug: {  // Add the 'slug' field to the schema
       type: String,
       required: true,
@@ -28,7 +34,7 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-categorySchema.index({ ownerUserId: 1, slug: 1 }, { unique: true });
+categorySchema.index({ ownerUserId: 1, type: 1, slug: 1 }, { unique: true });
 
 const Category = mongoose.model(
   "Category",

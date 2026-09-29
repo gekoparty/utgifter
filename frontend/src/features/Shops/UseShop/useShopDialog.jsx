@@ -75,6 +75,7 @@ const useShopDialog = (initialShop = null) => {
       // if backend upserts new ones by name, refresh these too
       queryClient.invalidateQueries({ queryKey: ["locations"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories", "shop"] });
 
       resetServerError();
       resetValidationErrors();

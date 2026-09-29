@@ -11,6 +11,7 @@ const CategoryDialog = ({
   open,
   mode,
   categoryToEdit,
+  categoryType = "shop",
   onClose,
   onSuccess,
   onError,
@@ -27,15 +28,19 @@ const CategoryDialog = ({
     displayError,
     validationError,
     isFormValid,
-  } = useCategoryDialog(categoryToEdit);
+  } = useCategoryDialog(categoryToEdit, categoryType);
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
 
   useEffect(() => {
     if (!open) return;
-    setCategory(isEdit && categoryToEdit ? categoryToEdit : { name: "" });
-  }, [open, isEdit, categoryToEdit, setCategory]);
+    setCategory(
+      isEdit && categoryToEdit
+        ? { ...categoryToEdit, type: categoryToEdit.type || categoryType }
+        : { name: "", type: categoryType },
+    );
+  }, [open, isEdit, categoryToEdit, categoryType, setCategory]);
 
   const handleClose = () => {
     resetFormAndErrors();
@@ -71,7 +76,9 @@ const CategoryDialog = ({
     ? "Bekreft sletting"
     : isEdit
       ? "Rediger kategori"
-      : "Ny kategori";
+      : categoryType === "product"
+        ? "Ny produktkategori"
+        : "Ny butikkategori";
 
   return (
     <BasicDialog open={open} onClose={handleClose} dialogTitle={dialogTitle}>
@@ -85,7 +92,7 @@ const CategoryDialog = ({
           ) : (
             <EntityNameField
               resource="categories"
-              label="Kategori"
+              label={categoryType === "product" ? "Produktkategori" : "Butikkategori"}
               value={category?.name}
               error={validationError?.name}
               disabled={loading}
@@ -114,6 +121,7 @@ CategoryDialog.propTypes = {
   open: PropTypes.bool.isRequired,
   mode: PropTypes.oneOf(["ADD", "EDIT", "DELETE"]).isRequired,
   categoryToEdit: PropTypes.object,
+  categoryType: PropTypes.oneOf(["product", "shop"]),
   onClose: PropTypes.func.isRequired,
   onSuccess: PropTypes.func.isRequired,
   onError: PropTypes.func,

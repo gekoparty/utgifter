@@ -6,6 +6,7 @@ import Product from "../models/productSchema.js";
 import Brand from "../models/brandSchema.js";
 import Variant from "../models/variantSchema.js";
 import Expense from "../models/expenseSchema.js";
+import Category from "../models/categorySchema.js";
 import { ownedCreateFields, ownedFilter, withOwnerOnInsert } from "../middleware/dataOwnership.js";
 
 const productsRouter = express.Router();
@@ -17,6 +18,7 @@ const createSlug = (name) =>
     strict: true,
     remove: /[*+~.()'"!:@]/g,
   });
+const createProductCategorySlug = (name) => `product-${createSlug(name)}`;
 
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -197,6 +199,23 @@ const normalizeMeasures = (measures, decimals = 3) => {
   return [...set].sort((a, b) => a - b);
 };
 
+const ensureProductCategory = async (req, categoryName) => {
+  const name = String(categoryName || "").trim();
+  if (!name) return;
+
+  await Category.findOneAndUpdate(
+    ownedFilter(req, { type: "product", slug: createProductCategorySlug(name) }),
+    {
+      $setOnInsert: withOwnerOnInsert(req, {
+        type: "product",
+        name,
+        slug: createProductCategorySlug(name),
+      }),
+    },
+    { new: true, upsert: true },
+  );
+};
+
 const sortByNameAsc = (arr) =>
   Array.isArray(arr)
     ? [...arr].sort((a, b) =>
@@ -345,6 +364,7 @@ productsRouter.post("/", async (req, res) => {
     }
 
     const brandIds = await resolveBrandIds(req, brands);
+    await ensureProductCategory(req, normalizedCategory);
     const productSlug = createSlug(name);
 
     const existingProduct = await Product.findOne(ownedFilter(req, { slug: productSlug }));
@@ -452,6 +472,7 @@ productsRouter.put("/:id", async (req, res) => {
     }
 
     const brandIds = await resolveBrandIds(req, brands);
+    await ensureProductCategory(req, normalizedCategory);
     const productSlug = createSlug(name);
 
     const duplicateProduct = await Product.findOne(

@@ -23,8 +23,9 @@ export const fetchProducts = async ({ signal }) => {
 };
 
 
-export const fetchCategories = async ({ signal }) => {
+export const fetchCategories = async ({ signal, type } = {}) => {
   const fetchURL = buildApiUrl("/api/categories");
+  if (type) fetchURL.searchParams.set("type", type);
   return requestJson(fetchURL, { signal });
 };
 

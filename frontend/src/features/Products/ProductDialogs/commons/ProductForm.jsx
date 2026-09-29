@@ -9,10 +9,7 @@ import VariantsInput from "./VariantsInput";
 import ProductVariantManager from "./ProductVariantManager";
 import FieldErrorText from "../../../../components/commons/ErrorHandling/FieldErrorText";
 import FormErrorAlert from "../../../../components/commons/ErrorHandling/FormErrorAlert";
-import {
-  predefinedTypes as predefinedCategories,
-  measurementUnitOptions,
-} from "../../../../components/commons/Consts/constants";
+import { measurementUnitOptions } from "../../../../components/commons/Consts/constants";
 
 const ProductForm = ({
   product,
@@ -28,7 +25,9 @@ const ProductForm = ({
   onVariantCreate,
   onVariantRename,
   onVariantDelete,
+  productCategoryOptions,
   onProductCategoryChange,
+  onProductCategoryCreate,
   onMeasurementUnitChange,
   onMeasuresChange,
   onMeasureCreate,
@@ -127,14 +126,16 @@ const selectedBrandValues = useMemo(() => {
 
       <div>
         <CategorySelect
-          options={predefinedCategories.map((c) => ({ value: c, label: c }))}
+          options={productCategoryOptions ?? []}
           value={
             product?.category
               ? { value: product.category, label: product.category }
               : null
           }
           onChange={onProductCategoryChange}
+          onCreateOption={onProductCategoryCreate}
           selectStyles={selectStyles}
+          isLoading={loading}
         />
 
         {(displayError || validationError) && (

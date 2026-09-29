@@ -5,10 +5,10 @@ import { formatComponentFields } from "../../../components/commons/Utils/FormatU
 import { addCategoryValidationSchema } from "../../../validation/validationSchema";
 import { useStoreDispatch, useStoreState } from "../../../store/Store";
 
-const INITIAL_CATEGORY_STATE = { name: "" };
+const INITIAL_CATEGORY_STATE = { name: "", type: "shop" };
 const CATEGORIES_QUERY_KEY = ["categories", "paginated"]; // ✅ match your screens if you use paginated queries
 
-const useCategoryDialog = (initialCategory = null) => {
+const useCategoryDialog = (initialCategory = null, categoryType = "shop") => {
   const queryClient = useQueryClient();
   const { sendRequest, loading: httpLoading } = useCustomHttp(
     "/api/categories",
@@ -19,16 +19,19 @@ const useCategoryDialog = (initialCategory = null) => {
 
   const isEditMode = Boolean(initialCategory && initialCategory._id);
 
-  const [category, setCategory] = useState(INITIAL_CATEGORY_STATE);
+  const [category, setCategory] = useState({
+    ...INITIAL_CATEGORY_STATE,
+    type: categoryType,
+  });
 
   // Sync when selected record changes
   useEffect(() => {
     setCategory(
       initialCategory?._id
-        ? { ...INITIAL_CATEGORY_STATE, ...initialCategory }
-        : { ...INITIAL_CATEGORY_STATE }
+        ? { ...INITIAL_CATEGORY_STATE, type: categoryType, ...initialCategory }
+        : { ...INITIAL_CATEGORY_STATE, type: categoryType }
     );
- }, [isEditMode, initialCategory?._id]);
+ }, [isEditMode, initialCategory?._id, categoryType]);
 
   // Helpers
   const resetServerError = () => {
@@ -42,8 +45,8 @@ const useCategoryDialog = (initialCategory = null) => {
   const resetFormAndErrors = () => {
     setCategory(
       isEditMode
-        ? { ...INITIAL_CATEGORY_STATE, ...initialCategory }
-        : { ...INITIAL_CATEGORY_STATE }
+        ? { ...INITIAL_CATEGORY_STATE, type: categoryType, ...initialCategory }
+        : { ...INITIAL_CATEGORY_STATE, type: categoryType }
     );
     resetServerError();
     resetValidationErrors();
@@ -64,6 +67,8 @@ const useCategoryDialog = (initialCategory = null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: [...CATEGORIES_QUERY_KEY, categoryType] });
+      queryClient.invalidateQueries({ queryKey: ["categories", categoryType] });
     },
     onError: (error) => {
       dispatch({
@@ -86,6 +91,8 @@ const useCategoryDialog = (initialCategory = null) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: [...CATEGORIES_QUERY_KEY, categoryType] });
+      queryClient.invalidateQueries({ queryKey: ["categories", categoryType] });
     },
     onError: (error) => {
       dispatch({
@@ -106,6 +113,7 @@ const useCategoryDialog = (initialCategory = null) => {
     try {
       const formattedCategory = {
         ...category,
+        type: category.type || categoryType,
         name: formatComponentFields(category.name, "category", "name"),
       };
 
@@ -117,7 +125,7 @@ const useCategoryDialog = (initialCategory = null) => {
 
       // Only clear form in ADD mode (matches Brand hook)
       if (!isEditMode) {
-        setCategory({ ...INITIAL_CATEGORY_STATE });
+        setCategory({ ...INITIAL_CATEGORY_STATE, type: categoryType });
       }
 
       return data;

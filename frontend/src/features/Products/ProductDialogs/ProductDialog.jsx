@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Stack } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
 import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
 import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
@@ -12,6 +12,7 @@ import useProductDialog from "../UseProduct/useProductDialog";
 import useInfiniteBrands from "../../../hooks/useInfiniteBrands";
 import useCustomHttp from "../../../hooks/useHttp";
 import { getSelectStyles } from "../../../styles/theme/selectStyles";
+import { fetchCategories } from "../../../components/commons/Utils/apiUtils";
 
 const QUERY_KEY = ["products", "paginated"];
 
@@ -41,6 +42,15 @@ const ProductDialog = ({
   const selectStyles = useMemo(() => getSelectStyles(theme), [theme]);
   const { sendRequest: sendVariantRequest, loading: isSavingVariant } =
     useCustomHttp("/api/variants", { auto: false });
+  const {
+    data: productCategories = [],
+    isLoading: isLoadingProductCategories,
+  } = useQuery({
+    queryKey: ["categories", "product"],
+    queryFn: ({ signal }) => fetchCategories({ signal, type: "product" }),
+    select: (data) => data?.categories ?? [],
+    enabled: open && !isDelete,
+  });
 
   const {
     product,
@@ -78,6 +88,13 @@ const ProductDialog = ({
     const pages = data?.pages ?? [];
     return pages.flatMap((p) => p.brands ?? []);
   }, [data]);
+  const productCategoryOptions = useMemo(
+    () => productCategories.map((category) => ({
+      value: category.name,
+      label: category.name,
+    })),
+    [productCategories],
+  );
 
   // When opening, reset + load variants
   useEffect(() => {
@@ -330,7 +347,11 @@ const ProductDialog = ({
       : "Nytt produkt";
 
   const showBusy =
-    loading || isLoadingBrands || isLoadingVariants || isSavingVariant;
+    loading ||
+    isLoadingBrands ||
+    isLoadingVariants ||
+    isLoadingProductCategories ||
+    isSavingVariant;
 
   return (
     <BasicDialog
@@ -359,6 +380,7 @@ const ProductDialog = ({
                 isLoadingBrands ||
                 isFetchingNextPage ||
                 isLoadingVariants ||
+                isLoadingProductCategories ||
                 isSavingVariant
               }
               validationError={validationError}
@@ -376,8 +398,15 @@ const ProductDialog = ({
               onVariantRename={handleVariantRename}
               onVariantDelete={handleVariantDelete}
               onVariantCreate={handleVariantCreate} // ✅ creates variant doc
+              productCategoryOptions={productCategoryOptions}
               onProductCategoryChange={(opt) => {
                 setProduct((p) => ({ ...p, category: opt?.value ?? "" }));
+                clearProductErrorsIfAny();
+              }}
+              onProductCategoryCreate={(value) => {
+                const trimmed = value.trim();
+                if (!trimmed) return;
+                setProduct((p) => ({ ...p, category: trimmed }));
                 clearProductErrorsIfAny();
               }}
               onMeasurementUnitChange={(opt) => {

@@ -32,8 +32,11 @@ const resolveCategoryId = async (req, categoryName) => {
 
   const slug = createSlug(trimmed);
   const cat = await Category.findOneAndUpdate(
-    ownedFilter(req, { slug }),
-    { $setOnInsert: withOwnerOnInsert(req, { name: trimmed, slug }) },
+    ownedFilter(req, {
+      slug,
+      $or: [{ type: "shop" }, { type: { $exists: false } }, { type: null }],
+    }),
+    { $setOnInsert: withOwnerOnInsert(req, { name: trimmed, type: "shop", slug }) },
     { new: true, upsert: true }
   );
 
@@ -55,7 +58,7 @@ const enrichShops = async (shops) => {
       ? Location.find({ _id: { $in: uniqueLocationIds } }).select("name").lean()
       : Promise.resolve([]),
     uniqueCategoryIds.length
-      ? Category.find({ _id: { $in: uniqueCategoryIds } }).select("name").lean()
+      ? Category.find({ _id: { $in: uniqueCategoryIds } }).select("name type").lean()
       : Promise.resolve([]),
   ]);
 

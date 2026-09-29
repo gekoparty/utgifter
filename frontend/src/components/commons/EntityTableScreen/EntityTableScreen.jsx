@@ -55,6 +55,7 @@ const EntityTableScreen = ({
   preloadOnIntent = false,
   workflow,
   urlBuilder = buildPaginatedUrl,
+  dialogExtraProps = {},
 }) => {
   const [searchParams] = useSearchParams();
   const { preferences, setPreference } = useAppPreferences();
@@ -176,6 +177,7 @@ const EntityTableScreen = ({
         open: true,
         mode: activeModal,
         [dialogRecordProp]: selectedRecord,
+        ...dialogExtraProps,
         onClose: closeDialog,
         onSuccess: handleSuccess,
         onError: () => showSnackbar(t("entity.actionFailed"), "error"),

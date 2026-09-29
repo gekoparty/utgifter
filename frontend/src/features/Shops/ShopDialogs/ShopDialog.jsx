@@ -43,8 +43,8 @@ const ShopDialog = ({ open, mode, shopToEdit, onClose, onSuccess, onError }) => 
     isLoading: categoryLoading,
     isError: categoryError,
   } = useQuery({
-    queryKey: ["categories"],
-    queryFn: ({ signal }) => fetchCategories({ signal }),
+    queryKey: ["categories", "shop"],
+    queryFn: ({ signal }) => fetchCategories({ signal, type: "shop" }),
     select: (data) => data?.categories ?? [],
     enabled: open && !isDelete,
   });

@@ -1,16 +1,29 @@
 import React from "react";
-import Select from "react-select";
+import CreatableSelect from "react-select/creatable";
 
-const CategorySelect = ({ options, value, onChange, selectStyles, isLoading }) => {
+const CategorySelect = ({
+  options,
+  value,
+  onChange,
+  onCreateOption,
+  selectStyles,
+  isLoading,
+}) => {
   return (
-    <Select
+    <CreatableSelect
       options={options}
       value={value}
       onChange={onChange}
+      onCreateOption={onCreateOption}
       styles={selectStyles}
       isLoading={isLoading}
       isClearable
-      placeholder="Kategori"
+      placeholder="Produktkategori"
+      isValidNewOption={(input) => {
+        const value = input.trim();
+        return !!value && !options.some((option) => option.label === value);
+      }}
+      formatCreateLabel={(input) => `Ny produktkategori: ${input}`}
     />
   );
 };

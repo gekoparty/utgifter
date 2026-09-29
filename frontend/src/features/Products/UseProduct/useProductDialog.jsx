@@ -160,6 +160,8 @@ const useProductDialog = (initialProduct = null) => {
 
       queryClient.invalidateQueries({ queryKey: BRANDS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["brands"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["categories", "product"] });
 
       resetServerError();
       resetValidationErrors();
