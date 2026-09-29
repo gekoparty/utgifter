@@ -24,6 +24,7 @@ import receiptsRouter from "./routes/receiptsRouter.js";
 import recurringPaymentsRouter from "./routes/recurringPaymentsRouter.js";
 import recurringRouter from "./routes/recurring/index.js";
 import mortgagesRouter from "./routes/mortgages/index.js";
+import Category from "./models/categorySchema.js";
 
 dotenv.config();
 
@@ -115,9 +116,31 @@ async function connectToDB() {
   console.log("Connected to DB");
 }
 
+async function dropIndexIfExists(collection, indexName) {
+  try {
+    const exists = await collection.indexExists(indexName);
+    if (exists) {
+      await collection.dropIndex(indexName);
+      console.log(`Dropped legacy index ${collection.collectionName}.${indexName}`);
+    }
+  } catch (error) {
+    console.warn(
+      `Could not drop legacy index ${collection.collectionName}.${indexName}:`,
+      error.message,
+    );
+  }
+}
+
+async function ensureStartupIndexes() {
+  await dropIndexIfExists(Category.collection, "name_1");
+  await dropIndexIfExists(Category.collection, "slug_1");
+  await Category.syncIndexes();
+}
+
 async function startServer() {
   try {
     await connectToDB();
+    await ensureStartupIndexes();
     console.log("Trusted frontend origins:", allowedOrigins.join(", "));
 
     const auth = createBetterAuth({
