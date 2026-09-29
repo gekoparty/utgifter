@@ -90,7 +90,7 @@ const ProductDialog = ({
   }, [data]);
   const productCategoryOptions = useMemo(
     () => productCategories.map((category) => ({
-      value: category.name,
+      value: String(category._id),
       label: category.name,
     })),
     [productCategories],
@@ -400,13 +400,17 @@ const ProductDialog = ({
               onVariantCreate={handleVariantCreate} // ✅ creates variant doc
               productCategoryOptions={productCategoryOptions}
               onProductCategoryChange={(opt) => {
-                setProduct((p) => ({ ...p, category: opt?.value ?? "" }));
+                setProduct((p) => ({
+                  ...p,
+                  categoryId: opt?.value ?? "",
+                  category: opt?.label ?? "",
+                }));
                 clearProductErrorsIfAny();
               }}
               onProductCategoryCreate={(value) => {
                 const trimmed = value.trim();
                 if (!trimmed) return;
-                setProduct((p) => ({ ...p, category: trimmed }));
+                setProduct((p) => ({ ...p, categoryId: "", category: trimmed }));
                 clearProductErrorsIfAny();
               }}
               onMeasurementUnitChange={(opt) => {

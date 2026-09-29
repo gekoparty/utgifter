@@ -128,9 +128,13 @@ const selectedBrandValues = useMemo(() => {
         <CategorySelect
           options={productCategoryOptions ?? []}
           value={
-            product?.category
-              ? { value: product.category, label: product.category }
-              : null
+            product?.categoryId
+              ? (productCategoryOptions ?? []).find(
+                  (option) => option.value === product.categoryId,
+                ) ?? { value: product.categoryId, label: product.category || product.categoryId }
+              : product?.category
+                ? { value: product.category, label: product.category }
+                : null
           }
           onChange={onProductCategoryChange}
           onCreateOption={onProductCategoryCreate}

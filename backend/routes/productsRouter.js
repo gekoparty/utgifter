@@ -201,9 +201,9 @@ const normalizeMeasures = (measures, decimals = 3) => {
 
 const ensureProductCategory = async (req, categoryName) => {
   const name = String(categoryName || "").trim();
-  if (!name) return;
+  if (!name) return null;
 
-  await Category.findOneAndUpdate(
+  return Category.findOneAndUpdate(
     ownedFilter(req, { type: "product", slug: createProductCategorySlug(name) }),
     {
       $setOnInsert: withOwnerOnInsert(req, {
@@ -213,7 +213,32 @@ const ensureProductCategory = async (req, categoryName) => {
       }),
     },
     { new: true, upsert: true },
-  );
+  ).lean();
+};
+
+const resolveProductCategory = async (req, body) => {
+  const categoryId = String(body?.categoryId || "").trim();
+
+  if (isHexObjectId(categoryId)) {
+    const category = await Category.findOne(
+      ownedFilter(req, { _id: categoryId, type: "product" }),
+    ).lean();
+
+    if (category) {
+      return {
+        categoryId: category._id,
+        categoryName: category.name,
+      };
+    }
+  }
+
+  const categoryName = String(body?.category ?? "").trim();
+  const category = await ensureProductCategory(req, categoryName);
+
+  return {
+    categoryId: category?._id ?? null,
+    categoryName,
+  };
 };
 
 const sortByNameAsc = (arr) =>
@@ -293,7 +318,8 @@ productsRouter.get("/", async (req, res) => {
     }
 
     const products = await query
-      .select("name brands category variants measures measurementUnit")
+      .select("name brands category categoryId variants measures measurementUnit")
+      .populate("categoryId", "name _id")
       .populate({ path: "variants", select: "name", options: { sort: { name: 1 } } })
       .lean();
 
@@ -324,6 +350,13 @@ const enrichedProducts = products.map((product) => {
 
   return {
     ...product,
+    categoryId: product.categoryId?._id
+      ? String(product.categoryId._id)
+      : product.categoryId
+        ? String(product.categoryId)
+        : "",
+    category: product.categoryId?.name || product.category,
+    categoryName: product.categoryId?.name || product.category,
 
     // ✅ Always return sorted + normalized measures
     measures: normalizeMeasures(product.measures, 3),
@@ -346,9 +379,10 @@ const enrichedProducts = products.map((product) => {
 // -------------------- POST --------------------
 productsRouter.post("/", async (req, res) => {
   try {
-    const { name, brands, measurementUnit, category, measures } = req.body;
+    const { name, brands, measurementUnit, measures } = req.body;
 
-    const normalizedCategory = String(category ?? "").trim();
+    const { categoryId, categoryName: normalizedCategory } =
+      await resolveProductCategory(req, req.body);
     const normalizedMeasures = normalizeMeasures(measures, 3);
 
     if (!name || !String(name).trim()) {
@@ -364,7 +398,6 @@ productsRouter.post("/", async (req, res) => {
     }
 
     const brandIds = await resolveBrandIds(req, brands);
-    await ensureProductCategory(req, normalizedCategory);
     const productSlug = createSlug(name);
 
     const existingProduct = await Product.findOne(ownedFilter(req, { slug: productSlug }));
@@ -378,6 +411,7 @@ productsRouter.post("/", async (req, res) => {
       name: String(name).trim(),
       measurementUnit,
       category: normalizedCategory,
+      categoryId,
       measures: normalizedMeasures,
       brands: brandIds,
       slug: productSlug,
@@ -398,6 +432,7 @@ productsRouter.post("/", async (req, res) => {
 
     const populatedProduct = await Product.findById(saved._id)
       .populate("brands", "name _id")
+      .populate("categoryId", "name _id")
       .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
       .lean();
 
@@ -447,7 +482,7 @@ productsRouter.delete("/:id", async (req, res) => {
 productsRouter.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, brands, measurementUnit, category, measures } = req.body;
+    const { name, brands, measurementUnit, measures } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid product id" });
@@ -456,7 +491,8 @@ productsRouter.put("/:id", async (req, res) => {
     const existing = await Product.findOne(ownedFilter(req, { _id: id })).select("variants").lean();
     if (!existing) return res.status(404).json({ message: "Product not found" });
 
-    const normalizedCategory = String(category ?? "").trim();
+    const { categoryId, categoryName: normalizedCategory } =
+      await resolveProductCategory(req, req.body);
     const normalizedMeasures = normalizeMeasures(measures, 3);
 
     if (!name || !String(name).trim()) {
@@ -472,7 +508,6 @@ productsRouter.put("/:id", async (req, res) => {
     }
 
     const brandIds = await resolveBrandIds(req, brands);
-    await ensureProductCategory(req, normalizedCategory);
     const productSlug = createSlug(name);
 
     const duplicateProduct = await Product.findOne(
@@ -508,6 +543,7 @@ productsRouter.put("/:id", async (req, res) => {
       name: String(name).trim(),
       measurementUnit,
       category: normalizedCategory,
+      categoryId,
       variants: nextVariantIds,
       measures: normalizedMeasures,
       brands: brandIds,
@@ -526,6 +562,7 @@ productsRouter.put("/:id", async (req, res) => {
 
     const populatedProduct = await Product.findById(result._id)
       .populate("brands", "name _id")
+      .populate("categoryId", "name _id")
       .populate({ path: "variants", select: "name _id", options: { sort: { name: 1 } } })
       .lean();
 

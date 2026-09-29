@@ -6,6 +6,11 @@ const productSchema = new mongoose.Schema(
     name: { type: String, required: true },
 
     category: { type: String, required: true, trim: true },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      index: true,
+    },
 
     variants: [{ type: mongoose.Schema.Types.ObjectId, ref: "Variant" }],
 
@@ -34,6 +39,7 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ category: 1 });
+productSchema.index({ categoryId: 1 });
 productSchema.index({ brands: 1 });
 productSchema.index({ variants: 1 });
 productSchema.index({ ownerUserId: 1, slug: 1 }, { unique: true });

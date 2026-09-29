@@ -12,6 +12,7 @@ const INITIAL_PRODUCT_STATE = {
   measures: [],
   measurementUnit: "",
   category: "",
+  categoryId: "",
   variants: [],
 };
 
@@ -82,7 +83,8 @@ const buildFormStateFromInitial = (initialProduct) => {
     brandSelections: normalizeBrandSelections(initialProduct),
     measures: initialProduct.measures ?? [],
     measurementUnit: initialProduct.measurementUnit ?? "",
-    category: initialProduct.category ?? "",
+    category: initialProduct.categoryName ?? initialProduct.category ?? "",
+    categoryId: initialProduct.categoryId ?? "",
     variants: normalizeVariants(initialProduct),
   };
 };
@@ -229,6 +231,7 @@ const useProductDialog = (initialProduct = null) => {
           "product",
           "category",
         ),
+        categoryId: product.categoryId ?? "",
 
         // ✅ OPTION A:
         // - de-dupe first (case-insensitive)

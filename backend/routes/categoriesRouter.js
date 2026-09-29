@@ -167,7 +167,11 @@ categoriesRouter.delete("/:id", async (req, res) => {
     const type = category.type || "shop";
     const inUse =
       type === "product"
-        ? await Product.exists(ownedFilter(req, { category: category.name }))
+        ? await Product.exists(
+            ownedFilter(req, {
+              $or: [{ categoryId: category._id }, { category: category.name }],
+            }),
+          )
         : await Shop.exists(ownedFilter(req, { category: category._id }));
 
     if (inUse) {
@@ -233,7 +237,9 @@ categoriesRouter.put("/:id", async (req, res) => {
 
     if ((currentCategory.type || "shop") === "product" && currentCategory.name !== name) {
       await Product.updateMany(
-        ownedFilter(req, { category: currentCategory.name }),
+        ownedFilter(req, {
+          $or: [{ categoryId: currentCategory._id }, { category: currentCategory.name }],
+        }),
         { $set: { category: name } },
       );
     }
