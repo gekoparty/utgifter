@@ -25,9 +25,6 @@ import recurringPaymentsRouter from "./routes/recurringPaymentsRouter.js";
 import recurringRouter from "./routes/recurring/index.js";
 import mortgagesRouter from "./routes/mortgages/index.js";
 import Category from "./models/categorySchema.js";
-import Product from "./models/productSchema.js";
-import { ownedFilter, withOwnerOnInsert } from "./middleware/dataOwnership.js";
-import slugify from "slugify";
 
 dotenv.config();
 
@@ -140,54 +137,10 @@ async function ensureStartupIndexes() {
   await Category.syncIndexes();
 }
 
-const createSlug = (name) =>
-  slugify(name, { lower: true, strict: true, remove: /[*+~.()'"!:@]/g });
-
-async function migrateProductCategoryRefs() {
-  const products = await Product.find({
-    category: { $exists: true, $ne: "" },
-    $or: [{ categoryId: { $exists: false } }, { categoryId: null }],
-    ownerUserId: { $exists: true, $ne: null },
-  })
-    .select("_id category ownerUserId")
-    .lean();
-
-  if (!products.length) return;
-
-  let migrated = 0;
-  for (const product of products) {
-    const name = String(product.category || "").trim();
-    if (!name) continue;
-
-    const reqLike = { appUser: { id: product.ownerUserId } };
-    const slug = `product-${createSlug(name)}`;
-    const category = await Category.findOneAndUpdate(
-      ownedFilter(reqLike, { type: "product", slug }),
-      {
-        $setOnInsert: withOwnerOnInsert(reqLike, {
-          type: "product",
-          name,
-          slug,
-        }),
-      },
-      { new: true, upsert: true },
-    ).lean();
-
-    await Product.updateOne(
-      { _id: product._id, ownerUserId: product.ownerUserId },
-      { $set: { categoryId: category._id, category: category.name } },
-    );
-    migrated += 1;
-  }
-
-  console.log(`Migrated ${migrated} product category references`);
-}
-
 async function startServer() {
   try {
     await connectToDB();
     await ensureStartupIndexes();
-    await migrateProductCategoryRefs();
     console.log("Trusted frontend origins:", allowedOrigins.join(", "));
 
     const auth = createBetterAuth({
