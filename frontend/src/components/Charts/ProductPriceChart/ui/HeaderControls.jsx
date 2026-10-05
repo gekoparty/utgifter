@@ -100,7 +100,7 @@ export default function HeaderControls({
               onChange={(event) => setIncludeDiscounts(event.target.checked)}
             />
           }
-          label="Tilbudspriser"
+          label={includeDiscounts ? "Bruk betalt tilbudspris" : "Bruk pris før tilbud"}
           sx={{
             m: 0,
             px: 1.25,
@@ -130,7 +130,8 @@ export default function HeaderControls({
             {!selectedVariantIds?.length ? (
               <Chip
                 variant="outlined"
-                label="Alle varianter"
+                color={variants.length > 1 ? "warning" : "default"}
+                label={variants.length > 1 ? "Sammenligner alle varianter" : "Alle varianter"}
                 sx={{ borderRadius: 2 }}
               />
             ) : null}

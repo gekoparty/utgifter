@@ -14,13 +14,18 @@ const DetailItem = ({ label, value }) => (
   </Box>
 );
 
-export default function ForecastCard({ freq, discount }) {
+export default function ForecastCard({ freq, discount, variantScope }) {
   return (
     <Card variant="outlined" sx={{ borderRadius: 2 }}>
       <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 0 }}>
           Prognose og rabatter
         </Typography>
+        {variantScope?.label ? (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+            {variantScope.label}
+          </Typography>
+        ) : null}
 
         <Box
           sx={{

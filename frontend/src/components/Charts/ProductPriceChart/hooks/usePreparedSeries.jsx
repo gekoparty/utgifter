@@ -70,6 +70,69 @@ export function usePreparedSeries({
       .sort((a, b) => new Date(a.x) - new Date(b.x));
   }, [sortedHistory, mode, overviewBucket]);
 
+  const overviewVariantSeriesData = useMemo(() => {
+    if (mode !== "overview" || !sortedHistory.length) return [];
+
+    const variantCounts = new Map();
+    for (const item of sortedHistory) {
+      const id = String(item.variantId || item.variantName || "Standard").trim() || "Standard";
+      const name = String(item.variantName || "Standard").trim() || "Standard";
+      const current = variantCounts.get(id) ?? { id, name, count: 0 };
+      current.count += 1;
+      variantCounts.set(id, current);
+    }
+
+    const topVariants = [...variantCounts.values()]
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+      .slice(0, 5);
+
+    if (topVariants.length <= 1) return [];
+
+    const topIds = new Set(topVariants.map((variant) => variant.id));
+    const grouped = _.groupBy(
+      sortedHistory.filter((item) => {
+        const id = String(item.variantId || item.variantName || "Standard").trim() || "Standard";
+        return topIds.has(id);
+      }),
+      (item) => String(item.variantId || item.variantName || "Standard").trim() || "Standard",
+    );
+
+    return topVariants
+      .map((variant) => {
+        const items = grouped[variant.id] ?? [];
+        const buckets = _.groupBy(items, (d) =>
+          overviewBucket === "month"
+            ? dayjs(d.date).startOf("month").format("YYYY-MM-DD")
+            : dayjs(d.date).startOf("week").format("YYYY-MM-DD"),
+        );
+
+        const points = Object.entries(buckets)
+          .map(([bucketDate, bucketItems]) => {
+            const prices = bucketItems
+              .map((i) => i.pricePerUnit)
+              .filter(Number.isFinite)
+              .sort((a, b) => a - b);
+            if (!prices.length) return null;
+            return {
+              x: bucketDate,
+              median: quantile(prices, 0.5),
+              count: prices.length,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => new Date(a.x) - new Date(b.x));
+
+        return {
+          id: variant.name,
+          label: `${variant.name} (${variant.count})`,
+          count: variant.count,
+          confidence: variant.count < 3 ? "low" : variant.count < 6 ? "medium" : "high",
+          points,
+        };
+      })
+      .filter((series) => series.points.length);
+  }, [sortedHistory, mode, overviewBucket]);
+
   // --- shops series ---
   const shopSeriesData = useMemo(() => {
     if (mode !== "shops") return [];
@@ -195,6 +258,7 @@ export function usePreparedSeries({
     activeShops,
     sortedHistory,
     overviewBuckets,
+    overviewVariantSeriesData,
     shopSeriesData,
     distributionBuckets,
 

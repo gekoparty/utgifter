@@ -6,6 +6,7 @@ export function buildOption({
   theme,
   measurementUnit,
   overviewBuckets,
+  overviewVariantSeriesData = [],
   shopSeriesData,
   distributionBuckets,
   hiddenSeries,
@@ -39,12 +40,18 @@ export function buildOption({
   };
 
   if (mode === "overview") {
+    const hasVariantComparison = Array.isArray(overviewVariantSeriesData) && overviewVariantSeriesData.length > 1;
     const minData = overviewBuckets.map((p) => [p.x, p.min]);
     const rangeData = overviewBuckets.map((p) => [p.x, Math.max(0, p.max - p.min)]);
     const medianData = overviewBuckets.map((p) => [p.x, p.median]);
+    const legendData = hasVariantComparison ? overviewVariantSeriesData.map((s) => s.label || s.id) : [];
 
     return {
       ...base,
+      grid: {
+        ...base.grid,
+        top: hasVariantComparison ? 54 : base.grid.top,
+      },
       xAxis: {
         type: "time",
         axisLabel: { color: secondaryText },
@@ -64,6 +71,30 @@ export function buildOption({
         formatter: (params) => {
           const ts = params?.[0]?.value?.[0];
           const dateStr = dayjs(ts).format("DD. MMM YYYY");
+
+          if (hasVariantComparison) {
+            const rows = params
+              .filter((item) => item.seriesType === "line" && item.value?.[1] != null)
+              .sort((a, b) => Number(a.value?.[1] ?? Infinity) - Number(b.value?.[1] ?? Infinity))
+              .map((item) => {
+                const price = Number(item.value?.[1]);
+                const count = Number(item.value?.[2] ?? 0);
+                const sampleText =
+                  count < 3 ? "Lite data" : count < 6 ? "Begrenset data" : "Godt grunnlag";
+                return `
+                  <div style="margin-top:6px">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:${item.color};margin-right:6px"></span>
+                    <strong>${item.seriesName}</strong><br/>
+                    <span style="font-weight:700">${price.toFixed(2)} kr</span> per ${measurementUnit}
+                    <span style="color:${secondaryText}"> (${count} kjøp · ${sampleText})</span>
+                  </div>
+                `;
+              })
+              .join("");
+
+            return `<div><strong>${dateStr}</strong>${rows}</div>`;
+          }
+
           const dayKey = dayjs(ts).format("YYYY-MM-DD");
           const bucket = overviewBuckets.find((b) => b.x === dayKey);
 
@@ -83,11 +114,36 @@ export function buildOption({
           `;
         },
       },
-      series: [
-        { name: "Min", type: "line", stack: "band", data: minData, showSymbol: false, lineStyle: { opacity: 0 }, emphasis: { disabled: true }, tooltip: { show: false } },
-        { name: "Range", type: "line", stack: "band", data: rangeData, showSymbol: false, lineStyle: { opacity: 0 }, areaStyle: { opacity: 0.08 }, emphasis: { disabled: true }, tooltip: { show: false } },
-        { name: "Median", type: "line", data: medianData, showSymbol: false, lineStyle: { width: 3 } },
-      ],
+      legend: hasVariantComparison
+        ? {
+            type: "scroll",
+            top: 8,
+            left: 60,
+            right: 40,
+            textStyle: { color: textColor },
+            data: legendData,
+          }
+        : undefined,
+      series: hasVariantComparison
+        ? overviewVariantSeriesData.map((s) => ({
+            name: s.label || s.id,
+            type: "line",
+            data: s.points.map((p) => [p.x, p.median, p.count]),
+            showSymbol: s.confidence !== "high",
+            symbolSize: s.confidence === "low" ? 7 : 5,
+            connectNulls: true,
+            lineStyle: {
+              width: s.confidence === "low" ? 2 : 2.5,
+              opacity: s.confidence === "low" ? 0.72 : 0.95,
+              type: s.confidence === "low" ? "dashed" : s.confidence === "medium" ? "dotted" : "solid",
+            },
+            emphasis: { focus: "series" },
+          }))
+        : [
+            { name: "Min", type: "line", stack: "band", data: minData, showSymbol: false, lineStyle: { opacity: 0 }, emphasis: { disabled: true }, tooltip: { show: false } },
+            { name: "Range", type: "line", stack: "band", data: rangeData, showSymbol: false, lineStyle: { opacity: 0 }, areaStyle: { opacity: 0.08 }, emphasis: { disabled: true }, tooltip: { show: false } },
+            { name: "Median", type: "line", data: medianData, showSymbol: false, lineStyle: { width: 3 } },
+          ],
     };
   }
 

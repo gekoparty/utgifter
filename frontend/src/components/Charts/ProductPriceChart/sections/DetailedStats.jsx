@@ -228,6 +228,11 @@ const VariantShopMatrix = ({ matrix }) => {
                           <Typography fontWeight={950} sx={{ lineHeight: 1.1 }}>
                             {formatCurrency(cell.latest)}
                           </Typography>
+                          {cell.brandName ? (
+                            <Typography variant="caption" sx={{ display: "block", fontWeight: 850 }} noWrap title={cell.brandName}>
+                              {cell.brandName}
+                            </Typography>
+                          ) : null}
                           <Typography variant="caption" color="text.secondary">
                             {recencyLabel(cell.date)}
                             {isBest ? (row.bestRecentCell ? " · billigst nå" : " · billigst historisk") : ""}
@@ -303,7 +308,10 @@ const BestVariantList = ({ rows }) => {
                   {row.variantName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {best.shopName} · {recencyLabel(best.date)}
+                  {best.shopName}
+                  {best.brandName ? ` · ${best.brandName}` : ""}
+                  {" · "}
+                  {recencyLabel(best.date)}
                   {historicalOnly ? " · bare historisk" : ""}
                 </Typography>
                 {decision ? (

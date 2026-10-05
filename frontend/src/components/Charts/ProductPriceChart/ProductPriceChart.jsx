@@ -1,5 +1,5 @@
 // src/components/Charts/ProductPriceChart/ProductPriceChart.jsx
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { Paper, Typography, useTheme, Box, Chip } from "@mui/material";
 import dayjs from "dayjs";
 import _ from "lodash";
@@ -41,8 +41,10 @@ export default function ProductPriceChart({ productId }) {
   const [overviewBucket, setOverviewBucket] = useState("week"); // "week" | "month"
   const [showAllKpis, setShowAllKpis] = useState(false);
 
-  // variant filtering
-  const [selectedVariantIds, setSelectedVariantIds] = useState([]); // [] => all
+  // variant filtering. [] means "all variants", but the default is auto-focused below.
+  const [selectedVariantIds, setSelectedVariantIds] = useState([]);
+  const [variantSelectionTouched, setVariantSelectionTouched] = useState(false);
+  const [variantOptions, setVariantOptions] = useState([]);
 
   // ✅ yearly mode controls
   const [yearlyBreakdown, setYearlyBreakdown] = useState("overall"); // overall | brand | shop | variant | shopVariant
@@ -54,6 +56,7 @@ export default function ProductPriceChart({ productId }) {
   const history = data?.history ?? [];
   const monthlySpend = data?.monthlySpend ?? [];
   const yearly = data?.yearly ?? null;
+  const priceBasis = data?.priceBasis ?? null;
 
   const freq = data?.frequency ?? {};
   const trend = data?.trend ?? {};
@@ -64,26 +67,144 @@ export default function ProductPriceChart({ productId }) {
   const measurementUnit = data?.product?.measurementUnit || history?.[0]?.measurementUnit || "unit";
 
   // available variants for selector (prefer variantStats if present)
-  const availableVariants = useMemo(() => {
+  const discoveredVariants = useMemo(() => {
     if (Array.isArray(data?.variantStats) && data.variantStats.length) {
       return data.variantStats
-        .map((v) => ({ id: String(v.variantId ?? "").trim(), name: String(v.variantName ?? "Standard") }))
-        .filter((v) => v.id); // only true variant IDs
+        .map((v) => ({
+          id: String(v.variantId ?? "").trim(),
+          name: String(v.variantName ?? "Standard"),
+          purchases: Number(v.purchases ?? 0),
+        }))
+        .filter((v) => v.id) // only true variant IDs
+        .sort((a, b) => b.purchases - a.purchases || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
     }
     const map = new Map();
     for (const h of history) {
       const id = String(h?.variantId ?? "").trim();
       const name = String(h?.variantName ?? "Standard");
-      if (id) map.set(id, name);
+      if (!id) continue;
+      const current = map.get(id) ?? { id, name, purchases: 0 };
+      current.purchases += 1;
+      map.set(id, current);
     }
-    return [...map.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    return [...map.values()]
+      .sort((a, b) => b.purchases - a.purchases || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   }, [data?.variantStats, history]);
+
+  useEffect(() => {
+    setSelectedVariantIds([]);
+    setVariantSelectionTouched(false);
+    setVariantOptions([]);
+  }, [productId]);
+
+  useEffect(() => {
+    if (!discoveredVariants.length) return;
+    setVariantOptions((current) => {
+      const map = new Map(current.map((variant) => [variant.id, variant]));
+      for (const variant of discoveredVariants) {
+        const existing = map.get(variant.id);
+        map.set(variant.id, {
+          ...existing,
+          ...variant,
+          purchases: Math.max(Number(existing?.purchases ?? 0), Number(variant.purchases ?? 0)),
+        });
+      }
+      return [...map.values()].sort(
+        (a, b) => b.purchases - a.purchases || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+      );
+    });
+  }, [discoveredVariants]);
+
+  const availableVariants = variantOptions.length ? variantOptions : discoveredVariants;
+
+  useEffect(() => {
+    if (variantSelectionTouched || selectedVariantIds.length || availableVariants.length <= 1) return;
+    setSelectedVariantIds([availableVariants[0].id]);
+  }, [availableVariants, selectedVariantIds.length, variantSelectionTouched]);
+
+  const handleVariantSelectionChange = useCallback((ids) => {
+    setVariantSelectionTouched(true);
+    setSelectedVariantIds(ids);
+  }, []);
+
+  const selectedVariantNames = useMemo(() => {
+    if (!selectedVariantIds.length) return [];
+    const selected = new Set(selectedVariantIds);
+    return availableVariants
+      .filter((variant) => selected.has(variant.id))
+      .map((variant) => variant.name);
+  }, [availableVariants, selectedVariantIds]);
+
+  const variantScope = useMemo(() => {
+    if (availableVariants.length <= 1) {
+      return {
+        label: "Produktet",
+        detail: "Tallene gjelder produktets registrerte kjøp.",
+        isVariantComparison: false,
+      };
+    }
+    if (selectedVariantIds.length === 1) {
+      const name = selectedVariantNames[0] || "Valgt variant";
+      return {
+        label: name,
+        detail: "Tallene gjelder kun valgt variant.",
+        isVariantComparison: false,
+      };
+    }
+    if (selectedVariantIds.length > 1) {
+      return {
+        label: `${selectedVariantIds.length} varianter samlet`,
+        detail: "Tallene er samlet for variantene du har valgt.",
+        isVariantComparison: true,
+      };
+    }
+    return {
+      label: "Alle varianter samlet",
+      detail: "Tallene er samlet for alle varianter. Bruk variantfilteret for mer presis sammenligning.",
+      isVariantComparison: true,
+    };
+  }, [availableVariants.length, selectedVariantIds.length, selectedVariantNames]);
+
+  const yearlyVariantBreakdown = useMemo(() => {
+    const rows = Array.isArray(yearly?.byVariant) ? yearly.byVariant : [];
+    const grouped = new Map();
+    for (const row of rows) {
+      const name = String(row?.variantName || "Standard").trim() || "Standard";
+      if (!grouped.has(name)) grouped.set(name, []);
+      grouped.get(name).push(row);
+    }
+
+    return [...grouped.entries()]
+      .map(([name, items]) => {
+        const sorted = items.slice().sort((a, b) => Number(a.year) - Number(b.year));
+        const first = sorted[0];
+        const latest = sorted[sorted.length - 1];
+        if (!first || !latest || !Number.isFinite(Number(latest.sinceStartPct))) return null;
+        return {
+          name,
+          firstYear: first.year,
+          latestYear: latest.year,
+          firstAvg: Number(first.avgPricePerUnit),
+          latestAvg: Number(latest.avgPricePerUnit),
+          purchases: Number(latest.purchases ?? 0),
+          yoyPct: Number(latest.yoyPct),
+          sinceStartPct: Number(latest.sinceStartPct),
+          confidence:
+            Number(latest.purchases ?? 0) < 3
+              ? "low"
+              : Number(latest.purchases ?? 0) < 6
+                ? "medium"
+                : "high",
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => Math.abs(b.sinceStartPct) - Math.abs(a.sinceStartPct));
+  }, [yearly?.byVariant]);
 
   const {
     shops,
     overviewBuckets,
+    overviewVariantSeriesData,
     shopSeriesData,
     distributionBuckets,
     yearlySeriesCatalog,
@@ -163,6 +284,11 @@ export default function ProductPriceChart({ productId }) {
           records.reduce((sum, item) => sum + Number(item.pricePerUnit || 0), 0) /
           records.length;
         const latest = _.maxBy(records, (item) => new Date(item.date).getTime());
+        const brandCounts = _.countBy(
+          records.map((item) => String(item.brandName || "Ukjent merke").trim() || "Ukjent merke"),
+        );
+        const mostUsedBrand = Object.entries(brandCounts)
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
 
         const latestPrice = Number(latest?.pricePerUnit);
         if (Number.isFinite(latestPrice)) latestPrices.push(latestPrice);
@@ -173,6 +299,8 @@ export default function ProductPriceChart({ productId }) {
           count: records.length,
           latest: Number.isFinite(latestPrice) ? latestPrice : null,
           date: latest?.date ?? null,
+          brandName: latest?.brandName || mostUsedBrand || "",
+          mostUsedBrand,
         };
       });
 
@@ -294,6 +422,7 @@ export default function ProductPriceChart({ productId }) {
       theme,
       measurementUnit,
       overviewBuckets,
+      overviewVariantSeriesData,
       shopSeriesData,
       distributionBuckets,
       hiddenSeries,
@@ -306,6 +435,7 @@ export default function ProductPriceChart({ productId }) {
     theme,
     measurementUnit,
     overviewBuckets,
+    overviewVariantSeriesData,
     shopSeriesData,
     distributionBuckets,
     hiddenSeries,
@@ -357,6 +487,9 @@ export default function ProductPriceChart({ productId }) {
   }
 
   const chartHeight = { xs: 300, md: 360, lg: 420 };
+  const isComparingVariants = availableVariants.length > 1 && (selectedVariantIds.length === 0 || selectedVariantIds.length > 1);
+  const isAutoSelectingVariant =
+    availableVariants.length > 1 && !variantSelectionTouched && selectedVariantIds.length === 0;
 
   return (
     <Box>
@@ -374,8 +507,41 @@ export default function ProductPriceChart({ productId }) {
           setIncludeDiscounts={setIncludeDiscounts}
           variants={availableVariants}
           selectedVariantIds={selectedVariantIds}
-          setSelectedVariantIds={setSelectedVariantIds}
+          setSelectedVariantIds={handleVariantSelectionChange}
         />
+
+        {availableVariants.length > 1 ? (
+          <SectionCard
+            title={isComparingVariants ? "Flere varianter sammenlignes" : "Variant valgt"}
+            subtitle={
+              isComparingVariants
+                ? "Prisene kan være misvisende hvis ulike størrelser eller varianter blandes."
+                : `Viser ${selectedVariantNames.join(", ")}. Bytt variant øverst hvis du vil se en annen.`
+            }
+            contentSx={{ py: 1 }}
+            sx={{
+              mb: 1.5,
+              borderColor: isComparingVariants ? "warning.main" : "divider",
+              bgcolor: isComparingVariants ? "rgba(255, 183, 77, 0.08)" : "background.paper",
+            }}
+          >
+            <Typography variant="body2" color="text.secondary">
+              Standardvisningen bruker én variant om gangen slik at prisutvikling, billigste butikk og prognose sammenlignes riktig.
+            </Typography>
+          </SectionCard>
+        ) : null}
+
+        {priceBasis?.label ? (
+          <Box sx={{ mb: 1.5 }}>
+            <Chip
+              size="small"
+              variant="outlined"
+              color={priceBasis.mode === "beforeDiscountPrice" ? "info" : "default"}
+              label={`Prisgrunnlag: ${priceBasis.label}`}
+              sx={{ borderRadius: 2, fontWeight: 800 }}
+            />
+          </Box>
+        ) : null}
 
         <Box sx={{ mb: 1.5 }}>
           <Box
@@ -437,31 +603,39 @@ export default function ProductPriceChart({ productId }) {
           setVisibleYearSeries={setVisibleYearSeries}
         />
 
-        {history.length < 4 ? (
+        {history.length < 6 ? (
           <SectionCard
-            title="Lite prishistorikk"
-            subtitle="Sammenligninger blir bedre når produktet er kjøpt flere ganger."
+            title="Begrenset prishistorikk"
+            subtitle="Noen varianter er kjøpt få ganger, så trendene bør leses som signaler, ikke fasit."
             contentSx={{ py: 1.25 }}
             sx={{ mb: 1.5 }}
           >
             <Typography variant="body2" color="text.secondary">
-              Vi viser det som finnes, men billigste butikk, trend og prognose kan være usikre med få registreringer.
+              Stiplede linjer og merkede variantkort betyr at grunnlaget er tynt. Flere kjøp gjør billigste butikk, prisøkning og prognose tryggere.
             </Typography>
           </SectionCard>
         ) : null}
 
-        <Box
-          ref={chartBoxRef}
-          sx={{
-            height: chartHeight,
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
-            overflow: "hidden",
-            bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
-            p: { xs: 0.5, md: 1 },
-          }}
-        />
+        {isAutoSelectingVariant ? (
+          <StatsEmptyState
+            title="Velger riktig variant"
+            message="Produktet har flere varianter, så vi åpner den mest brukte varianten først."
+            loading
+          />
+        ) : (
+          <Box
+            ref={chartBoxRef}
+            sx={{
+              height: chartHeight,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 2,
+              overflow: "hidden",
+              bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+              p: { xs: 0.5, md: 1 },
+            }}
+          />
+        )}
 
         <Box
           sx={{
@@ -477,9 +651,13 @@ export default function ProductPriceChart({ productId }) {
           }}
         >
           <UsageSummaryCard usage={usageSummary} />
-          <YearlyIncreaseCard yearly={yearly} />
-          <MonthlySpendCard monthlySpend={monthlySpend} />
-          <ForecastCard freq={freq} discount={discount} />
+          <YearlyIncreaseCard
+            yearly={yearly}
+            variantScope={variantScope}
+            variantBreakdown={yearlyVariantBreakdown}
+          />
+          <MonthlySpendCard monthlySpend={monthlySpend} variantScope={variantScope} />
+          <ForecastCard freq={freq} discount={discount} variantScope={variantScope} />
         </Box>
 
         {(mode === "shops" || mode === "yearly") && (

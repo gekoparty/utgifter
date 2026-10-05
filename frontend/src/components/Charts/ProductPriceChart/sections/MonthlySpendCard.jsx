@@ -18,7 +18,7 @@ const monthLabel = (monthKey) => {
   });
 };
 
-export default function MonthlySpendCard({ monthlySpend }) {
+export default function MonthlySpendCard({ monthlySpend, variantScope }) {
   const allRows = useMemo(() => {
     return Array.isArray(monthlySpend) ? monthlySpend : [];
   }, [monthlySpend]);
@@ -46,6 +46,11 @@ export default function MonthlySpendCard({ monthlySpend }) {
             <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
               Siste {latestRows.length} av {allRows.length} måneder med kjøp.
             </Typography>
+            {variantScope?.label ? (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                {variantScope.label}
+              </Typography>
+            ) : null}
           </Box>
 
           <Chip
@@ -70,7 +75,7 @@ export default function MonthlySpendCard({ monthlySpend }) {
             >
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  Alle kjøp
+                  Kjøp i utvalg
                 </Typography>
                 <Typography fontWeight={950} noWrap>{totalPurchases}</Typography>
               </Box>
