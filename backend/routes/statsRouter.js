@@ -1742,7 +1742,6 @@ router.get("/product-insights", async (req, res, next) => {
 
     const matchStage = {
       productName: pid,
-      ...(includeDiscounts ? {} : { hasDiscount: { $ne: true } }),
       ...(variantIds.length ? { variant: { $in: variantIds } } : {}),
     };
 
@@ -1890,12 +1889,49 @@ router.get("/product-insights", async (req, res, next) => {
         },
       },
 
+      {
+        $addFields: {
+          analysisPricePerUnit: {
+            $let: {
+              vars: {
+                unitSafe: { $ifNull: ["$pricePerUnit", 0] },
+                finalSafe: { $ifNull: ["$finalPrice", 0] },
+                originalSafe: {
+                  $cond: [
+                    { $gt: [{ $ifNull: ["$price", 0] }, 0] },
+                    "$price",
+                    { $add: [{ $ifNull: ["$finalPrice", 0] }, { $ifNull: ["$computedSaving", 0] }] },
+                  ],
+                },
+                hasDisc: { $ifNull: ["$hasDiscount", false] },
+              },
+              in: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: [includeDiscounts, false] },
+                      "$$hasDisc",
+                      { $gt: ["$$unitSafe", 0] },
+                      { $gt: ["$$finalSafe", 0] },
+                      { $gt: ["$$originalSafe", "$$finalSafe"] },
+                    ],
+                  },
+                  { $multiply: ["$$unitSafe", { $divide: ["$$originalSafe", "$$finalSafe"] }] },
+                  "$$unitSafe",
+                ],
+              },
+            },
+          },
+        },
+      },
+
       // normalized projection
       {
         $project: {
           _id: 0,
           actualDate: 1,
-          pricePerUnit: 1,
+          pricePerUnit: "$analysisPricePerUnit",
+          actualPricePerUnit: "$pricePerUnit",
           price: 1,
           finalPrice: 1,
           quantity: 1,
@@ -2493,6 +2529,11 @@ router.get("/product-insights", async (req, res, next) => {
         : null;
 
     res.json({
+      priceBasis: {
+        mode: includeDiscounts ? "paidDiscountPrice" : "beforeDiscountPrice",
+        label: includeDiscounts ? "Betalt pris inkludert tilbud" : "Pris før tilbud",
+        keepsDiscountedPurchases: true,
+      },
       product: {
         name: history?.[0]?.productName ?? null,
         category: history?.[0]?.productCategory ?? null,
