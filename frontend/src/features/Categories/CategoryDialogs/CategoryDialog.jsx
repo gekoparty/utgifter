@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { Stack } from "@mui/material";
+import { Alert, Stack } from "@mui/material";
 import BasicDialog from "../../../components/commons/BasicDialog/BasicDialog";
 import DeleteConfirmation from "../../../components/commons/Dialogs/DeleteConfirmation";
 import DialogFormActions from "../../../components/commons/Dialogs/DialogFormActions";
@@ -32,6 +32,10 @@ const CategoryDialog = ({
 
   const isEdit = mode === "EDIT";
   const isDelete = mode === "DELETE";
+  const usageCount = Number(categoryToEdit?.usageCount ?? 0);
+  const usageLabel =
+    categoryToEdit?.usageLabel || (categoryType === "product" ? "produkter" : "butikker");
+  const deleteBlocked = isDelete && usageCount > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -85,10 +89,21 @@ const CategoryDialog = ({
       <form onSubmit={handleSubmit}>
         <Stack spacing={2} sx={{ mt: 2 }}>
           {isDelete ? (
-            <DeleteConfirmation
-              name={categoryToEdit?.name}
-              impactText="Utgifter tilhørende denne kategorien vil også påvirkes."
-            />
+            <>
+              <DeleteConfirmation
+                name={categoryToEdit?.name}
+                impactText={
+                  deleteBlocked
+                    ? "Denne kategorien kan ikke slettes før den ikke er i bruk."
+                    : "Denne kategorien er ikke i bruk."
+                }
+              />
+              {deleteBlocked ? (
+                <Alert severity="warning">
+                  Kategorien brukes av {usageCount} {usageLabel}. Flytt eller endre disse først.
+                </Alert>
+              ) : null}
+            </>
           ) : (
             <EntityNameField
               resource="categories"
@@ -108,7 +123,7 @@ const CategoryDialog = ({
           <DialogFormActions
             loading={loading}
             isDelete={isDelete}
-            disabled={!isDelete && !isFormValid()}
+            disabled={deleteBlocked || (!isDelete && !isFormValid())}
             onCancel={handleClose}
           />
         </Stack>

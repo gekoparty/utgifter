@@ -20,6 +20,28 @@ const typeFilter = (type) =>
     ? { $or: [{ type: "shop" }, { type: { $exists: false } }, { type: null }] }
     : { type };
 
+const getCategoryUsageCount = async (req, category) => {
+  const type = category?.type || "shop";
+  if (type === "product") {
+    return Product.countDocuments(
+      ownedFilter(req, {
+        $or: [{ categoryId: category._id }, { category: category.name }],
+      }),
+    );
+  }
+
+  return Shop.countDocuments(ownedFilter(req, { category: category._id }));
+};
+
+const attachUsageCounts = async (req, categories) =>
+  Promise.all(
+    categories.map(async (category) => ({
+      ...category,
+      usageCount: await getCategoryUsageCount(req, category),
+      usageLabel: (category.type || "shop") === "product" ? "produkter" : "butikker",
+    })),
+  );
+
 const ensureProductCategories = async (req) => {
   const names = await Product.distinct("category", ownedFilter(req, {
     category: { $exists: true, $ne: "" },
@@ -98,8 +120,9 @@ categoriesRouter.get("/", async (req, res) => {
 
     // Execute the query
     const categories = await query.lean().exec();
+    const categoriesWithUsage = await attachUsageCounts(req, categories);
 
-    res.json({ categories, meta: { totalRowCount } });
+    res.json({ categories: categoriesWithUsage, meta: { totalRowCount } });
   } catch (err) {
     console.error("Error in /api/categories:", err);
     res.status(500).json({ error: err.message });
@@ -165,21 +188,16 @@ categoriesRouter.delete("/:id", async (req, res) => {
     }
 
     const type = category.type || "shop";
-    const inUse =
-      type === "product"
-        ? await Product.exists(
-            ownedFilter(req, {
-              $or: [{ categoryId: category._id }, { category: category.name }],
-            }),
-          )
-        : await Shop.exists(ownedFilter(req, { category: category._id }));
+    const usageCount = await getCategoryUsageCount(req, category);
 
-    if (inUse) {
-      return res.status(400).json({
+    if (usageCount > 0) {
+      return res.status(409).json({
+        usageCount,
+        usageLabel: type === "product" ? "produkter" : "butikker",
         message:
           type === "product"
-            ? "Kan ikke slette produktkategori som brukes av produkter."
-            : "Kan ikke slette butikkategori som brukes av butikker.",
+            ? `Kan ikke slette produktkategori som brukes av ${usageCount} produkter.`
+            : `Kan ikke slette butikkategori som brukes av ${usageCount} butikker.`,
       });
     }
 

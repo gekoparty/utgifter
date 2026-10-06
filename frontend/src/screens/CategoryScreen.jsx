@@ -1,6 +1,6 @@
 import React, { lazy, useMemo, useState } from "react";
 import CategoryIcon from "@mui/icons-material/Category";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { Chip, ToggleButton, ToggleButtonGroup } from "@mui/material";
 
 import EntityTableScreen from "../components/commons/EntityTableScreen/EntityTableScreen";
 import { useTranslation } from "../i18n/useTranslation";
@@ -28,16 +28,41 @@ const CategoryScreen = () => {
   );
   const dialogExtraProps = useMemo(() => ({ categoryType }), [categoryType]);
 
-  const columns = [
-    {
-      accessorKey: "name",
-      header: t("registers.categorySingle"),
-      size: 150,
-      grow: 2,
-      minSize: 150,
-      maxSize: 400,
-    },
-  ];
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: "name",
+        header: t("registers.categorySingle"),
+        size: 150,
+        grow: 2,
+        minSize: 150,
+        maxSize: 400,
+      },
+      {
+        accessorKey: "usageCount",
+        header: "I bruk",
+        size: 110,
+        enableColumnFilter: false,
+        enableSorting: false,
+        Cell: ({ row }) => {
+          const count = Number(row.original?.usageCount ?? 0);
+          const label =
+            row.original?.usageLabel ||
+            (categoryType === "product" ? "produkter" : "butikker");
+          return (
+            <Chip
+              size="small"
+              color={count > 0 ? "primary" : "default"}
+              variant={count > 0 ? "filled" : "outlined"}
+              label={count > 0 ? `${count} ${label}` : "Ikke brukt"}
+              sx={{ borderRadius: 2, fontWeight: 800 }}
+            />
+          );
+        },
+      },
+    ],
+    [categoryType, t],
+  );
 
   return (
     <EntityTableScreen
