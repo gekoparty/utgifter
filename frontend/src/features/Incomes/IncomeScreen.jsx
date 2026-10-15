@@ -196,10 +196,15 @@ export default function IncomeScreen() {
   const [expectedMonthlyIncome, setExpectedMonthlyIncome] = useState("");
   const [expectedMessage, setExpectedMessage] = useState("");
   const [expectedError, setExpectedError] = useState("");
+  const [estimateMode, setEstimateMode] = useState("manual");
+  const [estimateMonths, setEstimateMonths] = useState(12);
+  const estimate = appUser?.incomeEstimate;
 
   React.useEffect(() => {
-    setExpectedMonthlyIncome(String(appUser?.expectedMonthlyIncome ?? 0));
-  }, [appUser?.expectedMonthlyIncome]);
+    setExpectedMonthlyIncome(String(estimate?.preset ?? appUser?.expectedMonthlyIncome ?? 0));
+    setEstimateMode(estimate?.mode || "manual");
+    setEstimateMonths(estimate?.lookback || 12);
+  }, [appUser?.expectedMonthlyIncome, estimate]);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: INCOME_QUERY_KEY,
@@ -218,6 +223,7 @@ export default function IncomeScreen() {
   }, [incomes]);
 
   const invalidate = () => {
+    refreshAppUser();
     queryClient.invalidateQueries({ queryKey: INCOME_QUERY_KEY });
     queryClient.invalidateQueries({ queryKey: ["expenses", "dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["stats"] });
@@ -255,7 +261,7 @@ export default function IncomeScreen() {
     mutationFn: (value) =>
       requestJson("/api/app-users/me", {
         method: "PATCH",
-        data: { expectedMonthlyIncome: Number(value || 0) },
+        data: { expectedMonthlyIncome: Number(value || 0), incomeEstimateMode: estimateMode, incomeEstimateMonths: estimateMonths },
       }),
     onSuccess: async () => {
       await refreshAppUser();
@@ -312,13 +318,28 @@ export default function IncomeScreen() {
         subtitle={t("income.expectedSubtitle")}
         contentSx={{ py: 1.5 }}
       >
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+          <TextField select label={t("income.estimateMethod")} value={estimateMode} onChange={(event) => setEstimateMode(event.target.value)} sx={{ minWidth: 240 }}>
+            <MenuItem value="manual">{t("income.manualPreset")}</MenuItem>
+            <MenuItem value="history">{t("income.historyAverage")}</MenuItem>
+          </TextField>
+          {estimateMode === "history" ? <TextField select label={t("income.historyPeriod")} value={estimateMonths} onChange={(event) => setEstimateMonths(Number(event.target.value))} sx={{ minWidth: 180 }}>
+            <MenuItem value={6}>{t("income.sixMonths")}</MenuItem>
+            <MenuItem value={12}>{t("income.twelveMonths")}</MenuItem>
+          </TextField> : null}
+        </Stack>
+        {estimateMode === "history" ? <Typography variant="body2" sx={{ mb: 2 }}>{t("income.trimmedHelp")}</Typography> : null}
+        {estimate?.mode === "history" ? <Alert severity={estimate.months >= 6 ? "info" : "warning"} sx={{ mb: 2 }}>
+          {t("income.estimateResult", { amount: NOK.format(estimate.effective), count: estimate.months })}
+          {estimate.months < 6 ? ` ${t("income.estimateFallback")}` : ""}
+        </Alert> : null}
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1.5}
           alignItems={{ xs: "stretch", sm: "flex-start" }}
         >
           <TextField
-            label={t("income.expectedPerMonth")}
+            label={estimateMode === "history" ? t("income.fallbackPreset") : t("income.expectedPerMonth")}
             type="number"
             value={expectedMonthlyIncome}
             onChange={(event) => {

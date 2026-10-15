@@ -110,10 +110,10 @@ export const addShopValidationSchema = Yup.object().shape({
     .required("Navn kan ikke være tomt")
     .min(2, "Navnet må være minst 2 tegn")
     .max(30, "Maks 30 tegn"),
-  locationName: Yup.string()
-    .required("Må ha et sted")
-    .min(2, "Lokasjon må være minst 2 tegn")
-    .max(30, "Maks 30 tegn"),
+  locationNames: Yup.array()
+    .of(Yup.string().min(2, "Sted må være minst 2 tegn").max(30, "Maks 30 tegn"))
+    .min(1, "Må ha minst ett sted")
+    .required("Må ha minst ett sted"),
   categoryName: Yup.string()
     .required("Må ha en kategori")
     .min(2, "Må være minst 2 tegn")

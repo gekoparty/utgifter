@@ -113,6 +113,14 @@ appUsersRouter.patch("/me", async (req, res, next) => {
       updates.name = name;
     }
 
+    if (req.body?.incomeEstimateMode != null) {
+      if (!["manual", "history"].includes(req.body.incomeEstimateMode)) return res.status(400).json({ message: "Invalid income estimate mode" });
+      updates.incomeEstimateMode = req.body.incomeEstimateMode;
+    }
+    if (req.body?.incomeEstimateMonths != null) {
+      if (![6, 12].includes(req.body.incomeEstimateMonths)) return res.status(400).json({ message: "Invalid income history period" });
+      updates.incomeEstimateMonths = req.body.incomeEstimateMonths;
+    }
     if (req.body?.expectedMonthlyIncome != null) {
       const expectedMonthlyIncome = Number(req.body.expectedMonthlyIncome);
       if (!Number.isFinite(expectedMonthlyIncome) || expectedMonthlyIncome < 0) {

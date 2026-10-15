@@ -31,6 +31,7 @@ const INITIAL_EXPENSE_STATE = {
   hasDiscount: false,
   discountValue: 0,
   discountAmount: 0,
+  discountSource: "",
   finalPrice: 0,
   purchased: true,
   purchaseDate: dayjs().format("YYYY-MM-DD"),

@@ -40,10 +40,12 @@ const useHandleFieldChange = (expense, setExpense) => {
 
     // Ensure both discount fields are in sync
     if ("discountValue" in cleanOverrides) {
+      mergedExpense.discountSource = "percent";
       newDiscountAmount = hasDiscount
         ? calculateDiscountAmount(price, discountValue)
         : 0;
     } else if ("discountAmount" in cleanOverrides && price > 0) {
+      mergedExpense.discountSource = "amount";
       newDiscountValue = hasDiscount ? (discountAmount / price) * 100 : 0;
     }
 
@@ -53,6 +55,7 @@ const useHandleFieldChange = (expense, setExpense) => {
     return {
       ...prevExpense,
       ...cleanOverrides,
+      discountSource: hasDiscount ? mergedExpense.discountSource : "",
       discountAmount: Number(toNumber(newDiscountAmount).toFixed(2)),
       discountValue: Number(toNumber(newDiscountValue).toFixed(2)),
       finalPrice,

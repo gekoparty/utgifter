@@ -8,7 +8,8 @@ import { addShopValidationSchema } from "../../../validation/validationSchema";
 
 const INITIAL_SHOP_STATE = {
   name: "",
-  locationName: "", // ✅ always a name (display + payload)
+  locations: [],
+  locationNames: [],
   categoryName: "", // ✅ always a name (display + payload)
 };
 
@@ -21,7 +22,18 @@ const buildShopStateFromInitial = (initialShop) => {
     ...INITIAL_SHOP_STATE,
     ...initialShop,
     name: initialShop.name ?? "",
-    locationName: initialShop.locationName ?? "",
+    locations: Array.isArray(initialShop.locations)
+      ? initialShop.locations.map(String)
+      : Array.isArray(initialShop.locationIds)
+        ? initialShop.locationIds.map(String)
+        : initialShop.location
+          ? [String(initialShop.location)]
+          : [],
+    locationNames: Array.isArray(initialShop.locationNames)
+      ? initialShop.locationNames
+      : initialShop.locationName && initialShop.locationName !== "N/A"
+        ? String(initialShop.locationName).split(",").map((name) => name.trim()).filter(Boolean)
+        : [],
     categoryName: initialShop.categoryName ?? "",
   };
 };
@@ -122,7 +134,9 @@ const useShopDialog = (initialShop = null) => {
     try {
       const formatted = {
         name: formatComponentFields(shop.name, "shop", "name"),
-        locationName: formatComponentFields(shop.locationName, "shop", "locationName"),
+        locationNames: (Array.isArray(shop.locationNames) ? shop.locationNames : [])
+          .map((name) => formatComponentFields(name, "shop", "locationName"))
+          .filter(Boolean),
         categoryName: formatComponentFields(shop.categoryName, "shop", "categoryName"),
       };
 
@@ -131,7 +145,7 @@ const useShopDialog = (initialShop = null) => {
       // ✅ payload is names only (backend resolves -> ids)
       const payload = {
         name: formatted.name,
-        locationName: formatted.locationName,
+        locationNames: formatted.locationNames,
         categoryName: formatted.categoryName,
       };
 
@@ -193,10 +207,11 @@ const useShopDialog = (initialShop = null) => {
   const isFormValid = useCallback(() => {
     return (
       shop?.name?.trim().length > 0 &&
-      shop?.locationName?.trim().length > 0 &&
+      Array.isArray(shop?.locationNames) &&
+      shop.locationNames.length > 0 &&
       shop?.categoryName?.trim().length > 0 &&
       !validationError?.name &&
-      !validationError?.locationName &&
+      !validationError?.locationNames &&
       !validationError?.categoryName
     );
   }, [shop, validationError]);

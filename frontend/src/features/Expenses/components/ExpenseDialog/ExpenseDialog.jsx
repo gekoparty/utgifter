@@ -63,15 +63,17 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     productSearch: controller.productSearch,
     selectedProduct: controller.selectedProduct,
     shopSearch: controller.shopSearch,
+    selectedShopId: expense.shopId,
   });
 
-  const { productOptions, brandOptions, shopOptions, variantOptions } =
+  const { productOptions, brandOptions, shopOptions, locationOptions, variantOptions } =
     useExpenseDialogOptions({
       infiniteData: data.infiniteData,
       brandsForProduct: data.brandsForProduct,
       recentBrands: data.recentBrands,
       selectedProduct: controller.selectedProduct,
-      shops: data.shops,
+      shops: data.selectedShop ? [data.selectedShop, ...data.shops] : data.shops,
+      locations: data.locations,
 
       // ✅ NEW: used to decide fallback behavior
       isLoadingBrandsForProduct: data.isLoadingBrandsForProduct,
@@ -192,14 +194,22 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
 
         if (shopMatch?.value) {
           updates.shopId = String(shopMatch.value);
-          updates.locationId = shopMatch.locationId || prev.locationId || "";
-          updates.locationName = shopMatch.locationName || prev.locationName || "";
+        }
+      }
+
+      if (prev.locationName && !prev.locationId && Array.isArray(locationOptions)) {
+        const locationMatch = locationOptions.find(
+          (option) => option.name === prev.locationName || option.label === prev.locationName
+        );
+
+        if (locationMatch?.value) {
+          updates.locationId = String(locationMatch.value);
         }
       }
 
       return Object.keys(updates).length ? { ...prev, ...updates } : prev;
     });
-  }, [open, isDelete, brandOptions, shopOptions, setExpense]);
+  }, [open, isDelete, brandOptions, shopOptions, locationOptions, setExpense]);
 
   useEffect(() => {
     if (!open || isDelete) return;
@@ -325,10 +335,12 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     const shop = payload?.shop ?? payload;
     const shopId = String(shop?._id ?? shop?.id ?? "");
     const shopName = String(shop?.name ?? "").trim();
-    const locationId = String(shop?.locationId ?? shop?.location ?? "").trim();
-    const resolvedLocationName = String(
-      shop?.locationName ?? shop?.location?.name ?? ""
-    ).trim();
+    const locationIds = Array.isArray(shop?.locationIds)
+      ? shop.locationIds.map(String)
+      : Array.isArray(shop?.locations)
+        ? shop.locations.map(String)
+        : [];
+    const locationNames = Array.isArray(shop?.locationNames) ? shop.locationNames : [];
 
     queryClient.invalidateQueries({ queryKey: ["shops"] });
     setQuickCreateType(null);
@@ -336,12 +348,12 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
     if (!shopId || !shopName) return;
 
     controller.handleShopSelect({
-      label: resolvedLocationName ? `${shopName}, ${resolvedLocationName}` : shopName,
+      label: shopName,
       value: shopId,
       id: shopId,
       name: shopName,
-      locationId,
-      locationName: resolvedLocationName,
+      locationIds,
+      locationNames,
     });
   };
 
@@ -449,12 +461,14 @@ const ExpenseDialog = ({ open, mode, expenseToEdit, onClose, onSuccess, onError 
       productOptions={productOptions}
       brandOptions={brandOptions}
       shopOptions={shopOptions}
+      locationOptions={locationOptions}
       selectedProduct={controller.selectedProduct}
       hasNextPage={data.hasNextPage}
       fetchNextPage={data.fetchNextPage}
       isLoadingProducts={data.isLoadingProducts}
       isLoadingBrands={data.isLoadingBrands}
       isLoadingShops={data.isLoadingShops}
+      isLoadingLocations={data.isLoadingLocations}
       controller={controller}
       validationErrors={validationErrors}
       clearFieldError={clearFieldError}

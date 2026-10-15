@@ -6,7 +6,15 @@ export const useExpenseDialogOptions = ({
   recentBrands,
   selectedProduct,
   shops,
+  locations,
 }) => {
+  const normalizeShopKey = (name) =>
+    String(name || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
   const productOptions = useMemo(() => {
   const pages = infiniteData?.pages || [];
 
@@ -57,16 +65,66 @@ export const useExpenseDialogOptions = ({
 
   const shopOptions = useMemo(() => {
   const safe = Array.isArray(shops) ? shops : [];
+  const mergedByName = new Map();
 
-  return safe.map((s) => ({
-    label: `${s.name}, ${s.locationName}`,
-    value: String(s._id),      // ✅ use ID
-    id: String(s._id),
-    name: s.name,
-    locationId: s.location ? String(s.location) : "",
-    locationName: s.locationName,
-  }));
+  safe.forEach((shop) => {
+    const id = String(shop?._id || "").trim();
+    const name = String(shop?.name || "").trim();
+    const key = normalizeShopKey(name);
+    if (!id || !key) return;
+
+    const locationIds = Array.isArray(shop.locationIds)
+      ? shop.locationIds.map(String)
+      : Array.isArray(shop.locations)
+        ? shop.locations.map(String)
+        : shop.location
+          ? [String(shop.location)]
+          : [];
+    const locationNames = Array.isArray(shop.locationNames)
+      ? shop.locationNames
+      : shop.locationName && shop.locationName !== "N/A"
+        ? String(shop.locationName).split(",").map((locationName) => locationName.trim()).filter(Boolean)
+        : [];
+
+    const existing = mergedByName.get(key);
+    if (!existing) {
+      mergedByName.set(key, {
+        ...shop,
+        _id: id,
+        name,
+        locationIds,
+        locationNames,
+      });
+      return;
+    }
+
+    mergedByName.set(key, {
+      ...existing,
+      locationIds: [...new Set([...(existing.locationIds || []), ...locationIds])],
+      locationNames: [...new Set([...(existing.locationNames || []), ...locationNames])],
+    });
+  });
+
+  return [...mergedByName.values()].map((s) => ({
+      label: s.name,
+      value: String(s._id),      // ✅ use ID
+      id: String(s._id),
+      name: s.name,
+      locationIds: s.locationIds || [],
+      locationNames: s.locationNames || [],
+    }));
 }, [shops]);
 
-  return { productOptions, brandOptions, shopOptions, variantOptions };
+  const locationOptions = useMemo(() => {
+    const safe = Array.isArray(locations) ? locations : [];
+
+    return safe.map((location) => ({
+      label: location.name,
+      value: String(location._id),
+      id: String(location._id),
+      name: location.name,
+    }));
+  }, [locations]);
+
+  return { productOptions, brandOptions, shopOptions, locationOptions, variantOptions };
 };

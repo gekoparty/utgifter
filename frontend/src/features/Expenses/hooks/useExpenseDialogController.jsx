@@ -117,11 +117,39 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
 );
 
  const handleShopSelect = useCallback(
-  (shop) =>
-    handleFieldChange("shopName", shop?.name || "", {
+  (shop) => {
+    const locationIds = Array.isArray(shop?.locationIds)
+      ? shop.locationIds.map(String).filter(Boolean)
+      : [];
+    const locationNames = Array.isArray(shop?.locationNames) ? shop.locationNames : [];
+    const updates = {
       shopId: shop?.value || "",     // ✅ store ID
-      locationId: shop?.locationId || "",
-      locationName: shop?.locationName || "",
+    };
+
+    if (!shop) {
+      updates.locationId = "";
+      updates.locationName = "";
+    } else if (locationIds.length === 1) {
+      updates.locationId = locationIds[0];
+      updates.locationName = locationNames[0] || "";
+    } else if (
+      expense.locationId &&
+      locationIds.length > 0 &&
+      !locationIds.includes(String(expense.locationId))
+    ) {
+      updates.locationId = "";
+      updates.locationName = "";
+    }
+
+    handleFieldChange("shopName", shop?.name || "", updates);
+  },
+  [expense.locationId, handleFieldChange]
+);
+
+ const handleLocationSelect = useCallback(
+  (location) =>
+    handleFieldChange("locationName", location?.name || location?.label || "", {
+      locationId: location?.value ? String(location.value) : "",
     }),
   [handleFieldChange]
 );
@@ -137,7 +165,11 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
   const handleDiscountToggle = useCallback(
     (e) => {
       const checked = e.target.checked;
-      handleFieldChange("hasDiscount", checked, checked ? {} : { discountValue: 0, discountAmount: 0 });
+      handleFieldChange(
+        "hasDiscount",
+        checked,
+        checked ? {} : { discountValue: 0, discountAmount: 0, discountSource: "" },
+      );
     },
     [handleFieldChange]
   );
@@ -171,6 +203,7 @@ export const useExpenseDialogController = ({ open, mode, expense, setExpense }) 
     handleBrandSelect,
     handleVariantSelect,
     handleShopSelect,
+    handleLocationSelect,
     handleDateChange,
     handleDiscountToggle,
     handleTransactionType,

@@ -25,6 +25,8 @@ const appUserSchema = new mongoose.Schema(
       default: "user",
       index: true,
     },
+    incomeEstimateMode: { type: String, enum: ["manual", "history"], default: "manual" },
+    incomeEstimateMonths: { type: Number, enum: [6, 12], default: 12 },
     expectedMonthlyIncome: {
       type: Number,
       default: 0,

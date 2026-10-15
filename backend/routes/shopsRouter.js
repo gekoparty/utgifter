@@ -26,6 +26,16 @@ const resolveLocationId = async (req, locationName) => {
   return loc._id;
 };
 
+const resolveLocationIds = async (req, locationNames) => {
+  const names = Array.isArray(locationNames) ? locationNames : [];
+  const trimmedNames = [
+    ...new Set(names.map((name) => String(name || "").trim()).filter(Boolean)),
+  ];
+
+  const ids = await Promise.all(trimmedNames.map((name) => resolveLocationId(req, name)));
+  return ids.filter(Boolean);
+};
+
 const resolveCategoryId = async (req, categoryName) => {
   const trimmed = String(categoryName || "").trim();
   if (!trimmed) return null;
@@ -47,7 +57,10 @@ const resolveCategoryId = async (req, categoryName) => {
  * Enrich ONLY the shops returned (small list) with location/category names.
  */
 const enrichShops = async (shops) => {
-  const allLocationIds = shops.map((s) => s.location).filter(Boolean);
+  const allLocationIds = shops.flatMap((shop) => [
+    ...(Array.isArray(shop.locations) ? shop.locations : []),
+    shop.location,
+  ]).filter(Boolean);
   const allCategoryIds = shops.map((s) => s.category).filter(Boolean);
 
   const uniqueLocationIds = [...new Set(allLocationIds.map((id) => id.toString()))];
@@ -74,11 +87,22 @@ const enrichShops = async (shops) => {
 
   return shops.map((shop) => {
     const shopObj = shop.toObject ? shop.toObject() : shop;
+    const locationIds = [
+      ...(Array.isArray(shopObj.locations) ? shopObj.locations : []),
+      shopObj.location,
+    ].filter(Boolean);
 
-    shopObj.locationName =
-      shopObj.location && locationIdToNameMap[String(shopObj.location)]
-        ? locationIdToNameMap[String(shopObj.location)]
-        : "N/A";
+    const locationNames = [
+      ...new Set(
+        locationIds
+          .map((id) => locationIdToNameMap[String(id)])
+          .filter(Boolean)
+      ),
+    ];
+
+    shopObj.locationIds = [...new Set(locationIds.map((id) => String(id)))];
+    shopObj.locationNames = locationNames;
+    shopObj.locationName = locationNames.join(", ") || "N/A";
 
     shopObj.categoryName =
       shopObj.category && categoryIdToNameMap[String(shopObj.category)]
@@ -89,12 +113,59 @@ const enrichShops = async (shops) => {
   });
 };
 
+const mergeShopRowsBySlug = (shops) => {
+  const bySlug = new Map();
+
+  shops.forEach((shop) => {
+    const key = String(shop.slugifiedName || createSlug(shop.name || "")).trim();
+    if (!key) return;
+
+    if (!bySlug.has(key)) {
+      bySlug.set(key, {
+        ...shop,
+        locations: [
+          ...(Array.isArray(shop.locations) ? shop.locations : []),
+          shop.location,
+        ].filter(Boolean),
+      });
+      return;
+    }
+
+    const existing = bySlug.get(key);
+    bySlug.set(key, {
+      ...existing,
+      category: existing.category || shop.category,
+      brands: [
+        ...new Set([
+          ...(existing.brands || []).map(String),
+          ...(shop.brands || []).map(String),
+        ]),
+      ],
+      products: [
+        ...new Set([
+          ...(existing.products || []).map(String),
+          ...(shop.products || []).map(String),
+        ]),
+      ],
+      locations: [
+        ...new Set([
+          ...(existing.locations || []).map(String),
+          ...(Array.isArray(shop.locations) ? shop.locations : []).map(String),
+          ...(shop.location ? [String(shop.location)] : []),
+        ]),
+      ],
+    });
+  });
+
+  return [...bySlug.values()];
+};
+
 shopsRouter.get("/", async (req, res) => {
   try {
     /**
      * FAST SEARCH MODE (for ExpenseDialog)
      * GET /api/shops?query=rema&limit=20
-     * Returns small result set with locationName.
+     * Returns one shop per name.
      */
     const search = String(req.query.query || "").trim();
     if (search) {
@@ -108,12 +179,12 @@ shopsRouter.get("/", async (req, res) => {
       const query = Shop.find(
         ownedFilter(req, { name: { $regex: escapeRegex(search), $options: "i" } })
       )
-        .select("name location category slugifiedName") // keep it light
-        .limit(limit)
+        .select("name location locations category slugifiedName") // keep it light
+        .limit(limit * 10)
         .lean();
 
       const shops = await query.exec();
-      const enrichedShops = await enrichShops(shops);
+      const enrichedShops = await enrichShops(mergeShopRowsBySlug(shops).slice(0, limit));
 
       return res.json({ shops: enrichedShops, meta: { totalRowCount: enrichedShops.length } });
     }
@@ -159,17 +230,13 @@ shopsRouter.get("/", async (req, res) => {
       }
     }
 
-    // Pagination
-    let totalRowCount = 0;
-    if (start !== undefined && size !== undefined) {
-      const startIndex = parseInt(start, 10);
-      const pageSize = parseInt(size, 10);
-      totalRowCount = await Shop.countDocuments(query.getFilter());
-      query = query.skip(startIndex).limit(pageSize);
-    }
-
-    const shops = await query.lean().exec();
-    const enrichedShops = await enrichShops(shops);
+    const shops = mergeShopRowsBySlug(await query.lean().exec());
+    const totalRowCount = shops.length;
+    const pagedShops =
+      start !== undefined && size !== undefined
+        ? shops.slice(parseInt(start, 10), parseInt(start, 10) + parseInt(size, 10))
+        : shops;
+    const enrichedShops = await enrichShops(pagedShops);
 
     res.json({ shops: enrichedShops, meta: { totalRowCount } });
   } catch (err) {
@@ -182,17 +249,18 @@ shopsRouter.post("/", async (req, res) => {
   try {
     const name = String(req.body?.name ?? "").trim();
     const locationName = String(req.body?.locationName ?? "").trim();
+    const locationNames = Array.isArray(req.body?.locationNames)
+      ? req.body.locationNames
+      : locationName
+        ? [locationName]
+        : [];
     const categoryName = String(req.body?.categoryName ?? "").trim();
 
     if (!name) {
       return res.status(400).json({ message: "name is required" });
     }
 
-    if (!locationName) {
-      return res.status(400).json({ message: "locationName is required" });
-    }
-
-    const locationId = await resolveLocationId(req, locationName);
+    const locationIds = await resolveLocationIds(req, locationNames);
     const categoryId = await resolveCategoryId(req, categoryName);
 
     const slugifiedName = createSlug(name);
@@ -200,7 +268,6 @@ shopsRouter.post("/", async (req, res) => {
     const existingShop = await Shop.findOne(
       ownedFilter(req, {
         slugifiedName,
-        location: locationId,
       })
     ).lean();
 
@@ -210,7 +277,7 @@ shopsRouter.post("/", async (req, res) => {
 
     const savedShop = await new Shop({
       name,
-      location: locationId,
+      locations: locationIds,
       category: categoryId,
       slugifiedName,
       ...ownedCreateFields(req),
@@ -220,7 +287,8 @@ shopsRouter.post("/", async (req, res) => {
 
     res.status(201).json({
       ...shop,
-      locationName: locationName || "N/A",
+      locationNames: locationNames.filter(Boolean),
+      locationName: locationNames.filter(Boolean).join(", ") || "N/A",
       categoryName: categoryName || "N/A",
     });
   } catch (err) {
@@ -234,6 +302,11 @@ shopsRouter.put("/:id", async (req, res) => {
     const { id } = req.params;
     const name = String(req.body?.name ?? "").trim();
     const locationName = String(req.body?.locationName ?? "").trim();
+    const locationNames = Array.isArray(req.body?.locationNames)
+      ? req.body.locationNames
+      : locationName
+        ? [locationName]
+        : [];
     const categoryName = String(req.body?.categoryName ?? "").trim();
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -244,11 +317,7 @@ shopsRouter.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "name is required" });
     }
 
-    if (!locationName) {
-      return res.status(400).json({ message: "locationName is required" });
-    }
-
-    const locationId = await resolveLocationId(req, locationName);
+    const locationIds = await resolveLocationIds(req, locationNames);
     const categoryId = await resolveCategoryId(req, categoryName);
 
     const slugifiedName = createSlug(name);
@@ -256,7 +325,6 @@ shopsRouter.put("/:id", async (req, res) => {
     const duplicateShop = await Shop.findOne(
       ownedFilter(req, {
         slugifiedName,
-        location: locationId,
         _id: { $ne: id },
       })
     ).lean();
@@ -265,7 +333,15 @@ shopsRouter.put("/:id", async (req, res) => {
 
     const updated = await Shop.findOneAndUpdate(
       ownedFilter(req, { _id: id }),
-      { name, location: locationId, category: categoryId, slugifiedName },
+      {
+        $set: {
+          name,
+          category: categoryId,
+          slugifiedName,
+          locations: locationIds,
+        },
+        $unset: { location: "" },
+      },
       { new: true, runValidators: true }
     ).lean();
 
@@ -273,11 +349,36 @@ shopsRouter.put("/:id", async (req, res) => {
 
     res.json({
       ...updated,
-      locationName: locationName || "N/A",
+      locationNames: locationNames.filter(Boolean),
+      locationName: locationNames.filter(Boolean).join(", ") || "N/A",
       categoryName: categoryName || "N/A",
     });
   } catch (err) {
     console.error("[PUT /shops/:id] error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+shopsRouter.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid shop id" });
+    }
+
+    const shop = await Shop.findOne(ownedFilter(req, { _id: id })).lean();
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    const matchingShopRows = await Shop.find(
+      ownedFilter(req, { slugifiedName: shop.slugifiedName })
+    ).lean();
+    const mergedRows = mergeShopRowsBySlug([shop, ...matchingShopRows]);
+    const [enrichedShop] = await enrichShops(mergedRows);
+
+    res.json(enrichedShop);
+  } catch (err) {
+    console.error("[GET /shops/:id] error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });

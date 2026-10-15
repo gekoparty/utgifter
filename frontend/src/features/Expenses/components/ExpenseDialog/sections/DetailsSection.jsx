@@ -33,14 +33,18 @@ export default function DetailsSection({
   brandOptions,
   variantOptions,
   shopOptions,
+  locationOptions,
   selectedProduct,
   selectedShopValue,
+  selectedLocationValue,
+  hasSelectedShop,
   showVariants,
   hasNextPage,
   fetchNextPage,
   isLoadingProducts,
   isLoadingBrands,
   isLoadingShops,
+  isLoadingLocations,
   controller,
   validationErrors,
   clearFieldError,
@@ -192,38 +196,18 @@ export default function DetailsSection({
           </Box>
 
           <Box flex={1}>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: "block", mb: 0.75, fontWeight: 800 }}
-            >
-              Sted
-            </Typography>
-            <Box
-              sx={(theme) => {
-                const hasLocation = Boolean(expense.locationName);
-
-                return {
-                  minHeight: 42,
-                  display: "flex",
-                  alignItems: "center",
-                  px: 1.5,
-                  borderRadius: 1,
-                  border: "1px solid",
-                  borderColor: hasLocation ? "divider" : "action.disabledBackground",
-                  bgcolor: hasLocation
-                    ? "background.paper"
-                    : theme.palette.mode === "dark"
-                      ? "rgba(255,255,255,0.025)"
-                      : "rgba(15,23,42,0.025)",
-                  color: hasLocation ? "text.primary" : "text.disabled",
-                };
-              }}
-            >
-              <Typography variant="body2" fontWeight={expense.locationName ? 700 : 500}>
-                {expense.locationName || "Velg butikk først"}
-              </Typography>
-            </Box>
+            <FieldLabel>Sted</FieldLabel>
+            <VirtualizedSelect
+              isClearable
+              options={locationOptions}
+              value={selectedLocationValue}
+              onChange={controller.handleLocationSelect}
+              placeholder={hasSelectedShop ? "Velg sted" : "Velg butikk først"}
+              isLoading={isLoadingLocations}
+              isDisabled={!hasSelectedShop || locationOptions.length === 0}
+              menuPortalTarget={menuPortalTarget}
+              styles={selectStyles}
+            />
           </Box>
         </Stack>
       </Stack>

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Box, Button, Chip, Stack, Typography } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DetailsSection from "./sections/DetailsSection";
@@ -20,12 +20,14 @@ const ExpenseFormFields = ({
   brandOptions = [],
   variantOptions = [],
   shopOptions = [],
+  locationOptions = [],
   selectedProduct,
   hasNextPage,
   fetchNextPage,
   isLoadingProducts,
   isLoadingBrands,
   isLoadingShops,
+  isLoadingLocations,
   controller,
   validationErrors,
   clearFieldError,
@@ -63,17 +65,82 @@ const ExpenseFormFields = ({
         value: id,
         label: expense.shopName || "Ukjent butikk",
         name: expense.shopName || "Ukjent butikk",
-        locationId: expense.locationId || "",
-        locationName: expense.locationName || "",
       }
     );
+  }, [expense.shopId, expense.shopName, shopOptions]);
+
+  const filteredLocationOptions = useMemo(() => {
+    if (!selectedShopValue) return [];
+
+    const locationIds = Array.isArray(selectedShopValue?.locationIds)
+      ? selectedShopValue.locationIds.map(String).filter(Boolean)
+      : [];
+    const locationNames = Array.isArray(selectedShopValue?.locationNames)
+      ? selectedShopValue.locationNames
+      : [];
+
+    if (!locationIds.length) return [];
+
+    const optionById = new Map(
+      locationOptions.map((option) => [String(option.value), option])
+    );
+
+    return locationIds.map((id, index) => {
+      const option = optionById.get(id);
+      if (option) return option;
+
+      const fallbackName = locationNames[index] || "Ukjent sted";
+      return {
+        label: fallbackName,
+        value: id,
+        id,
+        name: fallbackName,
+      };
+    });
+  }, [locationOptions, selectedShopValue]);
+
+  useEffect(() => {
+    if (!selectedShopValue || !expense.locationId || isLoadingLocations) return;
+
+    const shopLocationIds = Array.isArray(selectedShopValue.locationIds)
+      ? selectedShopValue.locationIds.map(String).filter(Boolean)
+      : [];
+    if (!shopLocationIds.length) return;
+    if (shopLocationIds.length > 0 && locationOptions.length === 0) return;
+
+    const locationIsAllowed = filteredLocationOptions.some(
+      (option) => String(option.value) === String(expense.locationId)
+    );
+
+    if (!locationIsAllowed) {
+      setExpense((previous) => ({
+        ...previous,
+        locationId: "",
+        locationName: "",
+      }));
+    }
   }, [
-    expense.shopId,
-    expense.shopName,
     expense.locationId,
-    expense.locationName,
-    shopOptions,
+    filteredLocationOptions,
+    isLoadingLocations,
+    locationOptions.length,
+    selectedShopValue,
+    setExpense,
   ]);
+
+  const selectedLocationValue = useMemo(() => {
+    const id = String(expense.locationId || "").trim();
+    if (!id && !expense.locationName) return null;
+
+    return (
+      filteredLocationOptions.find((option) => String(option.value) === id) ??
+      {
+        value: id || expense.locationName,
+        label: expense.locationName || "Ukjent sted",
+        name: expense.locationName || "Ukjent sted",
+      }
+    );
+  }, [expense.locationId, expense.locationName, filteredLocationOptions]);
 
   const handlePriceTextChange = (text) => {
     setExpense((previous) => ({ ...previous, priceText: text }));
@@ -91,14 +158,18 @@ const ExpenseFormFields = ({
     setExpense((previous) => ({ ...previous, discountValueText: text }));
     const parsed = parseDecimalOrNull(text);
     if (parsed !== null)
-      controller.handleFieldChange?.("discountValue", parsed);
+      controller.handleFieldChange?.("discountValue", parsed, {
+        discountSource: "percent",
+      });
   };
 
   const handleDiscountAmountTextChange = (text) => {
     setExpense((previous) => ({ ...previous, discountAmountText: text }));
     const parsed = parseDecimalOrNull(text);
     if (parsed !== null)
-      controller.handleFieldChange?.("discountAmount", parsed);
+      controller.handleFieldChange?.("discountAmount", parsed, {
+        discountSource: "amount",
+      });
   };
 
   const calculatedOriginalPrice = useMemo(() => {
@@ -133,6 +204,7 @@ const ExpenseFormFields = ({
       hasDiscount: true,
       discountValue: percent,
       discountAmount,
+      discountSource: "percent",
       priceText: String(originalPrice),
       discountValueText: String(percent),
       discountAmountText: String(discountAmount),
@@ -231,14 +303,18 @@ const ExpenseFormFields = ({
           brandOptions={brandOptions}
           variantOptions={variantOptions}
           shopOptions={shopOptions}
+          locationOptions={filteredLocationOptions}
           selectedProduct={selectedProduct}
           selectedShopValue={selectedShopValue}
+          selectedLocationValue={selectedLocationValue}
+          hasSelectedShop={Boolean(selectedShopValue)}
           showVariants={showVariants}
           hasNextPage={hasNextPage}
           fetchNextPage={fetchNextPage}
           isLoadingProducts={isLoadingProducts}
           isLoadingBrands={isLoadingBrands}
           isLoadingShops={isLoadingShops}
+          isLoadingLocations={isLoadingLocations}
           controller={controller}
           validationErrors={validationErrors}
           clearFieldError={clearFieldError}

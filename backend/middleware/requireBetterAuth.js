@@ -1,5 +1,6 @@
 import { fromNodeHeaders } from "better-auth/node";
 import AppUser from "../models/appUserSchema.js";
+import { getIncomeEstimate } from "../services/incomeEstimate.js";
 
 const toSafeAppUser = (appUser) => ({
   id: String(appUser._id),
@@ -52,6 +53,8 @@ export const createRequireBetterAuth = (auth) => async (req, res, next) => {
 
     req.authSession = session;
     req.appUser = toSafeAppUser(appUser);
+    req.appUser.incomeEstimate = await getIncomeEstimate(appUser);
+    req.appUser.expectedMonthlyIncome = req.appUser.incomeEstimate.effective;
     req.user = req.appUser;
     next();
   } catch (error) {

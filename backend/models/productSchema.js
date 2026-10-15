@@ -9,7 +9,6 @@ const productSchema = new mongoose.Schema(
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
-      index: true,
     },
 
     variants: [{ type: mongoose.Schema.Types.ObjectId, ref: "Variant" }],

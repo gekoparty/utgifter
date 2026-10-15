@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "migrate:owners": "node scripts/migrate-owner-user.js",
+    "migrate:shops": "node scripts/mergeDuplicateShops.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

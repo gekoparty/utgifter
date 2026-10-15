@@ -12,9 +12,9 @@ const QUERY_KEY = ["shops", "paginated"];
 const INITIAL_SELECTED_SHOP = {
   _id: "",
   name: "",
-  location: "",
+  locations: [],
+  locationNames: [],
   category: "",
-  locationName: "",
   categoryName: "",
 };
 
@@ -22,7 +22,10 @@ const ShopScreen = () => {
   const { t } = useTranslation();
   const columns = [
     { accessorKey: "name", header: t("registers.shop") },
-    { accessorKey: "locationName", header: t("registers.location") },
+    {
+      accessorKey: "locationName",
+      header: t("registers.location"),
+    },
     { accessorKey: "categoryName", header: t("registers.category") },
   ];
 

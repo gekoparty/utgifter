@@ -37,26 +37,33 @@ const ShopForm = ({
     clearErrors();
   };
 
-  // Existing: selected.value is ObjectId, selected.label is name
   const handleLocationChange = (selected) => {
+    const selectedLocations = Array.isArray(selected) ? selected : [];
+
     setShop((prev) => ({
       ...prev,
-      location: selected?.value || "",
-      locationName: selected?.label || "",
+      locations: selectedLocations.map((option) => option.value).filter(Boolean),
+      locationNames: selectedLocations.map((option) => option.label).filter(Boolean),
     }));
     clearErrors();
   };
 
-  // New: store temp marker + name
   const handleLocationCreate = (input) => {
     const trimmed = input.trim();
     if (!trimmed) return;
 
-    setShop((prev) => ({
-      ...prev,
-      location: `temp-${trimmed}`,
-      locationName: trimmed,
-    }));
+    setShop((prev) => {
+      const locationNames = Array.isArray(prev.locationNames) ? prev.locationNames : [];
+      if (locationNames.some((name) => name.toLowerCase() === trimmed.toLowerCase())) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        locations: [...(Array.isArray(prev.locations) ? prev.locations : []), `temp-${trimmed}`],
+        locationNames: [...locationNames, trimmed],
+      };
+    });
     clearErrors();
   };
 
@@ -81,16 +88,20 @@ const ShopForm = ({
     clearErrors();
   };
 
-  // Build current value for react-select:
-  // - If we have an ObjectId, try to find it in options
-  // - If temp/new, show {value: temp-..., label: name}
-  const currentLocationValue = useMemo(() => {
-    if (!shop?.location) return null;
-    const found = locationOptions.find((o) => o.value === shop.location);
-    if (found) return found;
-    if (shop.locationName) return { value: shop.location, label: shop.locationName };
-    return null;
-  }, [shop?.location, shop?.locationName, locationOptions]);
+  const currentLocationValues = useMemo(() => {
+    const names = Array.isArray(shop?.locationNames) ? shop.locationNames : [];
+    const ids = Array.isArray(shop?.locations) ? shop.locations.map(String) : [];
+
+    return names.map((name, index) => {
+      const id = ids[index] || "";
+      return (
+        locationOptions.find((option) => option.value === id || option.label === name) ?? {
+          value: id || `temp-${name}`,
+          label: name,
+        }
+      );
+    });
+  }, [shop?.locations, shop?.locationNames, locationOptions]);
 
   const currentCategoryValue = useMemo(() => {
     if (!shop?.category) return null;
@@ -120,16 +131,15 @@ const ShopForm = ({
         )}
       </Stack>
 
-      {/* Location */}
       <Stack spacing={0.5}>
         <CreatableSelect
+          isMulti
           styles={selectStyles}
           options={locationOptions}
-          value={currentLocationValue}
+          value={currentLocationValues}
           onChange={handleLocationChange}
           onCreateOption={handleLocationCreate}
-          placeholder="Velg lokasjon..."
-          isClearable
+          placeholder="Velg steder hvor butikken finnes..."
           isDisabled={loading}
           isLoading={locationLoading}
           menuPortalTarget={menuPortalTarget}
@@ -137,7 +147,7 @@ const ShopForm = ({
             const v = input.trim();
             return !!v && !locationOptions.some((o) => o.label === v);
           }}
-          formatCreateLabel={(input) => `Ny lokasjon: ${input}`}
+          formatCreateLabel={(input) => `Nytt sted: ${input}`}
         />
         {locationLoading && <LinearProgress />}
         {locationError && (
@@ -146,7 +156,7 @@ const ShopForm = ({
           </Typography>
         )}
         {(displayError || validationError) && (
-          <FieldErrorText resource="shops" field="locationName" />
+          <FieldErrorText resource="shops" field="locationNames" />
         )}
       </Stack>
 
