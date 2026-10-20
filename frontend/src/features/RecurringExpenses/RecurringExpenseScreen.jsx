@@ -59,6 +59,7 @@ import { RECURRING_TYPES, TYPE_META_BY_KEY, normalizeRecurringType } from "./uti
 import { useTranslation } from "../../i18n/useTranslation";
 
 const RecurringOverviewCharts = lazy(() => import("./components/RecurringOverviewCharts"));
+const FixedCostTrends = lazy(() => import("./components/FixedCostTrends"));
 
 const MONTHS_FORWARD = 12;
 const HISTORY_OPTIONS = [0, 3, 6, 12, 18, 24];
@@ -426,6 +427,7 @@ export default function RecurringExpenseScreen() {
     () => [
       { value: "overview", label: t("recurring.thisMonth"), icon: <DashboardRoundedIcon fontSize="small" /> },
       { value: "months", label: t("recurring.queueAndMonths"), icon: <CalendarMonthRoundedIcon fontSize="small" /> },
+      { value: "trends", label: t("recurring.trends"), icon: <CalendarMonthRoundedIcon fontSize="small" /> },
       {
         value: "templates",
         label: `${t("recurring.agreements")}${activeTemplateCount ? ` (${activeTemplateCount})` : ""}`,
@@ -747,6 +749,8 @@ export default function RecurringExpenseScreen() {
                 />
               </Box>
             )}
+
+            {activeSection === "trends" && <Suspense fallback={null}><FixedCostTrends /></Suspense>}
 
             {activeSection === "months" && (
               <Box

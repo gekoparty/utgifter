@@ -146,6 +146,23 @@ recurringPaymentsRouter.put("/:id", async (req, res) => {
   }
 });
 
+recurringPaymentsRouter.get("/history", async (req, res) => {
+  try {
+    const from = normalizePeriodKey(req.query.from);
+    const to = normalizePeriodKey(req.query.to);
+    if (!from || !to || from > to || !/^(\d{4})-(0[1-9]|1[0-2])$/.test(from) || !/^(\d{4})-(0[1-9]|1[0-2])$/.test(to)) return res.status(400).json({ message: "Invalid history period" });
+    const [agreements, payments] = await Promise.all([
+      RecurringExpense.find(ownedFilter(req)).select("title type").lean(),
+      RecurringPayment.find(ownedFilter(req, { periodKey: { $gte: from, $lte: to }, status: { $ne: "SKIPPED" } }))
+        .select("recurringExpenseId periodKey amount kind status").lean(),
+    ]);
+    res.json({ agreements, payments });
+  } catch (error) {
+    console.error("Fixed cost history:", error);
+    res.status(500).json({ message: "Could not load payment history" });
+  }
+});
+
 recurringPaymentsRouter.get("/", async (req, res) => {
   try {
     const from = normalizePeriodKey(req.query.from);

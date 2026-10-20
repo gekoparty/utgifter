@@ -27,6 +27,7 @@ export const useRecurringInvalidation = () => {
 }, [qc]);
 
   const invalidateSummary = useCallback(() => {
+    qc.invalidateQueries({ queryKey: ["recurring-history"] });
     qc.invalidateQueries({ queryKey: RECURRING_EXPENSES_SUMMARY_ROOT_KEY, exact: false });
 }, [qc]);
 
