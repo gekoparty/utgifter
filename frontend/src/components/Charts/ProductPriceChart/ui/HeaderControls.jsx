@@ -42,8 +42,8 @@ export default function HeaderControls({
       sx={{
         display: "flex",
         justifyContent: "space-between",
-        alignItems: { xs: "stretch", md: "center" },
-        flexDirection: { xs: "column", md: "row" },
+        alignItems: "stretch",
+        flexDirection: "column",
         mb: 1.5,
         gap: 2,
       }}
@@ -81,7 +81,10 @@ export default function HeaderControls({
         sx={{
           alignItems: "center",
           flexWrap: "wrap",
-          justifyContent: { xs: "flex-start", md: "flex-end" },
+          justifyContent: "flex-start",
+          pt: 2,
+          borderTop: "1px solid",
+          borderColor: "divider",
         }}
       >
         <SegmentedControl
@@ -105,9 +108,7 @@ export default function HeaderControls({
             m: 0,
             px: 1.25,
             py: 0.5,
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: 2,
+            border: 0,
             color: "text.secondary",
           }}
         />

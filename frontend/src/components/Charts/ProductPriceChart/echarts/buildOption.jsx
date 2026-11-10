@@ -22,6 +22,7 @@ export function buildOption({
   const base = {
     backgroundColor: "transparent",
     animation: false,
+    color: ["#5794ff", "#2dd4bf", "#f6b44a", "#b69cff", "#fb8099", "#77c66e"],
     grid: { left: 60, right: mode === "shops" || mode === "yearly" ? 160 : 40, top: 30, bottom: 60 },
     textStyle: { color: textColor, fontSize: 12 },
     tooltip: {

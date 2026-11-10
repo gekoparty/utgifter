@@ -7,20 +7,23 @@ export default function KpiTile({ label, value, color = "default" }) {
       variant="outlined"
       sx={{
         p: 1.5,
-        borderRadius: 2,
+        borderRadius: 0,
+        border: 0,
+        boxShadow: "none",
+        backgroundImage: "none",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
         gap: 0.35,
         minHeight: 62,
-        bgcolor: color === "primary" ? "primary.main" : "background.paper",
-        color: color === "primary" ? "primary.contrastText" : "text.primary",
+        bgcolor: "transparent",
+        color: "text.primary",
       }}
     >
       <Typography
         variant="caption"
         sx={{
-          color: color === "primary" ? "inherit" : "text.secondary",
+          color: "text.secondary",
           opacity: color === "primary" ? 0.86 : 1,
           lineHeight: 1.2,
         }}
@@ -29,7 +32,7 @@ export default function KpiTile({ label, value, color = "default" }) {
       </Typography>
 
       <Typography
-        variant="subtitle1"
+        variant="h6"
         sx={{
           fontWeight: 800,
           lineHeight: 1.15,

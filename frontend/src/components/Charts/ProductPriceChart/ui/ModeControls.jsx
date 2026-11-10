@@ -39,11 +39,7 @@ export default function ModeControls({
         mb: 1.5,
         flexWrap: "wrap",
         alignItems: "center",
-        p: 1,
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 2,
-        bgcolor: "background.default",
+        py: 1,
       }}
     >
       {mode === "overview" && (

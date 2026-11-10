@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DashboardRoundedIcon from "@mui/icons-material/DashboardRounded";
+import TimelineRoundedIcon from "@mui/icons-material/TimelineRounded";
 import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
 import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 import AccountBalanceRoundedIcon from "@mui/icons-material/AccountBalanceRounded";
@@ -94,11 +95,9 @@ function RecurringControlPanel({
 
   return (
     <SectionCard
-      title={t("recurring.control")}
-      subtitle={t("recurring.controlSubtitle")}
       contentSx={{ p: 1.25 }}
     >
-      <Stack spacing={1}>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ md: "center" }}>
         <FormControl size="small" fullWidth>
           <InputLabel id="recurring-type-filter-label">{t("recurring.show")}</InputLabel>
           <Select
@@ -150,7 +149,7 @@ function RecurringControlPanel({
 
         <Button
           variant="contained"
-          fullWidth
+          sx={{ flexShrink: 0 }}
           disabled={!monthValue}
           onClick={() => onOpenMonth(monthValue)}
         >
@@ -170,7 +169,6 @@ function MissedPaymentsPanel({
   pending,
 }) {
   const { t } = useTranslation();
-  const visibleItems = items.slice(0, 8);
 
   return (
     <SectionCard
@@ -190,9 +188,9 @@ function MissedPaymentsPanel({
       }}
       contentSx={{ p: 1.25 }}
     >
-      {visibleItems.length ? (
-        <Stack spacing={0.8} sx={{ maxHeight: { lg: "calc(100vh - 520px)" }, overflow: "auto", pr: 0.25 }}>
-          {visibleItems.map((item) => {
+      {items.length ? (
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", lg: "repeat(3, minmax(0, 1fr))" }, gap: 1 }}>
+          {items.map((item) => {
             const typeKey = normalizeRecurringType(item.type);
             const typeLabel = TYPE_META_BY_KEY[typeKey]?.label ?? item.type;
             const amount = item.expected?.max ?? item.expectedMax ?? 0;
@@ -244,7 +242,7 @@ function MissedPaymentsPanel({
               </Box>
             );
           })}
-        </Stack>
+        </Box>
       ) : (
         <Typography variant="body2" color="text.secondary">
           {t("recurring.unpaidEmpty")}
@@ -267,8 +265,7 @@ export default function RecurringExpenseScreen() {
     invalidateTemplates,
   });
 
-  const [activeSection, setActiveSection] = useState("overview");
-  const [showFinished, setShowFinished] = useState(false);
+  const [activeSection, setActiveSection] = useState("templates");
   const [monthsBack, setMonthsBack] = useState(12);
   const [controlMonthKey, setControlMonthKey] = useState("");
   const [overviewRange, setOverviewRange] = useState("withHistory");
@@ -418,29 +415,14 @@ export default function RecurringExpenseScreen() {
 
   const paymentActions = useRecurringPaymentActions({ payDialog, payments });
 
-  const activeTemplateCount = useMemo(
-    () => (templates.expenses || []).filter((expense) => expense.isActive !== false).length,
-    [templates.expenses],
-  );
-
-  const sectionTabs = useMemo(
-    () => [
-      { value: "overview", label: t("recurring.thisMonth"), icon: <DashboardRoundedIcon fontSize="small" /> },
-      { value: "months", label: t("recurring.queueAndMonths"), icon: <CalendarMonthRoundedIcon fontSize="small" /> },
-      { value: "trends", label: t("recurring.trends"), icon: <CalendarMonthRoundedIcon fontSize="small" /> },
-      {
-        value: "templates",
-        label: `${t("recurring.agreements")}${activeTemplateCount ? ` (${activeTemplateCount})` : ""}`,
-        icon: <ReceiptLongRoundedIcon fontSize="small" />,
-      },
-      {
-        value: "mortgages",
-        label: `${t("recurring.mortgage")}${mortgages.length ? ` (${mortgages.length})` : ""}`,
-        icon: <AccountBalanceRoundedIcon fontSize="small" />,
-      },
-    ],
-    [activeTemplateCount, mortgages.length, t],
-  );
+  const showPayments = activeSection === "overview" || activeSection === "months";
+  const sectionTabs = [
+    { value: "templates", label: t("recurring.agreements"), icon: <ReceiptLongRoundedIcon fontSize="small" /> },
+    { value: "overview", label: t("recurring.library.payments"), icon: <DashboardRoundedIcon fontSize="small" /> },
+    { value: "months", label: t("recurring.library.months"), icon: <CalendarMonthRoundedIcon fontSize="small" /> },
+    { value: "trends", label: t("recurring.trends"), icon: <TimelineRoundedIcon fontSize="small" /> },
+    { value: "mortgages", label: t("recurring.mortgage"), icon: <AccountBalanceRoundedIcon fontSize="small" /> },
+  ];
 
   const renderStatusCard = () =>
     (isLoading || isError) && (
@@ -467,18 +449,7 @@ export default function RecurringExpenseScreen() {
       actionLabel={t("recurring.add")}
       actionIcon={<AddIcon />}
       onAction={ctrl.openAdd}
-      summaryItems={[
-        { label: t("recurring.activeAgreements"), value: activeTemplateCount },
-        { label: t("recurring.unpaidSelectedMonth"), value: unpaidSelectedMonth.length },
-        { label: t("recurring.nextPayments"), value: enrichedNextBills.length },
-        ...(mortgages.length ? [{ label: t("recurring.mortgage"), value: mortgages.length }] : []),
-      ]}
-      workflow={{
-        question: t("recurring.question"),
-        answer: t("recurring.answer"),
-        steps: [t("recurring.stepMonth"), t("recurring.stepPayment"), t("recurring.stepEffect")],
-      }}
-      maxWidth={1720}
+      maxWidth={1440}
       contentSx={{
         gap: { xs: 1.5, lg: 1.35 },
       }}
@@ -486,61 +457,57 @@ export default function RecurringExpenseScreen() {
         p: { xs: 1.5, md: 1.65 },
       }}
     >
-        <Box
+      <Paper variant="outlined" sx={{ p: 0.5, borderRadius: 2 }}>
+        <Tabs
+          aria-label={t("recurring.title")}
+          value={activeSection}
+          onChange={(_, value) => setActiveSection(value)}
           sx={{
-            display: "grid",
-            gap: 1.25,
-            gridTemplateColumns: {
-              xs: "repeat(2, minmax(0, 1fr))",
-              md: "repeat(4, minmax(0, 1fr))",
-              xl: "1.1fr 1fr 0.95fr 0.95fr",
+            "& .MuiTabs-indicator": { display: "none" },
+            "& .MuiTabs-list": { gap: 0.5, flexWrap: "wrap" },
+            "& .MuiTab-root": {
+              minHeight: 44,
+              minWidth: 0,
+              px: { xs: 1, sm: 2 },
+              borderRadius: 1.5,
+              textTransform: "none",
+              fontWeight: 750,
+            },
+            "& .MuiTab-root.Mui-selected": {
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
             },
           }}
         >
-          <KpiCard
-            label={t("recurring.expected", { period: summaryWindow.label })}
-            value={`${formatCurrency(summaryWindow.min)} - ${formatCurrency(summaryWindow.max)}`}
-            subtext={t("recurring.expectedFuture")}
-            icon={<ReceiptLongRoundedIcon />}
-            tone="primary"
-          />
-          <KpiCard
-            label={t("recurring.paid", { period: summaryWindow.label })}
-            value={formatCurrency(summaryWindow.paid ?? 0)}
-            subtext={t("recurring.actualPaid")}
-            icon={<PaidRoundedIcon />}
-            tone="success"
-          />
-          <KpiCard
-            label={t("recurring.unpaid", { period: summaryWindow.label })}
-            value={unpaidSelectedMonth.length}
-            subtext={
-              unpaidSelectedMonth.length
-                ? t("recurring.missingCount", { count: unpaidSelectedMonth.length })
-                : t("recurring.paidInSelected")
-            }
-            icon={<WarningAmberRoundedIcon />}
-            tone={unpaidSelectedMonth.length ? "warning" : "success"}
-          />
-          <KpiCard
-            label={t("recurring.mortgage")}
-            value={mortgages.length}
-            subtext={t("recurring.activeLoans")}
-            icon={<AccountBalanceRoundedIcon />}
-          />
-        </Box>
+          {sectionTabs.map(({ value, icon, label }) => (
+            <Tab key={value} value={value} icon={icon} iconPosition="start" label={label}
+              id={`recurring-tab-${value}`} aria-controls={`recurring-panel-${value}`} />
+          ))}
+        </Tabs>
+      </Paper>
 
-        {renderStatusCard()}
+      <Box role="tabpanel" id="recurring-panel-templates" aria-labelledby="recurring-tab-templates" hidden={activeSection !== "templates"}>
+        <ExpenseTemplatesSection
+          expenses={templates.expenses}
+          isLoading={templates.isLoading}
+          isError={templates.isError}
+          onRetry={templates.refetch}
+          onAdd={ctrl.openAdd}
+          formatCurrency={formatCurrency}
+          onEdit={ctrl.openEdit}
+          onFinish={maintenance.archiveExpense}
+          onRestore={maintenance.restoreExpense}
+          onOpenTerms={maintenance.openTerms}
+          onOpenPauseCreate={maintenance.openPauseCreate}
+          onOpenPauseEdit={maintenance.openPauseEdit}
+          onUnpause={maintenance.unpause}
+        />
+      </Box>
 
-        <Box
-          sx={{
-            display: "grid",
-            gap: { xs: 1.5, lg: 1.25, xl: 1.5 },
-            gridTemplateColumns: { xs: "1fr", lg: "280px minmax(0, 1fr)", xl: "300px minmax(0, 1fr)" },
-            alignItems: "start",
-          }}
-        >
-          <Stack spacing={1.5} sx={{ position: { lg: "sticky" }, top: { lg: 16 } }}>
+      {activeSection !== "templates" && (
+        <Stack role="tabpanel" id={`recurring-panel-${activeSection}`} aria-labelledby={`recurring-tab-${activeSection}`} spacing={1.5} sx={{ minWidth: 0 }}>
+          {showPayments && renderStatusCard()}
+          {showPayments && (
             <RecurringControlPanel
               filter={ctrl.filter}
               onFilter={ctrl.setFilter}
@@ -551,294 +518,245 @@ export default function RecurringExpenseScreen() {
               onSelectedMonth={setControlMonthKey}
               onOpenMonth={ctrl.openMonth}
             />
-            <MissedPaymentsPanel
-              items={unpaidSelectedMonth}
-              monthLabel={selectedMonthLabel}
-              formatCurrency={formatCurrency}
-              onOpenPay={payDialog.openDialog}
-              onOpenMonth={ctrl.openMonth}
-              pending={payments.pending}
-            />
-          </Stack>
-
-          <Box sx={{ minWidth: 0 }}>
-            <Paper
-              variant="outlined"
+          )}
+          {activeSection === "overview" && !isLoading && !isError && (
+            <>
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 1.25,
+                  gridTemplateColumns: {
+                    xs: "repeat(2, minmax(0, 1fr))",
+                    md: "repeat(3, minmax(0, 1fr))",
+                  },
+                }}
+              >
+                <KpiCard
+                  label={t("recurring.expected", { period: summaryWindow.label })}
+                  value={summaryWindow.min === summaryWindow.max
+                    ? formatCurrency(summaryWindow.max)
+                    : `${formatCurrency(summaryWindow.min)} – ${formatCurrency(summaryWindow.max)}`}
+                  subtext={t("recurring.expectedFuture")}
+                  icon={<ReceiptLongRoundedIcon />}
+                  tone="primary"
+                />
+                <KpiCard
+                  label={t("recurring.paid", { period: summaryWindow.label })}
+                  value={formatCurrency(summaryWindow.paid ?? 0)}
+                  subtext={t("recurring.actualPaid")}
+                  icon={<PaidRoundedIcon />}
+                  tone="success"
+                />
+                <KpiCard
+                  label={t("recurring.unpaid", { period: summaryWindow.label })}
+                  value={unpaidSelectedMonth.length}
+                  subtext={
+                    unpaidSelectedMonth.length
+                      ? t("recurring.missingCount", { count: unpaidSelectedMonth.length })
+                      : t("recurring.paidInSelected")
+                  }
+                  icon={<WarningAmberRoundedIcon />}
+                  tone={unpaidSelectedMonth.length ? "warning" : "success"}
+                />
+              </Box>
+              <MissedPaymentsPanel
+                items={unpaidSelectedMonth}
+                monthLabel={selectedMonthLabel}
+                formatCurrency={formatCurrency}
+                onOpenPay={payDialog.openDialog}
+                onOpenMonth={ctrl.openMonth}
+                pending={payments.pending}
+              />
+            </>
+          )}
+          {activeSection === "overview" && (
+            <Box
               sx={{
-                p: 0.5,
-                borderRadius: 2,
-                boxShadow: "none",
-                bgcolor: "background.paper",
-                mb: 1.25,
+                display: "grid",
+                gap: 1.5,
+                gridTemplateColumns: {
+                  xs: "1fr",
+                  lg: "minmax(0, 1.45fr) minmax(380px, 0.9fr)",
+                  xl: "minmax(0, 1.7fr) minmax(440px, 0.85fr)",
+                },
+                alignItems: "start",
               }}
             >
-              <Stack
-                direction={{ xs: "column", md: "row" }}
-                spacing={0.75}
-                alignItems={{ xs: "stretch", md: "center" }}
-                justifyContent="space-between"
-              >
-                <Box sx={{ px: { xs: 0.5, md: 1 }, minWidth: 0, display: { xs: "block", xl: "none" } }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={900}>
-                    {t("recurring.workArea")}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
-                    {t("recurring.workAreaHelp")}
-                  </Typography>
-                </Box>
-                <Tabs
-                  value={activeSection}
-                  onChange={(_, value) => setActiveSection(value)}
-                  variant="scrollable"
-                  scrollButtons="auto"
-                  allowScrollButtonsMobile
-                  sx={{
-                    minHeight: 40,
-                    maxWidth: "100%",
-                    flex: { md: "1 1 auto" },
-                    "& .MuiTabs-indicator": { display: "none" },
-                    "& .MuiTabs-flexContainer": {
-                      gap: 0.5,
-                    },
-                    "& .MuiTab-root": {
-                      minHeight: 40,
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      minWidth: 0,
-                      gap: 0.75,
-                      border: "1px solid transparent",
-                      color: "text.secondary",
-                      flexShrink: 0,
-                    },
-                    "& .MuiTab-root.Mui-selected": {
-                      bgcolor: "primary.main",
-                      color: "primary.contrastText",
-                      borderColor: "primary.dark",
-                    },
-                    "& .MuiTab-root.Mui-selected .MuiSvgIcon-root": {
-                      color: "inherit",
-                    },
-                  }}
-                >
-                  {sectionTabs.map((tab) => (
-                    <Tab
-                      key={tab.value}
-                      value={tab.value}
-                      icon={tab.icon}
-                      iconPosition="start"
-                      label={tab.label}
-                    />
-                  ))}
-                </Tabs>
-              </Stack>
-            </Paper>
-
-            {activeSection === "overview" && (
-              <Box
-                sx={{
-                  display: "grid",
-                  gap: 1.5,
-                  gridTemplateColumns: {
-                    xs: "1fr",
-                    lg: "minmax(0, 1.45fr) minmax(380px, 0.9fr)",
-                    xl: "minmax(0, 1.7fr) minmax(440px, 0.85fr)",
-                  },
-                  alignItems: "start",
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
-                    <Stack spacing={1.25}>
-                      <Paper
-                        variant="outlined"
-                        sx={{
-                          p: 1,
-                          borderRadius: 2,
-                          bgcolor: "background.paper",
-                        }}
+              <Box sx={{ minWidth: 0 }}>
+                {!isLoading && !isError && (forecast?.length ?? 0) > 0 && (
+                  <Stack spacing={1.25}>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 1,
+                        borderRadius: 2,
+                        bgcolor: "background.paper",
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        alignItems={{ xs: "stretch", sm: "center" }}
+                        justifyContent="space-between"
+                        spacing={1}
                       >
-                        <Stack
-                          direction={{ xs: "column", sm: "row" }}
-                          alignItems={{ xs: "stretch", sm: "center" }}
-                          justifyContent="space-between"
-                          spacing={1}
-                        >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="body2" fontWeight={900}>
-                              {t("recurring.graphPeriod")}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {overviewRange === "withHistory"
-                                ? t("recurring.historicalAndFuture", { past: forecastPast.length, future: forecastFuture.length })
-                                : t("recurring.futureMonths", { count: forecastFuture.length })}
-                            </Typography>
-                          </Box>
-                          <SegmentedControl
-                            value={overviewRange}
-                            onChange={setOverviewRange}
-                            ariaLabel={t("recurring.graphPeriodAria")}
-                            options={[
-                              { value: "future", label: t("recurring.future") },
-                              {
-                                value: "withHistory",
-                                label: t("recurring.historyAndFuture"),
-                                disabled: monthsBack === 0,
-                              },
-                            ]}
-                            fullWidth={false}
-                          />
-                        </Stack>
-                        <Stack
-                          direction={{ xs: "column", sm: "row" }}
-                          spacing={{ xs: 0, sm: 1.5 }}
-                          sx={{ mt: 0.5 }}
-                        >
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={showChartIncome}
-                                onChange={(event) => setShowChartIncome(event.target.checked)}
-                              />
-                            }
-                            label={t("recurring.showIncome")}
-                          />
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={showChartExpectedIncome}
-                                onChange={(event) =>
-                                  setShowChartExpectedIncome(event.target.checked)
-                                }
-                              />
-                            }
-                            label={t("recurring.showExpectedIncome")}
-                          />
-                        </Stack>
-                      </Paper>
-
-                      <Suspense fallback={null}>
-                        <RecurringOverviewCharts
-                          forecast={overviewForecast}
-                          monthsForTypeSplit={3}
-                          showTypeSplit={false}
-                          showActualIncome={showChartIncome}
-                          showExpectedIncome={showChartExpectedIncome}
-                          title={
-                            overviewRange === "withHistory"
-                              ? t("recurring.historyExpectedPaid")
-                              : t("recurring.expectedVsPaid")
-                          }
-                          subtitle={
-                            overviewRange === "withHistory"
-                              ? t("recurring.historySubtitle")
-                              : t("recurring.futureSubtitle")
-                          }
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" fontWeight={900}>
+                            {t("recurring.graphPeriod")}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {overviewRange === "withHistory"
+                              ? t("recurring.historicalAndFuture", { past: forecastPast.length, future: forecastFuture.length })
+                              : t("recurring.futureMonths", { count: forecastFuture.length })}
+                          </Typography>
+                        </Box>
+                        <SegmentedControl
+                          value={overviewRange}
+                          onChange={setOverviewRange}
+                          ariaLabel={t("recurring.graphPeriodAria")}
+                          options={[
+                            { value: "future", label: t("recurring.future") },
+                            {
+                              value: "withHistory",
+                              label: t("recurring.historyAndFuture"),
+                              disabled: monthsBack === 0,
+                            },
+                          ]}
+                          fullWidth={false}
                         />
-                      </Suspense>
-                    </Stack>
-                  )}
-                </Box>
-                <NextBillsCard
-                  nextBills={enrichedNextBills}
-                  formatCurrency={formatCurrency}
-                  onOpenPay={payDialog.openDialog}
-                  onOpenMonth={ctrl.openMonth}
-                  pending={payments.pending}
-                />
+                      </Stack>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={{ xs: 0, sm: 1.5 }}
+                        sx={{ mt: 0.5 }}
+                      >
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={showChartIncome}
+                              onChange={(event) => setShowChartIncome(event.target.checked)}
+                            />
+                          }
+                          label={t("recurring.showIncome")}
+                        />
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={showChartExpectedIncome}
+                              onChange={(event) =>
+                                setShowChartExpectedIncome(event.target.checked)
+                              }
+                            />
+                          }
+                          label={t("recurring.showExpectedIncome")}
+                        />
+                      </Stack>
+                    </Paper>
+
+                    <Suspense fallback={null}>
+                      <RecurringOverviewCharts
+                        forecast={overviewForecast}
+                        monthsForTypeSplit={3}
+                        showTypeSplit={false}
+                        showActualIncome={showChartIncome}
+                        showExpectedIncome={showChartExpectedIncome}
+                        title={
+                          overviewRange === "withHistory"
+                            ? t("recurring.historyExpectedPaid")
+                            : t("recurring.expectedVsPaid")
+                        }
+                        subtitle={
+                          overviewRange === "withHistory"
+                            ? t("recurring.historySubtitle")
+                            : t("recurring.futureSubtitle")
+                        }
+                      />
+                    </Suspense>
+                  </Stack>
+                )}
               </Box>
-            )}
-
-            {activeSection === "trends" && <Suspense fallback={null}><FixedCostTrends /></Suspense>}
-
-            {activeSection === "months" && (
-              <Box
-                sx={{
-                  display: "grid",
-                  gap: 1.5,
-                  gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" },
-                  alignItems: "start",
-                }}
-              >
-                <ForecastSection
-                  title={t("recurring.upcomingMonths")}
-                  forecast={forecastFuture}
-                  tab={ctrl.tab}
-                  onTab={ctrl.setTab}
-                  onOpenMonth={ctrl.openMonth}
-                  maxRef={maxRef}
-                  formatCurrency={formatCurrency}
-                />
-
-                <ForecastSection
-                  title={t("recurring.history")}
-                  forecast={forecastPast}
-                  tab={ctrl.tab}
-                  onTab={ctrl.setTab}
-                  onOpenMonth={ctrl.openMonth}
-                  maxRef={maxRef}
-                  formatCurrency={formatCurrency}
-                  pastMonths={monthsBack}
-                  setPastMonths={setMonthsBack}
-                  monthsForward={MONTHS_FORWARD}
-                />
-              </Box>
-            )}
-
-            {activeSection === "templates" && (
-              <ExpenseTemplatesSection
-                expenses={templates.expenses}
-                templates={templates.expenses}
+              <NextBillsCard
+                nextBills={enrichedNextBills}
                 formatCurrency={formatCurrency}
-                onEdit={ctrl.openEdit}
-                onDelete={ctrl.openDelete}
-                showFinished={showFinished}
-                onToggleShowFinished={() => setShowFinished((value) => !value)}
-                onFinish={maintenance.archiveExpense}
-                onRestore={maintenance.restoreExpense}
-                onOpenTerms={maintenance.openTerms}
-                onOpenPauseCreate={maintenance.openPauseCreate}
-                onOpenPauseEdit={maintenance.openPauseEdit}
-                onUnpause={maintenance.unpause}
+                onOpenPay={payDialog.openDialog}
+                onOpenMonth={ctrl.openMonth}
+                pending={payments.pending}
               />
-            )}
+            </Box>
+          )}
 
-            {activeSection === "mortgages" && (
-              <MortgageCenter
-                mortgages={mortgages}
+          {activeSection === "trends" && <Suspense fallback={null}><FixedCostTrends /></Suspense>}
+
+          {activeSection === "months" && (
+            <Box
+              sx={{
+                display: "grid",
+                gap: 1.5,
+                gridTemplateColumns: { xs: "1fr", xl: "1fr 1fr" },
+                alignItems: "start",
+              }}
+            >
+              <ForecastSection
+                title={t("recurring.upcomingMonths")}
+                forecast={forecastFuture}
+                tab={ctrl.tab}
+                onTab={ctrl.setTab}
+                onOpenMonth={ctrl.openMonth}
+                maxRef={maxRef}
                 formatCurrency={formatCurrency}
-                onHardDeleteMortgage={maintenance.hardDeleteMortgage}
-                onPurgeMortgages={maintenance.purgeMortgages}
               />
-            )}
-          </Box>
-        </Box>
 
-        <Accordion sx={{ mt: 2 }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography fontWeight={900}>{t("recurring.advanced")}</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack spacing={2}>
-              <Typography variant="body2" color="text.secondary">
-                {t("recurring.advancedText")}
-              </Typography>
-              <Divider />
-              <Button
-                color="error"
-                variant="outlined"
-                onClick={() => maintenance.setPurgeOpen(true)}
-                sx={{
-                  alignSelf: { sm: "flex-start" },
-                  width: { xs: "100%", sm: "auto" },
-                }}
-              >
-                {t("recurring.deleteAll")}
-              </Button>
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
+              <ForecastSection
+                title={t("recurring.history")}
+                forecast={forecastPast}
+                tab={ctrl.tab}
+                onTab={ctrl.setTab}
+                onOpenMonth={ctrl.openMonth}
+                maxRef={maxRef}
+                formatCurrency={formatCurrency}
+                pastMonths={monthsBack}
+                setPastMonths={setMonthsBack}
+                monthsForward={MONTHS_FORWARD}
+              />
+            </Box>
+          )}
+
+          {activeSection === "mortgages" && (
+            <MortgageCenter
+              mortgages={mortgages}
+              formatCurrency={formatCurrency}
+              onHardDeleteMortgage={maintenance.hardDeleteMortgage}
+              onPurgeMortgages={maintenance.purgeMortgages}
+            />
+          )}
+        </Stack>
+      )}
+
+      <Accordion sx={{ mt: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography fontWeight={900}>{t("recurring.advanced")}</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Stack spacing={2}>
+            <Typography variant="body2" color="text.secondary">
+              {t("recurring.advancedText")}
+            </Typography>
+            <Divider />
+            <Button
+              color="error"
+              variant="outlined"
+              onClick={() => maintenance.setPurgeOpen(true)}
+              sx={{
+                alignSelf: { sm: "flex-start" },
+                width: { xs: "100%", sm: "auto" },
+              }}
+            >
+              {t("recurring.deleteAll")}
+            </Button>
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
 
       <MonthDrawer
         open={ctrl.monthDrawerOpen}

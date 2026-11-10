@@ -106,7 +106,12 @@ export const estimateExpectedExpense = ({
 }) => {
   const template = getTemplateRange(terms);
 
-  if (isMortgageType(expense.type)) {
+  const hasEstimateRange = Number(terms.estimateMin ?? 0) > 0 ||
+    Number(terms.estimateMax ?? 0) > 0;
+
+  // Fixed agreements use the terms effective in this month, including price changes.
+  // Historical payments only inform agreements configured with an estimate range.
+  if (isMortgageType(expense.type) || !hasEstimateRange) {
     return {
       fixed: template.fixed,
       min: template.min,

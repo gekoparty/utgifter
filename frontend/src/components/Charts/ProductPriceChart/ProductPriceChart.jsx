@@ -369,19 +369,20 @@ export default function ProductPriceChart({ productId }) {
 
   const kpisPrimary = useMemo(() => {
     return [
-      { label: "Kjøp", value: `${freq.totalPurchases ?? 0}` },
-      { label: "Per mnd", value: fmt1(freq.perMonth) },
-      { label: "Per år", value: fmt1(freq.perYear) },
-      freq.nextPurchaseDate
-        ? { label: "Neste kjøp", value: dayjs(freq.nextPurchaseDate).format("DD. MMM YYYY"), color: "primary" }
-        : null,
-      { label: "Sist vs forrige", value: fmtPct(trend.lastVsPrevPct), color: changeChipColor(trend.lastVsPrevPct) },
-      { label: "Sist vs første", value: fmtPct(trend.lastVsFirstPct), color: changeChipColor(trend.lastVsFirstPct) },
+      { label: "Registrerte kjøp", value: `${freq.totalPurchases ?? 0}` },
+      { label: "Prisendring siden forrige kjøp", value: fmtPct(trend.lastVsPrevPct), color: changeChipColor(trend.lastVsPrevPct) },
+      { label: "Prisendring siden første kjøp", value: fmtPct(trend.lastVsFirstPct), color: changeChipColor(trend.lastVsFirstPct) },
     ].filter(Boolean);
   }, [freq, trend]);
 
   const kpisSecondary = useMemo(() => {
     const base = [
+      { label: "Per mnd", value: fmt1(freq.perMonth) },
+      { label: "Per år", value: fmt1(freq.perYear) },
+      freq.nextPurchaseDate
+        ? { label: "Neste kjøp", value: dayjs(freq.nextPurchaseDate).format("DD. MMM YYYY"), color: "primary" }
+        : null,
+
       {
         label: "3 mnd pris",
         value: fmtPct(threeMonth?.pctChangePricePerUnit),
@@ -413,8 +414,8 @@ export default function ProductPriceChart({ productId }) {
       });
     }
 
-    return base;
-  }, [threeMonth, discount, latestYearRow]);
+    return base.filter(Boolean);
+  }, [threeMonth, discount, latestYearRow, freq]);
 
   const option = useMemo(() => {
     return buildOption({
@@ -493,7 +494,7 @@ export default function ProductPriceChart({ productId }) {
 
   return (
     <Box>
-      <Paper variant="outlined" sx={{ p: { xs: 1.5, md: 2 }, mb: 1.5, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 1.5, borderRadius: 1.5, boxShadow: "none", backgroundImage: "none" }}>
         <HeaderControls
           productNameStr={productNameStr}
           productCategory={productCategory}
@@ -510,48 +511,31 @@ export default function ProductPriceChart({ productId }) {
           setSelectedVariantIds={handleVariantSelectionChange}
         />
 
-        {availableVariants.length > 1 ? (
-          <SectionCard
-            title={isComparingVariants ? "Flere varianter sammenlignes" : "Variant valgt"}
-            subtitle={
-              isComparingVariants
-                ? "Prisene kan være misvisende hvis ulike størrelser eller varianter blandes."
-                : `Viser ${selectedVariantNames.join(", ")}. Bytt variant øverst hvis du vil se en annen.`
-            }
-            contentSx={{ py: 1 }}
-            sx={{
-              mb: 1.5,
-              borderColor: isComparingVariants ? "warning.main" : "divider",
-              bgcolor: isComparingVariants ? "rgba(255, 183, 77, 0.08)" : "background.paper",
-            }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              Standardvisningen bruker én variant om gangen slik at prisutvikling, billigste butikk og prognose sammenlignes riktig.
-            </Typography>
-          </SectionCard>
-        ) : null}
+        {availableVariants.length > 1 && isComparingVariants && (
+          <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
+            Flere varianter sammenlignes. Ulike størrelser kan påvirke prisbildet.
+          </Typography>
+        )}
 
-        {priceBasis?.label ? (
-          <Box sx={{ mb: 1.5 }}>
-            <Chip
-              size="small"
-              variant="outlined"
-              color={priceBasis.mode === "beforeDiscountPrice" ? "info" : "default"}
-              label={`Prisgrunnlag: ${priceBasis.label}`}
-              sx={{ borderRadius: 2, fontWeight: 800 }}
-            />
-          </Box>
-        ) : null}
+        {priceBasis?.label && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+            {priceBasis.label}{selectedVariantNames.length ? ` · ${selectedVariantNames.join(", ")}` : ""}
+          </Typography>
+        )}
 
         <Box sx={{ mb: 1.5 }}>
           <Box
             sx={{
               display: "grid",
-              gap: 1,
+              gap: 0,
+              borderTop: "1px solid",
+              borderBottom: "1px solid",
+              borderColor: "divider",
+              py: 1,
               gridTemplateColumns: {
                 xs: "repeat(2, minmax(0, 1fr))",
                 sm: "repeat(3, minmax(0, 1fr))",
-                md: "repeat(6, minmax(0, 1fr))",
+                md: "repeat(3, minmax(0, 1fr))",
               },
             }}
           >
@@ -564,12 +548,17 @@ export default function ProductPriceChart({ productId }) {
             ))}
           </Box>
 
+
+        </Box>
+
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 1 }}>
+          <Typography variant="h6" fontWeight={750}>Prisutvikling</Typography>
           {kpisSecondary.length > 0 && (
-            <Box sx={{ mt: 1, display: "flex", justifyContent: "flex-end" }}>
+            <Box sx={{ display: "flex" }}>
               <Chip
                 clickable
                 variant="outlined"
-                label={showAllKpis ? "Vis færre" : `Vis flere (${kpisSecondary.length})`}
+                label={showAllKpis ? "Skjul detaljer" : "Flere nøkkeltall"}
                 onClick={() => setShowAllKpis((v) => !v)}
                 sx={{ borderRadius: 2 }}
               />
@@ -603,18 +592,11 @@ export default function ProductPriceChart({ productId }) {
           setVisibleYearSeries={setVisibleYearSeries}
         />
 
-        {history.length < 6 ? (
-          <SectionCard
-            title="Begrenset prishistorikk"
-            subtitle="Noen varianter er kjøpt få ganger, så trendene bør leses som signaler, ikke fasit."
-            contentSx={{ py: 1.25 }}
-            sx={{ mb: 1.5 }}
-          >
-            <Typography variant="body2" color="text.secondary">
-              Stiplede linjer og merkede variantkort betyr at grunnlaget er tynt. Flere kjøp gjør billigste butikk, prisøkning og prognose tryggere.
-            </Typography>
-          </SectionCard>
-        ) : null}
+        {history.length < 6 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Begrenset prishistorikk · Få registrerte kjøp gir et usikkert grunnlag for trend og prognose.
+          </Typography>
+        )}
 
         {isAutoSelectingVariant ? (
           <StatsEmptyState
@@ -627,11 +609,9 @@ export default function ProductPriceChart({ productId }) {
             ref={chartBoxRef}
             sx={{
               height: chartHeight,
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 2,
+              borderRadius: 0,
               overflow: "hidden",
-              bgcolor: theme.palette.mode === "dark" ? "background.default" : "grey.50",
+              bgcolor: "background.paper",
               p: { xs: 0.5, md: 1 },
             }}
           />
