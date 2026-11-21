@@ -11,7 +11,10 @@ const buildProductsUrl = (globalFilter, pageParam) => {
 };
 
 const useInfiniteProducts = (globalFilter, options = {}) => {
-  const queryKey = useMemo(() => ["products", globalFilter], [globalFilter]);
+  const { queryScope } = options;
+  const queryKey = useMemo(() => queryScope
+    ? ["products", globalFilter, queryScope]
+    : ["products", globalFilter], [globalFilter, queryScope]);
 
   const fetchProducts = async ({ pageParam = 0, signal }) => {
     return requestJson(buildProductsUrl(globalFilter, pageParam), { signal });

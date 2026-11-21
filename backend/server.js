@@ -17,6 +17,7 @@ import locationsRouter from "./routes/locationsRouter.js";
 import brandsRouter from "./routes/brandsRouter.js";
 import productsRouter from "./routes/productsRouter.js";
 import expensesRouter from "./routes/expensesRouter.js";
+import shoppingListRouter from "./routes/shoppingListRouter.js";
 import incomesRouter from "./routes/incomesRouter.js";
 import variantsRouter from "./routes/variantsRouter.js";
 import statsRouter from "./routes/statsRouter.js";
@@ -25,6 +26,7 @@ import recurringPaymentsRouter from "./routes/recurringPaymentsRouter.js";
 import recurringRouter from "./routes/recurring/index.js";
 import mortgagesRouter from "./routes/mortgages/index.js";
 import Category from "./models/categorySchema.js";
+import RecurringPayment from "./models/recurringPaymentSchema.js";
 
 dotenv.config();
 
@@ -135,6 +137,21 @@ async function ensureStartupIndexes() {
   await dropIndexIfExists(Category.collection, "name_1");
   await dropIndexIfExists(Category.collection, "slug_1");
   await Category.syncIndexes();
+  const paymentIndexes = await RecurringPayment.collection.indexes().catch((error) => {
+    if (error.code === 26) return [];
+    throw error;
+  });
+  for (const index of paymentIndexes) {
+    const keys = Object.keys(index.key);
+    const legacyPaymentIndex = index.unique &&
+      keys.includes("recurringExpenseId") && keys.includes("periodKey") &&
+      keys.every((key) => ["ownerUserId", "recurringExpenseId", "periodKey", "kind"].includes(key)) &&
+      index.partialFilterExpression?.kind !== "MAIN";
+    if (legacyPaymentIndex) {
+      await RecurringPayment.collection.dropIndex(index.name);
+    }
+  }
+  await RecurringPayment.createIndexes();
 }
 
 async function startServer() {
@@ -160,6 +177,7 @@ async function startServer() {
     app.use("/api/products", productsRouter);
     app.use("/api/variants", variantsRouter);
     app.use("/api/expenses", expensesRouter);
+    app.use("/api/shopping-list", shoppingListRouter);
     app.use("/api/incomes", incomesRouter);
     app.use("/api/receipts", receiptsRouter);
     app.use("/api/stats", statsRouter);

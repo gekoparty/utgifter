@@ -44,6 +44,10 @@ recurringPaymentsRouter.post("/", async (req, res) => {
       return res.status(400).json({ message: "amount invalid" });
     }
 
+    if (!paidDate || Number.isNaN(paidDate.getTime())) {
+      return res.status(400).json({ message: "paidDate invalid" });
+    }
+
     if (!validatePaymentStatus({ kind, status })) {
       return res.status(400).json({ message: "status invalid" });
     }
@@ -106,6 +110,9 @@ recurringPaymentsRouter.put("/:id", async (req, res) => {
 
     if (req.body.paidDate) {
       patch.paidDate = parseDateForStorage(req.body.paidDate);
+      if (!patch.paidDate || Number.isNaN(patch.paidDate.getTime())) {
+        return res.status(400).json({ message: "paidDate invalid" });
+      }
     }
 
     if (req.body.amount != null) {

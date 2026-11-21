@@ -112,10 +112,6 @@ RecurringExpenseSchema.pre("save", function (next) {
       this.initialBalance = this.remainingBalance;
     }
 
-    if (!this.remainingBalance && this.initialBalance) {
-      this.remainingBalance = this.initialBalance;
-    }
-
     if (
       this.firstPaymentMonth &&
       !/^\d{4}-\d{2}$/.test(String(this.firstPaymentMonth))

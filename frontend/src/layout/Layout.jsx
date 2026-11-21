@@ -22,6 +22,7 @@ export default function Layout() {
   const routeTitles = {
     "/": t("navHome"),
     "/expenses": t("navExpenses"),
+    "/shopping-list": t("navShoppingList"),
     "/incomes": t("navIncomes"),
     "/categories": t("navCategories"),
     "/shops": t("navShops"),

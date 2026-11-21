@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
+import { accrueMortgageInterest, paymentDay, DAY_BASIS as mortgageDayBasis } from "../mortgages/paymentTimeline.js";
 
-export const DAY_BASIS = 365;
+export const DAY_BASIS = mortgageDayBasis;
 
 export const round2 = (n) =>
   Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
@@ -157,6 +158,7 @@ export const computeMortgageMonth = ({
   paymentTotal,
   fee,
   extraPrincipal,
+  extraPayments = [],
 }) => {
   const { start: periodStart, end: periodEnd, days } = daysBetweenDueDates(
     periodKey,
@@ -169,9 +171,19 @@ export const computeMortgageMonth = ({
   const monthlyFee = Number(fee || 0);
   const extra = Number(extraPrincipal || 0);
 
-  const interest = round2(balance * (rate / 100) * (days / DAY_BASIS));
+  const startDay = Date.UTC(periodStart.getFullYear(), periodStart.getMonth(), periodStart.getDate());
+  const endDay = Date.UTC(periodEnd.getFullYear(), periodEnd.getMonth(), periodEnd.getDate());
+  const accrual = accrueMortgageInterest({
+    balance, rate, start: startDay, end: endDay,
+    extraPayments: extraPayments.filter((payment) => paymentDay(payment.paidDate) > startDay),
+  });
+  const dueDayExtras = extraPayments
+    .filter((payment) => paymentDay(payment.paidDate) === endDay)
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const datedExtra = accrual.extraPrincipal + dueDayExtras;
+  const interest = round2(accrual.interest);
   const principalBase = payment - monthlyFee - interest;
-  const principal = round2(Math.max(0, principalBase) + extra);
+  const principal = round2(Math.max(0, principalBase) + extra + datedExtra);
   const balanceEnd = round2(Math.max(0, balance - principal));
 
   return {
@@ -185,7 +197,7 @@ export const computeMortgageMonth = ({
       fee: round2(monthlyFee),
       interest,
       principal,
-      extraPrincipal: round2(extra),
+      extraPrincipal: round2(extra + datedExtra),
       balanceStart: round2(balance),
       balanceEnd,
     },

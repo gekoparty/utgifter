@@ -11,6 +11,19 @@ import {
 } from "./useRecurringData";
 
 const currentMonth = () => new Date().getMonth() + 1;
+const startPeriodPattern = /^[1-9]\d{3}-(0[1-9]|1[0-2])$/;
+const osloMonthFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Oslo",
+  year: "numeric",
+  month: "2-digit",
+});
+
+const toStartPeriod = (date) => {
+  const parts = osloMonthFormatter.formatToParts(date);
+  const year = parts.find(({ type }) => type === "year").value;
+  const month = parts.find(({ type }) => type === "month").value;
+  return `${year}-${month}`;
+};
 
 const INITIAL = {
   title: "",
@@ -22,6 +35,7 @@ const INITIAL = {
   dueDate: "",
   billingIntervalMonths: 1,
   startMonth: currentMonth(),
+  startPeriod: "",
   mortgageHolder: "",
   mortgageKind: "Hus",
   remainingBalance: "",
@@ -65,7 +79,9 @@ const getAmountMode = (initial) => {
 };
 
 const buildFormFromInitial = (initial) => {
-  if (!initial) return { ...INITIAL, startMonth: currentMonth() };
+  if (!initial) {
+    return { ...INITIAL, startMonth: currentMonth(), startPeriod: toStartPeriod(new Date()) };
+  }
 
   const id = initial._id || initial.id;
   const type = initial.type === "HOUSING" ? "MORTGAGE" : (initial.type ?? "UTILITY");
@@ -86,6 +102,7 @@ const buildFormFromInitial = (initial) => {
     dueDate,
     billingIntervalMonths: Number(initial.billingIntervalMonths || 1),
     startMonth: Number(initial.startMonth || currentMonth()),
+    startPeriod: initial.startDate ? toStartPeriod(new Date(initial.startDate)) : "",
     mortgageHolder: initial.mortgageHolder ?? "",
     mortgageKind: initial.mortgageKind ?? "Hus",
     remainingBalance: initial.remainingBalance ?? initial.remaining ?? "",
@@ -123,6 +140,8 @@ const buildBackendPayload = (form) => {
   };
 
   if (!isMortgage) {
+    payload.startDate = form.startPeriod ? `${form.startPeriod}-01` : null;
+    if (form.startPeriod) payload.startMonth = Number(form.startPeriod.slice(5));
     delete payload.mortgageHolder;
     delete payload.mortgageKind;
     delete payload.remainingBalance;
@@ -256,7 +275,7 @@ export default function useRecurringDialog({ open, mode, initial }) {
       const saved = await saveMutation.mutateAsync(payload);
 
       if (!isEdit) {
-        setForm({ ...INITIAL, startMonth: currentMonth() });
+        setForm(buildFormFromInitial());
       }
 
       return saved;
@@ -323,6 +342,8 @@ export default function useRecurringDialog({ open, mode, initial }) {
       if (form.hasMonthlyFee && toNumber(form.monthlyFee) < 0) return false;
       return true;
     }
+
+    if (form.startPeriod && !startPeriodPattern.test(form.startPeriod)) return false;
 
     if (form.amountMode === "ESTIMATE") {
       return toNumber(form.estimateMin) > 0 &&

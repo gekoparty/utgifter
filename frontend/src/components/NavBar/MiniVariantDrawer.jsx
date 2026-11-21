@@ -84,6 +84,7 @@ export default function MiniVariantDrawer({
     () => ({
       "/": t("navHome"),
       "/expenses": t("navExpenses"),
+      "/shopping-list": t("navShoppingList"),
       "/incomes": t("navIncomes"),
       "/recurring-expenses": t("navRecurring"),
       "/stats": t("navStats"),

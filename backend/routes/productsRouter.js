@@ -365,6 +365,10 @@ const enrichedProducts = products.map((product) => {
     variants: sortByNameAsc(product.variants),
 
     brand: resolvedBrands.join(", "),
+    brandOptions: (product.brands ?? []).flatMap((id) => {
+      const name = brandIdToNameMap[String(id)];
+      return name ? [{ _id: id, name }] : [];
+    }),
     expenseCount: countMap.get(String(product._id)) ?? 0,
   };
 });

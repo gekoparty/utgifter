@@ -1,108 +1,89 @@
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
-import { isMortgageType } from "./scheduleService.js";
+import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
+import { daysBetweenDueDates, isMortgageType, pickRecurringTermsForMonth, round2 } from "./scheduleService.js";
+import { isExtraPayment, paymentDay, DAY_BASIS } from "../mortgages/paymentTimeline.js";
 
 export const normalizePeriodKey = (value) => {
   const periodKey = String(value || "").trim();
-  return /^\d{4}-\d{2}$/.test(periodKey) ? periodKey : null;
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(periodKey) ? periodKey : null;
 };
 
-export const normalizePaymentKind = (value) => {
-  const kind = String(value || "").toUpperCase();
-  return kind === "EXTRA" ? "EXTRA" : "MAIN";
-};
+export const normalizePaymentKind = (value) =>
+  String(value || "").toUpperCase() === "EXTRA" ? "EXTRA" : "MAIN";
 
-export const normalizePaymentStatus = ({ kind, status }) => {
-  if (kind === "EXTRA") return "EXTRA";
-  return String(status || "PAID").toUpperCase();
-};
+export const normalizePaymentStatus = ({ kind, status }) =>
+  kind === "EXTRA" ? "EXTRA" : String(status || "PAID").toUpperCase();
 
 export const toNonNegativeNumber = (value) => {
   const number = Number(value ?? 0);
   return Number.isFinite(number) ? Math.max(0, number) : NaN;
 };
 
-export const validatePaymentStatus = ({ kind, status }) => {
-  if (kind === "EXTRA") return status === "EXTRA";
-  return ["PAID", "PARTIAL", "SKIPPED"].includes(status);
-};
+export const validatePaymentStatus = ({ kind, status }) =>
+  kind === "EXTRA" ? status === "EXTRA" : ["PAID", "PARTIAL", "SKIPPED"].includes(status);
 
-const computeMortgageRemaining = ({
-  initialBalance,
-  interestRate,
-  monthlyFee,
-  mainPayments,
-  extraPaymentsByPeriod,
-}) => {
-  let remaining = toNonNegativeNumber(initialBalance);
-  const rate = toNonNegativeNumber(interestRate);
-  const fee = toNonNegativeNumber(monthlyFee);
+// Replaying transactions makes edits and deletions recalculate every later payment.
+export const computeMortgageRemaining = ({ expense, payments, termsArr = [] }) => {
+  let balance = Number(expense.initialBalance || expense.remainingBalance || 0);
+  const events = payments.filter((payment) => payment.status !== "SKIPPED")
+    .map((payment) => ({ ...payment, day: paymentDay(payment.paidDate) }))
+    .sort((a, b) => a.day - b.day || Number(isExtraPayment(a)) - Number(isExtraPayment(b)));
+  if (!events.length) return round2(balance);
 
-  for (const payment of mainPayments) {
-    if (!payment || payment.status === "SKIPPED") continue;
+  const firstPeriod = [expense.firstPaymentMonth, ...events.map((event) => event.periodKey)]
+    .filter(normalizePeriodKey).sort()[0];
+  const { start } = daysBetweenDueDates(firstPeriod, expense.dueDay);
+  let cursor = Math.min(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()), events[0].day);
+  let accruedInterest = 0;
+  const chargedFees = new Set();
+  const rateChanges = termsArr.map((terms) => ({ ...terms, day: paymentDay(terms.fromDate) }))
+    .sort((a, b) => a.day - b.day);
 
-    const paid = toNonNegativeNumber(payment.amount);
-    const interest = remaining > 0 ? (remaining * (rate / 100)) / 12 : 0;
-    const principal = Math.max(0, paid - fee - interest);
-
-    remaining = Math.max(0, remaining - principal);
-
-    const extra = toNonNegativeNumber(
-      extraPaymentsByPeriod.get(String(payment.periodKey)) || 0,
-    );
-
-    if (extra > 0) {
-      remaining = Math.max(0, remaining - extra);
+  for (const event of events) {
+    const boundaries = rateChanges.filter((terms) => terms.day > cursor && terms.day < event.day)
+      .map((terms) => terms.day);
+    for (const end of [...new Set(boundaries), event.day]) {
+      const localDate = new Date(cursor);
+      const terms = pickRecurringTermsForMonth({ expense, termsArr, monthStartDate: localDate });
+      accruedInterest += balance * Number(terms.interestRate || 0) / 100 *
+        ((end - cursor) / 86400000) / DAY_BASIS;
+      cursor = end;
     }
-  }
 
-  return remaining;
+    if (isExtraPayment(event)) {
+      balance = Math.max(0, balance - Number(event.amount || 0));
+      continue;
+    }
+    const terms = pickRecurringTermsForMonth({ expense, termsArr, monthStartDate: new Date(event.day) });
+    const fee = !chargedFees.has(event.periodKey) && terms.hasMonthlyFee ? Number(terms.monthlyFee || 0) : 0;
+    chargedFees.add(event.periodKey);
+    const available = Math.max(0, Number(event.amount || 0) - fee);
+    balance = Math.max(0, balance - Math.max(0, available - accruedInterest));
+    accruedInterest = Math.max(0, accruedInterest - available);
+  }
+  return round2(balance);
 };
 
 export const recomputeMortgageBalance = async (recurringExpenseId) => {
   const expense = await RecurringExpense.findById(recurringExpenseId);
   if (!expense || !isMortgageType(expense.type)) return;
-
   if (!Number(expense.initialBalance) && Number(expense.remainingBalance) > 0) {
     expense.initialBalance = Number(expense.remainingBalance);
   }
-
-  if (!Number(expense.remainingBalance) && Number(expense.initialBalance) > 0) {
-    expense.remainingBalance = Number(expense.initialBalance);
-  }
-
-  const payments = await RecurringPayment.find({ recurringExpenseId: expense._id })
-    .sort({ periodKey: 1, paidDate: 1, createdAt: 1 })
-    .lean();
-
-  const mainPayments = payments.filter(
-    (payment) => normalizePaymentKind(payment.kind) === "MAIN",
+  const [payments, termsArr] = await Promise.all([
+    RecurringPayment.find({ recurringExpenseId: expense._id }).lean(),
+    RecurringTermsHistory.find({ recurringExpenseId: expense._id }).sort({ fromDate: 1 }).lean(),
+  ]);
+  const remainingBalance = computeMortgageRemaining({ expense, payments, termsArr });
+  const updated = await RecurringExpense.findOneAndUpdate(
+    { _id: expense._id, __v: expense.__v },
+    { $set: { initialBalance: expense.initialBalance, remainingBalance }, $inc: { __v: 1 } },
+    { new: true },
   );
-
-  const extraPaymentsByPeriod = new Map();
-  for (const payment of payments) {
-    if (normalizePaymentKind(payment.kind) !== "EXTRA") continue;
-
-    const periodKey = String(payment.periodKey);
-    const previousTotal = toNonNegativeNumber(extraPaymentsByPeriod.get(periodKey));
-    extraPaymentsByPeriod.set(
-      periodKey,
-      previousTotal + toNonNegativeNumber(payment.amount),
-    );
-  }
-
-  expense.remainingBalance = computeMortgageRemaining({
-    initialBalance: expense.initialBalance,
-    interestRate: expense.interestRate,
-    monthlyFee: expense.hasMonthlyFee ? expense.monthlyFee : 0,
-    mainPayments,
-    extraPaymentsByPeriod,
-  });
-
-  await expense.save();
+  // Another payment may finish its replay while this one is reading history.
+  if (!updated) await recomputeMortgageBalance(recurringExpenseId);
 };
 
-export const assertRecurringExpenseExists = async (recurringExpenseId) => {
-  const expense = await RecurringExpense.findById(recurringExpenseId).lean();
-  return Boolean(expense);
-};
+export const assertRecurringExpenseExists = async (recurringExpenseId) =>
+  Boolean(await RecurringExpense.findById(recurringExpenseId).lean());

@@ -19,6 +19,7 @@ import { Close, ExpandMore } from "@mui/icons-material";
 import MortgageScheduleCard from "./MortgageScheduleCard";
 import { TYPE_META_BY_KEY, normalizeRecurringType } from "../utils/recurringTypes";
 import { dueShortLabel, monthLabel } from "../utils/recurringFormatters";
+import { remainingBillsTotal } from "../utils/remainingBills";
 
 const periodKeyFromDate = (date) => {
   const d = new Date(date);
@@ -105,6 +106,7 @@ function statusInfo(item) {
   if (isPaused) return { label: "Pauset", color: "info" };
   if (isSkipped) return { label: "Hoppet over", color: "default" };
   if (isPaid) return { label: "Betalt", color: "success" };
+  if (item.status === "PARTIAL") return { label: "Delvis betalt", color: "warning" };
   return { label: "Ikke betalt", color: "warning" };
 }
 
@@ -144,10 +146,8 @@ function MonthDrawer({
   }, [selected?.items]);
 
   const totals = useMemo(() => {
-    const paid = Number(selected?.paidTotal ?? 0);
-    const expectedMax = Number(selected?.expectedMax ?? 0);
     return {
-      remaining: Math.max(0, expectedMax - paid),
+      remaining: remainingBillsTotal(sortedItems),
       paidCount: sortedItems.filter((it) => it.status === "PAID").length,
       openCount: sortedItems.filter(
         (it) => !["PAID", "SKIPPED", "PAUSED"].includes(String(it.status)),

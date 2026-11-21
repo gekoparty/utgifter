@@ -64,6 +64,7 @@ router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const payload = normalizeRecurringExpensePayload(req.body);
+    if (req.body.startDate === undefined) delete payload.startDate;
 
     if (!payload.title) {
       return res.status(400).json({ message: "Tittel er påkrevd" });

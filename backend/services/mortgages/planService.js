@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { isExtraPayment } from "./paymentTimeline.js";
 import {
   computeMortgageMonth,
   periodKeyToMonthStart,
@@ -42,11 +43,11 @@ export const buildMortgagePlan = ({
   payments,
   from,
   months,
+  scenario = {},
 }) => {
   const dueDay = Number(expense.dueDay || 1);
 
-  // Treat remainingBalance as the balance before the payment in `from`.
-  let balance = Number(expense.remainingBalance || expense.initialBalance || 0);
+  let balance = Number(expense.initialBalance || expense.remainingBalance || 0);
 
   const paymentsByPk = groupPaymentsByPeriodKey(payments);
 
@@ -58,9 +59,14 @@ export const buildMortgagePlan = ({
   let totalFees = 0;
   let totalPrincipal = 0;
 
-  const fromStart = periodKeyToMonthStart(from);
+  const firstKey = [expense.firstPaymentMonth, ...payments.map((payment) => payment.periodKey)]
+    .filter((key) => periodKeyToMonthStart(key)).sort()[0] || from;
+  const fromStart = periodKeyToMonthStart(firstKey);
+  const replayMonths = dayjs(periodKeyToMonthStart(from)).diff(fromStart, "month");
+  const extras = payments.filter(isExtraPayment);
+  const rateOverrides = [...(scenario.rateOverrides || [])].sort((a, b) => String(a.from).localeCompare(String(b.from)));
 
-  for (let i = 0; i < months; i++) {
+  for (let i = 0; i < months + replayMonths; i++) {
     const pk = dayjs(fromStart).add(i, "month").format("YYYY-MM");
     const monthDate = periodKeyToMonthStart(pk);
 
@@ -71,12 +77,20 @@ export const buildMortgagePlan = ({
     });
 
     const monthPays = paymentsByPk.get(pk) || [];
-    const extraPrincipal = sumExtra(monthPays);
+    const recurringExtra = scenario.recurringExtra?.from <= pk
+      ? Number(scenario.recurringExtra.amount || 0) : 0;
+    const oneTimeExtra = (scenario.oneTimeExtras || [])
+      .filter((extra) => extra.periodKey === pk)
+      .reduce((sum, extra) => sum + Number(extra.amount || 0), 0);
+    const extraPrincipal = recurringExtra + oneTimeExtra;
 
     const main = pickMainPayment(monthPays);
-    const paymentTotal = Number(main?.amount ?? terms.amount);
-    const fee = Number(terms.monthlyFee || 0);
-    const rate = Number(terms.interestRate || 0);
+    const beforeFirstPayment = expense.firstPaymentMonth && pk < expense.firstPaymentMonth;
+    const skipped = monthPays.some((payment) => !isExtraPayment(payment) && payment.status === "SKIPPED");
+    const paymentTotal = Number(main?.amount ?? (beforeFirstPayment || skipped ? 0 : terms.amount));
+    const fee = terms.hasMonthlyFee && !beforeFirstPayment && !skipped ? Number(terms.monthlyFee || 0) : 0;
+    const override = rateOverrides.filter((entry) => entry.from <= pk).at(-1);
+    const rate = Number(override?.interestRate ?? terms.interestRate ?? 0);
 
     const { schedule: row, balanceEnd } = computeMortgageMonth({
       periodKey: pk,
@@ -86,7 +100,11 @@ export const buildMortgagePlan = ({
       paymentTotal,
       fee,
       extraPrincipal,
+      extraPayments: extras,
     });
+
+    balance = balanceEnd;
+    if (pk < from) continue;
 
     schedule.push({
       periodKey: pk,
@@ -96,6 +114,7 @@ export const buildMortgagePlan = ({
         dueDay
       ),
       schedule: row,
+      scenarioApplied: { rate, recurringExtra, oneTimeExtra, extraActual: sumExtra(monthPays) },
       payments: {
         main: main
           ? {
@@ -106,7 +125,7 @@ export const buildMortgagePlan = ({
               note: main.note || "",
             }
           : null,
-        extraSum: extraPrincipal,
+        extraSum: sumExtra(monthPays),
         extraCount: monthPays.filter(
           (p) => String(p.status).toUpperCase() === "EXTRA"
         ).length,
@@ -116,8 +135,6 @@ export const buildMortgagePlan = ({
     totalInterest = round2(totalInterest + row.interest);
     totalFees = round2(totalFees + row.fee);
     totalPrincipal = round2(totalPrincipal + (row.balanceStart - row.balanceEnd));
-
-    balance = balanceEnd;
 
     if (!payoffPeriodKey && balanceEnd <= 0) {
       payoffPeriodKey = pk;

@@ -19,6 +19,8 @@ import { requestJson } from "../api/httpClient";
 import { useAuth } from "../auth/useAuth";
 import { useTranslation } from "../i18n/useTranslation";
 
+
+
 export default function AccountScreen() {
   const { user, appUser, refreshAppUser, refreshSession } = useAuth();
   const { t } = useTranslation();

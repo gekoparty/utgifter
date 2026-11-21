@@ -2,15 +2,18 @@ import { useCallback, useMemo, useState } from "react";
 import { normalizeRecurringType } from "../utils/recurringTypes";
 
 const toISODate = (d) => {
-  if (!d) return new Date().toISOString().slice(0, 10);
   if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
 
-  const x = new Date(d);
+  const x = d ? new Date(d) : new Date();
   if (Number.isNaN(x.getTime())) {
-    return new Date().toISOString().slice(0, 10);
+    return toISODate();
   }
 
-  return x.toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Oslo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(x);
+  const part = (type) => parts.find((entry) => entry.type === type).value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
 };
 
 const toPeriodKey = (d) => {
@@ -55,8 +58,6 @@ export function usePayDialog() {
 
     if (item?.extraPayment?.paymentId) {
       selectedExtraPayment = item.extraPayment;
-    } else if (Array.isArray(item?.extraPayments) && item.extraPayments.length > 0) {
-      selectedExtraPayment = item.extraPayments[item.extraPayments.length - 1];
     }
 
     const selectedPayment =

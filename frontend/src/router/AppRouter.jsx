@@ -15,6 +15,7 @@ const loadLocationScreen = () => import("../screens/LocationScreen");
 const loadLoginScreen = () => import("../screens/LoginScreen");
 const loadProductScreen = () => import("../screens/ProductScreen");
 const loadShopScreen = () => import("../screens/ShopScreen");
+const loadShoppingListScreen = () => import("../screens/ShoppingListScreen");
 const loadStatsScreen = () => import("../screens/StatsScreen");
 const loadRecurringExpenseScreen = () =>
   import("../features/RecurringExpenses/RecurringExpenseScreen");
@@ -30,6 +31,7 @@ const LocationScreen = lazy(loadLocationScreen);
 const LoginScreen = lazy(loadLoginScreen);
 const ProductScreen = lazy(loadProductScreen);
 const ShopScreen = lazy(loadShopScreen);
+const ShoppingListScreen = lazy(loadShoppingListScreen);
 const StatsScreen = lazy(loadStatsScreen);
 const RecurringExpenseScreen = lazy(loadRecurringExpenseScreen);
 
@@ -102,6 +104,10 @@ const AppRouter = () => (
           <Route
             path="expenses"
             element={<LazyRoute><ExpenseScreen /></LazyRoute>}
+          />
+          <Route
+            path="shopping-list"
+            element={<LazyRoute><ShoppingListScreen /></LazyRoute>}
           />
           <Route
             path="incomes"

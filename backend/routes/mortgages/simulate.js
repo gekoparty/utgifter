@@ -41,7 +41,7 @@ router.post("/:id/simulate", async (req, res) => {
     const payments = await RecurringPayment.find({
       ...ownedFilter(req),
       recurringExpenseId: exp._id,
-      periodKey: { $gte: from, $lte: toKey },
+      periodKey: { $lte: toKey },
     }).lean();
 
     const termsArr = await RecurringTermsHistory.find(ownedFilter(req, { recurringExpenseId: exp._id }))

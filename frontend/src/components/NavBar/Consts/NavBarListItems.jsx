@@ -11,11 +11,13 @@ import BarChartIcon from "@mui/icons-material/BarChart";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import ManageAccountsIcon from "@mui/icons-material/ManageAccounts";
+import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 
 export const mainNavbarItems = [
   { id: 0, icon: <HomeIcon />, label: "Hjem", route: "/", section: "Oversikt" },
 
   { id: 1, icon: <ReceiptLongIcon />, label: "Utgifter", route: "/expenses", section: "Oversikt" },
+  { id: 12, icon: <ShoppingCartOutlinedIcon />, label: "Handleliste", route: "/shopping-list", section: "Oversikt" },
   { id: 11, icon: <PaymentsIcon />, label: "Inntekter", route: "/incomes", section: "Oversikt" },
   {
     id: 7,

@@ -365,6 +365,62 @@ expensesRouter.get("/", async (req, res) => {
 });
 
 // GET Expense by ID
+expensesRouter.get("/shopping-recommendation/:productId", async (req, res) => {
+  const { productId } = req.params;
+  const { brandId = "", variantId = "" } = req.query;
+  if (![productId, brandId, variantId].every((id) => id === "" || isHexObjectId(id))) {
+    return res.status(400).json({ message: "Invalid product, brand or variant ID" });
+  }
+
+  try {
+    const product = await Product.findOne(ownedFilter(req, { _id: productId }))
+      .select("measurementUnit")
+      .lean();
+    if (!product) return res.json({ recommendation: null });
+
+    const match = ownedFilter(req, {
+      productName: product._id,
+      measurementUnit: product.measurementUnit,
+      shopName: { $type: "objectId" },
+      pricePerUnit: { $gt: 0 },
+    });
+    if (brandId) match.brandName = new mongoose.Types.ObjectId(brandId);
+    if (variantId) match.variant = variantId;
+
+    const latestByShop = await Expense.aggregate([
+      { $match: match },
+      { $project: {
+        shopName: 1,
+        pricePerUnit: 1,
+        date: { $cond: ["$purchased", { $ifNull: ["$purchaseDate", "$registeredDate"] }, "$registeredDate"] },
+      } },
+      { $match: { date: { $type: "date", $lte: new Date() } } },
+      { $sort: { date: -1, _id: -1 } },
+      { $group: { _id: "$shopName", latest: { $first: "$$ROOT" } } },
+      { $sort: { "latest.pricePerUnit": 1, "latest.date": -1, _id: 1 } },
+    ]);
+
+    const shops = await Shop.find(ownedFilter(req, {
+      _id: { $in: latestByShop.map(({ _id }) => _id) },
+    })).select("name").lean();
+    const shopNames = new Map(shops.map(({ _id, name }) => [String(_id), name]));
+    const best = latestByShop.find(({ _id }) => shopNames.has(String(_id)));
+
+    return res.json({
+      recommendation: best ? {
+        shopId: best._id,
+        shopName: shopNames.get(String(best._id)),
+        unitPrice: best.latest.pricePerUnit,
+        unit: product.measurementUnit,
+        date: best.latest.date,
+      } : null,
+    });
+  } catch (err) {
+    console.error("Error loading shopping recommendation:", err);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 expensesRouter.get("/:id", async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

@@ -297,6 +297,19 @@ export default function RecurringExpenseDialog({
 
                   {!showMortgage && (
                     <TextField
+                      name="startPeriod"
+                      label="Startmåned og år"
+                      type="month"
+                      slotProps={{ inputLabel: { shrink: true } }}
+                      value={form.startPeriod}
+                      onChange={(event) => setField("startPeriod", event.target.value)}
+                      helperText="Velg måneden den første regningen forfalt."
+                      fullWidth
+                    />
+                  )}
+
+                  {!showMortgage && !form.startPeriod && (
+                    <TextField
                       name="startMonth"
                       select
                       label="Første måned i syklusen"

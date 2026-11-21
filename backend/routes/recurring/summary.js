@@ -1,4 +1,6 @@
 import express from "express";
+import { buildMortgagePlan } from "../../services/mortgages/planService.js";
+import { toZonedTime } from "date-fns-tz";
 import RecurringExpense from "../../models/recurringExpenseSchema.js";
 import RecurringPayment from "../../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
@@ -8,16 +10,15 @@ import {
   estimateExpectedExpense,
 } from "../../services/recurring/expectedExpenseService.js";
 import { ownedFilter } from "../../middleware/dataOwnership.js";
+import { TIME_ZONE } from "../../utils/dateUtils.js";
 
 import {
-  DAY_BASIS,
   round2,
   isMortgageType,
   yyyymmKey,
   monthStart,
   addMonths,
   clampDayInMonth,
-  daysBetweenDueDates,
   getPauseForMonth,
   buildRecurringTermsIndex,
   pickRecurringTermsForMonth,
@@ -65,9 +66,6 @@ export const buildSummary = ({
   // MAIN payment by expense+month
   const paymentIndex = new Map();
 
-  // EXTRA totals by expense+month
-  const extraIndex = new Map();
-
   // EXTRA array by expense+month
   const extraPaymentsIndex = new Map();
 
@@ -82,11 +80,6 @@ export const buildSummary = ({
       String(p.status || "").toUpperCase() === "EXTRA";
 
     if (isExtra) {
-      extraIndex.set(
-        key,
-        round2((extraIndex.get(key) || 0) + Number(p.amount || 0))
-      );
-
       const arr = extraPaymentsIndex.get(key) || [];
       arr.push(p);
       extraPaymentsIndex.set(key, arr);
@@ -130,10 +123,18 @@ export const buildSummary = ({
     b.incomeActual = round2(incomeByMonth.get(b.key) || 0);
   }
 
-  const mortgageBalanceById = new Map();
 
   for (const e of filteredExpenses) {
-    const startDate = e.startDate ? new Date(e.startDate) : null;
+    const mortgagePlan = isMortgageType(e.type) ? buildMortgagePlan({
+      expense: e,
+      termsArr: recurringTermsIndex.get(String(e._id)) || [],
+      payments: paymentsInRange.filter((payment) => String(payment.recurringExpenseId) === String(e._id)),
+      from: yyyymmKey(start),
+      months,
+    }) : null;
+    const mortgageRows = new Map((mortgagePlan?.schedule || []).map((row) => [row.periodKey, row.schedule]));
+
+    const startDate = e.startDate ? toZonedTime(e.startDate, TIME_ZONE) : null;
     const endDate = e.endDate ? new Date(e.endDate) : null;
 
     const interval = Math.max(1, Number(e.billingIntervalMonths || 1));
@@ -238,62 +239,21 @@ export const buildSummary = ({
       } else if (mainPay.status === "SKIPPED") {
         status = "SKIPPED";
       } else {
-        status = "PAID";
+        status = mainPay.status === "PARTIAL" ? "PARTIAL" : "PAID";
       }
 
       let mortgageMeta = null;
 
       if (isMortgageType(e.type) && terms && !paused) {
-        const expId = String(e._id);
-
-        let balanceStart = mortgageBalanceById.get(expId);
-        if (balanceStart == null) {
-          balanceStart = Number(
-            e.remainingBalance || e.initialBalance || terms.remainingBalance || 0
-          );
-        }
-
-        const { start: pStart, end: pEnd, days } = daysBetweenDueDates(periodKey, dueDay);
-
-        const nominell = Number(terms.interestRate || 0);
-        const fee = round2(Number(terms.monthlyFee || 0));
-        const paymentTotal = round2(Number(terms.amount || 0));
-        const interest = round2(
-          balanceStart * (nominell / 100) * (days / DAY_BASIS)
-        );
-
-        const extraPrincipal = round2(extraIndex.get(mapKey) || 0);
-
-        const principalBase = paymentTotal - fee - interest;
-        const principal = round2(Math.max(0, principalBase) + extraPrincipal);
-
-        const balanceEnd = round2(Math.max(0, balanceStart - principal));
-
-        const mortgageSchedule = {
-          periodStart: pStart,
-          periodEnd: pEnd,
-          days,
-          dayBasis: DAY_BASIS,
-          nominellRate: nominell,
-          paymentTotal,
-          fee,
-          interest,
-          principal,
-          extraPrincipal,
-          balanceStart: round2(balanceStart),
-          balanceEnd,
-        };
 
         mortgageMeta = {
           mortgageHolder: terms.mortgageHolder,
           mortgageKind: terms.mortgageKind,
           interestRate: terms.interestRate,
           monthlyFee: terms.monthlyFee,
-          remainingBalance: terms.remainingBalance,
-          schedule: mortgageSchedule,
+          remainingBalance: e.remainingBalance,
+          schedule: mortgageRows.get(periodKey) || null,
         };
-
-        mortgageBalanceById.set(expId, balanceEnd);
       }
 
       b.items.push({
@@ -449,7 +409,6 @@ router.get("/summary", async (req, res) => {
     const totalMonths = pastMonths + monthsForward;
 
     const toKey = yyyymmKey(addMonths(timelineStart, totalMonths - 1));
-    const histFromKey = yyyymmKey(addMonths(timelineStart, -36));
     const timelineEndExclusive = monthEndExclusive(toKey);
 
     const includeInactive = String(req.query.includeInactive || "false") === "true";
@@ -465,7 +424,7 @@ router.get("/summary", async (req, res) => {
       RecurringPayment.find({
         ...ownedFilter(req),
         ...(expIds.length ? { recurringExpenseId: { $in: expIds } } : {}),
-        periodKey: { $gte: histFromKey, $lte: toKey },
+        periodKey: { $lte: toKey },
       }).lean(),
       Income.find({
         ...ownedFilter(req),
