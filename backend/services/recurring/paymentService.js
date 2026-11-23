@@ -24,12 +24,13 @@ export const validatePaymentStatus = ({ kind, status }) =>
   kind === "EXTRA" ? status === "EXTRA" : ["PAID", "PARTIAL", "SKIPPED"].includes(status);
 
 // Replaying transactions makes edits and deletions recalculate every later payment.
-export const computeMortgageRemaining = ({ expense, payments, termsArr = [] }) => {
+export const buildMortgagePaymentHistory = ({ expense, payments, termsArr = [] }) => {
   let balance = Number(expense.initialBalance || expense.remainingBalance || 0);
+  const entries = [];
   const events = payments.filter((payment) => payment.status !== "SKIPPED")
     .map((payment) => ({ ...payment, day: paymentDay(payment.paidDate) }))
     .sort((a, b) => a.day - b.day || Number(isExtraPayment(a)) - Number(isExtraPayment(b)));
-  if (!events.length) return round2(balance);
+  if (!events.length) return { remainingBalance: round2(balance), dayBasis: DAY_BASIS, entries };
 
   const firstPeriod = [expense.firstPaymentMonth, ...events.map((event) => event.periodKey)]
     .filter(normalizePeriodKey).sort()[0];
@@ -41,29 +42,53 @@ export const computeMortgageRemaining = ({ expense, payments, termsArr = [] }) =
     .sort((a, b) => a.day - b.day);
 
   for (const event of events) {
+    const balanceBefore = balance;
+    const interestSegments = [];
     const boundaries = rateChanges.filter((terms) => terms.day > cursor && terms.day < event.day)
       .map((terms) => terms.day);
     for (const end of [...new Set(boundaries), event.day]) {
       const localDate = new Date(cursor);
       const terms = pickRecurringTermsForMonth({ expense, termsArr, monthStartDate: localDate });
-      accruedInterest += balance * Number(terms.interestRate || 0) / 100 *
-        ((end - cursor) / 86400000) / DAY_BASIS;
+      const rate = Number(terms.interestRate || 0);
+      const days = (end - cursor) / 86400000;
+      const interest = balance * rate / 100 * days / DAY_BASIS;
+      accruedInterest += interest;
+      if (days > 0) interestSegments.push({
+        from: new Date(cursor).toISOString().slice(0, 10),
+        to: new Date(end).toISOString().slice(0, 10),
+        days, rate, balance: round2(balance), interest: round2(interest),
+      });
       cursor = end;
     }
 
-    if (isExtraPayment(event)) {
+    const extra = isExtraPayment(event);
+    let fee = 0;
+    let interestPaid = 0;
+    if (extra) {
       balance = Math.max(0, balance - Number(event.amount || 0));
-      continue;
+    } else {
+      const terms = pickRecurringTermsForMonth({ expense, termsArr, monthStartDate: new Date(event.day) });
+      fee = !chargedFees.has(event.periodKey) && terms.hasMonthlyFee ? Number(terms.monthlyFee || 0) : 0;
+      chargedFees.add(event.periodKey);
+      const available = Math.max(0, Number(event.amount || 0) - fee);
+      interestPaid = Math.min(available, accruedInterest);
+      balance = Math.max(0, balance - Math.max(0, available - accruedInterest));
+      accruedInterest = Math.max(0, accruedInterest - available);
     }
-    const terms = pickRecurringTermsForMonth({ expense, termsArr, monthStartDate: new Date(event.day) });
-    const fee = !chargedFees.has(event.periodKey) && terms.hasMonthlyFee ? Number(terms.monthlyFee || 0) : 0;
-    chargedFees.add(event.periodKey);
-    const available = Math.max(0, Number(event.amount || 0) - fee);
-    balance = Math.max(0, balance - Math.max(0, available - accruedInterest));
-    accruedInterest = Math.max(0, accruedInterest - available);
+    entries.push({
+      paymentId: String(event._id), periodKey: event.periodKey,
+      paidDate: event.paidDate, amount: Number(event.amount || 0),
+      kind: extra ? "EXTRA" : "MAIN", status: event.status, note: event.note || "",
+      balanceBefore: round2(balanceBefore), balanceAfter: round2(balance),
+      principal: round2(balanceBefore - balance), fee: round2(fee),
+      interestPaid: round2(interestPaid), interestOutstanding: round2(accruedInterest),
+      interestSegments,
+    });
   }
-  return round2(balance);
+  return { remainingBalance: round2(balance), dayBasis: DAY_BASIS, entries };
 };
+
+export const computeMortgageRemaining = (options) => buildMortgagePaymentHistory(options).remainingBalance;
 
 export const recomputeMortgageBalance = async (recurringExpenseId) => {
   const expense = await RecurringExpense.findById(recurringExpenseId);

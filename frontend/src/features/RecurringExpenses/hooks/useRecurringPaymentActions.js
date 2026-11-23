@@ -100,6 +100,7 @@ export function useRecurringPaymentActions({ payDialog, payments }) {
             paidDate,
             kind: nextKind,
             status: nextStatus,
+            note: draft.note,
           });
 
           await payments.deletePayment.mutateAsync({
@@ -127,6 +128,7 @@ export function useRecurringPaymentActions({ payDialog, payments }) {
           paidDate,
           kind: nextKind,
           status: nextStatus,
+          note: draft.note,
         },
         {
           onSuccess: () => closeDialog(),

@@ -1,4 +1,5 @@
 import React from "react";
+import { Stack } from "@mui/material";
 import PageHeader from "./PageHeader";
 import PageLayout from "./PageLayout";
 import PageToolbar from "./PageToolbar";
@@ -31,23 +32,24 @@ export default function AppScreen({
       sx={layoutSx}
       contentSx={contentSx}
     >
-      <PageHeader
-        title={title}
-        subtitle={subtitle}
-        icon={icon}
-        action={action}
-        actionLabel={actionLabel}
-        actionIcon={actionIcon}
-        onAction={onAction}
-        summaryItems={summaryItems}
-        sx={{ mb: 0, ...headerSx }}
-      />
+      <Stack spacing={1.5}>
+        <PageHeader
+          title={title}
+          subtitle={subtitle}
+          icon={icon}
+          action={action}
+          actionLabel={actionLabel}
+          actionIcon={actionIcon}
+          onAction={onAction}
+          summaryItems={summaryItems}
+          secondaryAction={workflow ? <PageWorkflow {...workflow} action={undefined} /> : null}
+          sx={{ mb: 0, ...headerSx }}
+        />
 
-      <PageToolbar sx={filterSx}>
-        {filterContent}
-      </PageToolbar>
-
-      <PageWorkflow {...(workflow || {})} />
+        <PageToolbar sx={filterSx} actions={workflow?.action}>
+          {filterContent}
+        </PageToolbar>
+      </Stack>
 
       {children}
     </PageLayout>

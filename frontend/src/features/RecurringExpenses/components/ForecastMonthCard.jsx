@@ -3,6 +3,7 @@ import { Box, Chip, LinearProgress, Stack, Typography } from "@mui/material";
 import { ChevronRight } from "@mui/icons-material";
 import { alpha, useTheme } from "@mui/material/styles";
 import { monthLabel } from "../utils/recurringFormatters";
+import { isOpenBill, remainingBillsTotal } from "../utils/remainingBills";
 
 function ForecastMonthCard({ month, tab, maxRef, onOpenMonth, formatCurrency }) {
   const theme = useTheme();
@@ -10,6 +11,7 @@ function ForecastMonthCard({ month, tab, maxRef, onOpenMonth, formatCurrency }) 
   const primaryValue = isPaidView ? Number(month.paidTotal ?? 0) : Number(month.expectedMax ?? 0);
   const secondaryValue = Number(month.expectedMin ?? 0);
   const itemsCount = month.itemsCount ?? month.items?.length ?? 0;
+  const openCount = (month.items || []).filter(isOpenBill).length;
 
   const pct = useMemo(() => {
     const safeMax = Math.max(maxRef || 1, 1);
@@ -71,7 +73,8 @@ function ForecastMonthCard({ month, tab, maxRef, onOpenMonth, formatCurrency }) 
 
           <Chip
             size="small"
-            label={`${itemsCount} stk`}
+            label={openCount ? `${openCount} åpne` : `${itemsCount} kostnader`}
+            color={openCount ? "warning" : "default"}
             variant="outlined"
             sx={{ flexShrink: 0, fontWeight: 900 }}
           />
@@ -110,8 +113,8 @@ function ForecastMonthCard({ month, tab, maxRef, onOpenMonth, formatCurrency }) 
         />
 
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
-          <Typography variant="caption" color="text.secondary">
-            Åpne måned
+          <Typography variant="body2" fontWeight={700}>
+            Gjenstår {formatCurrency(remainingBillsTotal(month.items || []))}
           </Typography>
           <ChevronRight fontSize="small" color="primary" />
         </Stack>

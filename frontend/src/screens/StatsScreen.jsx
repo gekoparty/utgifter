@@ -248,10 +248,6 @@ export default function StatsScreen() {
       title={t("stats.title")}
       subtitle={t("stats.subtitle")}
       icon={<BarChartRoundedIcon />}
-      summaryItems={view === "price" ? [] : [
-        { label: t("common.view"), value: view === "expenses" ? t("stats.months") : t("stats.priceHistory") },
-        ...(selectedProduct ? [{ label: t("stats.product"), value: selectedProduct.label }] : []),
-      ]}
       workflow={view === "price" ? undefined : {
         question:
           view === "price"
@@ -266,8 +262,6 @@ export default function StatsScreen() {
             ? [t("stats.chooseProduct"), t("stats.comparePrice"), t("stats.checkShopDate")]
             : [t("stats.chooseYear"), t("stats.seeTrend"), t("stats.findDrivers")],
       }}
-      headerSx={view === "price" ? { border: 0, boxShadow: "none", backgroundImage: "none", bgcolor: "transparent", p: 0, "&::before": { display: "none" } } : undefined}
-      filterSx={view === "price" ? { borderRadius: 1.5, boxShadow: "none" } : undefined}
       toolbar={toolbar}
       maxWidth={1360}
     >

@@ -58,6 +58,7 @@ import { useRecurringMaintenanceActions } from "./hooks/useRecurringMaintenanceA
 import { makeCurrencyFormatter } from "./utils/recurringFormatters";
 import { RECURRING_TYPES, TYPE_META_BY_KEY, normalizeRecurringType } from "./utils/recurringTypes";
 import { useTranslation } from "../../i18n/useTranslation";
+import { isOpenBill, remainingBillsTotal, billStatus } from "./utils/remainingBills";
 
 const RecurringOverviewCharts = lazy(() => import("./components/RecurringOverviewCharts"));
 const FixedCostTrends = lazy(() => import("./components/FixedCostTrends"));
@@ -73,7 +74,7 @@ const dueKey = (value) => {
 const monthSelectLabel = (month, t) => {
   const date = dayjs(month?.date || `${month?.key}-01`);
   const label = date.isValid() ? date.format("MMM YYYY") : month?.key;
-  const missing = (month?.items || []).filter((item) => item.status === "UNPAID").length;
+  const missing = (month?.items || []).filter(isOpenBill).length;
   return missing ? `${label} - ${missing} ${t("recurring.missing")}` : label;
 };
 
@@ -193,7 +194,8 @@ function MissedPaymentsPanel({
           {items.map((item) => {
             const typeKey = normalizeRecurringType(item.type);
             const typeLabel = TYPE_META_BY_KEY[typeKey]?.label ?? item.type;
-            const amount = item.expected?.max ?? item.expectedMax ?? 0;
+            const amount = remainingBillsTotal([item]);
+            const overdue = billStatus(item) === "OVERDUE";
 
             return (
               <Box
@@ -208,9 +210,12 @@ function MissedPaymentsPanel({
               >
                 <Stack direction="row" justifyContent="space-between" spacing={1}>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" fontWeight={950} noWrap>
+                    <Typography variant="body2" fontWeight={750} sx={{ overflowWrap: "anywhere" }}>
                       {item.title}
                     </Typography>
+                    <Chip size="small" variant="outlined" color={overdue ? "error" : "warning"}
+                      label={t(overdue ? "recurring.overdueStatus" : item.status === "PARTIAL" ? "recurring.partialStatus" : "recurring.unpaidStatus")}
+                      sx={{ mt: 0.5 }} />
                     <Typography variant="caption" color="text.secondary">
                       {dayjs(item.dueDate).format("DD. MMM")} · {typeLabel}
                     </Typography>
@@ -323,7 +328,7 @@ export default function RecurringExpenseScreen() {
   const unpaidSelectedMonth = useMemo(
     () =>
       (selectedSummaryMonth?.items || [])
-        .filter((item) => item.status === "UNPAID")
+        .filter(isOpenBill)
         .map((item) => ({ ...item, monthKey: selectedSummaryMonth.key }))
         .sort((a, b) => dayjs(a.dueDate).valueOf() - dayjs(b.dueDate).valueOf()),
     [selectedSummaryMonth],
@@ -453,9 +458,6 @@ export default function RecurringExpenseScreen() {
       contentSx={{
         gap: { xs: 1.5, lg: 1.35 },
       }}
-      headerSx={{
-        p: { xs: 1.5, md: 1.65 },
-      }}
     >
       <Paper variant="outlined" sx={{ p: 0.5, borderRadius: 2 }}>
         <Tabs
@@ -549,7 +551,7 @@ export default function RecurringExpenseScreen() {
                 />
                 <KpiCard
                   label={t("recurring.unpaid", { period: summaryWindow.label })}
-                  value={unpaidSelectedMonth.length}
+                  value={formatCurrency(remainingBillsTotal(unpaidSelectedMonth))}
                   subtext={
                     unpaidSelectedMonth.length
                       ? t("recurring.missingCount", { count: unpaidSelectedMonth.length })
@@ -728,6 +730,8 @@ export default function RecurringExpenseScreen() {
               formatCurrency={formatCurrency}
               onHardDeleteMortgage={maintenance.hardDeleteMortgage}
               onPurgeMortgages={maintenance.purgeMortgages}
+              onOpenPay={payDialog.openDialog}
+              paymentPending={payments.pending}
             />
           )}
         </Stack>

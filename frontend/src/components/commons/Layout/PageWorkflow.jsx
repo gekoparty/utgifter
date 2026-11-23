@@ -1,84 +1,58 @@
-import React from "react";
-import { Box, Chip, Paper, Stack, Typography } from "@mui/material";
-import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import React, { useId, useState } from "react";
+import { Box, Button, Popover, Stack, Typography } from "@mui/material";
+import HelpOutlineRoundedIcon from "@mui/icons-material/HelpOutlineRounded";
+import { useTranslation } from "../../../i18n/useTranslation";
 
-export default function PageWorkflow({
-  question,
-  answer,
-  steps = [],
-  action,
-  sx,
-}) {
+export default function PageWorkflow({ question, answer, steps = [], action, sx }) {
+  const { t } = useTranslation();
+  const [anchor, setAnchor] = useState(null);
+  const id = useId();
+  const open = Boolean(anchor);
+
   if (!question && !answer && !steps.length && !action) return null;
 
   return (
-    <Paper
-      variant="outlined"
-      sx={(theme) => ({
-        p: { xs: 1.25, md: 1.5 },
-        borderRadius: 2,
-        boxShadow: "none",
-        bgcolor:
-          theme.palette.mode === "dark"
-            ? "rgba(255,255,255,0.035)"
-            : "rgba(248,250,252,0.9)",
-        borderColor:
-          theme.palette.mode === "dark"
-            ? "rgba(255,255,255,0.10)"
-            : "rgba(15,23,42,0.09)",
-        ...sx,
-      })}
-    >
-      <Stack
-        direction={{ xs: "column", lg: "row" }}
-        spacing={1.25}
-        alignItems={{ xs: "stretch", lg: "center" }}
-        justifyContent="space-between"
+    <>
+      <Button
+        size="small"
+        color="inherit"
+        startIcon={<HelpOutlineRoundedIcon fontSize="small" />}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        onClick={(event) => setAnchor(event.currentTarget)}
+        sx={{ color: "text.secondary", whiteSpace: "nowrap" }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          {question ? (
-            <Typography variant="subtitle2" fontWeight={950}>
-              {question}
-            </Typography>
-          ) : null}
-          {answer ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-              {answer}
-            </Typography>
-          ) : null}
-        </Box>
-
-        {steps.length ? (
-          <Stack
-            direction="row"
-            spacing={0.75}
-            useFlexGap
-            flexWrap="wrap"
-            sx={{ justifyContent: { xs: "flex-start", lg: "flex-end" } }}
-          >
-            {steps.map((step, index) => (
-              <Chip
-                key={`${step}-${index}`}
-                size="small"
-                icon={index > 0 ? <ArrowForwardRoundedIcon /> : undefined}
-                label={step}
-                variant={index === 0 ? "filled" : "outlined"}
-                sx={{
-                  borderRadius: 1.5,
-                  fontWeight: 800,
-                  maxWidth: { xs: "100%", sm: 260 },
-                  "& .MuiChip-label": {
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  },
-                }}
-              />
-            ))}
-          </Stack>
-        ) : null}
-
-        {action ? <Box sx={{ flex: "0 0 auto" }}>{action}</Box> : null}
-      </Stack>
-    </Paper>
+        {t("common.pageHelp")}
+      </Button>
+      <Popover
+        open={open}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{ paper: { sx: {
+          mt: 1, width: 380, maxWidth: "calc(100vw - 32px)", borderRadius: "12px",
+          border: "1px solid", borderColor: "divider",
+        } } }}
+      >
+        <Stack id={id} role="dialog" aria-labelledby={question ? `${id}-title` : undefined}
+          aria-label={question ? undefined : t("common.pageHelp")} spacing={1.25} sx={{ p: 2, ...sx }}>
+          {question && <Typography id={`${id}-title`} variant="subtitle2" fontWeight={750}>{question}</Typography>}
+          {answer && <Typography variant="body2" color="text.secondary">{answer}</Typography>}
+          {steps.length > 0 && (
+            <Box component="ol" sx={{ m: 0, pl: 2.25, "& li + li": { mt: 0.75 } }}>
+              {steps.map((step, index) => (
+                <Typography component="li" variant="body2" key={`${step}-${index}`}>{step}</Typography>
+              ))}
+            </Box>
+          )}
+          {action && <Box>{action}</Box>}
+          <Button size="small" onClick={() => setAnchor(null)} sx={{ alignSelf: "flex-end" }}>
+            {t("common.closeHelp")}
+          </Button>
+        </Stack>
+      </Popover>
+    </>
   );
 }

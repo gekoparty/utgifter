@@ -120,13 +120,10 @@ const EntityTableScreen = ({
   const totalRowCount = meta?.totalRowCount ?? meta?.total ?? tableData.length;
   const activeFilterCount =
     columnFilters.length + (deferredGlobalFilter ? 1 : 0);
-  const pageNumber = pagination.pageIndex + 1;
 
   const summaryItems = [
     { label: t("common.total"), value: totalRowCount },
-    { label: t("common.showing"), value: tableData.length },
-    { label: t("common.filters"), value: activeFilterCount },
-    { label: t("common.page"), value: pageNumber },
+    ...(activeFilterCount ? [{ label: t("common.filters"), value: activeFilterCount }] : []),
   ];
 
   const preloadDialog = useCallback(() => {

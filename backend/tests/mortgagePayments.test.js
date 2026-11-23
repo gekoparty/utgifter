@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { computeMortgageRemaining, recomputeMortgageBalance } from "../services/recurring/paymentService.js";
+import { buildMortgagePaymentHistory, computeMortgageRemaining, recomputeMortgageBalance } from "../services/recurring/paymentService.js";
 import RecurringExpense from "../models/recurringExpenseSchema.js";
 import RecurringPayment from "../models/recurringPaymentSchema.js";
 import RecurringTermsHistory from "../models/recurringTermsHistorySchema.js";
@@ -9,7 +9,7 @@ import { buildMortgagePlan } from "../services/mortgages/planService.js";
 import { simulateMortgagePlan } from "../services/mortgages/simulateService.js";
 import { buildSummary } from "../routes/recurring/summary.js";
 import { parseDateForStorage } from "../utils/dateUtils.js";
-import { remainingBillsTotal } from "../../frontend/src/features/RecurringExpenses/utils/remainingBills.js";
+import { billStatus, isOpenBill, remainingBillsTotal } from "../../frontend/src/features/RecurringExpenses/utils/remainingBills.js";
 
 test("overpayments and extra mortgage payments cannot offset other unpaid bills", () => {
   assert.equal(remainingBillsTotal([
@@ -114,4 +114,35 @@ test("a concurrent balance update retries with the newer payment history", async
     [RecurringExpense.findById, RecurringExpense.findOneAndUpdate,
       RecurringPayment.find, RecurringTermsHistory.find] = originals;
   }
+});
+
+test("payment history exposes the same balance and interest calculation used for repayments", () => {
+  const payments = [...extras, payment(2000, "2026-11-20", "MAIN")];
+  const history = buildMortgagePaymentHistory({ expense, payments });
+  assert.equal(history.entries.length, 3);
+  assert.equal(history.entries[0].balanceBefore, 100000);
+  assert.equal(history.entries[0].balanceAfter, 95000);
+  assert.equal(history.entries[1].balanceBefore, 95000);
+  assert.equal(history.entries[1].balanceAfter, 90000);
+  assert.equal(history.entries[2].interestPaid, expectedInterest);
+  assert.equal(history.entries[2].balanceAfter, history.remainingBalance);
+  assert.equal(history.remainingBalance, computeMortgageRemaining({ expense, payments }));
+  assert.equal(history.entries[0].interestSegments[0].from, "2026-10-20");
+  assert.equal(history.entries[0].interestSegments[0].to, "2026-11-01");
+});
+
+test("history breaks interest into segments at a rate change", () => {
+  const history = buildMortgagePaymentHistory({
+    expense, payments: [payment(2000, "2026-11-20", "MAIN")],
+    termsArr: [{ fromDate: parseDateForStorage("2026-11-10"), interestRate: 6 }],
+  });
+  assert.deepEqual(history.entries[0].interestSegments.map(({ days, rate }) => [days, rate]), [[21, 12], [10, 6]]);
+});
+
+test("partial payments stay open and due-today bills are not overdue", () => {
+  const item = { status: "PARTIAL", dueDate: parseDateForStorage("2026-11-20") };
+  assert.equal(isOpenBill(item), true);
+  assert.equal(billStatus(item, parseDateForStorage("2026-11-20")), "PARTIAL");
+  assert.equal(billStatus(item, parseDateForStorage("2026-11-21")), "OVERDUE");
+  assert.equal(billStatus({ ...item, status: "PAID" }, parseDateForStorage("2026-11-21")), "PAID");
 });

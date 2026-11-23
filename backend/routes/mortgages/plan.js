@@ -7,6 +7,7 @@ import RecurringTermsHistory from "../../models/recurringTermsHistorySchema.js";
 import { ownedFilter } from "../../middleware/dataOwnership.js";
 
 import { buildMortgagePlan } from "../../services/mortgages/planService.js";
+import { buildMortgagePaymentHistory } from "../../services/recurring/paymentService.js";
 import {
   isMortgageType,
   periodKeyToMonthStart,
@@ -99,13 +100,13 @@ router.get("/:id/plan", async (req, res) => {
       periodKey: { $lte: toKey },
     }).lean();
 
-    const extraPayments = await RecurringPayment.find({
+    const allPayments = await RecurringPayment.find({
       ...ownedFilter(req),
       recurringExpenseId: exp._id,
-      $or: [{ kind: "EXTRA" }, { status: "EXTRA" }],
     })
       .sort({ periodKey: -1, paidDate: -1 })
       .lean();
+    const extraPayments = allPayments.filter(isExtraPayment);
 
     const earliestMainPayment = await RecurringPayment.findOne({
       ...ownedFilter(req),
@@ -196,6 +197,7 @@ router.get("/:id/plan", async (req, res) => {
       }),
       extraPayments: registeredExtraPayments,
       registeredExtraPayments,
+      paymentHistory: buildMortgagePaymentHistory({ expense: exp, payments: allPayments, termsArr }),
     });
   } catch (err) {
     console.error("Error in GET /api/mortgages/:id/plan:", err);

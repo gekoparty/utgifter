@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import {
   Accordion,
@@ -14,12 +14,14 @@ import {
   IconButton,
   Stack,
   Typography,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import { Close, ExpandMore } from "@mui/icons-material";
 import MortgageScheduleCard from "./MortgageScheduleCard";
 import { TYPE_META_BY_KEY, normalizeRecurringType } from "../utils/recurringTypes";
 import { dueShortLabel, monthLabel } from "../utils/recurringFormatters";
-import { remainingBillsTotal } from "../utils/remainingBills";
+import { remainingBillsTotal, isOpenBill, billStatus } from "../utils/remainingBills";
 
 const periodKeyFromDate = (date) => {
   const d = new Date(date);
@@ -41,7 +43,7 @@ function SummaryTile({ label, value, tone = "default" }) {
       <Typography variant="caption" color="text.secondary">
         {label}
       </Typography>
-      <Typography fontWeight={900} noWrap>
+      <Typography fontWeight={800} sx={{ overflowWrap: "anywhere", fontVariantNumeric: "tabular-nums" }}>
         {value}
       </Typography>
     </Box>
@@ -99,6 +101,7 @@ function PaymentRecord({ title, payment, formatCurrency, action }) {
 }
 
 function statusInfo(item) {
+  if (billStatus(item) === "OVERDUE") return { label: item.status === "PARTIAL" ? "Forfalt · delvis betalt" : "Forfalt", color: "error" };
   const isPaid = item.status === "PAID";
   const isSkipped = item.status === "SKIPPED";
   const isPaused = item.status === "PAUSED" || Boolean(item.paused);
@@ -134,6 +137,8 @@ function MonthDrawer({
   registerPaymentError,
   formatCurrency,
 }) {
+  const [paymentFilter, setPaymentFilter] = useState("ALL");
+  useEffect(() => setPaymentFilter("ALL"), [selected?.key]);
   const expById = useMemo(() => {
     const m = new Map();
     (expenses || []).forEach((e) => m.set(String(e._id || e.id), e));
@@ -142,8 +147,12 @@ function MonthDrawer({
 
   const sortedItems = useMemo(() => {
     const items = selected?.items ?? [];
-    return items.slice().sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    const priority = (item) => billStatus(item) === "OVERDUE" ? 0 : isOpenBill(item) ? 1 : 2;
+    return items.slice().sort((a, b) => priority(a) - priority(b) || new Date(a.dueDate) - new Date(b.dueDate));
   }, [selected?.items]);
+
+  const visibleItems = sortedItems.filter((item) =>
+    paymentFilter === "ALL" || (paymentFilter === "OPEN" ? isOpenBill(item) : item.status === "PAID"));
 
   const totals = useMemo(() => {
     return {
@@ -234,6 +243,19 @@ function MonthDrawer({
 
             <Divider />
 
+            <ToggleButtonGroup
+              size="small" exclusive value={paymentFilter} aria-label="Filtrer betalingsstatus"
+              onChange={(_, value) => { if (value) setPaymentFilter(value); }}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              <ToggleButton value="ALL">Alle</ToggleButton>
+              <ToggleButton value="OPEN">Åpne ({totals.openCount})</ToggleButton>
+              <ToggleButton value="PAID">Betalt ({totals.paidCount})</ToggleButton>
+            </ToggleButtonGroup>
+            {sortedItems.length > 0 && visibleItems.length === 0 && (
+              <Typography variant="body2" color="text.secondary">Ingen kostnader med valgt status.</Typography>
+            )}
+
             {sortedItems.length === 0 ? (
               <Card>
                 <CardContent>
@@ -244,7 +266,7 @@ function MonthDrawer({
               </Card>
             ) : (
               <Stack spacing={1.25}>
-                {sortedItems.map((it) => {
+                {visibleItems.map((it) => {
                   const status = statusInfo(it);
                   const isPaused = status.label === "Pauset";
                   const isSkipped = status.label === "Hoppet over";
@@ -273,7 +295,10 @@ function MonthDrawer({
                     });
 
                   return (
-                    <Card key={key} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <Card key={key} variant="outlined" sx={{
+                      borderRadius: "12px", borderLeft: "3px solid",
+                      borderLeftColor: status.color === "error" ? "error.main" : isOpenBill(it) ? "warning.main" : "divider",
+                    }}>
                       <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
                         <Stack spacing={1.5}>
                           <Stack
@@ -309,7 +334,10 @@ function MonthDrawer({
                             }}
                           >
                             <DetailRow label="Forventet" value={expectedLabel(it, formatCurrency)} strong />
-                            <DetailRow label="Status" value={status.label} />
+                                  <DetailRow label="Betalt" value={formatCurrency(
+                                    (mainPayment?.status === "SKIPPED" ? 0 : Number(mainPayment?.amount || 0)) + extraPaymentTotal,
+                                  )} />
+                                  <DetailRow label="Gjenstår" value={formatCurrency(remainingBillsTotal([it]))} strong />
                           </Box>
 
                           {(mainPayment || extraPayments.length > 0) && (

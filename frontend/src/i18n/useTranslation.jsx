@@ -3,6 +3,20 @@ import { useAppPreferences } from "../store/Store";
 
 const text = {
   nb: {
+    mortgageHistory: {
+      title: "Betalingshistorikk", description: "Siste betaling først. Åpne en betaling for å se beregningen.",
+      register: "Registrer betaling", addExtra: "Legg til ekstra avdrag",
+      filter: "Filtrer betalinger", all: "Alle", main: "Hovedbetaling", extra: "Ekstra avdrag",
+      balance: "Beregnet restgjeld etter registrerte betalinger",
+      balanceBefore: "Saldo før", balanceAfter: "Saldo etter", principal: "Nedbetalt gjeld",
+      interestPaid: "Renter dekket", fee: "Gebyr", interest: "Påløpte renter",
+      interestOutstanding: "Påløpte renter som gjenstår",
+      calculation: "Rentegrunnlag siden forrige betaling",
+      basis: "Estimat med {days} dager per år. Fra-dato er inkludert, til-dato er ekskludert.",
+      period: "Periode", days: "Dager", rate: "Nominell rente",
+      billingPeriod: "Tilhører termin", sameDay: "Ingen nye rentedager mellom disse betalingene.",
+      more: "Vis flere betalinger", empty: "Ingen registrerte betalinger i dette utvalget.",
+    },
     actions: {
       add: "Legg til",
       cancel: "Avbryt",
@@ -14,6 +28,8 @@ const text = {
       showStats: "Vis statistikk",
     },
     common: {
+      pageHelp: "Veiledning",
+      closeHelp: "Lukk",
       all: "Alle",
       amount: "Beløp",
       category: "Kategori",
@@ -225,6 +241,9 @@ const text = {
       loadingCategories: "Laster kategorier...",
     },
     recurring: {
+      overdueStatus: "Forfalt",
+      partialStatus: "Delvis betalt",
+      unpaidStatus: "Ikke betalt",
       library: {
         title: "Finn en avtale",
         subtitle: "Søk etter navn, bank eller kategori. Bruk filtrene for å snevre inn listen.",
@@ -399,6 +418,20 @@ const text = {
     statsRunRate: "Estimert helårsforbruk hvis tempoet fortsetter",
   },
   en: {
+    mortgageHistory: {
+      title: "Payment history", description: "Latest payment first. Open a payment to inspect its calculation.",
+      register: "Register payment", addExtra: "Add extra repayment",
+      filter: "Filter payments", all: "All", main: "Main payment", extra: "Extra repayment",
+      balance: "Estimated balance after recorded payments",
+      balanceBefore: "Balance before", balanceAfter: "Balance after", principal: "Principal repaid",
+      interestPaid: "Interest covered", fee: "Fee", interest: "Accrued interest",
+      interestOutstanding: "Accrued interest remaining",
+      calculation: "Interest calculation since the previous payment",
+      basis: "Estimate using {days} days per year. Includes the start date and excludes the end date.",
+      period: "Period", days: "Days", rate: "Nominal rate",
+      billingPeriod: "Billing period", sameDay: "No additional interest days between these payments.",
+      more: "Show more payments", empty: "No recorded payments in this selection.",
+    },
     actions: {
       add: "Add",
       cancel: "Cancel",
@@ -410,6 +443,8 @@ const text = {
       showStats: "Show statistics",
     },
     common: {
+      pageHelp: "Page help",
+      closeHelp: "Close",
       all: "All",
       amount: "Amount",
       category: "Category",
@@ -621,6 +656,9 @@ const text = {
       loadingCategories: "Loading categories...",
     },
     recurring: {
+      overdueStatus: "Overdue",
+      partialStatus: "Partially paid",
+      unpaidStatus: "Unpaid",
       library: {
         title: "Find an agreement",
         subtitle: "Search by name, lender or category. Use the filters to narrow the list.",

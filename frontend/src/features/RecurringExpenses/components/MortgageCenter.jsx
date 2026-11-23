@@ -1,8 +1,13 @@
 // components/MortgageCenter.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import {
   Card,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Alert,
+  LinearProgress,
   CardContent,
   Stack,
   Typography,
@@ -13,6 +18,9 @@ import {
   Box,
 } from "@mui/material";
 import dayjs from "dayjs";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import MortgagePaymentHistory from "./MortgagePaymentHistory";
 import { mortgageApi } from "../api/mortgageApi";
 import MortgageScenarioEditor from "./MortgageScenarioEditor";
 import HardDeleteMortgageDialog from "./HardDeleteMortgageDialog";
@@ -48,12 +56,6 @@ const formatSavedMonths = (value) => {
   if (years === 0) return `${restMonths} mnd`;
   if (restMonths === 0) return `${years} år`;
   return `${years} år ${restMonths} mnd`;
-};
-
-const formatPaymentDate = (value, fallbackPeriodKey) => {
-  const date = dayjs(value);
-  if (date.isValid()) return date.format("DD. MMM YYYY");
-  return fallbackPeriodKey || "-";
 };
 
 function SummaryMetric({ label, value, helper, tone = "default" }) {
@@ -102,6 +104,8 @@ export default function MortgageCenter({
   formatCurrency,
   onHardDeleteMortgage,
   onPurgeMortgages,
+  onOpenPay,
+  paymentPending,
 }) {
   const thisMonth = useMemo(() => dayjs().format("YYYY-MM"), []);
   const [selectedId, setSelectedId] = useState("");
@@ -112,6 +116,7 @@ export default function MortgageCenter({
   const [plan, setPlan] = useState(null);
   const [sim, setSim] = useState(null);
 
+  const requestId = useRef(0);
   const [pending, setPending] = useState(false);
   const [err, setErr] = useState("");
 
@@ -145,22 +150,21 @@ export default function MortgageCenter({
     }
   }, [mortgages, selectedId]);
 
-  /**
-   * ✅ Best fix: start plan from firstPaymentMonth if present.
-   * This ensures your plan starts at March 2026 when you entered 20.03.2026.
-   */
+  // Initialize the month when choosing a loan, then allow manual changes.
   useEffect(() => {
     if (!selected) return;
 
     const pk = String(selected.firstPaymentMonth || "").trim();
-    if (/^\d{4}-\d{2}$/.test(pk) && pk !== from) {
+    if (/^\d{4}-\d{2}$/.test(pk)) {
       setFrom(pk);
     }
-  }, [selected, from]);
+  }, [selectedId, selected?.firstPaymentMonth]);
 
   const loadPlan = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     setErr("");
     setPending(true);
+    setPlan(null);
     setSim(null);
 
     try {
@@ -180,16 +184,19 @@ export default function MortgageCenter({
         months,
       });
 
-      setPlan(data);
+      if (currentRequest === requestId.current) setPlan(data);
     } catch (e) {
-      setErr(e?.message || "Kunne ikke hente plan");
-      setPlan(null);
+      if (currentRequest === requestId.current) {
+        setErr(e?.message || "Kunne ikke hente plan");
+        setPlan(null);
+      }
     } finally {
-      setPending(false);
+      if (currentRequest === requestId.current) setPending(false);
     }
   }, [selectedId, selected, from, months]);
 
   const runSim = useCallback(async () => {
+    const currentRequest = ++requestId.current;
     setErr("");
     setPending(true);
 
@@ -211,19 +218,22 @@ export default function MortgageCenter({
         scenario,
       });
 
-      setSim(data);
+      if (currentRequest === requestId.current) setSim(data);
     } catch (e) {
-      setErr(e?.message || "Kunne ikke simulere");
-      setSim(null);
+      if (currentRequest === requestId.current) {
+        setErr(e?.message || "Kunne ikke simulere");
+        setSim(null);
+      }
     } finally {
-      setPending(false);
+      if (currentRequest === requestId.current) setPending(false);
     }
   }, [selectedId, selected, from, months, scenario]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || paymentPending) return;
     loadPlan();
-  }, [selectedId, from, months, loadPlan]);
+    return () => { requestId.current += 1; };
+  }, [selectedId, from, months, loadPlan, paymentPending]);
 
   const planSchedule = useMemo(
     () => (Array.isArray(plan?.schedule) ? plan.schedule : []),
@@ -268,17 +278,6 @@ export default function MortgageCenter({
         0,
       ),
     [extraPayments],
-  );
-  const visibleExtraPayments = useMemo(
-    () => extraPayments.slice(0, 6),
-    [extraPayments],
-  );
-  const hasRegisteredExtraPayments = useMemo(
-    () =>
-      registeredExtraTotal > 0 ||
-      Number(extraPaymentSummary?.totalExtraPaid || 0) > 0 ||
-      Number(extraPaymentSummary?.totalExtraCount || 0) > 0,
-    [registeredExtraTotal, extraPaymentSummary],
   );
   const simTotals = sim?.totals || {
     totalInterest: 0,
@@ -378,29 +377,36 @@ export default function MortgageCenter({
         <CardContent>
           <Stack spacing={2}>
             <Stack
-              direction="row"
+              direction={{ xs: "column", sm: "row" }}
               justifyContent="space-between"
-              alignItems="center"
+              alignItems={{ xs: "stretch", sm: "center" }}
             >
               <Typography fontWeight={900}>Boliglån</Typography>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  color="error"
-                  variant="outlined"
-                  onClick={() => setDeleteOpen(true)}
-                  disabled={!selectedId || pending}
-                >
-                  Slett
-                </Button>
-                <Button
-                  color="error"
-                  variant="contained"
-                  onClick={() => setPurgeOpen(true)}
-                  disabled={pending}
-                >
-                  Slett alle
-                </Button>
-              </Stack>
+              <Accordion disableGutters elevation={0} sx={{ "&:before": { display: "none" }, bgcolor: "transparent" }}>
+                <AccordionSummary expandIcon={<SettingsOutlinedIcon fontSize="small" />}>
+                  <Typography variant="body2">Administrer lån</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                    <Button
+                      color="error"
+                      variant="outlined"
+                      onClick={() => setDeleteOpen(true)}
+                      disabled={!selectedId || pending}
+                    >
+                      Slett
+                    </Button>
+                    <Button
+                      color="error"
+                      variant="contained"
+                      onClick={() => setPurgeOpen(true)}
+                      disabled={pending}
+                    >
+                      Slett alle
+                    </Button>
+                  </Stack>
+                </AccordionDetails>
+              </Accordion>
             </Stack>
 
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
@@ -427,7 +433,9 @@ export default function MortgageCenter({
                 ))}
               </TextField>
               <TextField
-                label="Fra måned (YYYY-MM)"
+                label="Fra måned"
+                type="month"
+                slotProps={{ inputLabel: { shrink: true } }}
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
                 placeholder={thisMonth}
@@ -448,6 +456,19 @@ export default function MortgageCenter({
             </Stack>
 
             <Divider />
+
+            {pending && <LinearProgress aria-label="Laster låneplan" />}
+            {err && <Alert severity="error">{err}</Alert>}
+            {plan?.paymentHistory && selected && (
+              <MortgagePaymentHistory
+                key={selectedId}
+                history={plan.paymentHistory}
+                mortgage={selected}
+                formatCurrency={formatCurrency}
+                onOpenPay={onOpenPay}
+                pending={paymentPending || pending}
+              />
+            )}
 
             {extraPaymentSummary && (
               <>
@@ -542,137 +563,50 @@ export default function MortgageCenter({
                       helper="Hvis gebyrperioder kuttes"
                     />
                   </Box>
-
-                  <Divider sx={{ my: 1.5, opacity: 0.55 }} />
-
-                  <Stack
-                    direction={{ xs: "column", lg: "row" }}
-                    justifyContent="space-between"
-                    spacing={1.5}
-                  >
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="subtitle2" fontWeight={950}>
-                        Registrerte ekstra avdrag
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Vises automatisk for valgt boliglån.
-                      </Typography>
-                    </Box>
-
-                    {extraPayments.length > 6 ? (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ alignSelf: { lg: "center" }, whiteSpace: "nowrap" }}
-                      >
-                        Viser 6 av {extraPayments.length}
-                      </Typography>
-                    ) : null}
-                  </Stack>
-
-                  {visibleExtraPayments.length ? (
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns: {
-                          xs: "1fr",
-                          md: "repeat(2, minmax(0, 1fr))",
-                          xl: "repeat(3, minmax(0, 1fr))",
-                        },
-                        gap: 1,
-                        mt: 1,
-                      }}
-                    >
-                      {visibleExtraPayments.map((payment) => (
-                        <Box
-                          key={String(payment.paymentId)}
-                          sx={{
-                            p: 1.1,
-                            borderRadius: 1.5,
-                            border: "1px solid",
-                            borderColor: "divider",
-                            bgcolor: "background.default",
-                          }}
-                        >
-                          <Stack direction="row" justifyContent="space-between" spacing={1}>
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography variant="body2" fontWeight={950}>
-                                {formatPaymentDate(payment.paidDate, payment.periodKey)}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {payment.periodKey}
-                                {payment.note ? ` · ${payment.note}` : ""}
-                              </Typography>
-                            </Box>
-                            <Typography
-                              variant="body2"
-                              fontWeight={950}
-                              color="success.main"
-                              sx={{ whiteSpace: "nowrap" }}
-                            >
-                              {formatCurrency(payment.amount)}
-                            </Typography>
-                          </Stack>
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : hasRegisteredExtraPayments ? (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      Ekstra avdrag er registrert, men detaljlisten er ikke lastet inn.
-                      Oppdater plan eller start backend på nytt for å hente radene.
-                    </Typography>
-                  ) : (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      Ingen ekstra avdrag er registrert på dette lånet ennå.
-                    </Typography>
-                  )}
                 </Box>
 
                 <Divider />
               </>
             )}
 
-            <MortgageScenarioEditor
-              from={from}
-              value={scenario}
-              onChange={(s) => setScenario(s || {})}
-            />
+            <Accordion disableGutters elevation={0} sx={{ border: "1px solid", borderColor: "divider", borderRadius: "12px !important", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography fontWeight={750}>Planlegg ekstra nedbetaling</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <MortgageScenarioEditor
+                  from={from}
+                  value={scenario}
+                  onChange={(s) => setScenario(s || {})}
+                />
 
-            <Stack direction="row" spacing={1}>
-              <Button
-                onClick={loadPlan}
-                disabled={pending || !selectedId || !selected}
-              >
-                Oppdater plan
-              </Button>
-              <Button
-                variant="contained"
-                onClick={runSim}
-                disabled={pending || !selectedId || !selected}
-              >
-                Simuler
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setScenario({});
-                  setSim(null);
-                }}
-                disabled={pending}
-              >
-                Nullstill scenario
-              </Button>
-            </Stack>
-
-            {err && <Typography color="error">{err}</Typography>}
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    onClick={loadPlan}
+                    disabled={pending || !selectedId || !selected}
+                  >
+                    Oppdater plan
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={runSim}
+                    disabled={pending || !selectedId || !selected}
+                  >
+                    Simuler
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setScenario({});
+                      setSim(null);
+                    }}
+                    disabled={pending}
+                  >
+                    Nullstill scenario
+                  </Button>
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
 
             {diff && (
               <>
@@ -862,4 +796,6 @@ MortgageCenter.propTypes = {
   formatCurrency: PropTypes.func.isRequired,
   onHardDeleteMortgage: PropTypes.func,
   onPurgeMortgages: PropTypes.func,
+  onOpenPay: PropTypes.func,
+  paymentPending: PropTypes.bool,
 };

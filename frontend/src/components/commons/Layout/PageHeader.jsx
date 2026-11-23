@@ -9,6 +9,7 @@ export default function PageHeader({
   actionLabel,
   actionIcon,
   onAction,
+  secondaryAction,
   summaryItems = [],
   previewItems = [],
   emptyPreviewText,
@@ -23,113 +24,73 @@ export default function PageHeader({
     ) : null);
 
   return (
-    <Box
-      sx={(theme) => ({
-        mb: 2,
-        p: { xs: 1.75, md: 2.25 },
-        border: "1px solid",
-        borderColor:
-          theme.palette.mode === "dark"
-            ? "rgba(255,255,255,0.13)"
-            : "rgba(15,23,42,0.10)",
-        borderRadius: 2,
-        backgroundColor: "background.paper",
-        backgroundImage:
-          theme.palette.mode === "dark"
-            ? "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.012))"
-            : "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.76))",
-        boxShadow:
-          theme.palette.mode === "dark"
-            ? "0 10px 28px rgba(0,0,0,0.18)"
-            : "0 10px 28px rgba(15,23,42,0.055)",
-        position: "relative",
-        overflow: "hidden",
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          width: 4,
-          right: "auto",
-          backgroundColor: theme.palette.primary.main,
-        },
-        ...sx,
-      })}
-    >
+    <Box sx={{ minWidth: 0, ...sx }}>
       <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={2}
-        alignItems={{ xs: "stretch", md: "flex-start" }}
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        alignItems={{ xs: "stretch", sm: "flex-start" }}
         justifyContent="space-between"
       >
-        <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ minWidth: 0 }}>
+        <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ minWidth: 0 }}>
           {icon ? (
-            <Box
-              sx={{
-                display: "grid",
-                placeItems: "center",
-                flex: "0 0 auto",
-                width: 42,
-                height: 42,
-                borderRadius: 1.5,
-                color: "primary.contrastText",
-                bgcolor: "primary.main",
-                boxShadow: (theme) =>
-                  theme.palette.mode === "dark"
-                    ? "0 8px 18px rgba(79,140,255,0.22)"
-                    : "0 8px 16px rgba(36,87,214,0.14)",
-              }}
-            >
+            <Box sx={{
+              display: "grid", placeItems: "center", flexShrink: 0,
+              width: 36, height: 36, borderRadius: "10px",
+              color: "primary.main", bgcolor: "action.selected",
+            }}>
               {icon}
             </Box>
           ) : null}
 
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.08 }}>
+            <Typography component="h1" variant="h5" sx={{
+              fontWeight: 800, letterSpacing: "-0.025em", lineHeight: 1.2, overflowWrap: "anywhere",
+            }}>
               {title}
             </Typography>
             {subtitle ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, maxWidth: 720 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 720 }}>
                 {subtitle}
               </Typography>
+            ) : null}
+
+            {summaryItems.length ? (
+              <Stack
+                component="dl" direction="row" spacing={1.75} useFlexGap flexWrap="wrap"
+                sx={{ m: 0, mt: 0.75 }}
+              >
+                {summaryItems.map((item) => (
+                  <Box key={item.label} sx={{ display: "flex", alignItems: "baseline", gap: 0.5 }}>
+                    <Typography component="dt" variant="caption" color="text.secondary">{item.label}</Typography>
+                    <Typography component="dd" variant="caption" sx={{
+                      m: 0, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+                    }}>{item.value}</Typography>
+                  </Box>
+                ))}
+              </Stack>
             ) : null}
           </Box>
         </Stack>
 
-        {resolvedAction ? (
-          <Box sx={{ alignSelf: { xs: "stretch", md: "flex-start" }, "& > .MuiButton-root": { width: { xs: "100%", md: "auto" } } }}>
+        {resolvedAction || secondaryAction ? (
+          <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap" sx={{
+            flexShrink: 0,
+            "& > .MuiButton-contained": { flex: { xs: 1, sm: "0 0 auto" }, whiteSpace: "nowrap" },
+          }}>
+            {secondaryAction}
             {resolvedAction}
-          </Box>
+          </Stack>
         ) : null}
       </Stack>
 
-      {summaryItems.length ? (
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
-          {summaryItems.map((item) => (
-            <Chip
-              key={item.label}
-              label={`${item.label}: ${item.value}`}
-              variant={item.value ? "filled" : "outlined"}
-            sx={{
-                borderRadius: 2,
-                fontWeight: 700,
-                bgcolor: item.value ? "action.selected" : "transparent",
-              }}
-            />
-          ))}
-        </Stack>
-      ) : null}
-
       {previewItems.length || emptyPreviewText ? (
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
           {previewItems.length ? (
             previewItems.map((label) => (
               <Chip key={label} label={label} size="small" variant="outlined" sx={{ maxWidth: 240 }} />
             ))
           ) : (
-            <Typography variant="body2" color="text.secondary">
-              {emptyPreviewText}
-            </Typography>
+            <Typography variant="body2" color="text.secondary">{emptyPreviewText}</Typography>
           )}
         </Stack>
       ) : null}

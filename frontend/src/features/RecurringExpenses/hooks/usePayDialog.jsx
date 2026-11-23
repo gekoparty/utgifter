@@ -89,6 +89,7 @@ export function usePayDialog() {
       isMortgage,
       paymentId,
       paymentKind: desiredKind, // MAIN | EXTRA
+      note: selectedPayment?.note || "",
       originalPeriodKey: hasPayment ? pk : null,
     });
 

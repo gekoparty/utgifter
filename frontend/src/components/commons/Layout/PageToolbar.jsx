@@ -17,7 +17,7 @@ export default function PageToolbar({
       variant="outlined"
       sx={(theme) => ({
         p: 0.75,
-        borderRadius: 2,
+        borderRadius: "12px",
         boxShadow: "none",
         bgcolor: "background.paper",
         borderColor:

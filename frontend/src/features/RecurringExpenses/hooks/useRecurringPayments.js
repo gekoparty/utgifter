@@ -9,7 +9,7 @@ const toPaidDateIso = (paidDate) => {
 };
 
 export function useRecurringPayments() {
-  const { invalidateSummary } = useRecurringInvalidation();
+  const { invalidateAllRecurring } = useRecurringInvalidation();
 
   const createPayment = useMutation({
     mutationFn: async ({
@@ -42,7 +42,7 @@ export function useRecurringPayments() {
         data: payload,
       });
     },
-    onSuccess: () => invalidateSummary(),
+    onSuccess: () => invalidateAllRecurring(),
   });
 
   const updatePayment = useMutation({
@@ -72,7 +72,7 @@ export function useRecurringPayments() {
         data: payload,
       });
     },
-    onSuccess: () => invalidateSummary(),
+    onSuccess: () => invalidateAllRecurring(),
   });
 
   const deletePayment = useMutation({
@@ -81,7 +81,7 @@ export function useRecurringPayments() {
         method: "DELETE",
       });
     },
-    onSuccess: () => invalidateSummary(),
+    onSuccess: () => invalidateAllRecurring(),
   });
 
   const pending =
